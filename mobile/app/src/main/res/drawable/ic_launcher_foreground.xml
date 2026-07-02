@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Shield centered and smaller with proper padding -->
+    <path
+        android:fillColor="#5B4FE8"
+        android:pathData="M54,28 L36,36 L36,52 C36,63.0 43.8,73.2 54,76 C64.2,73.2 72,63.0 72,52 L72,36 Z" />
+
+</vector>

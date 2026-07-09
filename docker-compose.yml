@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: bantai
+      POSTGRES_PASSWORD: bantai_dev
+      POSTGRES_DB: bantai_db
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+
+model AndroidUser {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  firstName String?
+  lastName  String?
+  createdAt DateTime @default(now())
+
+  messages  SmsMessage[]
+}
+
+model SmsMessage {
+  id         String   @id @default(uuid())
+  userId     String
+  user       AndroidUser @relation(fields: [userId], references: [id])
+  sender     String
+  body       String
+  receivedAt DateTime @default(now())
+
+  classification Classification?
+  alerts         Alert[]
+}
+
+model Classification {
+  id        String   @id @default(uuid())
+  messageId String   @unique
+  message   SmsMessage @relation(fields: [messageId], references: [id])
+  label     String   // "Likely Smishing" | "Suspicious" | "Unknown"
+  score     Float
+  createdAt DateTime @default(now())
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  messageId String
+  message   SmsMessage @relation(fields: [messageId], references: [id])
+  status    String   @default("Pending") // Pending, Blocked, Reported, Ignored
+  createdAt DateTime @default(now())
+}

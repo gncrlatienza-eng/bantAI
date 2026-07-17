@@ -72,11 +72,24 @@ Every process/iteration produces an artifact:
 - Backend auth integration fixes: JWT/passport dependencies installed in the correct workspace, Prisma client regenerated, pending `otp_auth` migration applied, protected `GET /auth/me` endpoint added, JWT env vars documented. Flow verified end to end against a live server.
 - Documentation baseline created (this file, DEV_LOG entries, auth API reference).
 
+### Iteration 4 — Mobile auth integration (Jul 17, 2026)
+
+**Goal:** connect the Android app's onboarding to the backend so a real device login is recorded in the database.
+
+- New `AuthApi` client in the app (plain `HttpURLConnection`, no added dependencies) calling `request-otp` / `verify-otp`; JWT and phone number persisted in DataStore.
+- Discovered the OTP screens (`OnboardingConfirmNumberScreen`, `OnboardingEnterCodeScreen`) existed but were never registered in `NavGraph` — registered them into the flow: Default SMS → Confirm Number → Enter Code → Profile → Protected.
+- Added loading spinners and server error messages to the auth screens; "Resend code" wired up.
+- Manifest: INTERNET permission; network security config allows cleartext only for `localhost` / `10.0.2.2` (dev machines).
+- Backend: implemented the `users` module — JWT-guarded `PUT /users/me` updating `firstName`/`lastName`/`email`; the app's Profile screen now syncs the entered name to the backend, so the `User` row is fully populated instead of phone-only.
+- **Verified on a physical device** (Huawei VOG-L29, USB + `adb reverse tcp:3000 tcp:3000`): OTP generated, verified, JWT issued, user row created/updated in Postgres with phone and names.
+- **Dev workflow note:** apps reach the local backend via `adb reverse` (USB) or `10.0.2.2` (emulator); OTP codes are read from the backend console.
+
 ### Next iteration (planned)
 
 - Wire the web dashboard login to the real auth API (`/auth/request-otp` → `/auth/verify-otp`, store JWT, validate via `/auth/me`).
-- Mobile onboarding OTP screens → same endpoints.
+- Collect email during onboarding or profile edit and sync via `PUT /users/me`.
 - Begin `sms` module (message ingestion) and AI service integration (currently a stub returning a fixed classification).
+- Integrate a real SMS provider for OTP delivery behind an env flag before launch.
 
 ---
 

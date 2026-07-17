@@ -23,6 +23,9 @@
 | 2026-07-17 | Dashboard | Web dashboard UI (hardcoded/mock data): landing, login, 2FA, request-access pages; client dashboard (overview, messages, campaigns, analytics, export, help, settings); admin dashboard (overview, reports, model, concept drift, dataset, classification, FP/FN, campaigns, timeline, users, export, server/API/DB logs, tips, settings) (PR #7) | Daryl De Castro |
 | 2026-07-17 | Backend | Auth integration fixes: installed missing JWT/passport dependencies in `backend/` workspace, regenerated stale Prisma client, applied pending `otp_auth` migration, added `PassportModule` import, added protected `GET /auth/me` endpoint, documented `JWT_SECRET`/`JWT_EXPIRES_IN` in `.env.example`. Full OTP → JWT → protected-route flow smoke-tested end to end against a live server | Gio |
 | 2026-07-17 | Docs | Documentation baseline: filled in progress log, added agile process document (`AGILE_PROCESS.md`) and auth API reference (`docs/api/auth.md`) | Gio |
+| 2026-07-17 | Android | Connected mobile app to backend auth: new `AuthApi` HTTP client (request-otp, verify-otp), OTP screens registered into onboarding nav flow (Default SMS → Confirm Number → Enter Code → Profile), JWT + phone saved to DataStore, loading/error states on auth screens, INTERNET permission + dev-only cleartext config for localhost/10.0.2.2 | Gio |
+| 2026-07-17 | Backend | Profile sync: implemented `users` module with JWT-guarded `PUT /users/me` (updates firstName/lastName/email), registered `UsersModule` in app module | Gio |
+| 2026-07-17 | Android | Profile screen syncs name to backend on Continue using stored JWT, so the `User` row is fully populated (phone + names). Verified end to end on a physical device (Huawei VOG-L29 via USB + `adb reverse`): OTP login recorded the phone number and profile names in Postgres | Gio |
 
 ---
 

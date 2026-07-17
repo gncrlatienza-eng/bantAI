@@ -7,16 +7,17 @@ Android-based AI smishing detection system for Filipino mobile users.
 | Folder | Description |
 |---|---|
 | `mobile/` | Android app (Kotlin + Jetpack Compose) |
-| `web/` | Web dashboard (Next.js) |
-| `backend/` | API server (Next.js) |
+| `web/` | Web dashboard (React + Vite) |
+| `backend/` | API server (NestJS + Prisma + PostgreSQL) |
 | `ai/` | ML models, datasets, notebooks, scripts |
+| `docs/` | Project documentation ([dev log](docs/development/DEV_LOG.md), [agile process](docs/development/AGILE_PROCESS.md), [API reference](docs/api/auth.md)) |
 
 ## Tech Stack
 
 - **Mobile:** Kotlin, Jetpack Compose, DataStore
 - **ML:** XLM-RoBERTa, HDBSCAN, SHAP
-- **Backend:** Next.js API
-- **Dashboard:** Next.js
+- **Backend:** NestJS, Prisma, PostgreSQL, JWT (phone-OTP auth)
+- **Dashboard:** React, Vite, React Router
 
 ## Branching Strategy
 

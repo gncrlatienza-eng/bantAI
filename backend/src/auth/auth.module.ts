@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { PrismaModule } from '../../database/prisma.module';
 
 import { AuthController } from './auth.controller';
@@ -10,6 +11,7 @@ import { jwtConstants } from './constants';
 @Module({
   imports: [
     PrismaModule,
+    PassportModule,
     JwtModule.register({
       secret: jwtConstants.secret,
       signOptions: {

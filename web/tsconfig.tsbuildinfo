@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/ui.tsx","./src/mocks/referencedata.ts","./src/pages/admin.tsx","./src/pages/client.tsx","./src/pages/public.tsx","./src/routes/approutes.tsx"],"version":"5.9.3"}

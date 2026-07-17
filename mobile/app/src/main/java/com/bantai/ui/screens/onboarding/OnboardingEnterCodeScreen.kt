@@ -24,9 +24,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -117,6 +119,11 @@ fun OnboardingEnterCodeScreen(
             }
         }
 
+        if (state.errorMessage != null) {
+            Spacer(Modifier.height(16.dp))
+            Text(state.errorMessage ?: "", fontSize = 12.sp, color = Color(0xFFFF5252))
+        }
+
         Spacer(Modifier.height(24.dp))
         Row {
             Text("Didn't get it? ", color = TextSecondary, fontSize = 14.sp)
@@ -124,19 +131,32 @@ fun OnboardingEnterCodeScreen(
                 "Resend code",
                 color = Indigo,
                 fontSize = 14.sp,
-                modifier = Modifier.clickable { /* TODO: resend logic */ },
+                modifier = Modifier.clickable { viewModel.resendOtp() },
             )
         }
 
         Spacer(Modifier.weight(1f))
 
         Button(
-            onClick = { navController.navigate(Screen.OnboardingTerms.route) },
+            onClick = {
+                viewModel.verifyOtp {
+                    navController.navigate(Screen.OnboardingProfile.route)
+                }
+            },
+            enabled = !state.isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {
-            Text("Verify", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            if (state.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(20.dp),
+                    color = White,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text("Verify", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
         }
         Spacer(Modifier.height(24.dp))
     }

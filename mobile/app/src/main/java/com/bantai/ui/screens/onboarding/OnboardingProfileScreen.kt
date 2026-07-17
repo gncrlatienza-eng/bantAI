@@ -66,6 +66,7 @@ fun OnboardingProfileScreen(
     val firstNameErrorMessage by viewModel.firstNameErrorMessage.collectAsState()
     val lastNameError by viewModel.lastNameError.collectAsState()
     val lastNameErrorMessage by viewModel.lastNameErrorMessage.collectAsState()
+    val state by viewModel.state.collectAsState()
 
     val avatarColor = remember(avatarColorHex) {
         Color(android.graphics.Color.parseColor(avatarColorHex))
@@ -205,13 +206,19 @@ fun OnboardingProfileScreen(
 
         Spacer(Modifier.weight(1f))
 
+        if (state.errorMessage != null) {
+            Text(state.errorMessage ?: "", fontSize = 12.sp, color = Danger)
+            Spacer(Modifier.height(12.dp))
+        }
+
         Button(
             onClick = { viewModel.validateAndSaveProfile(onSuccess = onNext) },
+            enabled = !state.isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {
-            Text("Continue", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(if (state.isLoading) "Saving..." else "Continue", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
         Spacer(Modifier.height(24.dp))
     }

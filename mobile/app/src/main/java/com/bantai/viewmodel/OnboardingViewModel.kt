@@ -5,16 +5,20 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.remote.AuthApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class OnboardingUiState(
     val phoneNumber: String = "",
     val termsAccepted: Boolean = false,
-    val otpCode: String = ""
+    val otpCode: String = "",
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )
 
 class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
@@ -106,13 +110,30 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             _lastNameErrorMessage.value = "Name should only contain letters"
             return
         }
+        _state.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             userPreferences.saveProfile(
                 firstName = trimmedFirst,
                 lastName = trimmedLast,
                 avatarColor = _avatarColor.value
             )
-            onSuccess()
+            // Sync the profile to the backend so the User row isn't left with null names.
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) {
+                _state.update { it.copy(isLoading = false) }
+                onSuccess()
+                return@launch
+            }
+            AuthApi.updateProfile(token, trimmedFirst, trimmedLast)
+                .onSuccess {
+                    _state.update { it.copy(isLoading = false) }
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(isLoading = false, errorMessage = error.message ?: "Could not sync your profile")
+                    }
+                }
         }
     }
 
@@ -124,7 +145,56 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun updateOtpCode(code: String) {
-        _state.update { it.copy(otpCode = code) }
+        _state.update { it.copy(otpCode = code, errorMessage = null) }
+    }
+
+    fun requestOtp(rawPhone: String, onSuccess: () -> Unit) {
+        val phone = rawPhone.replace(" ", "")
+        if (phone.isEmpty()) {
+            _state.update { it.copy(errorMessage = "Enter your phone number") }
+            return
+        }
+        _state.update { it.copy(phoneNumber = phone, isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            AuthApi.requestOtp(phone)
+                .onSuccess {
+                    _state.update { it.copy(isLoading = false) }
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
+                    }
+                }
+        }
+    }
+
+    fun resendOtp() {
+        val phone = _state.value.phoneNumber
+        if (phone.isEmpty() || _state.value.isLoading) return
+        requestOtp(phone) {}
+    }
+
+    fun verifyOtp(onSuccess: () -> Unit) {
+        val current = _state.value
+        if (current.otpCode.length != 6) {
+            _state.update { it.copy(errorMessage = "Enter the 6-digit code") }
+            return
+        }
+        _state.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            AuthApi.verifyOtp(current.phoneNumber, current.otpCode)
+                .onSuccess { auth ->
+                    userPreferences.saveAuth(auth.accessToken, auth.phone)
+                    _state.update { it.copy(isLoading = false) }
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
+                    }
+                }
+        }
     }
 
     fun updateTermsAccepted(accepted: Boolean) {

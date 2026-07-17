@@ -13,14 +13,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,6 +45,7 @@ fun OnboardingConfirmNumberScreen(
     viewModel: OnboardingViewModel,
 ) {
     var phoneNumber by remember { mutableStateOf("+63 917 123 4567") }
+    val state by viewModel.state.collectAsState()
 
     Column(
         modifier = Modifier
@@ -93,15 +97,33 @@ fun OnboardingConfirmNumberScreen(
         Spacer(Modifier.height(8.dp))
         Text("Philippine mobile number (+63...)", fontSize = 11.sp, color = TextSecondary)
 
+        if (state.errorMessage != null) {
+            Spacer(Modifier.height(12.dp))
+            Text(state.errorMessage ?: "", fontSize = 12.sp, color = Color(0xFFFF5252))
+        }
+
         Spacer(Modifier.weight(1f))
 
         Button(
-            onClick = { navController.navigate(Screen.OnboardingEnterCode.route) },
+            onClick = {
+                viewModel.requestOtp(phoneNumber) {
+                    navController.navigate(Screen.OnboardingEnterCode.route)
+                }
+            },
+            enabled = !state.isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {
-            Text("Send verification code", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            if (state.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(20.dp),
+                    color = White,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text("Send verification code", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
         }
         Spacer(Modifier.height(24.dp))
     }

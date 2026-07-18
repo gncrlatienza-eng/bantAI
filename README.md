@@ -10,7 +10,7 @@ Android-based AI smishing detection system for Filipino mobile users.
 | `web/` | Web dashboard (React + Vite) |
 | `backend/` | API server (NestJS + Prisma + PostgreSQL) |
 | `ai/` | ML models, datasets, notebooks, scripts |
-| `docs/` | Project documentation ([dev log](docs/development/DEV_LOG.md), [agile process](docs/development/AGILE_PROCESS.md), [API reference](docs/api/auth.md)) |
+| `docs/` | Project documentation ([dev log](docs/development/DEV_LOG.md), [agile process](docs/development/AGILE_PROCESS.md), API reference: [auth](docs/api/auth.md), [users](docs/api/users.md)) |
 
 ## Tech Stack
 

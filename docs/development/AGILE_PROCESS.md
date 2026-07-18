@@ -84,11 +84,21 @@ Every process/iteration produces an artifact:
 - **Verified on a physical device** (Huawei VOG-L29, USB + `adb reverse tcp:3000 tcp:3000`): OTP generated, verified, JWT issued, user row created/updated in Postgres with phone and names.
 - **Dev workflow note:** apps reach the local backend via `adb reverse` (USB) or `10.0.2.2` (emulator); OTP codes are read from the backend console.
 
+### Iteration 5 — Mobile UI polish & doc sync (Jul 18, 2026)
+
+**Goal:** make the whole app read as one product (onboarding vs main screens), improve conversation-level affordances, and bring stale docs back in line with the code.
+
+- Onboarding restyled to match the interior screens' iOS-minimal look: new shared composables in `ui/components/OnboardingComponents.kt` (PrimaryButton, PillTextField, OnboardingHeader, GroupedCard, AccentIconTile, FeatureListRow); all five active onboarding screens converted to full-bleed black with 32sp large titles, muted uppercase eyebrows, borderless pill inputs, and grouped cards with hairline dividers. The Default-SMS screen was rebuilt from a floating dialog-style card into a full-bleed page.
+- Sender avatars: colored initials replaced by a neutral gray person-silhouette placeholder (`SenderAvatar.kt`). Contact photos are shown only when the user actually set one (new `READ_CONTACTS` permission + cached `ContactsContract` lookup); system senders (GLOBE, NDRRMC, shortcodes) always get the placeholder.
+- Conversation detail: unknown-classification threads now show a "Suspicious messages detected — tap to report" banner routing into the existing report flow; the AI Summary button is always visible on every conversation and opens `AISummaryBottomSheet` with a verdict variant (suspicious vs looks-safe). Sheet content is still mock text pending backend AI integration.
+- **Doc sync:** `backend/README.md` had drifted badly (still documented password auth and register/login endpoints several pushes after the OTP pivot) — rewritten to current state (OTP/JWT endpoints, users endpoint, Docker port 5433, `--schema` Prisma commands, JWT env vars). Root README links both API references.
+- **Verified on device:** full onboarding flow re-run after `pm clear`; avatars, report banner, and both AI-summary verdicts screenshotted on the Huawei VOG-L29.
+
 ### Next iteration (planned)
 
 - Wire the web dashboard login to the real auth API (`/auth/request-otp` → `/auth/verify-otp`, store JWT, validate via `/auth/me`).
 - Collect email during onboarding or profile edit and sync via `PUT /users/me`.
-- Begin `sms` module (message ingestion) and AI service integration (currently a stub returning a fixed classification).
+- Begin `sms` module (message ingestion) and AI service integration (currently a stub returning a fixed classification); back the AI Summary sheet with real per-conversation analysis.
 - Integrate a real SMS provider for OTP delivery behind an env flag before launch.
 
 ---

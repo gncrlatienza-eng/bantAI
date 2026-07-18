@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -235,11 +236,11 @@ fun SettingsScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Black),
+        modifier = Modifier.fillMaxSize().background(Black).statusBarsPadding(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
-            top = innerPadding.calculateTopPadding() + 20.dp,
+            top = innerPadding.calculateTopPadding() + 24.dp,
             bottom = innerPadding.calculateBottomPadding() + 24.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -249,7 +250,7 @@ fun SettingsScreen(
                 "Settings",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
+                fontSize = 32.sp,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }

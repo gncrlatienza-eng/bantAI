@@ -17,16 +17,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,11 +40,12 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bantai.ui.components.OnboardingHeader
+import com.bantai.ui.components.PillTextField
+import com.bantai.ui.components.PrimaryButton
+import com.bantai.ui.components.SectionLabel
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
-import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
@@ -95,7 +91,7 @@ fun OnboardingProfileScreen(
             .background(Black)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 20.dp)
             .graphicsLayer {
                 alpha = slideAlpha
                 translationY = slideOffsetY
@@ -107,15 +103,10 @@ fun OnboardingProfileScreen(
         }
         Spacer(Modifier.height(8.dp))
 
-        Text("ALMOST THERE", color = Indigo, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Spacer(Modifier.height(12.dp))
-        Text("Set up your profile", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = White)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "This is how BantAI will address you. Your name stays on your device and is never shared.",
-            fontSize = 13.sp,
-            color = TextSecondary,
-            lineHeight = 20.sp,
+        OnboardingHeader(
+            eyebrow = "Almost there",
+            title = "Set up your profile",
+            subtitle = "This is how BantAI will address you. Your name stays on your device and is never shared.",
         )
         Spacer(Modifier.height(32.dp))
 
@@ -147,25 +138,21 @@ fun OnboardingProfileScreen(
 
         Spacer(Modifier.height(32.dp))
 
-        Text("First name", fontSize = 12.sp, color = TextSecondary)
-        Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
+        SectionLabel("First name")
+        Spacer(Modifier.height(8.dp))
+        PillTextField(
             value = firstName,
             onValueChange = { if (it.length <= 30) viewModel.updateFirstName(it) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { firstNameFocused = it.isFocused },
-            singleLine = true,
-            placeholder = { Text("e.g. Maria", color = TextSecondary) },
+            modifier = Modifier.onFocusChanged { firstNameFocused = it.isFocused },
+            placeholder = "e.g. Maria",
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            shape = RoundedCornerShape(12.dp),
-            colors = nameFieldColors(),
         )
         if (firstNameError) {
             Spacer(Modifier.height(4.dp))
             Text(firstNameErrorMessage, color = Danger, fontSize = 12.sp)
         }
         if (firstNameFocused) {
+            Spacer(Modifier.height(4.dp))
             Text(
                 "${firstName.length}/30",
                 color = TextSecondary,
@@ -176,25 +163,21 @@ fun OnboardingProfileScreen(
         }
         Spacer(Modifier.height(16.dp))
 
-        Text("Last name (optional)", fontSize = 12.sp, color = TextSecondary)
-        Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
+        SectionLabel("Last name (optional)")
+        Spacer(Modifier.height(8.dp))
+        PillTextField(
             value = lastName,
             onValueChange = { if (it.length <= 30) viewModel.updateLastName(it) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { lastNameFocused = it.isFocused },
-            singleLine = true,
-            placeholder = { Text("e.g. Santos", color = TextSecondary) },
+            modifier = Modifier.onFocusChanged { lastNameFocused = it.isFocused },
+            placeholder = "e.g. Santos",
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            shape = RoundedCornerShape(12.dp),
-            colors = nameFieldColors(),
         )
         if (lastNameError) {
             Spacer(Modifier.height(4.dp))
             Text(lastNameErrorMessage, color = Danger, fontSize = 12.sp)
         }
         if (lastNameFocused) {
+            Spacer(Modifier.height(4.dp))
             Text(
                 "${lastName.length}/30",
                 color = TextSecondary,
@@ -211,26 +194,11 @@ fun OnboardingProfileScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        Button(
+        PrimaryButton(
+            text = if (state.isLoading) "Saving..." else "Continue",
             onClick = { viewModel.validateAndSaveProfile(onSuccess = onNext) },
             enabled = !state.isLoading,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Indigo),
-        ) {
-            Text(if (state.isLoading) "Saving..." else "Continue", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-        }
+        )
         Spacer(Modifier.height(24.dp))
     }
 }
-
-@Composable
-private fun nameFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = White,
-    unfocusedTextColor = White,
-    focusedBorderColor = Indigo,
-    unfocusedBorderColor = BorderColor,
-    focusedContainerColor = Surface,
-    unfocusedContainerColor = Surface,
-    cursorColor = Indigo,
-)

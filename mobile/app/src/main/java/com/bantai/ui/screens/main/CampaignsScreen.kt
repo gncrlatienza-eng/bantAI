@@ -1,24 +1,30 @@
 package com.bantai.ui.screens.main
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -30,18 +36,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Safe
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 
 private data class Campaign(
@@ -74,112 +83,142 @@ fun CampaignsScreen(navController: NavController, innerPadding: PaddingValues) {
         )
     }
 
+    val active = campaigns.filter { it.isActive }
+    val past = campaigns.filter { !it.isActive }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(Black)
-            .padding(innerPadding),
-        contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .statusBarsPadding(),
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            top = 16.dp,
+            end = 20.dp,
+            bottom = innerPadding.calculateBottomPadding() + 24.dp,
+        ),
     ) {
         item {
-            Column {
-                Text("Campaigns", color = White, fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                Text("Coordinated smishing waves", color = TextSecondary, fontSize = 12.sp)
-            }
+            Text("Campaigns", color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
+            Spacer(Modifier.height(4.dp))
+            Text("Coordinated smishing waves", color = TextSecondary, fontSize = 14.sp)
+            Spacer(Modifier.height(20.dp))
         }
 
-        campaigns.forEach { campaign ->
-            item {
-                CampaignCard(
-                    campaign = campaign,
-                    onClick = {
-                        if (campaign.isActive) {
-                            navController.navigate(Screen.CampaignDetail.createRoute(true))
-                        } else {
-                            showInactiveModal = true
-                        }
-                    },
-                )
-            }
+        item {
+            SectionHeader("ACTIVE")
+            GroupedList(
+                items = active,
+                onClick = { navController.navigate(Screen.CampaignDetail.createRoute(true)) },
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+
+        item {
+            SectionHeader("PAST CAMPAIGNS")
+            GroupedList(
+                items = past,
+                onClick = { showInactiveModal = true },
+            )
         }
     }
 }
 
 @Composable
-private fun CampaignCard(campaign: Campaign, onClick: () -> Unit) {
+private fun SectionHeader(label: String) {
+    Text(
+        label,
+        color = TextTertiary,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.5.sp,
+        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun GroupedList(items: List<Campaign>, onClick: (Campaign) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceElevated),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        if (campaign.isActive) Color(0xFF2A1A00) else BorderColor,
-                        RoundedCornerShape(10.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.Hub,
-                    contentDescription = null,
-                    tint = if (campaign.isActive) Suspicious else Color(0xFF666666),
-                    modifier = Modifier.size(20.dp),
+        items.forEachIndexed { index, campaign ->
+            CampaignRow(campaign = campaign, onClick = { onClick(campaign) })
+            if (index < items.lastIndex) {
+                HorizontalDivider(
+                    color = Hairline,
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(start = 66.dp),
                 )
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    campaign.name,
-                    color = White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-                Box(
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .background(
-                            if (campaign.isActive) Color(0xFF0A2A0A) else BorderColor,
-                            RoundedCornerShape(100.dp),
-                        )
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                ) {
-                    Text(
-                        if (campaign.isActive) "Active" else "Inactive",
-                        color = if (campaign.isActive) Safe else Color(0xFF666666),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            StatCell(value = campaign.messages.toString(), label = "Messages")
-            StatCell(value = campaign.domains.toString(), label = "Domains")
-            StatCell(value = campaign.since, label = "Since")
         }
     }
 }
 
 @Composable
-private fun StatCell(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
-        Text(label, color = TextSecondary, fontSize = 10.sp, maxLines = 1)
+private fun CampaignRow(campaign: Campaign, onClick: () -> Unit) {
+    val accent = if (campaign.isActive) Suspicious else TextTertiary
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(accent.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.Hub,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                campaign.name,
+                color = White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(if (campaign.isActive) Safe else TextTertiary, CircleShape),
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    buildString {
+                        append(if (campaign.isActive) "Active" else "Ended")
+                        append(" · ${campaign.messages} messages")
+                    },
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(campaign.since, color = TextTertiary, fontSize = 12.sp)
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = TextTertiary,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
@@ -187,7 +226,7 @@ private fun StatCell(value: String, label: String) {
 private fun InactiveCampaignModal(onDismiss: () -> Unit, onViewDetails: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Surface,
+        containerColor = SurfaceElevated,
         shape = RoundedCornerShape(20.dp),
         title = null,
         text = {
@@ -196,7 +235,7 @@ private fun InactiveCampaignModal(onDismiss: () -> Unit, onViewDetails: () -> Un
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF666666), modifier = Modifier.size(32.dp))
+                Icon(Icons.Default.Lock, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(32.dp))
                 Text("Campaign inactive", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Text(
                     "This campaign is no longer active. It has been archived for reference. No new messages or domains have been associated with it recently.",

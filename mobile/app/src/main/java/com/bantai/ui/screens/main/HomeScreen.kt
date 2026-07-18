@@ -53,6 +53,7 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.BadgeType
 import com.bantai.ui.components.MessageItem
+import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.StatusBadge
 import com.bantai.ui.components.getAvatarColor
 import com.bantai.ui.components.getInitialsFromSender
@@ -352,14 +353,7 @@ private fun HomeMessageRow(item: MessageItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.size(48.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(item.avatarColor, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(item.initials, color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
+            SenderAvatar(sender = item.sender, size = 48.dp)
             if (!item.isRead) {
                 Box(
                     modifier = Modifier

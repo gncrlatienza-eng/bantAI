@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
@@ -38,7 +39,11 @@ import com.bantai.ui.theme.White
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AISummaryBottomSheet(onDismiss: () -> Unit, onViewFullAnalysis: () -> Unit) {
+fun AISummaryBottomSheet(
+    onDismiss: () -> Unit,
+    onViewFullAnalysis: () -> Unit,
+    isSuspicious: Boolean = true,
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -78,18 +83,32 @@ fun AISummaryBottomSheet(onDismiss: () -> Unit, onViewFullAnalysis: () -> Unit) 
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val verdictColor = if (isSuspicious) Suspicious else Safe
                 Box(
                     modifier = Modifier
-                        .background(Suspicious.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
+                        .background(verdictColor.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
-                    Text("Suspicious", color = Suspicious, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        if (isSuspicious) "Suspicious" else "Looks safe",
+                        color = verdictColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
                 }
-                Text("68% confidence", color = TextSecondary, fontSize = 12.sp)
+                Text(
+                    if (isSuspicious) "68% confidence" else "92% confidence",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                )
             }
 
             Text(
-                "This message contains suspicious patterns — an unverified external link and urgency language. It may be legitimate but proceed with caution. Do not share personal information.",
+                if (isSuspicious) {
+                    "This message contains suspicious patterns — an unverified external link and urgency language. It may be legitimate but proceed with caution. Do not share personal information."
+                } else {
+                    "No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."
+                },
                 color = White,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,

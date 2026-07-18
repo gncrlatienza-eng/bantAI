@@ -58,7 +58,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
-import com.bantai.ui.components.getInitialsFromSender
+import com.bantai.ui.components.AISummaryBottomSheet
+import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.getRelativeTime
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
@@ -91,6 +92,19 @@ fun MessageDetailScreen(
     }
 
     val hasSuspicious = conversation.any { it.classification == "suspicious" }
+    val hasUnknown = conversation.any { it.classification == "unknown" }
+    var showAISummary by remember { mutableStateOf(false) }
+
+    if (showAISummary) {
+        AISummaryBottomSheet(
+            isSuspicious = hasSuspicious || hasUnknown,
+            onDismiss = { showAISummary = false },
+            onViewFullAnalysis = {
+                showAISummary = false
+                navController.navigate(Screen.ThreatAnalysis.route)
+            },
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -128,13 +142,11 @@ fun MessageDetailScreen(
                     Text("Suspicious", color = Suspicious, fontSize = 11.sp)
                 }
             }
-            if (hasSuspicious) {
-                IconButton(
-                    onClick = { navController.navigate(Screen.ThreatAnalysis.route) },
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                ) {
-                    Icon(Icons.Default.Psychology, contentDescription = "Threat Analysis", tint = Indigo)
-                }
+            IconButton(
+                onClick = { showAISummary = true },
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                Icon(Icons.Default.Psychology, contentDescription = "AI Summary", tint = Indigo)
             }
         }
 
@@ -154,6 +166,26 @@ fun MessageDetailScreen(
                 Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
                 Text(
                     "Suspicious messages detected — tap for threat details",
+                    color = Suspicious,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
+            }
+        } else if (hasUnknown) {
+            // Unknown sender — likely-suspicious warning with a direct report affordance
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2A1A00))
+                    .clickable { navController.navigate(Screen.TakeAction.route) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
+                Text(
+                    "Suspicious messages detected — tap to report",
                     color = Suspicious,
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f),
@@ -194,19 +226,7 @@ fun MessageDetailScreen(
                                 verticalAlignment = Alignment.Bottom,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .background(Color(0xFF3A3A5C), CircleShape),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        getInitialsFromSender(msg.sender),
-                                        color = White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                }
+                                SenderAvatar(sender = msg.sender, size = 28.dp)
                                 Box(
                                     modifier = Modifier
                                         .widthIn(max = bubbleMaxWidth)

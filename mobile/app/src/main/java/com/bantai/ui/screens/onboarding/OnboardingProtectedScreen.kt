@@ -1,30 +1,22 @@
 package com.bantai.ui.screens.onboarding
 
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,17 +25,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bantai.ui.components.BantAILogo
+import com.bantai.ui.components.FeatureListRow
+import com.bantai.ui.components.GroupedCard
+import com.bantai.ui.components.GroupedDivider
+import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
@@ -72,7 +65,7 @@ fun OnboardingProtectedScreen(
             .background(Black)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 20.dp)
             .graphicsLayer {
                 alpha = slideAlpha
                 translationY = slideOffsetY
@@ -91,7 +84,7 @@ fun OnboardingProtectedScreen(
         Text(
             "You're protected.",
             fontWeight = FontWeight.Bold,
-            fontSize = 24.sp,
+            fontSize = 28.sp,
             color = White,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
@@ -99,26 +92,28 @@ fun OnboardingProtectedScreen(
         Spacer(Modifier.height(8.dp))
         Text(
             "BantAI is now monitoring your incoming messages for smishing threats.",
-            fontSize = 13.sp,
+            fontSize = 14.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center,
-            lineHeight = 20.sp,
+            lineHeight = 19.sp,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(40.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            FeatureRow(
+        GroupedCard {
+            FeatureListRow(
                 icon = Icons.Filled.Shield,
                 title = "Real-time detection",
                 subtitle = "Every SMS checked instantly",
             )
-            FeatureRow(
+            GroupedDivider()
+            FeatureListRow(
                 icon = Icons.Default.AutoAwesome,
                 title = "AI-powered analysis",
                 subtitle = "Trained on Filipino smishing patterns",
             )
-            FeatureRow(
+            GroupedDivider()
+            FeatureListRow(
                 icon = Icons.Default.Hub,
                 title = "Campaign intelligence",
                 subtitle = "Track coordinated attack waves",
@@ -127,33 +122,10 @@ fun OnboardingProtectedScreen(
 
         Spacer(Modifier.weight(1f))
 
-        Button(
+        PrimaryButton(
+            text = "Open BantAI",
             onClick = { viewModel.completeOnboarding(onSuccess = onFinish) },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Indigo),
-        ) {
-            Text("Open BantAI", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-        }
+        )
         Spacer(Modifier.height(24.dp))
-    }
-}
-
-@Composable
-private fun FeatureRow(icon: ImageVector, title: String, subtitle: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(Surface, RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = null, tint = Indigo, modifier = Modifier.size(22.dp))
-        }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
-            Text(subtitle, fontSize = 12.sp, color = TextSecondary)
-        }
     }
 }

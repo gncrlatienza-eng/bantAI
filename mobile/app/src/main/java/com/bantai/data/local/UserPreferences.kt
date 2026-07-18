@@ -20,6 +20,8 @@ data class UserData(
     val smishingAlerts: Boolean = true,
     val suspiciousAlerts: Boolean = true,
     val autoBlockNotice: Boolean = true,
+    val phoneNumber: String = "",
+    val authToken: String = "",
 )
 
 class UserPreferences(private val context: Context) {
@@ -33,6 +35,8 @@ class UserPreferences(private val context: Context) {
         val SMISHING_ALERTS = booleanPreferencesKey("smishing_alerts")
         val SUSPICIOUS_ALERTS = booleanPreferencesKey("suspicious_alerts")
         val AUTO_BLOCK_NOTICE = booleanPreferencesKey("auto_block_notice")
+        val PHONE_NUMBER = stringPreferencesKey("phone_number")
+        val AUTH_TOKEN = stringPreferencesKey("auth_token")
     }
 
     val userData: Flow<UserData> = context.dataStore.data
@@ -50,8 +54,17 @@ class UserPreferences(private val context: Context) {
                 smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
                 suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
                 autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
+                phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
+                authToken = prefs[Keys.AUTH_TOKEN] ?: "",
             )
         }
+
+    suspend fun saveAuth(token: String, phoneNumber: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.AUTH_TOKEN] = token
+            prefs[Keys.PHONE_NUMBER] = phoneNumber
+        }
+    }
 
     suspend fun saveProfile(firstName: String, lastName: String, avatarColor: String) {
         val safeFirst = firstName.trim().take(50)

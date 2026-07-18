@@ -31,7 +31,9 @@ import com.bantai.ui.screens.main.SuspiciousDetailScreen
 import com.bantai.ui.screens.main.TakeActionScreen
 import com.bantai.ui.screens.main.ThreatAnalysisScreen
 import com.bantai.ui.screens.main.UnsafeLinkScreen
+import com.bantai.ui.screens.onboarding.OnboardingConfirmNumberScreen
 import com.bantai.ui.screens.onboarding.OnboardingDefaultSmsScreen
+import com.bantai.ui.screens.onboarding.OnboardingEnterCodeScreen
 import com.bantai.ui.screens.onboarding.OnboardingProfileScreen
 import com.bantai.ui.screens.onboarding.OnboardingProtectedScreen
 import com.bantai.ui.screens.onboarding.SplashScreen
@@ -73,12 +75,12 @@ sealed class Screen(val route: String) {
     data object SettingsHowItWorks : Screen("settings/how_it_works")
     data object Splash : Screen("splash")
     data object OnboardingDefaultSms : Screen("onboarding_default_sms")
+    data object OnboardingConfirmNumber : Screen("onboarding_confirm_number")
+    data object OnboardingEnterCode : Screen("onboarding_enter_code")
     data object OnboardingProfile : Screen("onboarding_profile")
     data object OnboardingProtected : Screen("onboarding_protected")
     // Stubs retained so orphaned screen files compile — not registered as routes
     data object OnboardingAllowAccess : Screen("onboarding_allow_access")
-    data object OnboardingConfirmNumber : Screen("onboarding_confirm_number")
-    data object OnboardingEnterCode : Screen("onboarding_enter_code")
     data object OnboardingTerms : Screen("onboarding_terms")
     data object Detail : Screen("detail/{sender}") {
         fun createRoute(sender: String) = "detail/${Uri.encode(sender)}"
@@ -119,8 +121,22 @@ fun NavGraph() {
 
         composable("onboarding_default_sms") {
             OnboardingDefaultSmsScreen(onNext = {
-                navController.navigate("onboarding_profile")
+                navController.navigate("onboarding_confirm_number")
             })
+        }
+
+        composable("onboarding_confirm_number") {
+            OnboardingConfirmNumberScreen(
+                navController = navController,
+                viewModel = viewModel,
+            )
+        }
+
+        composable("onboarding_enter_code") {
+            OnboardingEnterCodeScreen(
+                navController = navController,
+                viewModel = viewModel,
+            )
         }
 
         composable("onboarding_profile") {

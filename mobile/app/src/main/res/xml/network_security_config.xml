@@ -5,4 +5,10 @@
             <certificates src="system"/>
         </trust-anchors>
     </base-config>
+    <!-- Dev-only: plain HTTP to the backend on the development machine.
+         localhost = USB device via `adb reverse`; 10.0.2.2 = emulator host alias. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
 </network-security-config>

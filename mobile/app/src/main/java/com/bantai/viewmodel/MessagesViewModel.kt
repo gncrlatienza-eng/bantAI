@@ -12,6 +12,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+enum class MessageFilter(val label: String) {
+    MESSAGES("Messages"),
+    SPAM("Spam"),
+    BLOCKED("Blocked"),
+    RECENTLY_DELETED("Recently Deleted"),
+    UNREAD("Unread"),
+    DRAFTS("Drafts"),
+}
+
 class MessagesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val smsRepository = SmsRepository(application)
@@ -33,6 +42,12 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
 
     private val _unknownTodayCount = MutableStateFlow(0)
     val unknownTodayCount: StateFlow<Int> = _unknownTodayCount.asStateFlow()
+
+    private val _selectedFilter = MutableStateFlow(MessageFilter.MESSAGES)
+    val selectedFilter: StateFlow<MessageFilter> = _selectedFilter.asStateFlow()
+
+    private val _visibleMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
+    val visibleMessages: StateFlow<List<SmsMessage>> = _visibleMessages.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -65,7 +80,9 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
     fun loadMessages() {
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            _allMessages.value = smsRepository.getInboxMessagesByPeriod(_scanPeriod)
+            // The inbox always shows the full message history like a normal SMS
+            // app; the scan period setting only governs scanning/stat windows.
+            _allMessages.value = smsRepository.getInboxMessages(limit = 500)
             filterMessages(_searchQuery.value)
             _isLoading.value = false
         }
@@ -74,6 +91,11 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
         filterMessages(query)
+    }
+
+    fun setFilter(filter: MessageFilter) {
+        _selectedFilter.value = filter
+        filterMessages(_searchQuery.value)
     }
 
     private fun isToday(timestamp: Long): Boolean {
@@ -104,5 +126,19 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
         val unknown = filtered.filter { it.classification == "unknown" }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
+
+        // Team rule: scams are auto-blocked, promotional goes to Spam,
+        // the main Messages list keeps only legitimate/unclassified mail.
+        val legitimate = filtered.filter {
+            it.classification != "suspicious" && it.classification != "blocked"
+        }
+        _visibleMessages.value = when (_selectedFilter.value) {
+            MessageFilter.MESSAGES         -> legitimate
+            MessageFilter.SPAM             -> suspicious
+            MessageFilter.BLOCKED          -> filtered.filter { it.classification == "blocked" }
+            MessageFilter.RECENTLY_DELETED -> emptyList()
+            MessageFilter.UNREAD           -> legitimate.filter { !it.isRead }
+            MessageFilter.DRAFTS           -> emptyList()
+        }
     }
 }

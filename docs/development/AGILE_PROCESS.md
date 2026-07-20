@@ -92,7 +92,8 @@ Every process/iteration produces an artifact:
 - Sender avatars: colored initials replaced by a neutral gray person-silhouette placeholder (`SenderAvatar.kt`). Contact photos are shown only when the user actually set one (new `READ_CONTACTS` permission + cached `ContactsContract` lookup); system senders (GLOBE, NDRRMC, shortcodes) always get the placeholder.
 - Conversation detail: unknown-classification threads now show a "Suspicious messages detected — tap to report" banner routing into the existing report flow; the AI Summary button is always visible on every conversation and opens `AISummaryBottomSheet` with a verdict variant (suspicious vs looks-safe). Sheet content is still mock text pending backend AI integration.
 - **Doc sync:** `backend/README.md` had drifted badly (still documented password auth and register/login endpoints several pushes after the OTP pivot) — rewritten to current state (OTP/JWT endpoints, users endpoint, Docker port 5433, `--schema` Prisma commands, JWT env vars). Root README links both API references.
-- **Verified on device:** full onboarding flow re-run after `pm clear`; avatars, report banner, and both AI-summary verdicts screenshotted on the Huawei VOG-L29.
+- Collapsing tab bar: the floating glass tab bar (Messages / Alerts / Campaigns / Settings) now collapses into a single translucent pill showing only the active tab; tapping the pill expands the full bar, choosing a tab navigates and re-collapses it, and tapping outside dismisses it. Mirrors the iOS 26 collapsed-tab-bar pattern.
+- **Verified on device:** full onboarding flow re-run after `pm clear`; avatars, report banner, both AI-summary verdicts, and the tab bar collapse/expand cycle screenshotted on the Huawei VOG-L29.
 
 ### Next iteration (planned)
 

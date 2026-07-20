@@ -30,6 +30,7 @@
 | 2026-07-18 | Android | Sender avatars replaced with neutral iOS-style silhouette (`SenderAvatar.kt`): gray person placeholder everywhere (system senders like GLOBE always get it); shows the contact's photo only when one is set (new `READ_CONTACTS` permission + cached ContactsContract lookup). Applied in Messages list, Home recent messages, and conversation bubbles | Gio |
 | 2026-07-18 | Android | Conversation detail upgrades: unknown-classification threads show "Suspicious messages detected — tap to report" banner routing to the report flow; AI Summary button now always visible on every conversation (legit included), opening `AISummaryBottomSheet` with a verdict variant ("Suspicious 68%" vs "Looks safe 92%" — content still mock, pending backend AI wiring) | Gio |
 | 2026-07-18 | Docs | Doc sync for earlier pushes that shipped without doc updates: rewrote `backend/README.md` (password-auth era → current OTP/JWT auth, users endpoint, correct Docker port 5433 + `--schema` migration commands, JWT env vars), linked users API reference from root README | Gio |
+| 2026-07-18 | Android | Collapsing tab bar (`MainScreen.kt`): the floating glass bar now rests as a single extra-translucent pill showing only the active tab (with alert dot when off the Alerts tab); tapping the pill expands the full four-tab bar, selecting a tab navigates and collapses it again, and tapping outside the expanded bar dismisses it. Animated with `animateContentSize`; state survives rotation. Verified on device | Gio |
 
 ---
 

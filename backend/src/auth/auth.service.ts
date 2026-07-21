@@ -49,6 +49,12 @@ export class AuthService {
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
+    // Invalidate any previous unused OTPs so old codes can't be replayed
+    await this.prisma.otpCode.updateMany({
+      where: { phone: dto.phone, verified: false },
+      data: { verified: true },
+    });
+
     await this.prisma.otpCode.create({
       data: {
         phone: dto.phone,

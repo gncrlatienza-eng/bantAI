@@ -46,7 +46,20 @@ model SmsMessage {
   receivedAt DateTime @default(now())
 
   classification Classification?
+  feature        MessageFeature?
   alerts         Alert[]
+}
+
+model MessageFeature {
+  id             String     @id @default(uuid())
+
+  messageId      String     @unique
+  message        SmsMessage @relation(fields: [messageId], references: [id])
+
+  normalizedBody String
+  maskedBody     String
+
+  createdAt      DateTime   @default(now())
 }
 
 model Classification {

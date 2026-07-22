@@ -18,11 +18,15 @@ router = APIRouter(tags=["classification"])
 @router.post("/classify", response_model=ClassifyResponse)
 def classify(req: ClassifyRequest) -> ClassifyResponse:
     try:
-        label, score, masked = classifier.classify(req.message)
+        label, score, scores, masked = classifier.classify(req.message)
     except ModelNotReadyError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
     return ClassifyResponse(
-        label=label, score=score, routing=route(score), masked_text=masked
+        label=label,
+        score=score,
+        scores=scores,
+        bucket=route(scores),
+        masked_text=masked,
     )

@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Dict, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Label = Literal["Likely Smishing", "Suspicious", "Unknown"]
-Routing = Literal["auto_block", "alert", "inbox"]
+# Model prediction classes (what the classifier is trained to output).
+Label = Literal["Ham", "Spam", "Scam"]
+
+# User-facing routing buckets (what the app does with the message).
+#   safe    -> inbox (shown, reassured)
+#   unknown -> inbox (shown, no strong claim — low confidence)
+#   spam    -> dropdown (hidden from inbox, retrievable)
+#   blocked -> dropdown (hidden from inbox, retrievable)
+Bucket = Literal["safe", "unknown", "spam", "blocked"]
 
 
 class ClassifyRequest(BaseModel):
@@ -15,9 +22,12 @@ class ClassifyRequest(BaseModel):
 
 
 class ClassifyResponse(BaseModel):
-    label: Label = Field(..., description="Predicted class")
-    score: float = Field(..., ge=0.0, le=1.0, description="Softmax confidence")
-    routing: Routing = Field(..., description="Threshold-based routing decision")
+    label: Label = Field(..., description="Predicted class (Ham/Spam/Scam)")
+    score: float = Field(..., ge=0.0, le=1.0, description="Confidence of the predicted class")
+    scores: Dict[Label, float] = Field(
+        ..., description="Full softmax distribution over all classes"
+    )
+    bucket: Bucket = Field(..., description="User-facing routing decision")
     masked_text: str = Field(..., description="PII-masked text fed to the model")
 
 

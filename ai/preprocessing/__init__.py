@@ -3,7 +3,7 @@
 Public API:
     preprocess(text)      -> NFKC-normalized, PII-masked text (train == infer)
     normalize_text(text)  -> NFKC + whitespace normalization only
-    mask_pii(text)        -> regex masking only (URL/PHONE/AMOUNT/OTP)
+    mask_pii(text)        -> regex masking only (EMAIL/URL/PHONE/AMOUNT/OTP)
     mask_counts(text)     -> per-category PII counts
 """
 

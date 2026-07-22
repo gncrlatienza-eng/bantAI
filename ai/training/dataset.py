@@ -39,9 +39,15 @@ def _read_files(path: str) -> "pd.DataFrame":
     return pd.concat(frames, ignore_index=True)
 
 
+# Case-insensitive name -> id lookup (datasets vary: "Ham", "ham", "HAM").
+_LABEL_LOOKUP = {name.lower(): idx for name, idx in LABEL2ID.items()}
+
+
 def _coerce_label(value) -> int:
-    if isinstance(value, str) and value in LABEL2ID:
-        return LABEL2ID[value]
+    if isinstance(value, str):
+        key = value.strip().lower()
+        if key in _LABEL_LOOKUP:
+            return _LABEL_LOOKUP[key]
     ivalue = int(value)
     if ivalue not in (0, 1, 2):
         raise ValueError(f"Label out of range: {value!r}")

@@ -6,7 +6,8 @@ from training.dataset import _coerce_label
 
 def test_label_maps_are_inverse():
     assert LABEL2ID == {v: k for k, v in ID2LABEL.items()}
-    assert set(ID2LABEL.values()) == {"Likely Smishing", "Suspicious", "Unknown"}
+    assert set(ID2LABEL.values()) == {"Ham", "Spam", "Scam"}
+    assert ID2LABEL[0] == "Ham" and ID2LABEL[1] == "Spam" and ID2LABEL[2] == "Scam"
 
 
 def test_config_defaults():
@@ -17,9 +18,15 @@ def test_config_defaults():
 
 
 def test_coerce_label_accepts_names_and_ids():
-    assert _coerce_label("Likely Smishing") == 0
-    assert _coerce_label("Unknown") == 2
+    assert _coerce_label("Ham") == 0
+    assert _coerce_label("Scam") == 2
     assert _coerce_label(1) == 1
+
+
+def test_coerce_label_is_case_insensitive():
+    assert _coerce_label("ham") == 0
+    assert _coerce_label("  SCAM ") == 2
+    assert _coerce_label("Spam") == 1
 
 
 def test_coerce_label_rejects_out_of_range():

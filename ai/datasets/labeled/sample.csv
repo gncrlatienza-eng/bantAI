@@ -1,10 +1,10 @@
 text,label
-"Congratulations! You won a ₱50,000 GCash prize. Claim now at http://gcash-claim.ph/win",Likely Smishing
-"Your BPI account will be blocked. Verify with OTP 483920 at www.bpi-secure-verify.com",Likely Smishing
-"Kailangan mong i-update ang iyong info ngayon. Pindutin: http://smsverify.ph/act para hindi ma-block",Likely Smishing
-"You have a parcel pending delivery. Reply YES to confirm your address.",Suspicious
-"Reminder: your bill is due. Pay 1200 pesos before the cutoff today.",Suspicious
-"Hi po, pwede po ba kayong mag-send ng load sa number na ito? Salamat.",Suspicious
-"Hoy gising na! Kita tayo mamaya sa canteen ha, wag ka na tulog.",Unknown
-"Good morning po, confirmed na po yung meeting natin bukas 9am sa office.",Unknown
-"Thanks for your purchase. Your order #A1029 will arrive on Tuesday.",Unknown
+"Good morning po, confirmed na po yung meeting natin bukas 9am sa office.",Ham
+"Thanks for your purchase. Your order #A1029 will arrive on Tuesday.",Ham
+"Your OTP is 483920. Do not share this code with anyone. - BPI",Ham
+"SALE! Up to 50% off all items this weekend at SM Store. Shop now!",Spam
+"Globe: Enjoy GoWATCH 599 - unli data for 7 days. Register via the GlobeOne app.",Spam
+"New arrivals just dropped at Lazada! Grab vouchers up to P500 off today.",Spam
+"Congratulations! You won a P50,000 GCash prize. Claim now at http://gcash-claim.ph/win",Scam
+"Your BPI account will be blocked. Verify with OTP 483920 at www.bpi-secure-verify.com",Scam
+"Kailangan mong i-update ang iyong info ngayon. Pindutin: http://smsverify.ph/act para hindi ma-block",Scam

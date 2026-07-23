@@ -33,6 +33,28 @@ def test_masks_amounts():
     assert mask_pii("You won P50 load") == "You won <AMOUNT> load"
 
 
+def test_masks_amount_shorthand():
+    # "k"/"m" shorthand is a common scam money format.
+    assert mask_pii("Claim ₱5k reward") == "Claim <AMOUNT> reward"
+    assert mask_pii("Win 2m pesos today") == "Win <AMOUNT> today"
+
+
+def test_masks_email():
+    assert mask_pii("Email us at support@gcash-verify.com now") == "Email us at <EMAIL> now"
+    # An email must not leave a dangling domain that the URL pass turns into <URL>.
+    assert "<URL>" not in mask_pii("Contact juan.delacruz@bpi.com.ph")
+
+
+def test_masks_obfuscated_url():
+    # "hxxp" de-fanging (common in threat write-ups) is still a link.
+    assert mask_pii("Go to hxxp://scam.ph/win fast") == "Go to <URL> fast"
+
+
+def test_masks_phone_no_separators():
+    assert mask_pii("Reach +639171234567 now") == "Reach <PHONE> now"
+    assert mask_pii("Txt 0917-123-4567 pls") == "Txt <PHONE> pls"
+
+
 def test_decimal_is_not_a_url():
     # "3.50" must not be read as a bare domain (TLD must be alphabetic).
     assert "<URL>" not in mask_pii("The price is 3.50 dollars")
@@ -54,10 +76,12 @@ def test_combined_message():
 
 
 def test_mask_counts():
-    counts = mask_counts("Pay ₱100 at http://x.com code 5555 call 09171234567")
-    assert counts == {"url": 1, "phone": 1, "amount": 1, "otp": 1}
+    counts = mask_counts(
+        "Mail me@x.com pay ₱100 at http://x.com code 5555 call 09171234567"
+    )
+    assert counts == {"email": 1, "url": 1, "phone": 1, "amount": 1, "otp": 1}
 
 
 def test_empty_input():
     assert mask_pii("") == ""
-    assert mask_counts("") == {"url": 0, "phone": 0, "amount": 0, "otp": 0}
+    assert mask_counts("") == {"email": 0, "url": 0, "phone": 0, "amount": 0, "otp": 0}

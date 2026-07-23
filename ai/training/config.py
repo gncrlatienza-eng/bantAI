@@ -5,8 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict
 
-# Three-way smishing head (matches backend ClassificationResult labels).
-ID2LABEL: Dict[int, str] = {0: "Likely Smishing", 1: "Suspicious", 2: "Unknown"}
+# Three-way training head, ordered benign -> severe. These are the *dataset*
+# labels the model is trained to predict; the user-facing buckets (Safe /
+# Unknown / Spam / Blocked) are derived from these at routing time — see
+# ai/service/classifier.py:route and ai/datasets/LABELING_GUIDE.md.
+ID2LABEL: Dict[int, str] = {0: "Ham", 1: "Spam", 2: "Scam"}
 LABEL2ID: Dict[str, int] = {v: k for k, v in ID2LABEL.items()}
 
 

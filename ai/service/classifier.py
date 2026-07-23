@@ -11,27 +11,57 @@ from __future__ import annotations
 
 import os
 from threading import Lock
-from typing import Optional, Tuple
+from typing import Dict, Mapping, Optional, Tuple
 
 from preprocessing import preprocess
 
 from .config import settings
-from .schemas import Label, Routing
+from .schemas import Bucket, Label
 
-LABELS: Tuple[Label, ...] = ("Likely Smishing", "Suspicious", "Unknown")
+LABELS: Tuple[Label, ...] = ("Ham", "Spam", "Scam")
 
 
 class ModelNotReadyError(RuntimeError):
     """Raised when classification is requested but no model is loaded."""
 
 
-def route(score: float) -> Routing:
-    """Map a confidence score to a routing decision (Sprint 2 contract)."""
-    if score >= settings.auto_block_threshold:
-        return "auto_block"
-    if score >= settings.alert_threshold:
-        return "alert"
-    return "inbox"
+def route(scores: Mapping[Label, float]) -> Bucket:
+    """Translate the full class distribution into a user-facing bucket.
+
+    Runs the last three steps of the routing pipeline (softmax already happened
+    upstream in ``classify``):
+
+        1. **argmax**    — pick the winning class.
+        2. **gap check** — if the winner leads the runner-up by less than
+           ``review_margin``, the model is torn (e.g. 0.50/0.50/0.00); route to
+           "unknown" no matter what the thresholds say.
+        3. **threshold** — the winner must also clear its own confidence bar.
+
+    Anything that fails the gap or threshold check falls back to "unknown", so
+    the message stays visible in the inbox instead of being acted on from a weak
+    or ambiguous guess. Mapping when confident enough:
+
+        Ham  -> safe     (inbox)
+        Spam -> spam     (dropdown)
+        Scam -> blocked  (dropdown)
+    """
+    # argmax: winning class and its confidence.
+    label = max(scores, key=lambda k: scores[k])
+    top = scores[label]
+
+    # Runner-up probability, for the "too close to call" gap check.
+    ordered = sorted(scores.values(), reverse=True)
+    second = ordered[1] if len(ordered) > 1 else 0.0
+    if top - second < settings.review_margin:
+        return "unknown"
+
+    if label == "Scam" and top >= settings.block_threshold:
+        return "blocked"
+    if label == "Spam" and top >= settings.spam_threshold:
+        return "spam"
+    if label == "Ham" and top >= settings.safe_threshold:
+        return "safe"
+    return "unknown"
 
 
 class SmishingClassifier:
@@ -75,8 +105,19 @@ class SmishingClassifier:
     def is_ready(self) -> bool:
         return self._model is not None or self._has_weights()
 
-    def classify(self, message: str) -> Tuple[Label, float, str]:
-        """Return ``(label, score, masked_text)`` for a raw SMS body."""
+    def _label_for(self, idx: int) -> Label:
+        # Prefer the label map baked into the model config when present.
+        id2label = getattr(self._model.config, "id2label", None)
+        if id2label and idx in id2label:
+            return id2label[idx]
+        return LABELS[idx]
+
+    def classify(self, message: str) -> Tuple[Label, float, Dict[Label, float], str]:
+        """Return ``(label, score, scores, masked_text)`` for a raw SMS body.
+
+        ``scores`` is the full softmax distribution over Ham/Spam/Scam; ``score``
+        is the confidence of the winning ``label``.
+        """
         masked = preprocess(message)
         self._ensure_loaded()
 
@@ -91,15 +132,10 @@ class SmishingClassifier:
         with torch.no_grad():
             logits = self._model(**inputs).logits
         probs = torch.softmax(logits, dim=-1)[0]
+        scores = {self._label_for(i): float(probs[i]) for i in range(len(probs))}
         idx = int(torch.argmax(probs))
-        # Prefer the label map baked into the model config when present.
-        id2label = getattr(self._model.config, "id2label", None)
-        label = (
-            id2label[idx]
-            if id2label and idx in id2label
-            else LABELS[idx]
-        )
-        return label, float(probs[idx]), masked
+        label = self._label_for(idx)
+        return label, float(probs[idx]), scores, masked
 
 
 # Module-level singleton reused across requests.

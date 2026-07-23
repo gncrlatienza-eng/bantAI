@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { CampaignCard, Metric, NavSection, TableData } from "../mocks/referenceData";
+import { clearSession } from "../lib/auth";
 
 export function Brand({ subtitle }: { subtitle?: string }) {
   return (
@@ -11,25 +13,6 @@ export function Brand({ subtitle }: { subtitle?: string }) {
         {subtitle ? <small>{subtitle}</small> : null}
       </div>
     </div>
-  );
-}
-
-export function PublicHeader() {
-  return (
-    <header className="public-header">
-      <Link to="/" className="brand-link">
-        <Brand />
-      </Link>
-      <nav className="public-nav">
-        <a href="#">How It Works</a>
-        <a href="#">About</a>
-        <a href="#">Research</a>
-      </nav>
-      <div className="public-actions">
-        <Link to="/login" className="ghost-btn">Log In</Link>
-        <Link to="/request-access" className="primary-btn tiny">Licensing</Link>
-      </div>
-    </header>
   );
 }
 
@@ -112,10 +95,13 @@ export function PortalShell({
   showPopup?: boolean;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [navOpen, setNavOpen] = useState(false);
 
   return (
     <div className="dashboard-shell">
-      <aside className="sidebar">
+      {navOpen ? <div className="nav-backdrop" onClick={() => setNavOpen(false)} /> : null}
+      <aside className={`sidebar ${navOpen ? "open" : ""}`.trim()}>
         <div className="sidebar-brand">
           <Brand subtitle={role === "admin" ? "System Administration" : "Client Portal"} />
         </div>
@@ -128,6 +114,7 @@ export function PortalShell({
                   key={item.path}
                   to={item.path}
                   className={location.pathname === item.path ? "active" : ""}
+                  onClick={() => setNavOpen(false)}
                 >
                   {item.label}
                 </Link>
@@ -144,11 +131,26 @@ export function PortalShell({
               <small>{userMeta}</small>
             </div>
           </div>
+          <button
+            className="ghost-btn dark log-out-btn"
+            type="button"
+            onClick={() => {
+              clearSession();
+              navigate(role === "admin" ? "/admin-login" : "/login");
+            }}
+          >
+            Log Out
+          </button>
         </div>
       </aside>
 
       <main className="dashboard-main">
         <header className="dashboard-topbar">
+          <button className="menu-toggle" type="button" onClick={() => setNavOpen((open) => !open)} aria-label="Toggle navigation">
+            <span />
+            <span />
+            <span />
+          </button>
           <strong>{title}</strong>
           <div className="topbar-actions">
             <button className="notif-dot" type="button">2</button>

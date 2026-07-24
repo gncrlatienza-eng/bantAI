@@ -1,0 +1,22 @@
+#!/bin/bash
+# Enforce branch naming convention before any push
+
+current_branch=$(git symbolic-ref HEAD 2>/dev/null | sed 's|refs/heads/||')
+
+allowed='^(main|develop|feature/.+|bugfix/.+|hotfix/.+)$'
+
+if ! echo "$current_branch" | grep -qE "$allowed"; then
+  echo ""
+  echo "  Push rejected — branch '$current_branch' does not follow naming convention."
+  echo ""
+  echo "  Allowed patterns:"
+  echo "    main"
+  echo "    develop"
+  echo "    feature/<name>   e.g. feature/sms-receiver"
+  echo "    bugfix/<name>    e.g. bugfix/otp-expiry"
+  echo "    hotfix/<name>    e.g. hotfix/crash-on-launch"
+  echo ""
+  echo "  Rename with: git branch -m $current_branch feature/<new-name>"
+  echo ""
+  exit 1
+fi

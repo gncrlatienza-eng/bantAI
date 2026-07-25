@@ -70,6 +70,8 @@ model Classification {
 
   label     String   // Likely Smishing | Suspicious | Unknown
   score     Float
+  scores    Json?    // full softmax distribution: { Ham, Spam, Scam }
+  bucket    String?  // AI routing decision: safe | unknown | spam | blocked
 
   createdAt DateTime @default(now())
 }

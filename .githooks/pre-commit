@@ -1,0 +1,22 @@
+#!/bin/bash
+# Auto-format staged backend TypeScript/JS/JSON files with Prettier
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^backend/.*\.(ts|js|json)$')
+
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+if ! command -v npx &>/dev/null; then
+  exit 0
+fi
+
+echo "  Running Prettier on staged backend files..."
+
+# Run prettier from repo root using backend's config
+echo "$staged" | xargs npx --prefix backend prettier --write --log-level silent 2>/dev/null
+
+# Re-stage the formatted files
+echo "$staged" | xargs git add
+
+echo "  Prettier done."

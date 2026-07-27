@@ -1,0 +1,26 @@
+#!/bin/bash
+# Enforce conventional commit format: type(scope): description
+
+commit_msg=$(cat "$1")
+
+# Skip merge commits
+if echo "$commit_msg" | grep -qE '^Merge '; then
+  exit 0
+fi
+
+pattern='^(feat|fix|docs|chore|test|refactor|style|perf|build|ci)(\([a-z][a-z0-9/-]*\))?: .{1,100}$'
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo ""
+  echo "  Commit rejected — message does not follow conventional commit format."
+  echo ""
+  echo "  Format : type(scope): short description"
+  echo "  Example: feat(mobile): add SMS broadcast receiver"
+  echo "  Example: fix(auth): handle expired OTP correctly"
+  echo "  Example: docs: update backend README"
+  echo ""
+  echo "  Allowed types: feat | fix | docs | chore | test | refactor | style | perf | build | ci"
+  echo "  Scope is optional but recommended: mobile | backend | auth | users | ai | web"
+  echo ""
+  exit 1
+fi

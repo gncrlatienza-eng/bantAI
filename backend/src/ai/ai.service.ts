@@ -1,9 +1,3 @@
-<<<<<<< Updated upstream
-import { Injectable } from '@nestjs/common';
-
-export interface ClassificationResult {
-  label: 'Likely Smishing' | 'Suspicious' | 'Unknown';
-=======
 import { Injectable, Logger } from '@nestjs/common';
 
 type AiLabel = 'Ham' | 'Spam' | 'Scam';
@@ -19,17 +13,14 @@ interface AiClassifyResponse {
 
 export interface ClassificationResult {
   label: AiLabel;
->>>>>>> Stashed changes
   score: number;
+  scores: Record<AiLabel, number>;
+  bucket: AiBucket;
+  maskedText: string;
 }
 
 @Injectable()
 export class AiService {
-<<<<<<< Updated upstream
-  // Stub — real XLM-RoBERTa call comes later, once ai-service exists.
-  async classify(messageBody: string): Promise<ClassificationResult> {
-    return { label: 'Suspicious', score: 0.75 };
-=======
   private readonly logger = new Logger(AiService.name);
   private readonly baseUrl =
     process.env.AI_SERVICE_URL ?? 'http://localhost:8001';
@@ -72,6 +63,5 @@ export class AiService {
       );
       return null;
     }
->>>>>>> Stashed changes
   }
 }

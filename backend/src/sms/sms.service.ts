@@ -1,14 +1,8 @@
-<<<<<<< Updated upstream
-import { Injectable } from '@nestjs/common';
-
-import { PrismaService } from '../../database/prisma.service';
-=======
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
->>>>>>> Stashed changes
 import { IngestSmsDto } from './dto/ingest-sms.dto';
 
 // Shortened URL services whose domains trigger caution regardless of content.
@@ -19,9 +13,6 @@ const SHORTENED_URL_HOSTS = new Set([
 
 @Injectable()
 export class SmsService {
-<<<<<<< Updated upstream
-  constructor(private prisma: PrismaService) {}
-=======
   private readonly logger = new Logger(SmsService.name);
 
   constructor(
@@ -29,7 +20,6 @@ export class SmsService {
     private aiService: AiService,
     private campaignsService: CampaignsService,
   ) {}
->>>>>>> Stashed changes
 
   async ingest(userId: string, dto: IngestSmsDto) {
     // Step 1 — check if sender is blocked; suppress before doing any work
@@ -50,12 +40,6 @@ export class SmsService {
       },
     });
 
-<<<<<<< Updated upstream
-    // Step 2 — preprocess the text (placeholder until Track B delivers the ML service)
-    const { normalizedBody, maskedBody } = this.preprocess(dto.body);
-
-    // Step 3 — store the preprocessed features
-=======
     // Step 3 — call AI service; returns null when model is not ready or service is down
     const aiResult = await this.aiService.classify(dto.body);
 
@@ -138,7 +122,6 @@ export class SmsService {
     }
 
     // Step 8 — store preprocessed features (including suppressed links)
->>>>>>> Stashed changes
     await this.prisma.messageFeature.create({
       data: {
         messageId: message.id,
@@ -148,28 +131,17 @@ export class SmsService {
       },
     });
 
-<<<<<<< Updated upstream
-    // Step 4 — classify (placeholder until ML service is ready)
-    const { label, score } = this.classify(maskedBody);
-
-    // Step 5 — store the classification result
-=======
     // Step 9 — store classification result
->>>>>>> Stashed changes
     await this.prisma.classification.create({
       data: {
         messageId: message.id,
         label,
         score,
+        scores,
+        bucket,
       },
     });
 
-<<<<<<< Updated upstream
-    // Step 6 — determine routing action based on confidence score
-    const action = this.route(score);
-
-=======
->>>>>>> Stashed changes
     return {
       messageId: message.id,
       classification: { label, score },
@@ -179,50 +151,6 @@ export class SmsService {
     };
   }
 
-<<<<<<< Updated upstream
-  // Placeholder — will be replaced when Track B delivers the FastAPI ML service
-  private preprocess(body: string) {
-    const normalizedBody = body.normalize('NFKC');
-
-    const maskedBody = normalizedBody
-      .replace(/https?:\/\/\S+/gi, '[URL]')
-      .replace(/\b\d{10,13}\b/g, '[PHONE]')
-      .replace(/\b\d{4,8}\b/g, '[OTP]')
-      .replace(/₱[\d,]+(\.\d+)?/g, '[AMOUNT]');
-
-    return { normalizedBody, maskedBody };
-  }
-
-  // Placeholder — will be replaced with HTTP call to FastAPI ML service
-  private classify(maskedBody: string): { label: string; score: number } {
-    const smishingKeywords = [
-      '[url]',
-      'verify',
-      'locked',
-      'click',
-      'prize',
-      'won',
-      'gcash',
-      'account',
-    ];
-    const hits = smishingKeywords.filter((kw) =>
-      maskedBody.toLowerCase().includes(kw),
-    ).length;
-    const score = Math.min(hits / smishingKeywords.length, 0.99);
-
-    let label: string;
-    if (score >= 0.9) label = 'Likely Smishing';
-    else if (score >= 0.5) label = 'Suspicious';
-    else label = 'Unknown';
-
-    return { label, score };
-  }
-
-  private route(score: number): 'blocked' | 'alert' | 'inbox' {
-    if (score >= 0.9) return 'blocked';
-    if (score >= 0.5) return 'alert';
-    return 'inbox';
-=======
   // Called by the AI/ML service after SHAP analysis to store explainability data.
   async storeIndicators(
     messageId: string,
@@ -294,6 +222,5 @@ export class SmsService {
     const digits = phone.replace(/\D/g, '');
     if (digits.startsWith('63') && digits.length === 12) return '0' + digits.slice(2);
     return digits;
->>>>>>> Stashed changes
   }
 }

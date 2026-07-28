@@ -1,0 +1,22 @@
+# BantAI ML pipeline — Track B (AI/ML)
+# Python 3.11 recommended.
+
+# --- Inference service ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# --- Model / training ---
+transformers>=4.42
+torch>=2.2
+sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
+datasets>=2.19
+accelerate>=0.30
+scikit-learn>=1.4           # train/val split + metrics
+pandas>=2.2
+numpy>=1.26
+
+# --- Dev / test ---
+pytest>=8.0
+httpx>=0.27                 # FastAPI TestClient

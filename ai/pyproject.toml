@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+# Treat ai/ as the import root so tests can `import preprocessing`, `service`,
+# `training` without installing the package. Run: `pytest` from the ai/ dir.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"

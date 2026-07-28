@@ -1,4 +1,6 @@
+import { useNavigate } from "react-router-dom";
 import { BarChart, CampaignTile, Field, LineVisual, Panel, PortalShell, StatCards, Table, Toggle } from "../components/ui";
+import { clearSession } from "../lib/auth";
 import {
   adminOverviewMetrics,
   adminReports,
@@ -634,6 +636,7 @@ export function AdminTipsPage() {
 }
 
 export function AdminSettingsPage({ notifications }: { notifications?: boolean }) {
+  const navigate = useNavigate();
   return (
     <AdminShell title="Account Settings" popup={notifications}>
       <div className="page-head">
@@ -641,7 +644,16 @@ export function AdminSettingsPage({ notifications }: { notifications?: boolean }
           <h1>Account Settings</h1>
           <p>Manage your Super Admin profile, security, and notification preferences</p>
         </div>
-        <button className="danger-btn" type="button">Sign Out</button>
+        <button
+          className="danger-btn"
+          type="button"
+          onClick={() => {
+            clearSession();
+            navigate("/admin-login");
+          }}
+        >
+          Sign Out
+        </button>
       </div>
       <div className="tab-pills settings-tabs">
         <span className={`tab-pill ${notifications ? "" : "active"}`}>Profile</span>

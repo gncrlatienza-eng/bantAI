@@ -1,4 +1,6 @@
+import { useNavigate } from "react-router-dom";
 import { BarChart, CampaignTile, Field, Panel, PortalShell, StatCards, Table, Toggle } from "../components/ui";
+import { clearSession } from "../lib/auth";
 import {
   analyticsBreakdown,
   analyticsVariants,
@@ -267,6 +269,7 @@ export function ClientHelpPage() {
 }
 
 export function ClientSettingsPage({ notifications }: { notifications?: boolean }) {
+  const navigate = useNavigate();
   return (
     <ClientShell title="Account Settings" popup={notifications}>
       <div className="page-head">
@@ -274,7 +277,16 @@ export function ClientSettingsPage({ notifications }: { notifications?: boolean 
           <h1>Account Settings</h1>
           <p>Manage your profile, password, and notification preferences</p>
         </div>
-        <button className="danger-btn" type="button">Sign Out</button>
+        <button
+          className="danger-btn"
+          type="button"
+          onClick={() => {
+            clearSession();
+            navigate("/login");
+          }}
+        >
+          Sign Out
+        </button>
       </div>
       <div className="tab-pills settings-tabs">
         <span className={`tab-pill ${notifications ? "" : "active"}`}>Profile</span>

@@ -29,13 +29,13 @@ import {
   ClientSettingsPage,
 } from '../pages/client';
 
-import { AboutPage } from '../pages/About';
+import { AboutPage } from '../pages/About/index';
 import { AdminLoginPage } from '../pages/AdminLogin';
-import { HowItWorksPage } from '../pages/HowItWorks';
+import { HowItWorksPage } from '../pages/HowItWorks/index';
 import { LandingPage, RequestAccessPage } from '../pages/public';
 import { LoginPage } from '../pages/Login';
 import { ProfilePage } from '../pages/Profile';
-import { ResearchPage } from '../pages/Research';
+import { ResearchPage } from '../pages/Research/index';
 import { SettingsPage } from '../pages/Settings';
 import { TwoFactorPage } from '../pages/TwoFactor';
 

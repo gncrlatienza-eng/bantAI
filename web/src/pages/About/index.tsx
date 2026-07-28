@@ -6,62 +6,69 @@ import { ROUTES } from '../../constants/routes';
 
 const TEAM_MEMBERS = [
   {
-    initials: 'GCA',
-    name: 'Gian Carlo Atienza',
-    role: 'Lead Researcher & System Architect',
-    dept: 'Computer Science, DLSL',
+    initials: 'GA',
+    name: 'Gian Atienza',
+    role: 'Machine Learning and NLP Pipeline',
+    dept: 'Group 7, DLSL CITE',
     color: '#3b82f6',
   },
   {
-    initials: 'JMP',
-    name: 'Juan Miguel Perez',
-    role: 'NLP Engineer & Model Trainer',
-    dept: 'Computer Science, DLSL',
+    initials: 'RD',
+    name: 'Reymark De Castro',
+    role: 'Mobile Application and Systems Integration',
+    dept: 'Group 7, DLSL CITE',
     color: '#8b5cf6',
   },
   {
-    initials: 'ARL',
-    name: 'Andrea Reyes-Lopez',
-    role: 'Data Scientist & Clustering Lead',
-    dept: 'Computer Science, DLSL',
+    initials: 'DD',
+    name: 'Daryl De Castro',
+    role: 'Frontend and Portal Experience',
+    dept: 'Group 7, DLSL CITE',
+    color: '#06b6d4',
+  },
+  {
+    initials: 'MS',
+    name: 'Maxene Sofia Mendoza',
+    role: 'Backend, Data, and Threat Clustering',
+    dept: 'Group 7, DLSL CITE',
     color: '#10b981',
   },
 ];
 
-const MISSION_POINTS = [
+const FOUNDATION_POINTS = [
   {
-    icon: '🎯',
-    title: 'Our Mission',
-    desc: 'To significantly reduce SMS scam losses in the Philippines by providing telecommunications providers, cybersecurity incident response teams, and law enforcement agencies with localized, automated threat intelligence and campaign clustering capabilities.',
-    color: '#a78bfa',
-  },
-  {
-    icon: '👁',
-    title: 'Our Vision',
-    desc: 'A Philippines where coordinated smishing campaigns are automatically detected, attributed, and neutralized before they can harm vulnerable mobile subscribers — powered by AI trained specifically on local language patterns.',
-    color: '#60a5fa',
-  },
-  {
-    icon: '🔬',
-    title: 'Academic Context',
-    desc: 'BantAI was developed as an undergraduate thesis at De La Salle Lipa (DLSL), under the School of Science and Engineering. The research was guided by cybersecurity faculty and reviewed against IEEE and ACM standards for academic rigor.',
+    icon: 'MS',
+    title: 'Mission',
+    desc: 'Reduce SMS scam losses in the Philippines by giving telecom, incident response, and public-sector teams localized, explainable threat intelligence.',
     color: '#34d399',
   },
   {
-    icon: '🤝',
-    title: 'Institutional Partners',
-    desc: 'The system was developed in collaboration with the Cybercrime Investigation and Coordinating Center (CICC), Globe Telecom, and Smart Communications to ensure real-world applicability and access to anonymized smishing datasets.',
+    icon: 'VS',
+    title: 'Vision',
+    desc: 'Surface coordinated smishing campaigns early enough for defenders to block, attribute, and respond before they spread across large subscriber bases.',
+    color: '#60a5fa',
+  },
+  {
+    icon: 'AC',
+    title: 'Academic Context',
+    desc: 'BantAI was developed as an undergraduate thesis at De La Salle Lipa and shaped by faculty guidance, evaluation, and applied cybersecurity research goals.',
+    color: '#a78bfa',
+  },
+  {
+    icon: 'TH',
+    title: 'Threat Focus',
+    desc: 'The system is tuned for Philippine smishing patterns, including Tagalog, English, and Taglish lure language targeting banks, e-wallets, and telecom brands.',
     color: '#f59e0b',
   },
 ];
 
 const TECH_STACK = [
-  { label: 'AI Model', value: 'XLM-RoBERTa (fine-tuned)', color: '#60a5fa' },
+  { label: 'AI Model', value: 'XLM-RoBERTa fine-tuned', color: '#60a5fa' },
   { label: 'Clustering', value: 'HDBSCAN', color: '#a78bfa' },
-  { label: 'Explainability', value: 'SHAP Values', color: '#34d399' },
+  { label: 'Explainability', value: 'SHAP', color: '#34d399' },
   { label: 'Languages', value: 'Tagalog, English, Taglish', color: '#f59e0b' },
-  { label: 'Accuracy', value: '94.2% (F1-Score)', color: '#10b981' },
-  { label: 'Dataset', value: '14,892+ labeled SMS', color: '#38bdf8' },
+  { label: 'Dataset', value: '14,892 labeled SMS', color: '#38bdf8' },
+  { label: 'Frontend', value: 'React and Vite', color: '#10b981' },
 ];
 
 export const AboutPage: React.FC = () => {
@@ -70,21 +77,15 @@ export const AboutPage: React.FC = () => {
       <div className="homepage-light-bg" />
       <PublicHeader />
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-        {/* Hero */}
+      <main style={{ flex: 1 }}>
         <section
           className="animate-fade-in"
           style={{
-            padding: '80px 24px 60px 24px',
-            maxWidth: 1200,
+            padding: '80px 24px 56px',
+            maxWidth: 1120,
             margin: '0 auto',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 20,
             width: '100%',
+            textAlign: 'center',
           }}
         >
           <div
@@ -93,102 +94,95 @@ export const AboutPage: React.FC = () => {
               alignItems: 'center',
               gap: 8,
               padding: '6px 18px',
-              borderRadius: 20,
+              borderRadius: 999,
               background: 'rgba(16, 185, 129, 0.12)',
               border: '1px solid rgba(16, 185, 129, 0.35)',
               color: '#34d399',
-              fontSize: '0.78125rem',
+              fontSize: '0.78rem',
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
             }}
           >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', animation: 'pulseDot 1.5s infinite' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
             About BantAI
           </div>
 
           <h1
             style={{
-              fontSize: 'clamp(2.4rem, 4.5vw, 3.4rem)',
+              margin: '18px 0 14px',
+              fontSize: 'clamp(2.35rem, 4.8vw, 3.4rem)',
               fontWeight: 800,
-              lineHeight: 1.15,
-              letterSpacing: '-0.03em',
+              lineHeight: 1.1,
               color: '#ffffff',
-              margin: '4px 0',
             }}
           >
-            Protecting Philippine{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg, #34d399 0%, #059669 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              Mobile Subscribers
-            </span>
+            Built for the Philippine Smishing Threat Landscape
           </h1>
 
-          <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', maxWidth: 780, lineHeight: 1.65, margin: '0 auto' }}>
-            BantAI is an advanced Philippine SMS Threat Intelligence and Smishing Campaign Clustering Platform —
-            an academic thesis project developed to combat mobile fraud through AI-powered multilingual analysis.
+          <p
+            style={{
+              maxWidth: 780,
+              margin: '0 auto',
+              color: 'var(--text-secondary)',
+              fontSize: '1.05rem',
+              lineHeight: 1.7,
+            }}
+          >
+            BantAI is a thesis-driven threat intelligence platform focused on multilingual SMS fraud
+            detection, explainable AI, and campaign clustering for Philippine defenders.
           </p>
         </section>
 
-        {/* Tech Stats Bar */}
-        <section style={{ padding: '0 24px 60px 24px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-              gap: 16,
-            }}
-          >
+        <section style={{ padding: '0 24px 56px', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
             {TECH_STACK.map((item) => (
               <div
                 key={item.label}
                 className="panel"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%)',
-                  backdropFilter: 'blur(16px)',
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
                   border: `1px solid ${item.color}30`,
                   borderRadius: 14,
                   padding: '20px 18px',
                   textAlign: 'center',
                 }}
               >
-                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
                   {item.label}
                 </div>
-                <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: item.color }}>
-                  {item.value}
-                </div>
+                <div style={{ fontSize: '0.94rem', fontWeight: 700, color: item.color }}>{item.value}</div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Mission, Vision, Context */}
-        <section style={{ padding: '0 24px 60px 24px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff' }}>Purpose & Academic Foundation</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginTop: 8 }}>
-              The principles and partnerships that guided BantAI's development
+        <section style={{ padding: '0 24px 56px', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{ fontSize: '1.9rem', color: '#ffffff', marginBottom: 8 }}>Purpose and Foundation</h2>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              The research priorities that shaped BantAI from problem framing to implementation.
             </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: 24 }}>
-            {MISSION_POINTS.map((pt) => (
-              <div
-                key={pt.title}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 20,
+            }}
+          >
+            {FOUNDATION_POINTS.map((point) => (
+              <article
+                key={point.title}
                 className="panel"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%)',
-                  backdropFilter: 'blur(16px)',
-                  border: `1px solid ${pt.color}28`,
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
+                  border: `1px solid ${point.color}28`,
                   borderRadius: 16,
-                  padding: '28px',
+                  padding: '24px',
                   display: 'flex',
-                  gap: 18,
+                  gap: 16,
                 }}
               >
                 <div
@@ -196,48 +190,53 @@ export const AboutPage: React.FC = () => {
                     width: 48,
                     height: 48,
                     borderRadius: 12,
-                    background: `${pt.color}18`,
-                    border: `1px solid ${pt.color}35`,
+                    background: `${point.color}18`,
+                    border: `1px solid ${point.color}35`,
+                    color: point.color,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.4rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
                     flexShrink: 0,
                   }}
                 >
-                  {pt.icon}
+                  {point.icon}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', marginBottom: 8 }}>{pt.title}</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.65 }}>{pt.desc}</p>
+                  <h3 style={{ fontSize: '1.08rem', color: '#ffffff', marginBottom: 8 }}>{point.title}</h3>
+                  <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, fontSize: '0.92rem' }}>{point.desc}</p>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </section>
 
-        {/* Research Team */}
-        <section style={{ padding: '0 24px 80px 24px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff' }}>Research Team</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginTop: 8 }}>
-              The DLSL Computer Science researchers behind BantAI
-            </p>
+        <section style={{ padding: '0 24px 80px', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{ fontSize: '1.9rem', color: '#ffffff', marginBottom: 8 }}>Research Team</h2>
+            <p style={{ color: 'var(--text-secondary)' }}>Group 7, DLSL CITE</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
-            {TEAM_MEMBERS.map((m) => (
-              <div
-                key={m.name}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 20,
+            }}
+          >
+            {TEAM_MEMBERS.map((member) => (
+              <article
+                key={member.name}
                 className="panel"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%)',
-                  backdropFilter: 'blur(16px)',
-                  border: `1px solid ${m.color}28`,
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
+                  border: `1px solid ${member.color}28`,
                   borderRadius: 16,
-                  padding: '28px',
+                  padding: '24px',
                   display: 'flex',
+                  gap: 16,
                   alignItems: 'center',
-                  gap: 18,
                 }}
               >
                 <div
@@ -245,46 +244,45 @@ export const AboutPage: React.FC = () => {
                     width: 56,
                     height: 56,
                     borderRadius: '50%',
-                    background: `linear-gradient(135deg, ${m.color}40, ${m.color}20)`,
-                    border: `2px solid ${m.color}60`,
+                    background: `linear-gradient(135deg, ${member.color}38, ${member.color}16)`,
+                    border: `2px solid ${member.color}55`,
+                    color: member.color,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.8125rem',
+                    fontSize: '0.82rem',
                     fontWeight: 800,
-                    color: m.color,
                     flexShrink: 0,
                   }}
                 >
-                  {m.initials}
+                  {member.initials}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '1rem' }}>{m.name}</div>
-                  <div style={{ color: m.color, fontSize: '0.8125rem', fontWeight: 600, marginTop: 2 }}>{m.role}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 4 }}>{m.dept}</div>
+                  <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '1rem' }}>{member.name}</div>
+                  <div style={{ color: member.color, fontWeight: 700, fontSize: '0.82rem', marginTop: 2 }}>{member.role}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', marginTop: 4 }}>{member.dept}</div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
 
-          {/* CTA */}
           <div
             style={{
-              marginTop: 60,
-              padding: '48px 40px',
+              marginTop: 56,
+              padding: '40px 32px',
+              borderRadius: 18,
               background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 15, 24, 0.9) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: 20,
+              border: '1px solid rgba(16, 185, 129, 0.28)',
               textAlign: 'center',
             }}
           >
-            <h2 style={{ fontSize: '2rem', marginBottom: 12 }}>Learn More About Our System</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: 560, margin: '0 auto 28px auto' }}>
-              Explore the full technical pipeline, AI methodology, and academic research behind BantAI.
+            <h2 style={{ fontSize: '1.9rem', marginBottom: 10 }}>Explore the Full System</h2>
+            <p style={{ color: 'var(--text-secondary)', maxWidth: 620, margin: '0 auto 24px', lineHeight: 1.7 }}>
+              Review the detection pipeline and the supporting research that grounds the platform.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button to={ROUTES.HOW_IT_WORKS} variant="primary" size="lg">
-                See How It Works →
+                See How It Works
               </Button>
               <Button to={ROUTES.RESEARCH} variant="ghost" size="lg">
                 Read the Research

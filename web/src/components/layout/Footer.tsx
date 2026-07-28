@@ -16,7 +16,8 @@ export const Footer: React.FC = () => {
             </div>
           </div>
           <p style={{ maxWidth: 400, color: 'var(--text-muted)' }}>
-            Empowering Philippine telecommunications providers, cybersecurity agencies, and law enforcement with real-time smishing campaign intelligence.
+            Empowering Philippine telecommunications providers, cybersecurity agencies, and law
+            enforcement with real-time smishing campaign intelligence.
           </p>
         </div>
 
@@ -24,7 +25,7 @@ export const Footer: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <strong style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>Platform</strong>
             <Link to={ROUTES.HOW_IT_WORKS}>How It Works</Link>
-            <Link to={ROUTES.RESEARCH}>Research & Methodology</Link>
+            <Link to={ROUTES.RESEARCH}>Research and Methodology</Link>
             <Link to={ROUTES.LOGIN}>Client Intelligence Portal</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -35,8 +36,21 @@ export const Footer: React.FC = () => {
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 1200, margin: '24px auto 0 auto', paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', color: 'var(--text-dim)', fontSize: '0.75rem' }}>
-        <span>© {new Date().getFullYear()} BantAI Research Group. All rights reserved.</span>
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: '24px auto 0',
+          paddingTop: 20,
+          borderTop: '1px solid var(--border-subtle)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+          color: 'var(--text-dim)',
+          fontSize: '0.75rem',
+        }}
+      >
+        <span>&copy; {new Date().getFullYear()} BantAI Research Group. All rights reserved.</span>
         <span>Philippine Smishing Threat Intelligence Thesis Project</span>
       </div>
     </footer>

@@ -17,7 +17,20 @@ export function RequestAccessPage() {
   const setStage = (next: Stage) => navigate("/request-access", { state: { stage: next } });
 
   return (
-    <div className="public-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a0f', overflow: 'hidden' }}>
+    <div
+      className="public-shell"
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#080a11',
+        backgroundImage:
+          'radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.22) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.20) 0%, transparent 50%), radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.12) 0%, transparent 40%), linear-gradient(to right, rgba(96, 165, 250, 0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(96, 165, 250, 0.045) 1px, transparent 1px)',
+        backgroundSize: '100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px',
+        backgroundAttachment: 'fixed',
+        overflow: 'hidden',
+      }}
+    >
       <PublicHeader />
       <main className="flow-page" style={{ flex: 1, padding: '16px 20px', maxWidth: 900, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxSizing: 'border-box' }}>
         {stage === "licensing" ? <LicensingStage onNext={() => setStage("submission")} /> : null}

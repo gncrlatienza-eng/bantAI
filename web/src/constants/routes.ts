@@ -1,0 +1,43 @@
+export const ROUTES = {
+  HOME: '/',
+  HOW_IT_WORKS: '/how-it-works',
+  ABOUT: '/about',
+  RESEARCH: '/research',
+  LICENSING: '/request-access',
+  LOGIN: '/login',
+  ADMIN_LOGIN: '/admin-login',
+  TWO_FACTOR: '/2fa',
+  PROFILE: '/profile',
+  SETTINGS: '/settings',
+  
+  CLIENT: {
+    OVERVIEW: '/client/overview',
+    MESSAGES: '/client/messages',
+    CAMPAIGNS: '/client/campaigns',
+    ANALYTICS: '/client/analytics',
+    EXPORT: '/client/export',
+    HELP: '/client/help',
+    SETTINGS: '/client/settings',
+    NOTIFICATIONS: '/client/notifications',
+  },
+  
+  ADMIN: {
+    OVERVIEW: '/admin/overview',
+    REPORTS: '/admin/reports',
+    MODEL: '/admin/model',
+    CONCEPT_DRIFT: '/admin/concept-drift',
+    DATASET: '/admin/dataset',
+    CLASSIFICATION: '/admin/classification',
+    FPFN: '/admin/fpfn',
+    CAMPAIGNS: '/admin/campaigns',
+    TIMELINE: '/admin/timeline',
+    USERS: '/admin/users',
+    EXPORT: '/admin/export',
+    SERVER: '/admin/server',
+    API_LOGS: '/admin/api-logs',
+    DB_STORAGE: '/admin/db-storage',
+    TIPS: '/admin/tips',
+    SETTINGS: '/admin/settings',
+    NOTIFICATIONS: '/admin/notifications',
+  }
+} as const;

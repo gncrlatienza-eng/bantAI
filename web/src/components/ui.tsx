@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
+import React, { type ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { CampaignCard, Metric, NavSection, TableData } from "../mocks/referenceData";
 import { clearSession } from "../lib/auth";
@@ -16,14 +15,46 @@ export function Brand({ subtitle }: { subtitle?: string }) {
   );
 }
 
+export function PublicLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="public-shell">
+      <PublicHeader />
+      <main className="flow-page">{children}</main>
+    </div>
+  );
+}
+
+import { PublicHeader } from "./layout/PublicHeader";
+export { PublicHeader };
 export function Eyebrow({ children, tone }: { children: ReactNode; tone?: "green" | "amber" }) {
   return <span className={`eyebrow ${tone ?? ""}`.trim()}>{children}</span>;
 }
 
-export function Button({ children, to, className = "", ghost }: { children: ReactNode; to?: string; className?: string; ghost?: boolean }) {
-  const classes = `${ghost ? "ghost-btn" : "primary-btn"} ${className}`.trim();
-  if (to) return <Link to={to} className={classes}>{children}</Link>;
-  return <button className={classes} type="button">{children}</button>;
+export function Button({
+  children,
+  to,
+  className = "",
+  ghost,
+  onClick,
+  disabled,
+  type = "button",
+  style,
+}: {
+  children: ReactNode;
+  to?: string;
+  className?: string;
+  ghost?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void;
+  disabled?: boolean;
+  type?: "button" | "submit" | "reset";
+  style?: React.CSSProperties;
+  variant?: string;
+  size?: string;
+}) {
+  const isGhost = ghost || className.includes("ghost");
+  const classes = `${isGhost ? "ghost-btn" : "primary-btn"} ${className}`.trim();
+  if (to) return <Link to={to} className={classes} style={style} onClick={onClick}>{children}</Link>;
+  return <button className={classes} type={type} onClick={onClick} disabled={disabled} style={style}>{children}</button>;
 }
 
 export function StatCards({ items }: { items: Metric[] }) {
@@ -146,7 +177,7 @@ export function PortalShell({
 
       <main className="dashboard-main">
         <header className="dashboard-topbar">
-          <button className="menu-toggle" type="button" onClick={() => setNavOpen((open) => !open)} aria-label="Toggle navigation">
+          <button className="menu-toggle" type="button" onClick={() => setNavOpen((open: boolean) => !open)} aria-label="Toggle navigation">
             <span />
             <span />
             <span />
@@ -334,19 +365,58 @@ export function CampaignTile({ item }: { item: CampaignCard }) {
 export function Stepper({ active, completed = 0 }: { active: number; completed?: number }) {
   const steps = ["Submission", "Verification", "Proposal", "Payment", "Activation"];
   return (
-    <div className="stepper">
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 680, margin: '0 auto 36px auto' }}>
       {steps.map((step, index) => {
         const current = index + 1;
-        const state =
-          current <= completed ? "done" : current === active ? "active" : "idle";
+        const isDone = current <= completed;
+        const isActive = current === active;
         return (
-          <div key={step} className="step-wrap">
-            <div className={`step ${state}`}>
-              <span>{current <= completed ? "o" : current}</span>
-              <small>{step}</small>
+          <React.Fragment key={step}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '0.875rem',
+                  background: isDone ? '#10b981' : isActive ? '#2563eb' : 'var(--bg-surface-elevated)',
+                  color: isDone || isActive ? '#ffffff' : 'var(--text-muted)',
+                  border: isDone ? '1px solid #10b981' : isActive ? '2px solid #60a5fa' : '1px solid var(--border-default)',
+                  boxShadow: isActive ? '0 0 16px rgba(59, 130, 246, 0.45)' : isDone ? '0 0 12px rgba(16, 185, 129, 0.3)' : 'none',
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                {isDone ? '✓' : current}
+              </div>
+              <small
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: isActive || isDone ? 700 : 500,
+                  color: isDone ? '#10b981' : isActive ? '#60a5fa' : 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {step}
+              </small>
             </div>
-            {index < steps.length - 1 ? <div className={`step-line ${current < active ? "done" : ""}`} /> : null}
-          </div>
+            {index < steps.length - 1 && (
+              <div
+                style={{
+                  height: 2,
+                  flex: 1,
+                  minWidth: 24,
+                  maxWidth: 50,
+                  background: current <= completed ? '#10b981' : current < active ? '#2563eb' : 'var(--border-default)',
+                  marginBottom: 20,
+                  transition: 'all 0.3s ease',
+                }}
+              />
+            )}
+          </React.Fragment>
         );
       })}
     </div>

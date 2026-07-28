@@ -1,239 +1,14 @@
+﻿import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquareWarning, KeyRound, Network } from "lucide-react";
-import { Eyebrow, Field, Stepper } from "../components/ui";
-import { Navbar } from "../components/Navbar";
-import { Footer } from "../components/Footer";
-import { Button } from "../components/Button";
-import { SectionHeader } from "../components/SectionHeader";
-import { StatCounter } from "../components/StatCounter";
-import { ThreatCard } from "../components/ThreatCard";
-import { StepCard } from "../components/StepCard";
-import { PhoneMockup } from "../components/PhoneMockup";
-import { useScrollReveal } from "../lib/useScrollReveal";
-import { setSession } from "../lib/auth";
+import { Button } from '../components/common/Button';
+import { Stepper } from '../components/common/Stepper';
+import { PublicHeader } from '../components/layout/PublicHeader';
+import { Eyebrow, Field } from '../components/ui';
+import { setSession } from '../lib/auth';
+
+export { LandingPage } from './Landing';
 
 type Stage = "licensing" | "submission" | "pending" | "proposal" | "payment" | "granted";
-
-const LANDING_STATS = [
-  { value: "10,000+", label: "SMS Analyzed" },
-  { value: "94%", label: "Classification Accuracy" },
-  { value: "Filipino-trained", label: "Language Model" },
-  { value: "3", label: "Languages Supported" },
-];
-
-export function LandingPage() {
-  useScrollReveal();
-
-  return (
-    <div className="site-shell">
-      <Navbar />
-
-      <main className="hero-section">
-        <div className="hero-radial" />
-        <div className="hero-content">
-          <span className="section-eyebrow reveal reveal-fade reveal-visible" style={{ marginBottom: 8 }}>
-            Philippine SMS Threat Intelligence Platform
-          </span>
-          <h1 className="hero-heading reveal reveal-up reveal-visible">
-            Campaign Intelligence for Philippine Smishing
-          </h1>
-          <p className="hero-subheading reveal reveal-up reveal-visible" style={{ transitionDelay: "80ms" }}>
-            BantAI clusters coordinated smishing campaigns and tracks how scam tactics evolve across
-            Tagalog, English, and Taglish messages. It delivers labeled, explainable threat intelligence
-            to telecommunications and cybersecurity organizations nationwide.
-          </p>
-          <div className="hero-cta-row reveal reveal-up reveal-visible" style={{ transitionDelay: "150ms" }}>
-            <Button to="/request-access" variant="primary">Get Started &rarr;</Button>
-            <Button href="#how-it-works" variant="outline">Learn How It Works</Button>
-          </div>
-          <small className="hero-disclaimer reveal reveal-fade reveal-visible" style={{ transitionDelay: "220ms" }}>
-            Restricted to authorized telecommunications and cybersecurity organizations. Access is by invitation only.
-          </small>
-        </div>
-      </main>
-
-      <section id="hero-visual" className="hero-visual-section">
-        <div className="hero-phone-slot reveal reveal-scale" data-reveal>
-          <PhoneMockup />
-        </div>
-      </section>
-
-      <section id="stats" className="stats-bar">
-        <div className="stats-bar-grid reveal-stagger" data-reveal>
-          {LANDING_STATS.map((stat) => (
-            <article key={stat.label}>
-              <strong>
-                <StatCounter value={stat.value} />
-              </strong>
-              <span>{stat.label}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="how-it-works" className="section how-it-works-preview">
-        <SectionHeader
-          eyebrow="Detection Pipeline"
-          title="How BantAI Detects Threats"
-          subtitle="A three-stage pipeline turns a raw SMS into labeled, campaign-level threat intelligence in real time."
-        />
-        <div className="hiw-row reveal-stagger" data-reveal>
-          <StepCard
-            number="01"
-            title="Intercept"
-            description="BantAI runs as the default SMS app on-device, receiving every incoming message the moment it arrives."
-            icon={<InterceptIcon />}
-          />
-          <div className="hiw-connector" aria-hidden="true" />
-          <StepCard
-            number="02"
-            title="Classify"
-            description="A fine-tuned XLM-RoBERTa model analyzes the message in Tagalog, English, or Taglish and scores the threat."
-            icon={<ClassifyIcon />}
-          />
-          <div className="hiw-connector" aria-hidden="true" />
-          <StepCard
-            number="03"
-            title="Cluster"
-            description="HDBSCAN groups related threats into coordinated campaigns, tracking senders, domains, and tactics over time."
-            icon={<ClusterIcon />}
-          />
-        </div>
-        <div className="hiw-more reveal reveal-fade" data-reveal>
-          <Link to="/how-it-works">See the full technical pipeline &rarr;</Link>
-        </div>
-      </section>
-
-      <section className="section threat-section">
-        <SectionHeader
-          eyebrow="Threat Coverage"
-          title="What BantAI Detects"
-          subtitle="Three categories of SMS-based threats, continuously tracked across the Philippine mobile network."
-        />
-        <div className="threat-grid">
-          <ThreatCard
-            tone="red"
-            icon={MessageSquareWarning}
-            title="Smishing"
-            description="Financial fraud impersonating GCash, BDO, Maya, and other Philippine banks and e-wallets to harvest credentials or trigger payments."
-            badge="High Severity"
-            reveal="reveal-left"
-          />
-          <ThreatCard
-            tone="amber"
-            icon={KeyRound}
-            title="Credential Phishing"
-            description="Fake login pages disguised as bank, telco, or government portals designed to capture usernames, passwords, and one-time codes."
-            badge="Medium Severity"
-            reveal="reveal-up"
-          />
-          <ThreatCard
-            tone="blue"
-            icon={Network}
-            title="Campaign Attacks"
-            description="Coordinated, multi-sender smishing operations that rotate numbers and domains to evade detection at scale."
-            badge="Tracked"
-            reveal="reveal-right"
-          />
-        </div>
-      </section>
-
-      <section className="section why-section">
-        <div className="why-grid">
-          <div className="why-copy reveal reveal-left" data-reveal>
-            <span className="section-eyebrow">Why BantAI</span>
-            <h2>Built for the Philippine threat landscape</h2>
-            <ul className="why-list">
-              <li>
-                <strong>Multilingual by design</strong>
-                <p>Trained on Tagalog, English, and Taglish smishing samples — not translated afterthoughts.</p>
-              </li>
-              <li>
-                <strong>On-device classification</strong>
-                <p>Messages are scored locally before anything is transmitted, minimizing exposure of message content.</p>
-              </li>
-              <li>
-                <strong>SHAP explainability</strong>
-                <p>Every alert shows exactly which words and phrases triggered the classification — no black box.</p>
-              </li>
-              <li>
-                <strong>Campaign clustering</strong>
-                <p>Individual reports are grouped into campaigns automatically, revealing coordinated attacks as they spread.</p>
-              </li>
-            </ul>
-          </div>
-          <div className="why-visual reveal reveal-right" data-reveal>
-            <div className="analysis-card">
-              <div className="analysis-card-head">
-                <span>Sender</span>
-                <strong>GCASH-OTP</strong>
-              </div>
-              <div className="analysis-confidence">
-                <div className="analysis-confidence-top">
-                  <span>Threat Confidence</span>
-                  <strong className="tone-red">97%</strong>
-                </div>
-                <div className="rail"><span className="red" style={{ width: "97%" }} /></div>
-              </div>
-              <div className="analysis-indicators">
-                <span className="section-label">Triggered Indicators</span>
-                <div className="analysis-indicator-list">
-                  <span className="badge red">"account suspended"</span>
-                  <span className="badge red">"verify now"</span>
-                  <span className="badge amber">shortened URL</span>
-                  <span className="badge amber">urgency language</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section cta-section">
-        <div className="cta-radial" />
-        <div className="cta-content reveal reveal-up" data-reveal>
-          <h2>Protect Philippine Mobile Users</h2>
-          <p>
-            BantAI is licensed to verified telecommunications and cybersecurity organizations
-            for real-time smishing campaign intelligence.
-          </p>
-          <Button to="/request-access" variant="primary" className="wide">Request Access</Button>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
-  );
-}
-
-function InterceptIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 6l8 7 8-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ClassifyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ClusterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="6" cy="7" r="2.4" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="18" cy="7" r="2.4" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="12" cy="18" r="2.4" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M8 8.5L11 16M16 8.5L13 16M8.5 7H15.5" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  );
-}
 
 export function RequestAccessPage() {
   const location = useLocation();
@@ -242,9 +17,9 @@ export function RequestAccessPage() {
   const setStage = (next: Stage) => navigate("/request-access", { state: { stage: next } });
 
   return (
-    <div className="site-shell">
-      <Navbar />
-      <main className="flow-page">
+    <div className="public-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a0f', overflow: 'hidden' }}>
+      <PublicHeader />
+      <main className="flow-page" style={{ flex: 1, padding: '16px 20px', maxWidth: 900, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxSizing: 'border-box' }}>
         {stage === "licensing" ? <LicensingStage onNext={() => setStage("submission")} /> : null}
         {stage === "submission" ? <SubmissionStage onNext={() => setStage("pending")} /> : null}
         {stage === "pending" ? <PendingStage onNext={() => setStage("proposal")} /> : null}
@@ -256,203 +31,983 @@ export function RequestAccessPage() {
   );
 }
 
+// Stage 0: Intelligence Licensing Landing Stage
 function LicensingStage({ onNext }: { onNext: () => void }) {
+  const [selectedOrg, setSelectedOrg] = React.useState<'telecom' | 'cyber'>('telecom');
+
   return (
-    <section className="license-stage intro">
-      <Eyebrow>Verified Organization Access Only</Eyebrow>
-      <h2>Intelligence Licensing</h2>
-      <p>
-        Premium data licensing for verified telecommunications and
-        cybersecurity organizations.
+    <section className="animate-fade-in" style={{ textAlign: 'center', maxWidth: 860, margin: '0 auto' }}>
+      {/* Top Pill Badge */}
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '4px 14px',
+          borderRadius: 20,
+          background: 'rgba(37, 99, 235, 0.12)',
+          border: '1px solid rgba(59, 130, 246, 0.35)',
+          color: '#60a5fa',
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          marginBottom: 10,
+        }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6' }} />
+        Verified Organization Access Only
+      </div>
+
+      <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#ffffff', marginBottom: 6, letterSpacing: '-0.02em' }}>
+        Intelligence Licensing
+      </h1>
+      <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', maxWidth: 600, margin: '0 auto 24px auto' }}>
+        Premium data licensing for verified telecommunications and cybersecurity organizations.
       </p>
-      <div className="license-grid">
-        <article className="panel">
-          <small className="section-label">WHO THIS IS FOR</small>
-          <div className="license-cards">
-            <div className="mini-panel">
-              <span className="mini-icon" />
-              <div>
-                <strong>Telecommunications</strong>
-                <small>e.g. Globe, Smart, DITO...</small>
+
+      {/* Grid: Who this is for & What's included */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, textAlign: 'left', marginBottom: 24 }}>
+        {/* Card 1: Who this is for */}
+        <div
+          className="panel campaign-card-interactive"
+          style={{
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 14,
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <small style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 14 }}>
+              WHO THIS IS FOR
+            </small>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div
+                onClick={() => setSelectedOrg('telecom')}
+                className="campaign-card-interactive"
+                style={{
+                  background: selectedOrg === 'telecom' ? 'rgba(37, 99, 235, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${selectedOrg === 'telecom' ? '#3b82f6' : 'var(--border-default)'}`,
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                }}
+              >
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(37, 99, 235, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem' }}>
+                  📡
+                </div>
+                <div>
+                  <strong style={{ fontSize: '0.9375rem', color: '#ffffff', display: 'block' }}>Telecommunications</strong>
+                  <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>e.g. Globe, Smart, DITO...</small>
+                </div>
               </div>
-            </div>
-            <div className="mini-panel">
-              <span className="mini-icon" />
-              <div>
-                <strong>Cybersecurity</strong>
-                <small>e.g. GIOC, NBI, IR teams...</small>
+
+              <div
+                onClick={() => setSelectedOrg('cyber')}
+                className="campaign-card-interactive"
+                style={{
+                  background: selectedOrg === 'cyber' ? 'rgba(37, 99, 235, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${selectedOrg === 'cyber' ? '#3b82f6' : 'var(--border-default)'}`,
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                }}
+              >
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(59, 130, 246, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem' }}>
+                  🛡️
+                </div>
+                <div>
+                  <strong style={{ fontSize: '0.9375rem', color: '#ffffff', display: 'block' }}>Cybersecurity</strong>
+                  <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>e.g. CICC, NBI, IR firms...</small>
+                </div>
               </div>
             </div>
           </div>
-        </article>
-        <article className="panel">
-          <small className="section-label">WHAT'S INCLUDED</small>
-          <ul className="feature-list">
-            <li>Campaign intelligence dashboard with live threat feed</li>
-            <li>Classification log with confidence scores</li>
-            <li>Campaign pattern &amp; evasion tactic breakdown</li>
-            <li>Campaign timeline and cluster tracking</li>
-            <li>Threat intelligence export (CSV)</li>
-            <li>Daily &amp; weekly automated report notifications</li>
-            <li>Analytics by campaign, tactic, and language</li>
-            <li>Smishing variant tracking per campaign cluster</li>
-          </ul>
-          <div className="license-meta">
-            <span>License Tiers</span>
-            <strong>Contact Sales for Custom Quotes</strong>
+        </div>
+
+        {/* Card 2: What's Included */}
+        <div
+          className="panel campaign-card-interactive"
+          style={{
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 14,
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <small style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+              WHAT'S INCLUDED
+            </small>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                'Campaign Intelligence dashboard with live threat feed',
+                'Classification log with confidence scores',
+                'Campaign pattern & evasion tactic breakdown',
+                'Campaign timeline and cluster tracking',
+                'Threat intelligence export (CSV)',
+                'Daily & weekly automated report notifications',
+                'Analytics by campaign, tactic, and language',
+                'Smishing variant tracking per campaign cluster',
+              ].map((item) => (
+                <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                  <span style={{ color: '#3b82f6', fontWeight: 800 }}>✓</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </article>
+
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>License Tiers</span>
+            <strong style={{ fontSize: '0.8125rem', color: '#60a5fa', cursor: 'pointer' }}>Contact Sales for Custom Quotes</strong>
+          </div>
+        </div>
       </div>
-      <button className="primary-btn wide" type="button" onClick={onNext}>Request License -&gt;</button>
-      <small>Access is not instant --- only verified organizations are approved.</small>
+
+      <Button
+        onClick={onNext}
+        variant="primary"
+        size="lg"
+        style={{
+          width: '100%',
+          maxWidth: 380,
+          padding: '12px 28px',
+          fontSize: '1rem',
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+          boxShadow: '0 8px 24px rgba(37, 99, 235, 0.4)',
+        }}
+      >
+        Request License →
+      </Button>
+      <small style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 8 }}>
+        Access is not instant — only verified organizations are approved.
+      </small>
     </section>
   );
 }
 
+// Stage 1: Submit for Review (Removed step text, Improved Input Box UI, Blue Theme)
 function SubmissionStage({ onNext }: { onNext: () => void }) {
+  const [orgName, setOrgName] = React.useState('Globe Telecom');
+  const [fullName, setFullName] = React.useState('Maria Santos');
+  const [email, setEmail] = React.useState('analyst@globe.com.ph');
+  const [orgType, setOrgType] = React.useState<'Telecommunications' | 'Cybersecurity'>('Telecommunications');
+  const [description, setDescription] = React.useState('Monitor smishing campaigns targeting Globe subscribers for fraud prevention operations.');
+  
+  const [focusedField, setFocusedField] = React.useState<string | null>(null);
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({});
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isOrgNameValid = orgName.trim().length >= 2;
+  const isFullNameValid = fullName.trim().length >= 2;
+  const isDescValid = description.trim().length >= 10;
+
+  const isValid = isOrgNameValid && isFullNameValid && isEmailValid && isDescValid;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isValid) {
+      onNext();
+    }
+  };
+
+  const getInputStyle = (fieldName: string, hasError: boolean) => ({
+    width: '100%',
+    padding: '10px 14px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: `1px solid ${hasError ? '#ef4444' : focusedField === fieldName ? '#3b82f6' : 'rgba(255, 255, 255, 0.15)'}`,
+    borderRadius: 10,
+    color: '#ffffff',
+    fontSize: '0.875rem',
+    outline: 'none',
+    boxShadow: focusedField === fieldName ? '0 0 14px rgba(59, 130, 246, 0.35)' : 'none',
+    transition: 'all 0.2s ease',
+  });
+
   return (
-    <section className="flow-stage">
-      <Stepper active={1} />
-      <div className="form-panel">
-        <h2>Submit for Review</h2>
-        <p>Fill out your organization details to begin the licensing process.</p>
-        <div className="two-col">
-          <Field label="Organization Name" value="Globe Telecom" />
-          <Field label="Full Name" value="Maria Santos" />
-        </div>
-        <Field label="Work Email Address" value="analyst@globe.com.ph" />
-        <div className="field">
-          <span>Organization Type</span>
-          <div className="choice-row">
-            <button className="choice active" type="button">Telecommunications</button>
-            <button className="choice" type="button">Cybersecurity</button>
+    <section className="animate-fade-in" style={{ maxWidth: 640, margin: '0 auto' }}>
+      <Stepper activeStep={1} />
+
+      <div
+        className="panel"
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 20, 32, 0.95) 0%, rgba(12, 12, 18, 0.98) 100%)',
+          border: '1px solid var(--border-default)',
+          borderTop: '3px solid #2563eb',
+          borderRadius: 16,
+          padding: '24px 32px',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 99, 235, 0.15)',
+        }}
+      >
+        {/* Title without Step 1 text */}
+        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', marginBottom: 4, letterSpacing: '-0.02em' }}>
+          Submit for Review
+        </h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
+          Fill out your organization details to begin the licensing process.
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Row 1: Org Name & Full Name */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4 }}>
+                Organization Name *
+              </label>
+              <input
+                type="text"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                onFocus={() => setFocusedField('orgName')}
+                onBlur={() => {
+                  setFocusedField(null);
+                  setTouched({ ...touched, orgName: true });
+                }}
+                style={getInputStyle('orgName', Boolean(touched.orgName && !isOrgNameValid))}
+                placeholder="e.g. Globe Telecom"
+              />
+              {touched.orgName && !isOrgNameValid && (
+                <small style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: 2, display: 'block' }}>Required</small>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4 }}>
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                onFocus={() => setFocusedField('fullName')}
+                onBlur={() => {
+                  setFocusedField(null);
+                  setTouched({ ...touched, fullName: true });
+                }}
+                style={getInputStyle('fullName', Boolean(touched.fullName && !isFullNameValid))}
+                placeholder="e.g. Maria Santos"
+              />
+              {touched.fullName && !isFullNameValid && (
+                <small style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: 2, display: 'block' }}>Required (min 2 chars)</small>
+              )}
+            </div>
           </div>
-        </div>
-        <Field
-          label="Brief description of intended use"
-          value="Monitor smishing campaigns targeting Globe subscribers for fraud prevention operations."
-          area
-        />
-        <button className="primary-btn wide" type="button" onClick={onNext}>Submit for Review -&gt;</button>
+
+          {/* Work Email Address */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4 }}>
+              Work Email Address *
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => {
+                setFocusedField(null);
+                setTouched({ ...touched, email: true });
+              }}
+              style={getInputStyle('email', Boolean(touched.email && !isEmailValid))}
+              placeholder="analyst@organization.com"
+            />
+            {touched.email && !isEmailValid && (
+              <small style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: 2, display: 'block' }}>Please enter a valid work email address</small>
+            )}
+          </div>
+
+          {/* Organization Type Choice Cards */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>
+              Organization Type *
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div
+                onClick={() => setOrgType('Telecommunications')}
+                className="campaign-card-interactive"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  background: orgType === 'Telecommunications' ? 'rgba(37, 99, 235, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${orgType === 'Telecommunications' ? '#3b82f6' : 'rgba(255, 255, 255, 0.12)'}`,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(37, 99, 235, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                  📡
+                </div>
+                <div>
+                  <strong style={{ fontSize: '0.8125rem', color: '#ffffff', display: 'block' }}>Telecommunications</strong>
+                  <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Globe, Smart, DITO...</small>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setOrgType('Cybersecurity')}
+                className="campaign-card-interactive"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  background: orgType === 'Cybersecurity' ? 'rgba(37, 99, 235, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${orgType === 'Cybersecurity' ? '#3b82f6' : 'rgba(255, 255, 255, 0.12)'}`,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(59, 130, 246, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                  🛡️
+                </div>
+                <div>
+                  <strong style={{ fontSize: '0.8125rem', color: '#ffffff', display: 'block' }}>Cybersecurity</strong>
+                  <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>CICC, NBI, IR teams...</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Intended Use Description */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4 }}>
+              Brief description of intended use *
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onFocus={() => setFocusedField('description')}
+              onBlur={() => {
+                setFocusedField(null);
+                setTouched({ ...touched, description: true });
+              }}
+              style={{
+                ...getInputStyle('description', Boolean(touched.description && !isDescValid)),
+                resize: 'none',
+              }}
+              placeholder="Explain how your team plans to use BantAI smishing intelligence feeds..."
+            />
+            {touched.description && !isDescValid && (
+              <small style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: 2, display: 'block' }}>Description must be at least 10 characters long</small>
+            )}
+          </div>
+
+          {/* Live Validation Status Pill */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: isValid ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+              {isValid ? '🟢 Form status: Ready for review' : '⚠️ Please complete all required fields'}
+            </span>
+          </div>
+
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            disabled={!isValid}
+            variant="primary"
+            size="lg"
+            style={{
+              width: '100%',
+              padding: '12px 24px',
+              fontSize: '1rem',
+              borderRadius: 10,
+              background: isValid ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : undefined,
+              boxShadow: isValid ? '0 8px 20px rgba(37, 99, 235, 0.4)' : undefined,
+              opacity: isValid ? 1 : 0.45,
+              cursor: isValid ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Submit for Review →
+          </Button>
+        </form>
       </div>
     </section>
   );
 }
 
+// Stage 2: Submission Received (Pending Verification - Compact No Scroll)
 function PendingStage({ onNext }: { onNext: () => void }) {
   return (
-    <section className="flow-stage">
-      <Stepper active={2} completed={1} />
-      <div className="status-panel">
-        <div className="status-ring amber" />
-        <small className="tone-amber status-overline">PENDING VERIFICATION</small>
-        <h2>Submission Received</h2>
-        <p>The BantAI team will verify your organization and respond within 3-5 business days.</p>
-        <article className="panel narrow-card">
-          <small className="section-label">AUTOMATED NOTIFICATIONS SENT</small>
-          <div className="bullet-line">
-            <span className="dot violet" />
-            <div>
-              <strong>Pending Verification email sent to you</strong>
-              <small>analyst@globe.com.ph</small>
-            </div>
-          </div>
-          <div className="bullet-line">
-            <span className="dot amber" />
-            <div>
-              <strong>New license request alert sent to BantAI admin</strong>
-              <small>Review queued in admin dashboard</small>
-            </div>
-          </div>
-        </article>
-        <div className="info-grid">
-          <div><span>Organization</span><strong>Globe Telecom --- Telecommunications</strong></div>
-          <div><span>Expected Response</span><strong>3-5 business days</strong></div>
+    <section className="animate-fade-in" style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+      <Stepper activeStep={2} completedSteps={1} />
+
+      <div
+        className="panel"
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 20, 32, 0.95) 0%, rgba(12, 12, 18, 0.98) 100%)',
+          border: '1px solid var(--border-default)',
+          borderTop: '3px solid #f59e0b',
+          borderRadius: 16,
+          padding: '28px 32px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(245, 158, 11, 0.15)',
+        }}
+      >
+        {/* Pulsing Status Circle Icon */}
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: 'rgba(245, 158, 11, 0.15)',
+            border: '2px solid rgba(245, 158, 11, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.5rem',
+            marginBottom: 12,
+            boxShadow: '0 0 25px rgba(245, 158, 11, 0.35)',
+          }}
+        >
+          ⏳
         </div>
-        <button className="primary-btn wide" type="button" onClick={onNext}>Admin Verifies Organization -&gt;</button>
+
+        <small style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+          PENDING VERIFICATION
+        </small>
+        <h2 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', marginBottom: 6, letterSpacing: '-0.02em' }}>Submission Received</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: 480, margin: '0 auto 20px auto', lineHeight: 1.5 }}>
+          The BantAI Research Team will verify your organization credentials and respond within 3–5 business days.
+        </p>
+
+        {/* Automated Notifications Stack */}
+        <div
+          style={{
+            width: '100%',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 12,
+            padding: '16px 20px',
+            textAlign: 'left',
+            marginBottom: 18,
+          }}
+        >
+          <small style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+            AUTOMATED NOTIFICATIONS DISPATCHED
+          </small>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="campaign-card-interactive" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(37, 99, 235, 0.1)', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>
+                ✉️
+              </div>
+              <div>
+                <strong style={{ fontSize: '0.8125rem', color: '#ffffff', display: 'block' }}>Pending Verification email sent to you</strong>
+                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>analyst@globe.com.ph</small>
+              </div>
+            </div>
+
+            <div className="campaign-card-interactive" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: 8, border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>
+                🔔
+              </div>
+              <div>
+                <strong style={{ fontSize: '0.8125rem', color: '#ffffff', display: 'block' }}>New license request alert sent to BantAI admin</strong>
+                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Review queued in BantAI Security Command</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Verification Summary KPI Cards */}
+        <div
+          style={{
+            width: '100%',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 10,
+            marginBottom: 24,
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ padding: '12px 14px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Organization</span>
+            <strong style={{ color: '#ffffff', fontSize: '0.8125rem', fontWeight: 700, marginTop: 2, display: 'block' }}>Globe Telecom</strong>
+          </div>
+          <div style={{ padding: '12px 14px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Sector</span>
+            <strong style={{ color: '#60a5fa', fontSize: '0.8125rem', fontWeight: 700, marginTop: 2, display: 'block' }}>Telecom</strong>
+          </div>
+          <div style={{ padding: '12px 14px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Review SLA</span>
+            <strong style={{ color: '#f59e0b', fontSize: '0.8125rem', fontWeight: 700, marginTop: 2, display: 'block' }}>3–5 Days SLA</strong>
+          </div>
+        </div>
+
+        <Button
+          onClick={onNext}
+          variant="primary"
+          size="lg"
+          style={{
+            width: '100%',
+            padding: '14px 24px',
+            fontSize: '1rem',
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            boxShadow: '0 8px 20px rgba(37, 99, 235, 0.4)',
+          }}
+        >
+          Admin Verifies Organization →
+        </Button>
       </div>
     </section>
   );
 }
 
+// Stage 3: Awaiting Payment & Proposal Download (Vibrant Glowing Buttons - No Overlap)
 function ProposalStage({ onNext }: { onNext: () => void }) {
+  const [toastMsg, setToastMsg] = React.useState<string | null>(null);
+
+  const handleDownload = (filename: string) => {
+    setToastMsg(`Downloading ${filename}...`);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
   return (
-    <section className="flow-stage">
-      <Stepper active={3} completed={2} />
-      <div className="status-panel">
-        <div className="status-ring green" />
-        <small className="tone-green status-overline">ORGANIZATION VERIFIED</small>
-        <h2>Awaiting Payment</h2>
-        <p>Your Formal Licensing Proposal and Digital Invoice are ready for download.</p>
-        <div className="doc-stack">
-          <div className="doc-row">
-            <div><strong>Formal Licensing Proposal</strong><small>PDF - Signed by BantAI Research Team</small></div>
-            <button className="ghost-btn mini" type="button">Download</button>
+    <section className="animate-fade-in" style={{ maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
+      <Stepper activeStep={3} completedSteps={2} />
+
+      {/* Toast Feedback Notification */}
+      {toastMsg && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            background: '#10b981',
+            color: '#ffffff',
+            padding: '12px 20px',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            boxShadow: '0 10px 25px rgba(16, 185, 129, 0.4)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span>✓</span> {toastMsg}
+        </div>
+      )}
+
+      <div
+        className="panel"
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 20, 32, 0.95) 0%, rgba(12, 12, 18, 0.98) 100%)',
+          border: '1px solid var(--border-default)',
+          borderTop: '3px solid #10b981',
+          borderRadius: 16,
+          padding: '28px 32px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.15)',
+        }}
+      >
+        {/* Pulsing Status Circle Icon */}
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '2px solid rgba(16, 185, 129, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.5rem',
+            marginBottom: 12,
+            boxShadow: '0 0 25px rgba(16, 185, 129, 0.35)',
+          }}
+        >
+          ✓
+        </div>
+
+        <small style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+          ORGANIZATION VERIFIED
+        </small>
+        <h2 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', marginBottom: 6, letterSpacing: '-0.02em' }}>Awaiting Payment</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: 500, margin: '0 auto 24px auto', lineHeight: 1.5 }}>
+          Your Formal Licensing Proposal and Digital Invoice are approved and ready for download.
+        </p>
+
+        {/* Download Document Cards Stack with Zero Overlap Layout */}
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+          {/* Card 1 */}
+          <div
+            className="campaign-card-interactive"
+            style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 12,
+              padding: '16px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              textAlign: 'left',
+              gap: 16,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(37, 99, 235, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem', flexShrink: 0 }}>
+                📄
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ fontSize: '0.9375rem', color: '#ffffff', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Formal Licensing Proposal
+                </strong>
+                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  PDF (3.4 MB) • Signed by BantAI Research Team ✓
+                </small>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleDownload('Formal_Licensing_Proposal_BantAI.pdf')}
+              className="campaign-card-interactive"
+              style={{
+                padding: '9px 16px',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.35) 0%, rgba(59, 130, 246, 0.25) 100%)',
+                border: '1px solid #3b82f6',
+                color: '#ffffff',
+                boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              ↓ Download Proposal
+            </button>
           </div>
-          <div className="doc-row">
-            <div><strong>Digital Invoice</strong><small>PDF - INV-2026-0047 - Annual License</small></div>
-            <button className="ghost-btn mini" type="button">Download</button>
+
+          {/* Card 2 */}
+          <div
+            className="campaign-card-interactive"
+            style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 12,
+              padding: '16px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              textAlign: 'left',
+              gap: 16,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem', flexShrink: 0 }}>
+                💳
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ fontSize: '0.9375rem', color: '#ffffff', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Digital Invoice
+                </strong>
+                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  PDF (1.2 MB) • INV-2026-0047 • Annual License
+                </small>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleDownload('Digital_Invoice_INV-2026-0047.pdf')}
+              className="campaign-card-interactive"
+              style={{
+                padding: '9px 16px',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.35) 0%, rgba(52, 211, 153, 0.25) 100%)',
+                border: '1px solid #10b981',
+                color: '#ffffff',
+                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              ↓ Download Invoice
+            </button>
           </div>
         </div>
-        <button className="primary-btn wide" type="button" onClick={onNext}>Proceed to Payment -&gt;</button>
+
+        <Button
+          onClick={onNext}
+          variant="primary"
+          size="lg"
+          style={{
+            width: '100%',
+            padding: '14px 24px',
+            fontSize: '1rem',
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            boxShadow: '0 8px 20px rgba(37, 99, 235, 0.4)',
+          }}
+        >
+          Proceed to Payment →
+        </Button>
       </div>
     </section>
   );
 }
 
+// Stage 4: Complete Payment (No Scrollbar)
 function PaymentStage({ onNext }: { onNext: () => void }) {
+  const [payMethod, setPayMethod] = React.useState<'bank' | 'card'>('bank');
+
   return (
-    <section className="flow-stage">
-      <Stepper active={4} completed={3} />
-      <div className="form-panel">
-        <h2>Complete Payment</h2>
-        <p>Choose your preferred institutional payment method.</p>
-        <div className="quote-row">
+    <section className="animate-fade-in" style={{ maxWidth: 640, margin: '0 auto' }}>
+      <Stepper activeStep={4} completedSteps={3} />
+
+      <div
+        className="panel"
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 20, 32, 0.95) 0%, rgba(12, 12, 18, 0.98) 100%)',
+          border: '1px solid var(--border-default)',
+          borderTop: '3px solid #60a5fa',
+          borderRadius: 16,
+          padding: '28px 32px',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(96, 165, 250, 0.15)',
+        }}
+      >
+        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', marginBottom: 4, letterSpacing: '-0.02em' }}>Complete Payment</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 20 }}>
+          Choose your preferred institutional payment method to activate access.
+        </p>
+
+        {/* Invoice Header Box */}
+        <div
+          style={{
+            padding: '14px 18px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 18,
+          }}
+        >
           <div>
-            <strong>BantAI Intelligence License --- Annual</strong>
-            <small>INV-2026-0047</small>
+            <strong style={{ fontSize: '0.9375rem', color: '#ffffff', display: 'block' }}>BantAI Intelligence License — Annual</strong>
+            <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>INV-2026-0047 — Enterprise Subscription</small>
           </div>
-          <strong className="tone-blue">Custom Quote</strong>
+          <strong style={{ fontSize: '1rem', color: '#60a5fa', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>Custom Quote</strong>
         </div>
-        <div className="pay-card">
-          <strong>Bank Transfer (Institutional)</strong>
-          <small>Direct wire transfer --- recommended for government and large organizations</small>
-          <div className="bank-box">
-            <span>BDO Unibank, Inc.</span>
-            <span>Account: BantAI Research Group 7</span>
-            <span>Acc. No.: 1234 5678 9812</span>
-            <span>Ref.: INV-2026-0047</span>
+
+        {/* Payment Options Stack */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+          {/* Method 1: Bank Transfer */}
+          <div
+            onClick={() => setPayMethod('bank')}
+            className="campaign-card-interactive"
+            style={{
+              background: payMethod === 'bank' ? 'rgba(37, 99, 235, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+              border: `1px solid ${payMethod === 'bank' ? '#3b82f6' : 'var(--border-default)'}`,
+              borderRadius: 12,
+              padding: '16px 18px',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(37, 99, 235, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem' }}>
+                🏛️
+              </div>
+              <div>
+                <strong style={{ fontSize: '0.875rem', color: '#ffffff', display: 'block' }}>Bank Transfer (Institutional)</strong>
+                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Direct wire transfer — recommended for government &amp; enterprise</small>
+              </div>
+            </div>
+
+            {payMethod === 'bank' && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: '12px 16px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  borderRadius: 10,
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                <span style={{ color: '#ffffff', fontWeight: 700 }}>Bank: BDO Unibank, Inc.</span>
+                <span>Account Name: BantAI Research Group 7</span>
+                <span>Account Number: 1234 5678 9012</span>
+                <span style={{ color: '#60a5fa', fontWeight: 700 }}>Ref Code: INV-2026-0047</span>
+              </div>
+            )}
+          </div>
+
+          {/* Method 2: Credit Card */}
+          <div
+            onClick={() => setPayMethod('card')}
+            className="campaign-card-interactive"
+            style={{
+              background: payMethod === 'card' ? 'rgba(37, 99, 235, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+              border: `1px solid ${payMethod === 'card' ? '#3b82f6' : 'var(--border-default)'}`,
+              borderRadius: 12,
+              padding: '16px 18px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(59, 130, 246, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem' }}>
+              💳
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.875rem', color: '#ffffff', display: 'block' }}>Corporate Credit Card</strong>
+              <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Secure enterprise gateway — 256-bit SSL PCI-DSS compliant</small>
+            </div>
           </div>
         </div>
-        <div className="pay-card collapsed">
-          <strong>Corporate Credit Card</strong>
-          <small>Secure enterprise payment gateway --- PCI-DSS compliant</small>
-        </div>
-        <button className="primary-btn wide" type="button" onClick={onNext}>Confirm Payment -&gt;</button>
+
+        <Button
+          onClick={onNext}
+          variant="primary"
+          size="lg"
+          style={{
+            width: '100%',
+            padding: '14px 24px',
+            fontSize: '1rem',
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            boxShadow: '0 8px 20px rgba(37, 99, 235, 0.4)',
+          }}
+        >
+          Confirm Payment →
+        </Button>
       </div>
     </section>
   );
 }
 
+// Stage 5: GrantedStage (Vibrant Energetic Green/Purple Gradient Button - No Scroll)
 function GrantedStage({ onNext }: { onNext: () => void }) {
   return (
-    <section className="flow-stage">
-      <Stepper active={5} completed={4} />
-      <div className="status-panel">
-        <div className="status-ring green lock" />
-        <small className="tone-green status-overline">LICENSE ACTIVATED</small>
-        <h2>Access Granted</h2>
-        <p>Payment confirmed. Your organization's portal access has been fully activated.</p>
-        <article className="panel narrow-card">
-          <small className="section-label">NOW UNLOCKED</small>
-          <ul className="unlock-list">
-            <li>Campaign intelligence dashboard</li>
-            <li>Full classification log with confidence scores</li>
-            <li>Threat intelligence dataset exports (CSV)</li>
-            <li>Daily &amp; weekly automated report notifications</li>
-          </ul>
-        </article>
-        <button className="primary-btn wide" type="button" onClick={onNext}>Go to Dashboard -&gt;</button>
+    <section className="animate-fade-in" style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+      <Stepper activeStep={5} completedSteps={5} />
+
+      <div
+        className="panel"
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 20, 32, 0.95) 0%, rgba(12, 12, 18, 0.98) 100%)',
+          border: '1px solid var(--border-default)',
+          borderTop: '3px solid #10b981',
+          borderRadius: 16,
+          padding: '32px 32px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(16, 185, 129, 0.2)',
+        }}
+      >
+        {/* Rewarding Success Icon Ring */}
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '2px solid #10b981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.75rem',
+            marginBottom: 12,
+            boxShadow: '0 0 30px rgba(16, 185, 129, 0.45)',
+          }}
+        >
+          🎉
+        </div>
+
+        <small style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+          ACCESS GRANTED
+        </small>
+        <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', marginBottom: 6, letterSpacing: '-0.02em' }}>Enterprise Access Activated</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: 480, margin: '0 auto 20px auto' }}>
+          Payment confirmed. Your organization's portal access has been fully activated.
+        </p>
+
+        {/* Unlocked Features Checklist Card */}
+        <div
+          style={{
+            width: '100%',
+            background: 'rgba(16, 185, 129, 0.06)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: 12,
+            padding: '16px 20px',
+            textAlign: 'left',
+            marginBottom: 24,
+          }}
+        >
+          <small style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
+            NOW UNLOCKED FOR YOUR ORGANIZATION
+          </small>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              'Campaign Intelligence Dashboard with live feeds',
+              'Full classification log with confidence scores',
+              'Threat intelligence dataset exports (CSV/API)',
+              'Daily & weekly automated report notifications',
+            ].map((feature) => (
+              <div key={feature} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.8125rem', color: '#ffffff' }}>
+                <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                <span>{feature}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Button
+          onClick={onNext}
+          variant="primary"
+          size="lg"
+          style={{
+            width: '100%',
+            padding: '16px 28px',
+            fontSize: '1.0625rem',
+            fontWeight: 800,
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            border: '1px solid #34d399',
+            boxShadow: '0 10px 30px rgba(16, 185, 129, 0.45)',
+          }}
+        >
+          Go to Dashboard →
+        </Button>
       </div>
     </section>
   );

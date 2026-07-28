@@ -99,10 +99,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **3.2.2** Explainability output format for mobile & dashboard *(Track B — AI/ML)*
     - [ ] **3.2.3** Alerts + Campaigns mobile UX spec *(Track C — Mobile)*
 
-  - [ ] **3.3** Build: implement Sprint 3 work packages
-    - [ ] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
-    - [ ] **3.3.2** Sender verification endpoint *(Track A — Backend)*
-    - [ ] **3.3.3** Link suppression API logic *(Track A — Backend)*
+  - [-] **3.3** Build: implement Sprint 3 work packages
+    - [-] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
+    - [-] **3.3.2** Sender verification endpoint *(Track A — Backend)*
+    - [-] **3.3.3** Link suppression API logic *(Track A — Backend)*
     - [ ] **3.3.4** Cosine similarity module (threshold 0.85 against active centroids) *(Track B — AI/ML)*
     - [ ] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
     - [ ] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*

@@ -20,7 +20,26 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages SmsMessage[]
+  messages       SmsMessage[]
+  contacts       Contact[]
+  blockedNumbers BlockedNumber[]
+}
+
+// Synced from the user's Android phone contacts.
+// Stage 1 of sender verification — checked before any external API call.
+model Contact {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  phone     String   // normalized PH format: 09XXXXXXXXX
+  name      String?  // display name from phone contacts
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, phone])
 }
 
 model OtpCode {
@@ -41,6 +60,9 @@ model SmsMessage {
   userId     String
   user       User     @relation(fields: [userId], references: [id])
 
+  clusterId  String?
+  cluster    CampaignCluster? @relation(fields: [clusterId], references: [id])
+
   sender     String
   body       String
   receivedAt DateTime @default(now())
@@ -51,15 +73,16 @@ model SmsMessage {
 }
 
 model MessageFeature {
-  id             String     @id @default(uuid())
+  id             String   @id @default(uuid())
 
-  messageId      String     @unique
+  messageId      String   @unique
   message        SmsMessage @relation(fields: [messageId], references: [id])
 
   normalizedBody String
   maskedBody     String
+  suppressedLinks String[] // URLs hidden because message was flagged or sender unknown
 
-  createdAt      DateTime   @default(now())
+  createdAt      DateTime @default(now())
 }
 
 model Classification {
@@ -68,12 +91,14 @@ model Classification {
   messageId String   @unique
   message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  label     String   // Likely Smishing | Suspicious | Unknown
+  label     String   // Scam | Spam | Ham
   score     Float
   scores    Json?    // full softmax distribution: { Ham, Spam, Scam }
   bucket    String?  // AI routing decision: safe | unknown | spam | blocked
 
   createdAt DateTime @default(now())
+
+  indicator ExplainableIndicator?
 }
 
 model Alert {
@@ -85,4 +110,67 @@ model Alert {
   status    String   @default("Pending") // Pending | Blocked | Reported | Ignored
 
   createdAt DateTime @default(now())
+}
+
+// Groups of similar smishing messages detected by AI clustering (HDBSCAN).
+// Created and updated by the AI/ML service; the backend links new messages
+// to an existing cluster when URL domains match.
+model CampaignCluster {
+  id           String   @id @default(uuid())
+
+  label        String?  // human-readable campaign label set by AI/ML
+  centroid     Json?    // embedding vector used for cosine similarity (set by AI/ML)
+  urlDomains   String[] // known URL domains in this campaign (for link suppression)
+  isActive     Boolean  @default(true)
+  messageCount Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages     SmsMessage[]
+}
+
+// SHAP-based feature importance for a single classification result.
+// Populated by the AI/ML service after SHAP analysis; the backend
+// exposes the endpoint, the AI/ML track fills it in.
+model ExplainableIndicator {
+  id               String         @id @default(uuid())
+
+  classificationId String         @unique
+  classification   Classification @relation(fields: [classificationId], references: [id])
+
+  indicators       Json           // [{ tag: string, weight: number }]
+
+  createdAt        DateTime       @default(now())
+}
+
+// Senders blocked by the user or auto-blocked by the system (score ≥ 0.90).
+// Checked at the start of every ingest — blocked messages are suppressed
+// before classification runs.
+model BlockedNumber {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  sender    String           // phone number or sender name
+  source    String           // AutoBlock | UserBlock
+  createdAt DateTime @default(now())
+
+  @@unique([userId, sender])
+}
+
+// Caches sender verification results (verified | fraud | unknown) so we
+// don't re-check the same sender repeatedly.
+model SenderVerificationCache {
+  id        String    @id @default(uuid())
+
+  sender    String    @unique // phone number or sender name
+  status    String            // verified | fraud | unknown
+  source    String?           // how it was determined
+
+  expiresAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

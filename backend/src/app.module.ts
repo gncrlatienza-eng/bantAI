@@ -5,6 +5,8 @@ import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SmsModule } from './sms/sms.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { SmsModule } from './sms/sms.module';
     AuthModule,
     UsersModule,
     SmsModule,
+    CampaignsModule,
+    VerificationModule,
   ],
 })
 export class AppModule {}

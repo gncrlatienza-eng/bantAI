@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 
 type AiLabel = 'Ham' | 'Spam' | 'Scam';
 type AiBucket = 'safe' | 'unknown' | 'spam' | 'blocked';
-type BackendLabel = 'Likely Smishing' | 'Suspicious' | 'Unknown';
 
 interface AiClassifyResponse {
   label: AiLabel;
@@ -13,18 +12,12 @@ interface AiClassifyResponse {
 }
 
 export interface ClassificationResult {
-  label: BackendLabel;
+  label: AiLabel;
   score: number;
   scores: Record<AiLabel, number>;
   bucket: AiBucket;
   maskedText: string;
 }
-
-const LABEL_MAP: Record<AiLabel, BackendLabel> = {
-  Ham: 'Unknown',
-  Spam: 'Suspicious',
-  Scam: 'Likely Smishing',
-};
 
 @Injectable()
 export class AiService {
@@ -58,7 +51,7 @@ export class AiService {
       const data: AiClassifyResponse = await res.json();
 
       return {
-        label: LABEL_MAP[data.label],
+        label: data.label,
         score: data.score,
         scores: data.scores,
         bucket: data.bucket,

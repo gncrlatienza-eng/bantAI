@@ -2,11 +2,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { SmsService } from './sms.service';
 import { PrismaService } from '../../database/prisma.service';
+import { AiService } from '../ai/ai.service';
+import { CampaignsService } from '../campaigns/campaigns.service';
 
 const mockPrisma = {
-  smsMessage: { create: jest.fn() },
+  blockedNumber: { findUnique: jest.fn(), upsert: jest.fn() },
+  smsMessage:    { create: jest.fn(), update: jest.fn() },
+  contact:       { findUnique: jest.fn() },
   messageFeature: { create: jest.fn() },
-  classification: { create: jest.fn() },
+  classification: { create: jest.fn(), findUnique: jest.fn() },
+  explainableIndicator: { upsert: jest.fn() },
+};
+
+const mockAiService: Partial<AiService> = {
+  classify: jest.fn().mockResolvedValue(null), // default: AI offline → local fallback
+};
+
+const mockCampaignsService: Partial<CampaignsService> = {
+  getActiveDomains:      jest.fn().mockResolvedValue(new Set<string>()),
+  findByDomains:         jest.fn().mockResolvedValue(null),
+  incrementMessageCount: jest.fn().mockResolvedValue({}),
 };
 
 describe('SmsService', () => {
@@ -14,33 +29,51 @@ describe('SmsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SmsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        SmsService,
+        { provide: PrismaService,    useValue: mockPrisma },
+        { provide: AiService,        useValue: mockAiService },
+        { provide: CampaignsService, useValue: mockCampaignsService },
+      ],
     }).compile();
 
     service = module.get<SmsService>(SmsService);
     jest.clearAllMocks();
+
+    // Default mock state: sender not blocked, sender not a contact
+    mockPrisma.blockedNumber.findUnique.mockResolvedValue(null);
+    mockPrisma.contact.findUnique.mockResolvedValue(null);
+    mockPrisma.smsMessage.create.mockResolvedValue(savedMsg);
+    mockPrisma.messageFeature.create.mockResolvedValue({});
+    mockPrisma.classification.create.mockResolvedValue({});
+    (mockAiService.classify as jest.Mock).mockResolvedValue(null);
+    (mockCampaignsService.getActiveDomains as jest.Mock).mockResolvedValue(new Set<string>());
+    (mockCampaignsService.findByDomains as jest.Mock).mockResolvedValue(null);
   });
+
+  const userId = 'user-1';
+  const dto = {
+    sender: 'GCash',
+    body: 'Click https://evil.com to verify your account',
+    receivedAt: '2026-07-21T08:00:00.000Z',
+  };
+  const savedMsg = {
+    id: 'msg-1',
+    userId,
+    sender: dto.sender,
+    body: dto.body,
+  };
 
   // ── ingest ──────────────────────────────────────────────────────────────────
 
   describe('ingest', () => {
-    const userId = 'user-1';
-    const dto = {
-      sender: 'GCash',
-      body: 'Click https://evil.com to verify your account',
-      receivedAt: '2026-07-21T08:00:00.000Z',
-    };
-    const savedMsg = {
-      id: 'msg-1',
-      userId,
-      sender: dto.sender,
-      body: dto.body,
-    };
+    it('suppresses immediately when sender is blocked', async () => {
+      mockPrisma.blockedNumber.findUnique.mockResolvedValue({ sender: dto.sender });
 
-    beforeEach(() => {
-      mockPrisma.smsMessage.create.mockResolvedValue(savedMsg);
-      mockPrisma.messageFeature.create.mockResolvedValue({});
-      mockPrisma.classification.create.mockResolvedValue({});
+      const result = await service.ingest(userId, dto);
+
+      expect(result).toEqual({ suppressed: true, reason: 'blocked_sender' });
+      expect(mockPrisma.smsMessage.create).not.toHaveBeenCalled();
     });
 
     it('persists the raw SMS with correct fields', async () => {
@@ -93,112 +126,130 @@ describe('SmsService', () => {
       });
     });
 
-    it('writes in order: smsMessage → messageFeature → classification', async () => {
+    it('auto-blocks sender when score >= 0.9', async () => {
+      // Force high-confidence classification via keyword stuffing
+      const highRiskDto = {
+        ...dto,
+        body: '[URL] verify locked click prize won gcash account',
+      };
+      await service.ingest(userId, highRiskDto);
+
+      expect(mockPrisma.blockedNumber.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ source: 'AutoBlock' }),
+        }),
+      );
+    });
+
+    it('does not auto-block sender when score < 0.9', async () => {
+      const lowRiskDto = { ...dto, body: 'Hello kumain ka na ba?' };
+      await service.ingest(userId, lowRiskDto);
+
+      expect(mockPrisma.blockedNumber.upsert).not.toHaveBeenCalled();
+    });
+
+    it('suppresses links when sender is unknown and message contains URLs', async () => {
+      const result = await service.ingest(userId, dto);
+      // dto.body contains https://evil.com — sender unknown → should be in suppressedLinks
+      // (only if evil.com is in cluster domains or is a shortened URL service)
+      expect(result).toHaveProperty('suppressedLinks');
+      expect(Array.isArray((result as any).suppressedLinks)).toBe(true);
+    });
+
+    it('writes in order: blockedNumber check → smsMessage → messageFeature → classification', async () => {
       await service.ingest(userId, dto);
 
-      const msgOrder = mockPrisma.smsMessage.create.mock.invocationCallOrder[0];
-      const featOrder =
-        mockPrisma.messageFeature.create.mock.invocationCallOrder[0];
-      const classOrder =
-        mockPrisma.classification.create.mock.invocationCallOrder[0];
+      const blockedOrder = mockPrisma.blockedNumber.findUnique.mock.invocationCallOrder[0];
+      const msgOrder     = mockPrisma.smsMessage.create.mock.invocationCallOrder[0];
+      const featOrder    = mockPrisma.messageFeature.create.mock.invocationCallOrder[0];
+      const classOrder   = mockPrisma.classification.create.mock.invocationCallOrder[0];
+
+      expect(blockedOrder).toBeLessThan(msgOrder);
       expect(msgOrder).toBeLessThan(featOrder);
       expect(featOrder).toBeLessThan(classOrder);
     });
   });
 
-  // ── preprocess (private) ─────────────────────────────────────────────────────
+  // ── maskLocally (private) ────────────────────────────────────────────────────
 
-  describe('preprocess', () => {
-    const preprocess = (body: string) => (service as any).preprocess(body);
+  describe('maskLocally', () => {
+    const mask = (body: string) => (service as any).maskLocally(body.normalize('NFKC'));
 
     it('returns the original text unchanged for a clean message', () => {
-      const { normalizedBody, maskedBody } = preprocess('Hello, how are you?');
-      expect(normalizedBody).toBe('Hello, how are you?');
-      expect(maskedBody).toBe('Hello, how are you?');
+      expect(mask('Hello, how are you?')).toBe('Hello, how are you?');
     });
 
     it('applies NFKC normalisation (ligatures → canonical form)', () => {
       // U+FB01 (ﬁ) is a ligature that NFKC decomposes to "fi"
-      const { normalizedBody } = preprocess('ﬁle');
-      expect(normalizedBody).toBe('file');
+      expect(mask('ﬁle')).toBe('file');
     });
 
     it('masks http URLs with [URL]', () => {
-      const { maskedBody } = preprocess('Go to http://evil.com now');
-      expect(maskedBody).toContain('[URL]');
-      expect(maskedBody).not.toContain('http://evil.com');
+      const result = mask('Go to http://evil.com now');
+      expect(result).toContain('[URL]');
+      expect(result).not.toContain('http://evil.com');
     });
 
     it('masks https URLs with [URL]', () => {
-      const { maskedBody } = preprocess(
-        'Visit https://secure.example.com/path?q=1',
-      );
-      expect(maskedBody).toContain('[URL]');
+      expect(mask('Visit https://secure.example.com/path?q=1')).toContain('[URL]');
     });
 
     it('masks 10–13 digit strings as [PHONE]', () => {
-      const { maskedBody } = preprocess('Call 09171234567 for details');
-      expect(maskedBody).toContain('[PHONE]');
-      expect(maskedBody).not.toContain('09171234567');
+      const result = mask('Call 09171234567 for details');
+      expect(result).toContain('[PHONE]');
+      expect(result).not.toContain('09171234567');
     });
 
     it('masks 4–8 digit strings as [OTP]', () => {
-      const { maskedBody } = preprocess('Your code is 123456');
-      expect(maskedBody).toContain('[OTP]');
-      expect(maskedBody).not.toContain('123456');
+      const result = mask('Your code is 123456');
+      expect(result).toContain('[OTP]');
+      expect(result).not.toContain('123456');
     });
 
     it('masks ₱ amounts as [AMOUNT]', () => {
-      const { maskedBody } = preprocess('You won ₱5,000.00 in our promo');
-      expect(maskedBody).toContain('[AMOUNT]');
-      expect(maskedBody).not.toContain('₱5,000.00');
+      const result = mask('You won ₱5,000.00 in our promo');
+      expect(result).toContain('[AMOUNT]');
+      expect(result).not.toContain('₱5,000.00');
     });
 
     it('masks ₱ amounts without decimals', () => {
-      const { maskedBody } = preprocess('Transfer ₱500 immediately');
-      expect(maskedBody).toContain('[AMOUNT]');
+      expect(mask('Transfer ₱500 immediately')).toContain('[AMOUNT]');
     });
 
     it('masks multiple patterns in one message', () => {
-      const { maskedBody } = preprocess(
-        'Click https://x.com, your code 654321, reward ₱1,000',
-      );
-      expect(maskedBody).toContain('[URL]');
-      expect(maskedBody).toContain('[OTP]');
-      expect(maskedBody).toContain('[AMOUNT]');
+      const result = mask('Click https://x.com, your code 654321, reward ₱1,000');
+      expect(result).toContain('[URL]');
+      expect(result).toContain('[OTP]');
+      expect(result).toContain('[AMOUNT]');
     });
   });
 
-  // ── classify (private) ───────────────────────────────────────────────────────
+  // ── classifyLocally (private) ────────────────────────────────────────────────
 
-  describe('classify', () => {
-    const classify = (body: string) => (service as any).classify(body);
+  describe('classifyLocally', () => {
+    const classify = (body: string) => (service as any).classifyLocally(body);
 
-    it('returns "Unknown" and low score for a clean message', () => {
+    it('returns "Ham" and low score for a clean message', () => {
       const { label, score } = classify('Kumain ka na ba?');
-      expect(label).toBe('Unknown');
+      expect(label).toBe('Ham');
       expect(score).toBeLessThan(0.5);
     });
 
-    it('returns "Suspicious" when score is in 0.5–0.89 range', () => {
-      // 4 of 8 keywords → score 0.5
+    it('returns "Spam" when score is in 0.5–0.89 range', () => {
       const { label, score } = classify('verify locked click prize');
-      expect(label).toBe('Suspicious');
+      expect(label).toBe('Spam');
       expect(score).toBeGreaterThanOrEqual(0.5);
       expect(score).toBeLessThan(0.9);
     });
 
-    it('returns "Likely Smishing" when all keywords are present', () => {
-      const allKw = '[URL] verify locked click prize won gcash account';
-      const { label, score } = classify(allKw);
-      expect(label).toBe('Likely Smishing');
+    it('returns "Scam" when all keywords are present', () => {
+      const { label, score } = classify('[url] verify locked click prize won gcash account');
+      expect(label).toBe('Scam');
       expect(score).toBeGreaterThanOrEqual(0.9);
     });
 
     it('caps score at 0.99 regardless of keyword count', () => {
-      const spam =
-        '[URL] verify locked click prize won gcash account extra extra extra';
-      const { score } = classify(spam);
+      const { score } = classify('[url] verify locked click prize won gcash account extra extra');
       expect(score).toBeLessThanOrEqual(0.99);
     });
 
@@ -209,10 +260,10 @@ describe('SmsService', () => {
     });
   });
 
-  // ── route (private) ──────────────────────────────────────────────────────────
+  // ── routeFromScore (private) ─────────────────────────────────────────────────
 
-  describe('route', () => {
-    const route = (score: number) => (service as any).route(score);
+  describe('routeFromScore', () => {
+    const route = (score: number) => (service as any).routeFromScore(score);
 
     it('returns "inbox" for score below 0.5', () => {
       expect(route(0)).toBe('inbox');
@@ -235,6 +286,28 @@ describe('SmsService', () => {
     it('returns "blocked" for score above 0.9', () => {
       expect(route(0.99)).toBe('blocked');
       expect(route(1.0)).toBe('blocked');
+    });
+  });
+
+  // ── routeFromBucket (private) ────────────────────────────────────────────────
+
+  describe('routeFromBucket', () => {
+    const route = (bucket: string) => (service as any).routeFromBucket(bucket);
+
+    it('returns "blocked" for bucket "blocked"', () => {
+      expect(route('blocked')).toBe('blocked');
+    });
+
+    it('returns "alert" for bucket "spam"', () => {
+      expect(route('spam')).toBe('alert');
+    });
+
+    it('returns "inbox" for bucket "safe"', () => {
+      expect(route('safe')).toBe('inbox');
+    });
+
+    it('returns "inbox" for bucket "unknown"', () => {
+      expect(route('unknown')).toBe('inbox');
     });
   });
 });

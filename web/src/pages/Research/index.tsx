@@ -81,30 +81,34 @@ export const ResearchPage: React.FC = () => {
               alignItems: 'center',
               gap: 8,
               padding: '6px 18px',
-              borderRadius: 999,
-              background: 'rgba(245, 158, 11, 0.12)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              color: '#fbbf24',
-              fontSize: '0.78rem',
+              borderRadius: 20,
+              background: 'rgba(37, 99, 235, 0.12)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              color: '#60a5fa',
+              fontSize: '0.78125rem',
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
             }}
           >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
-            Research and methodology
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', animation: 'pulseDot 1.5s infinite' }} />
+            Research & Technical Publication
           </div>
 
           <h1
             style={{
-              margin: '18px 0 14px',
-              fontSize: 'clamp(2.35rem, 4.8vw, 3.4rem)',
+              margin: '16px 0 14px',
+              fontSize: 'clamp(2.4rem, 4.8vw, 3.6rem)',
               fontWeight: 800,
-              lineHeight: 1.1,
+              lineHeight: 1.15,
               color: '#ffffff',
+              letterSpacing: '-0.03em',
             }}
           >
-            Research Overview and Technical Paper
+            Research Overview & <br />
+            <span style={{ background: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Technical Methodology Paper
+            </span>
           </h1>
 
           <p

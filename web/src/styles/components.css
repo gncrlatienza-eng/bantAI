@@ -249,34 +249,21 @@ textarea.form-input {
 .badge-blue { background: var(--blue-bg); border: 1px solid var(--blue-border); color: var(--blue-text); }
 .badge-gray { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-default); color: var(--text-muted); }
 
-/* Public Shell with Side AI Ambient Lighting & Micro Cyber Grid */
+/* Public Shell with Deep Obsidian Base & Light Blue Micro Cyber Grid */
 .public-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #080a11;
+  background-color: #060810;
   background-image: 
-    radial-gradient(circle at 4% 30%, rgba(37, 99, 235, 0.22) 0%, transparent 40%),
-    radial-gradient(circle at 96% 30%, rgba(124, 58, 237, 0.20) 0%, transparent 40%),
-    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 45%),
-    linear-gradient(to right, rgba(96, 165, 250, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(96, 165, 250, 0.035) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    radial-gradient(circle at 4% 20%, rgba(56, 189, 248, 0.07) 0%, transparent 35%),
+    radial-gradient(circle at 96% 20%, rgba(96, 165, 250, 0.07) 0%, transparent 35%),
+    linear-gradient(to right, rgba(56, 189, 248, 0.038) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.038) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
   background-attachment: fixed;
   position: relative;
   overflow-x: hidden;
-}
-
-/* Homepage Light Ambient Background Glow */
-.homepage-light-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 680px;
-  background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.38) 0%, rgba(37, 99, 235, 0.22) 40%, rgba(15, 23, 42, 0) 80%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 .public-header {
@@ -1025,4 +1012,104 @@ tr:hover td {
               inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
 }
+
+/* Ambient Homepage Lighting (High-Contrast Dark Space with Light Blue Spotlights) */
+.homepage-light-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  background: 
+    /* Top Hero Light Blue Spotlight */
+    radial-gradient(circle at 50% -5%, rgba(56, 189, 248, 0.16) 0%, rgba(37, 99, 235, 0.10) 35%, transparent 58%),
+    /* Subtle Mid-Section Light Blue Ambient Tint */
+    radial-gradient(circle at 50% 40%, rgba(56, 189, 248, 0.06) 0%, transparent 48%),
+    /* Bottom CTA Light Blue Spotlight */
+    radial-gradient(circle at 50% 88%, rgba(56, 189, 248, 0.15) 0%, rgba(37, 99, 235, 0.08) 38%, transparent 60%);
+}
+
+/* Dedicated Glowing Stat Card Classes */
+.glow-card {
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+}
+
+/* Card 1: Electric Blue Glow */
+.glow-card-blue {
+  background: linear-gradient(145deg, rgba(15, 28, 60, 0.75) 0%, rgba(10, 16, 36, 0.88) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  box-shadow: 
+    0 12px 35px -5px rgba(37, 99, 235, 0.3),
+    0 4px 15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 20px rgba(37, 99, 235, 0.15);
+}
+
+.glow-card-blue:hover {
+  transform: translateY(-5px) scale(1.015);
+  border-color: #60a5fa !important;
+  box-shadow: 
+    0 16px 45px -5px rgba(37, 99, 235, 0.45),
+    0 6px 20px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 30px rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Card 2: Vibrant Cyan Glow */
+.glow-card-cyan {
+  background: linear-gradient(145deg, rgba(12, 38, 62, 0.75) 0%, rgba(8, 20, 38, 0.88) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 
+    0 12px 35px -5px rgba(56, 189, 248, 0.3),
+    0 4px 15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 20px rgba(6, 182, 212, 0.15);
+}
+
+.glow-card-cyan:hover {
+  transform: translateY(-5px) scale(1.015);
+  border-color: #38bdf8 !important;
+  box-shadow: 
+    0 16px 45px -5px rgba(56, 189, 248, 0.45),
+    0 6px 20px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 30px rgba(6, 182, 212, 0.25) !important;
+}
+
+/* Card 3: Emerald Neon Green Glow */
+.glow-card-emerald {
+  background: linear-gradient(145deg, rgba(10, 38, 30, 0.75) 0%, rgba(6, 20, 16, 0.88) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  box-shadow: 
+    0 12px 35px -5px rgba(16, 185, 129, 0.3),
+    0 4px 15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+.glow-card-emerald:hover {
+  transform: translateY(-5px) scale(1.015);
+  border-color: #34d399 !important;
+  box-shadow: 
+    0 16px 45px -5px rgba(16, 185, 129, 0.45),
+    0 6px 20px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 30px rgba(16, 185, 129, 0.25) !important;
+}
+
 

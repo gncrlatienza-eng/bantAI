@@ -75,7 +75,6 @@ export const LandingPage: React.FC = () => {
           <small style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: 6, maxWidth: 600 }}>
             Restricted to authorized telecommunications and cybersecurity organizations. Access is by invitation only.
           </small>
-
           {/* 3 Spacious, Uncompressed High-Tech Statistic Cards Grid */}
           <div
             style={{
@@ -89,85 +88,73 @@ export const LandingPage: React.FC = () => {
             }}
           >
             {/* Card 1: Messages Analyzed */}
-            <div
-              className="panel card-hover-effect campaign-card-interactive"
-              style={{
-                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%)',
-                backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                borderRadius: 20,
-                padding: '30px 28px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                boxShadow: '0 18px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '1.4rem' }}>📬</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div className="glow-card glow-card-blue">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 14px',
+                  background: 'rgba(37, 99, 235, 0.22)',
+                  borderRadius: 20,
+                  border: '1px solid rgba(96, 165, 250, 0.4)',
+                  boxShadow: '0 0 12px rgba(37, 99, 235, 0.3)',
+                }}
+              >
+                <span style={{ fontSize: '1.3rem' }}>📬</span>
+                <span style={{ color: '#93c5fd', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Messages Analyzed
                 </span>
               </div>
-              <strong style={{ fontSize: '2.85rem', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 20px rgba(255, 255, 255, 0.2)' }}>
+              <strong style={{ fontSize: '3rem', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 25px rgba(96, 165, 250, 0.85), 0 0 50px rgba(37, 99, 235, 0.65)' }}>
                 14,892+
               </strong>
             </div>
 
             {/* Card 2: Smishing Intercepted */}
-            <div
-              className="panel card-hover-effect campaign-card-interactive"
-              style={{
-                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%)',
-                backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                borderRadius: 20,
-                padding: '30px 28px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                boxShadow: '0 18px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '1.4rem' }}>🚨</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div className="glow-card glow-card-cyan">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 14px',
+                  background: 'rgba(6, 182, 212, 0.22)',
+                  borderRadius: 20,
+                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  boxShadow: '0 0 12px rgba(6, 182, 212, 0.3)',
+                }}
+              >
+                <span style={{ fontSize: '1.3rem' }}>🚨</span>
+                <span style={{ color: '#7dd3fc', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Smishing Intercepted
                 </span>
               </div>
-              <strong style={{ fontSize: '2.85rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 24px rgba(56, 189, 248, 0.4)' }}>
+              <strong style={{ fontSize: '3rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 25px rgba(56, 189, 248, 0.9), 0 0 50px rgba(14, 165, 233, 0.7)' }}>
                 1,247+
               </strong>
             </div>
 
             {/* Card 3: Active Campaign Clusters */}
-            <div
-              className="panel card-hover-effect campaign-card-interactive"
-              style={{
-                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%)',
-                backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                borderRadius: 20,
-                padding: '30px 28px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                boxShadow: '0 18px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '1.4rem' }}>🛡️</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div className="glow-card glow-card-emerald">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 14px',
+                  background: 'rgba(16, 185, 129, 0.22)',
+                  borderRadius: 20,
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  boxShadow: '0 0 12px rgba(16, 185, 129, 0.3)',
+                }}
+              >
+                <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+                <span style={{ color: '#6ee7b7', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Active Clusters
                 </span>
               </div>
-              <strong style={{ fontSize: '2.85rem', fontWeight: 800, color: '#34d399', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 24px rgba(52, 211, 153, 0.4)' }}>
+              <strong style={{ fontSize: '3rem', fontWeight: 800, color: '#34d399', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 25px rgba(52, 211, 153, 0.9), 0 0 50px rgba(16, 185, 129, 0.7)' }}>
                 31
               </strong>
             </div>
@@ -184,25 +171,55 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
-            <div className="panel">
+            <div
+              className="panel card-hover-effect"
+              style={{
+                background: 'linear-gradient(145deg, rgba(20, 30, 60, 0.55) 0%, rgba(10, 16, 35, 0.8) 100%)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(59, 130, 246, 0.35)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                borderRadius: 18,
+                padding: '28px 24px',
+              }}
+            >
               <div style={{ fontSize: '2rem', marginBottom: 12 }}>🛡️</div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: 8 }}>AI-Powered NLP Engine</h3>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: '#ffffff' }}>AI-Powered NLP Engine</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                 XLM-RoBERTa fine-tuned on Tagalog, Taglish, and English smishing texts to accurately detect deceptive lure language, sense of urgency, and typo-squatted URLs.
               </p>
             </div>
 
-            <div className="panel">
+            <div
+              className="panel card-hover-effect"
+              style={{
+                background: 'linear-gradient(145deg, rgba(30, 25, 60, 0.55) 0%, rgba(16, 12, 35, 0.8) 100%)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(139, 92, 246, 0.35)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                borderRadius: 18,
+                padding: '28px 24px',
+              }}
+            >
               <div style={{ fontSize: '2rem', marginBottom: 12 }}>🔗</div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: 8 }}>Automated Campaign Clustering</h3>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: '#ffffff' }}>Automated Campaign Clustering</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                 Groups isolated scam messages into broad syndicated campaign clusters using structural features, URL syntax, and timing patterns.
               </p>
             </div>
 
-            <div className="panel">
+            <div
+              className="panel card-hover-effect"
+              style={{
+                background: 'linear-gradient(145deg, rgba(14, 45, 60, 0.55) 0%, rgba(8, 22, 35, 0.8) 100%)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(6, 182, 212, 0.35)',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(6, 182, 212, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                borderRadius: 18,
+                padding: '28px 24px',
+              }}
+            >
               <div style={{ fontSize: '2rem', marginBottom: 12 }}>⚡</div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: 8 }}>Real-Time Threat Intelligence</h3>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: '#ffffff' }}>Real-Time Threat Intelligence</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                 Instant feeds and downloadable exports (CSV/API) enable telecommunications SOCs to immediately initiate SIM blocking and domain takedowns.
               </p>
@@ -210,14 +227,14 @@ export const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* CTA Section */}
         <section
           style={{
             margin: '0 20px 80px 20px',
             padding: '60px 40px',
-            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.18) 0%, rgba(15, 15, 24, 0.9) 100%)',
-            border: '1px solid var(--border-accent)',
-            borderRadius: 20,
+            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(15, 23, 42, 0.85) 100%)',
+            border: '1px solid rgba(96, 165, 250, 0.45)',
+            boxShadow: '0 0 50px rgba(37, 99, 235, 0.25), 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
+            borderRadius: 24,
             textAlign: 'center',
             maxWidth: 1100,
             alignSelf: 'center',

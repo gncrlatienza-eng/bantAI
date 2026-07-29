@@ -41,5 +41,17 @@ class TrainingConfig:
     num_epochs: int = 4
     warmup_ratio: float = 0.1
 
+    # Class-weighted loss. The dataset is ~62% Ham / 21% Spam / 17% Scam, so an
+    # unweighted model is rewarded for guessing Ham whenever it is unsure --
+    # Ham errors dominate the loss simply by being more numerous. Weighting
+    # each class by ``n_samples / (n_classes * class_count)`` makes a Scam
+    # mistake cost roughly 3.5x a Ham mistake, which raises Scam recall (the
+    # class that matters most: a missed scam defrauds a user, a misfiled promo
+    # annoys them) at a small cost to Ham precision. Macro-F1 is the metric
+    # this is meant to improve; raw accuracy may dip slightly.
+    #
+    # Set False to train with the standard unweighted cross-entropy.
+    class_weighted_loss: bool = True
+
     # Output
     output_dir: str = "models/xlm-roberta-smishing"

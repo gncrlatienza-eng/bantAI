@@ -8,7 +8,7 @@ pydantic>=2.6
 pydantic-settings>=2.2
 
 # --- Model / training ---
-transformers>=4.42
+transformers>=4.46        # 4.46 renamed Trainer(tokenizer=) -> processing_class
 torch>=2.2
 sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
 datasets>=2.19

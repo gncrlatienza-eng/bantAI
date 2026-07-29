@@ -4,6 +4,12 @@ Python ML pipeline for SMS smishing detection: **privacy masking → XLM-RoBERTa
 classification → confidence-threshold routing**. Consumed by the NestJS backend
 (`backend/src/ai`) over HTTP.
 
+**For the full step-by-step pipeline** — every stage from raw data collection
+through labeling, human review, training, evaluation, and deployment, plus the
+complete bug-fix history and known limitations — see
+[`PIPELINE.md`](PIPELINE.md). This README is a quickstart; that document is
+the complete reference.
+
 ## Layout
 
 | Path | What it is |
@@ -106,10 +112,12 @@ pytest            # preprocessing/service tests run with the base deps;
 ## Roadmap (per sprint backlog)
 
 - **Sprint 1 (done):** service scaffold, masking + NFKC draft, fine-tuning environment.
-- **Sprint 2 (in progress):**
+- **Sprint 2 (done):**
   - ✅ Completed masking pipeline (EMAIL/URL/PHONE/AMOUNT/OTP + edge cases).
   - ✅ Ham/Spam/Scam label scheme + softmax head wiring.
   - ✅ Threshold routing → Safe/Unknown/Spam/Blocked buckets in `/classify`.
-  - ⏳ Fine-tune on the PH smishing dataset (needs labeled data + GPU).
+  - ✅ Fine-tuned on the PH smishing dataset (Colab T4; see
+    [`PIPELINE.md`](PIPELINE.md) for the full training/evaluation record and
+    [`colab/README.md`](colab/README.md) to reproduce a run).
 - **Sprint 3+:** cosine-similarity campaign clustering, HDBSCAN, SHAP
   explainability, retraining workflow, TF-IDF summarization.

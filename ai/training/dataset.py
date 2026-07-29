@@ -25,6 +25,10 @@ def _read_files(path: str) -> "pd.DataFrame":
         + glob.glob(os.path.join(path, "*.jsonl"))
         + glob.glob(os.path.join(path, "*.json"))
     )
+    # ``sample.csv`` is the hand-written format reference documented in
+    # ai/README.md, not real data -- globbing the directory would silently
+    # concatenate its 9 dummy rows into the training set.
+    files = [f for f in files if not os.path.basename(f).startswith("sample")]
     if not files:
         raise FileNotFoundError(
             f"No .csv/.json/.jsonl files found in '{path}'. "
@@ -70,6 +74,18 @@ def load_split(config: TrainingConfig) -> Tuple[List[str], List[str], List[int],
 
     texts = [preprocess(str(t)) for t in df[config.text_column].tolist()]
     labels = [_coerce_label(v) for v in df[config.label_column].tolist()]
+
+    # Two different raw messages can collapse to the same model input once PII is
+    # masked -- "...libre 1q2w3e7.ca" and "...libre 1q2w3e8.ca" both become
+    # "...libre <URL>". The source CSV is de-duplicated on RAW text, so those
+    # survive as separate rows and land on both sides of the split, letting the
+    # model be scored on strings it memorised verbatim (measured at 13.7% of the
+    # validation set, and 31.8% of validation Scams). De-duplicate on the masked
+    # text instead, since that is what the model actually sees.
+    deduped: dict = {}
+    for text, label in zip(texts, labels):
+        deduped.setdefault(text, label)
+    texts, labels = list(deduped), list(deduped.values())
 
     return train_test_split(
         texts,

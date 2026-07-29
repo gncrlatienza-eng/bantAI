@@ -56,23 +56,23 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [-] **2.1.1** Refine classification pipeline requirements *(All members)*
     - [x] **2.1.2** Confirm confidence-threshold routing rules (0.90 / 0.50) *(Track B — AI/ML)*
 
-  - [-] **2.2** Design: technical specifications and interface designs for Sprint 2 items
+  - [x] **2.2** Design: technical specifications and interface designs for Sprint 2 items
     - [x] **2.2.1** SMS ingestion API contract *(Track A — Backend)*
     - [x] **2.2.2** Classification service API design *(Track B — AI/ML)*
-    - [ ] **2.2.3** Mobile inbox information architecture *(Track C — Mobile)*
+    - [x] **2.2.3** Mobile inbox information architecture *(Track C — Mobile)*
 
-  - [-] **2.3** Build: implement Sprint 2 work packages
+  - [x] **2.3** Build: implement Sprint 2 work packages
     - [x] **2.3.1** Classification API endpoint (NestJS) *(Track A — Backend)*
     - [x] **2.3.2** Message_Features + Classifications tables (Prisma models) *(Track A — Backend)*
     - [x] **2.3.3** Complete privacy masking + NFKC pipeline *(Track B — AI/ML)*
     - [x] **2.3.4** Fine-tune XLM-RoBERTa on Philippine smishing dataset (80/20 split) *(Track B — AI/ML)*
     - [x] **2.3.5** Softmax classification head (Likely Smishing / Suspicious / Unknown) *(Track B — AI/ML)*
     - [x] **2.3.6** Confidence threshold routing (≥0.90 auto-block · 0.50–0.90 alert · <0.50 inbox) *(Track B — AI/ML)*
-    - [ ] **2.3.7** Android SMS broadcast receiver (default SMS app) *(Track C — Mobile)*
-    - [ ] **2.3.8** Home Screen + Messages: Inbox screens *(Track C — Mobile)*
-    - [ ] **2.3.9** Suspicious Filter + Suspicious Message Detail screens *(Track C — Mobile)*
-    - [ ] **2.3.10** Unsafe Link + Take Action Selection screens *(Track C — Mobile)*
-    - [ ] **2.3.11** Admin Overview + Classification Log pages *(Track D — Web Dashboard)*
+    - [x] **2.3.7** Android SMS broadcast receiver (default SMS app) *(Track C — Mobile)*
+    - [x] **2.3.8** Home Screen + Messages: Inbox screens *(Track C — Mobile)*
+    - [x] **2.3.9** Suspicious Filter + Suspicious Message Detail screens *(Track C — Mobile)*
+    - [x] **2.3.10** Unsafe Link + Take Action Selection screens *(Track C — Mobile)*
+    - [x] **2.3.11** Admin Overview + Classification Log pages *(Track D — Web Dashboard)*
 
   - [-] **2.4** Test: sprint-level unit and integration testing
     - [x] **2.4.1** Unit test: privacy masking & NFKC normalization *(Track B — AI/ML)*

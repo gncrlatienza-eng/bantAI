@@ -10,8 +10,9 @@ state during Sprint 1, before training has produced weights.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from threading import Lock
-from typing import Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 from preprocessing import preprocess
 
@@ -23,6 +24,18 @@ LABELS: Tuple[Label, ...] = ("Ham", "Spam", "Scam")
 
 class ModelNotReadyError(RuntimeError):
     """Raised when classification is requested but no model is loaded."""
+
+
+@dataclass
+class ClassificationResult:
+    """One message's prediction plus the embedding clustering reuses."""
+
+    label: Label
+    score: float
+    scores: Dict[Label, float]
+    masked_text: str
+    #: Final-layer [CLS] vector, L2-normalized, 768-dim (numpy array).
+    embedding: Any
 
 
 def route(scores: Mapping[Label, float]) -> Bucket:
@@ -112,15 +125,20 @@ class SmishingClassifier:
             return id2label[idx]
         return LABELS[idx]
 
-    def classify(self, message: str) -> Tuple[Label, float, Dict[Label, float], str]:
-        """Return ``(label, score, scores, masked_text)`` for a raw SMS body.
+    def classify_full(self, message: str) -> "ClassificationResult":
+        """Classify a message, also returning its sentence embedding.
 
-        ``scores`` is the full softmax distribution over Ham/Spam/Scam; ``score``
-        is the confidence of the winning ``label``.
+        One forward pass produces both the class distribution and the
+        final-layer ``[CLS]`` vector, implementing the manuscript's Stage 4/5
+        design where "this single embedding is reused by Stages 5a and 5b"
+        (classification and campaign clustering). Computing them separately
+        would double inference cost and -- worse -- risk the two stages
+        drifting into different semantic spaces.
         """
         masked = preprocess(message)
         self._ensure_loaded()
 
+        import numpy as np
         import torch
 
         inputs = self._tokenizer(
@@ -130,12 +148,35 @@ class SmishingClassifier:
             return_tensors="pt",
         )
         with torch.no_grad():
-            logits = self._model(**inputs).logits
-        probs = torch.softmax(logits, dim=-1)[0]
+            outputs = self._model(**inputs, output_hidden_states=True)
+
+        probs = torch.softmax(outputs.logits, dim=-1)[0]
         scores = {self._label_for(i): float(probs[i]) for i in range(len(probs))}
         idx = int(torch.argmax(probs))
-        label = self._label_for(idx)
-        return label, float(probs[idx]), scores, masked
+
+        # Final encoder layer, [CLS] position -- L2-normalized so cosine
+        # similarity against campaign centroids is a plain dot product.
+        cls_vector = outputs.hidden_states[-1][0, 0, :].cpu().numpy()
+        norm = float(np.linalg.norm(cls_vector))
+        embedding = cls_vector / norm if norm else cls_vector
+
+        return ClassificationResult(
+            label=self._label_for(idx),
+            score=float(probs[idx]),
+            scores=scores,
+            masked_text=masked,
+            embedding=embedding.astype("float32"),
+        )
+
+    def classify(self, message: str) -> Tuple[Label, float, Dict[Label, float], str]:
+        """Return ``(label, score, scores, masked_text)`` for a raw SMS body.
+
+        ``scores`` is the full softmax distribution over Ham/Spam/Scam; ``score``
+        is the confidence of the winning ``label``. Kept as the original 4-tuple
+        contract for callers that do not need the embedding.
+        """
+        result = self.classify_full(message)
+        return result.label, result.score, result.scores, result.masked_text
 
 
 # Module-level singleton reused across requests.

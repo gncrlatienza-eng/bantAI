@@ -17,6 +17,13 @@ scikit-learn>=1.4           # train/val split + metrics
 pandas>=2.2
 numpy>=1.26
 
+# --- Explainability (Sprint 3, WBS 3.3.6) ---
+# Optional: service/explainer.py falls back to the keyword tagger when this is
+# absent, so the service runs without it. Install for real Shapley values.
+# Note: campaign clustering needs no extra package -- scikit-learn >= 1.3 ships
+# HDBSCAN, and the pin above already exceeds that.
+shap>=0.45
+
 # --- Dev / test ---
 pytest>=8.0
 httpx>=0.27                 # FastAPI TestClient

@@ -39,6 +39,9 @@ SHEETS = [
     "review_sheet_promo_link.csv",
     "review_sheet_confidence.csv",
     "review_sheet_new_batch.csv",
+    "review_sheet_new_batch_2.csv",
+    "review_sheet_idn_fix.csv",
+    "review_sheet_backlog.csv",
 ]
 
 CANON = {"HAM": "Ham", "SPAM": "Spam", "SCAM": "Scam"}

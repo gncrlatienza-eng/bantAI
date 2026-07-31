@@ -37,6 +37,31 @@ def compute_metrics(eval_pred):
     }
 
 
+def compute_class_weights(train_ds, num_labels: int):
+    """Inverse-frequency weights: ``n_samples / (n_classes * class_count)``.
+
+    Ham is ~62% of the dataset, so unweighted training is rewarded for
+    defaulting to Ham whenever it is unsure. These weights make each class
+    contribute equally to the loss regardless of how many examples it has.
+
+    Returns a list of floats indexed by label id, or None when a class is
+    missing from the training split (weighting is meaningless then, and a
+    zero-count class would divide by zero).
+    """
+    # The tokenized dataset carries ``label``; DataCollatorWithPadding renames
+    # it to ``labels`` only at batch time, so accept either name here.
+    names = getattr(train_ds, "column_names", None) or list(train_ds)
+    column = "labels" if "labels" in names else "label"
+
+    counts = [0] * num_labels
+    for label in train_ds[column]:
+        counts[int(label)] += 1
+    if any(c == 0 for c in counts):
+        return None
+    total = sum(counts)
+    return [total / (num_labels * c) for c in counts]
+
+
 def main(config: TrainingConfig | None = None) -> None:
     import torch
     from transformers import (
@@ -71,6 +96,13 @@ def main(config: TrainingConfig | None = None) -> None:
         seed=config.seed,
         eval_strategy="epoch",
         save_strategy="epoch",
+        # Trainer keeps a FULL checkpoint per epoch by default -- model weights
+        # *and* AdamW optimizer state (~3.4GB each for this model), even though
+        # only the final `trainer.save_model()` call below is ever used. That
+        # turned a ~1.1GB model into a 7GB download for no benefit. Keep just
+        # the 1 checkpoint load_best_model_at_end needs to restore the best
+        # epoch.
+        save_total_limit=1,
         load_best_model_at_end=True,
         metric_for_best_model="f1",
         fp16=torch.cuda.is_available(),
@@ -78,12 +110,52 @@ def main(config: TrainingConfig | None = None) -> None:
         report_to="none",
     )
 
-    trainer = Trainer(
+    weights = (
+        compute_class_weights(train_ds, config.num_labels)
+        if config.class_weighted_loss
+        else None
+    )
+
+    trainer_cls = Trainer
+    if weights is not None:
+        print("Class-weighted loss: " + ", ".join(
+            f"{config.id2label[i]}={w:.3f}" for i, w in enumerate(weights)
+        ))
+
+        class WeightedTrainer(Trainer):
+            """Trainer with inverse-frequency class weights in the loss.
+
+            ``num_items_in_batch`` is accepted because transformers >=4.46
+            passes it positionally to ``compute_loss``; swallowing it here
+            keeps the override compatible across 4.4x and 5.x.
+            """
+
+            def compute_loss(self, model, inputs, return_outputs=False,
+                             num_items_in_batch=None):
+                labels = inputs.pop("labels")
+                outputs = model(**inputs)
+                loss = torch.nn.functional.cross_entropy(
+                    outputs.logits.view(-1, config.num_labels),
+                    labels.view(-1),
+                    weight=torch.tensor(
+                        weights, dtype=outputs.logits.dtype,
+                        device=outputs.logits.device,
+                    ),
+                )
+                # Restore for downstream consumers (eval loop reads this back).
+                inputs["labels"] = labels
+                return (loss, outputs) if return_outputs else loss
+
+        trainer_cls = WeightedTrainer
+
+    trainer = trainer_cls(
         model=model,
         args=args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
-        tokenizer=tokenizer,
+        # Renamed from ``tokenizer=`` in transformers 4.46; the old name was
+        # removed outright in 5.x, so passing it raises TypeError.
+        processing_class=tokenizer,
         data_collator=DataCollatorWithPadding(tokenizer),
         compute_metrics=compute_metrics,
     )

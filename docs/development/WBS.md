@@ -48,35 +48,35 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ---
 
 ## Sprint 2: Classification Pipeline & Mobile Inbox
-> Jul 17 – Aug 6, 2026 · All members
+> Jul 17 – Jul 24, 2026 · All members
 
 - [-] **2** Sprint 2: Classification Pipeline & Mobile Inbox
 
   - [-] **2.1** Analysis: refine backlog for Sprint 2, clarify acceptance criteria
     - [-] **2.1.1** Refine classification pipeline requirements *(All members)*
-    - [-] **2.1.2** Confirm confidence-threshold routing rules (0.90 / 0.50) *(Track B — AI/ML)*
+    - [x] **2.1.2** Confirm confidence-threshold routing rules (0.90 / 0.50) *(Track B — AI/ML)*
 
-  - [-] **2.2** Design: technical specifications and interface designs for Sprint 2 items
+  - [x] **2.2** Design: technical specifications and interface designs for Sprint 2 items
     - [x] **2.2.1** SMS ingestion API contract *(Track A — Backend)*
-    - [ ] **2.2.2** Classification service API design *(Track B — AI/ML)*
-    - [ ] **2.2.3** Mobile inbox information architecture *(Track C — Mobile)*
+    - [x] **2.2.2** Classification service API design *(Track B — AI/ML)*
+    - [x] **2.2.3** Mobile inbox information architecture *(Track C — Mobile)*
 
-  - [-] **2.3** Build: implement Sprint 2 work packages
+  - [x] **2.3** Build: implement Sprint 2 work packages
     - [x] **2.3.1** Classification API endpoint (NestJS) *(Track A — Backend)*
     - [x] **2.3.2** Message_Features + Classifications tables (Prisma models) *(Track A — Backend)*
-    - [ ] **2.3.3** Complete privacy masking + NFKC pipeline *(Track B — AI/ML)*
-    - [ ] **2.3.4** Fine-tune XLM-RoBERTa on Philippine smishing dataset (80/20 split) *(Track B — AI/ML)*
-    - [ ] **2.3.5** Softmax classification head (Likely Smishing / Suspicious / Unknown) *(Track B — AI/ML)*
-    - [ ] **2.3.6** Confidence threshold routing (≥0.90 auto-block · 0.50–0.90 alert · <0.50 inbox) *(Track B — AI/ML)*
-    - [ ] **2.3.7** Android SMS broadcast receiver (default SMS app) *(Track C — Mobile)*
-    - [ ] **2.3.8** Home Screen + Messages: Inbox screens *(Track C — Mobile)*
-    - [ ] **2.3.9** Suspicious Filter + Suspicious Message Detail screens *(Track C — Mobile)*
-    - [ ] **2.3.10** Unsafe Link + Take Action Selection screens *(Track C — Mobile)*
-    - [ ] **2.3.11** Admin Overview + Classification Log pages *(Track D — Web Dashboard)*
+    - [x] **2.3.3** Complete privacy masking + NFKC pipeline *(Track B — AI/ML)*
+    - [x] **2.3.4** Fine-tune XLM-RoBERTa on Philippine smishing dataset (80/20 split) *(Track B — AI/ML)*
+    - [x] **2.3.5** Softmax classification head (Likely Smishing / Suspicious / Unknown) *(Track B — AI/ML)*
+    - [x] **2.3.6** Confidence threshold routing (≥0.90 auto-block · 0.50–0.90 alert · <0.50 inbox) *(Track B — AI/ML)*
+    - [x] **2.3.7** Android SMS broadcast receiver (default SMS app) *(Track C — Mobile)*
+    - [x] **2.3.8** Home Screen + Messages: Inbox screens *(Track C — Mobile)*
+    - [x] **2.3.9** Suspicious Filter + Suspicious Message Detail screens *(Track C — Mobile)*
+    - [x] **2.3.10** Unsafe Link + Take Action Selection screens *(Track C — Mobile)*
+    - [x] **2.3.11** Admin Overview + Classification Log pages *(Track D — Web Dashboard)*
 
-  - [ ] **2.4** Test: sprint-level unit and integration testing
-    - [ ] **2.4.1** Unit test: privacy masking & NFKC normalization *(Track B — AI/ML)*
-    - [ ] **2.4.2** Unit test: threshold routing boundary cases *(Track B — AI/ML)*
+  - [-] **2.4** Test: sprint-level unit and integration testing
+    - [x] **2.4.1** Unit test: privacy masking & NFKC normalization *(Track B — AI/ML)*
+    - [x] **2.4.2** Unit test: threshold routing boundary cases *(Track B — AI/ML)*
     - [ ] **2.4.3** Integration test: mobile → backend → ML service round trip *(All members)*
 
   - [ ] **2.5** Sprint Review & Retrospective
@@ -86,7 +86,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ---
 
 ## Sprint 3: Clustering, Explainability, Alerts & Campaigns
-> Aug 7 – Aug 27, 2026 · All members
+> Jul 25 – Jul 31, 2026 · All members
 
 - [ ] **3** Sprint 3: Clustering, Explainability, Alerts & Campaigns
 
@@ -126,7 +126,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ---
 
 ## Sprint 4: Web Dashboard, Report Pipeline & Retraining
-> Aug 28 – Sep 17, 2026 · All members
+> Aug 1 – Aug 7, 2026 · All members
 
 - [ ] **4** Sprint 4: Web Dashboard, Report Pipeline & Retraining
 
@@ -168,7 +168,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ---
 
 ## Sprint 5: Integration, Hardening & Stretch Features
-> Sep 18 – Oct 8, 2026 · All members
+> Aug 8 – Aug 14, 2026 · All members
 
 - [ ] **5** Sprint 5: Integration, Hardening & Stretch Features
 
@@ -205,7 +205,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ---
 
 ## Sprint 6: Testing, Limited Deployment & Defense Readiness
-> Oct 9 – Oct 29, 2026 · All members
+> Aug 15 – Aug 31, 2026 · All members (deployment ~Aug 14; UAT complete by Aug 31; defense prep/buffer Sep 1 – Oct 18; final defense 3rd week of Oct)
 
 - [ ] **6** Sprint 6: Testing, Limited Deployment & Defense Readiness
 
@@ -241,4 +241,4 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **6.5.2** Track precision, recall, F1 in the wild *(Track B — AI/ML)*
     - [ ] **6.5.3** Live demo rehearsal (3×) *(All members)*
     - [ ] **6.5.4** Panel Q&A preparation *(All members)*
-    - [ ] **6.5.5** **Final defense** — target end of Oct 2026 *(All members)*
+    - [ ] **6.5.5** **Final defense** — target 3rd week of Oct 2026 (Oct 19–23) *(All members)*

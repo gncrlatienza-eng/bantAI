@@ -11,50 +11,61 @@ export const ShieldLogo: React.FC<ShieldLogoProps> = ({ size = 32, className = '
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
-      style={{ flexShrink: 0, ...style }}
+      style={{ flexShrink: 0, borderRadius: size * 0.22, filter: 'drop-shadow(0 4px 12px rgba(49, 46, 129, 0.45))', ...style }}
     >
       <defs>
-        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="50%" stopColor="#2563eb" />
-          <stop offset="100%" stopColor="#1d4ed8" />
+        {/* Deep Indigo Background Gradient */}
+        <linearGradient id="bgIndigoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2e2570" />
+          <stop offset="50%" stopColor="#1e1b4b" />
+          <stop offset="100%" stopColor="#0c0a20" />
         </linearGradient>
-        <linearGradient id="cyberGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#93c5fd" />
-          <stop offset="100%" stopColor="#60a5fa" />
+
+        {/* Speech Bubble Indigo Gradient */}
+        <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="100%" stopColor="#4f46e5" />
+        </linearGradient>
+
+        {/* Top Bevel Highlight Rim */}
+        <linearGradient id="rimHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#818cf8" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#c7d2fe" stopOpacity="0.25" />
         </linearGradient>
       </defs>
-      
-      {/* Outer Shield Path */}
-      <path
-        d="M16 2L4 7V15C4 22.5 9.2 28.6 16 30C22.8 28.6 28 22.5 28 15V7L16 2Z"
-        fill="url(#shieldGrad)"
-        stroke="#60a5fa"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
 
-      {/* Inner Cyber Core Grid / Node */}
+      {/* Squircle Background Base */}
+      <rect width="40" height="40" rx="9" fill="url(#bgIndigoGrad)" />
+      
+      {/* Top Edge Bevel Rim */}
+      <rect x="0.75" y="0.75" width="38.5" height="38.5" rx="8.25" stroke="url(#rimHighlight)" strokeWidth="1.5" fill="none" />
+
+      {/* SMS Speech Bubble Shape */}
       <path
-        d="M16 7L8 11V15C8 20 11.4 24.5 16 25.8C20.6 24.5 24 20 24 15V11L16 7Z"
-        fill="rgba(10, 15, 30, 0.65)"
-        stroke="url(#cyberGlow)"
+        d="M12 12C12 9.79086 13.7909 8 16 8H24C26.2091 8 28 9.79086 28 12V20C28 22.2091 26.2091 24 24 24H18.5L14 28V24H16C13.7909 24 12 22.2091 12 20V12Z"
+        fill="url(#bubbleGrad)"
+        stroke="#818cf8"
         strokeWidth="1"
       />
 
-      {/* Center AI Node Core */}
-      <circle cx="16" cy="15" r="3" fill="#ffffff" />
-      <circle cx="16" cy="15" r="5" stroke="#93c5fd" strokeWidth="1" strokeDasharray="2 2" />
+      {/* Centered Integrated Security Shield */}
+      <path
+        d="M20 11L15.5 13V16.5C15.5 19.5 17.5 21.8 20 22.5C22.5 21.8 24.5 19.5 24.5 16.5V13L20 11Z"
+        fill="#ffffff"
+        opacity="0.95"
+      />
 
-      {/* Connecting Circuit Nodes */}
-      <path d="M16 10V12" stroke="#dbeafe" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M16 18V20" stroke="#dbeafe" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M11 15H13" stroke="#dbeafe" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M19 15H21" stroke="#dbeafe" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Shield Inner Detail Cutout */}
+      <path
+        d="M20 12.8L17 14.1V16.5C17 18.5 18.3 20 20 20.6C21.7 20 23 18.5 23 16.5V14.1L20 12.8Z"
+        fill="#4f46e5"
+        opacity="0.8"
+      />
     </svg>
   );
 };
+

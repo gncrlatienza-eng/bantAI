@@ -94,30 +94,34 @@ export const AboutPage: React.FC = () => {
               alignItems: 'center',
               gap: 8,
               padding: '6px 18px',
-              borderRadius: 999,
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              color: '#34d399',
-              fontSize: '0.78rem',
+              borderRadius: 20,
+              background: 'rgba(37, 99, 235, 0.12)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              color: '#60a5fa',
+              fontSize: '0.78125rem',
               fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
             }}
           >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-            About BantAI
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', animation: 'pulseDot 1.5s infinite' }} />
+            About BantAI Platform
           </div>
 
           <h1
             style={{
-              margin: '18px 0 14px',
-              fontSize: 'clamp(2.35rem, 4.8vw, 3.4rem)',
+              margin: '16px 0 14px',
+              fontSize: 'clamp(2.4rem, 4.8vw, 3.6rem)',
               fontWeight: 800,
-              lineHeight: 1.1,
+              lineHeight: 1.15,
               color: '#ffffff',
+              letterSpacing: '-0.03em',
             }}
           >
-            Built for the Philippine Smishing Threat Landscape
+            Built for the Philippine <br />
+            <span style={{ background: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Smishing Threat Landscape
+            </span>
           </h1>
 
           <p

@@ -32,7 +32,9 @@ export class CampaignsService {
             sender: true,
             body: true,
             receivedAt: true,
-            classification: { select: { label: true, score: true, bucket: true } },
+            classification: {
+              select: { label: true, score: true, bucket: true },
+            },
           },
           orderBy: { receivedAt: 'desc' },
           take: 50,
@@ -40,7 +42,8 @@ export class CampaignsService {
       },
     });
 
-    if (!cluster) throw new NotFoundException(`Campaign cluster ${id} not found`);
+    if (!cluster)
+      throw new NotFoundException(`Campaign cluster ${id} not found`);
     return cluster;
   }
 
@@ -57,8 +60,11 @@ export class CampaignsService {
 
   // Called by the AI/ML service to add newly discovered URL domains to a cluster.
   async addDomains(id: string, domains: string[]) {
-    const cluster = await this.prisma.campaignCluster.findUnique({ where: { id } });
-    if (!cluster) throw new NotFoundException(`Campaign cluster ${id} not found`);
+    const cluster = await this.prisma.campaignCluster.findUnique({
+      where: { id },
+    });
+    if (!cluster)
+      throw new NotFoundException(`Campaign cluster ${id} not found`);
 
     const merged = Array.from(new Set([...cluster.urlDomains, ...domains]));
     return this.prisma.campaignCluster.update({
@@ -83,6 +89,14 @@ export class CampaignsService {
         isActive: true,
         urlDomains: { hasSome: domains },
       },
+    });
+  }
+
+  // Internal: AI service fetches centroids to check cosine similarity against new messages.
+  findAllCentroids() {
+    return this.prisma.campaignCluster.findMany({
+      where: { isActive: true },
+      select: { id: true, centroid: true },
     });
   }
 

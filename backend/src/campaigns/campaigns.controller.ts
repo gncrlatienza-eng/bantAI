@@ -24,6 +24,12 @@ export class CampaignsController {
     return this.campaignsService.findAll();
   }
 
+  // Internal: AI service fetches all active centroids for cosine-similarity matching
+  @Get('centroids')
+  findAllCentroids() {
+    return this.campaignsService.findAllCentroids();
+  }
+
   // Mobile / dashboard: get one cluster with its recent messages
   @UseGuards(JwtAuthGuard)
   @Get(':id')

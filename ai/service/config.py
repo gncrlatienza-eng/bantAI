@@ -42,5 +42,20 @@ class Settings(BaseSettings):
     # thresholds — a near-tie is not a confident call and must not be acted on.
     review_margin: float = 0.15
 
+    # --- Campaign clustering (Sprint 3) ---------------------------------- #
+    # Where the live matcher gets its campaign centroids from:
+    #   "file"    -- read scripts/cluster_campaigns.py output (default; works
+    #                with no backend and no database)
+    #   "backend" -- fetch from the NestJS service. Blocked until the backend
+    #                returns the `centroid` field, see service/centroid_source.py
+    #   "none"    -- disable campaign matching entirely
+    centroid_source: str = "file"
+    cluster_file: str = "datasets/processed/campaign_clusters.json"
+    backend_url: str = "http://localhost:3000/api"
+
+    # Cosine similarity a message must reach to join an existing campaign
+    # (manuscript Stage 5b).
+    campaign_threshold: float = 0.85
+
 
 settings = Settings()

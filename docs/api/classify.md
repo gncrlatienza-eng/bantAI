@@ -45,7 +45,13 @@ part of this service so that training and inference see identical text.
   "score": 0.9412,
   "scores": { "Ham": 0.0231, "Spam": 0.0357, "Scam": 0.9412 },
   "bucket": "blocked",
-  "masked_text": "Your GCash account is locked. Verify now: <URL>"
+  "masked_text": "Your GCash account is locked. Verify now: <URL>",
+  "campaign": {
+    "cluster_id": "7",
+    "similarity": 0.913,
+    "matched": true,
+    "should_buffer": false
+  }
 }
 ```
 
@@ -56,6 +62,24 @@ part of this service so that training and inference see identical text.
 | `scores` | object | Full softmax distribution over all three classes (sums to 1.0) |
 | `bucket` | string | Routing decision: `safe` · `spam` · `blocked` · `unknown` |
 | `masked_text` | string | PII-masked text actually fed to the model |
+| `campaign` | object \| null | Campaign-clustering result (Sprint 3). `null` when no centroids are loaded — see below. |
+
+### `campaign` (Sprint 3, WBS 3.3.4)
+
+| Field | Type | Description |
+|---|---|---|
+| `cluster_id` | string \| null | Matched `CampaignCluster` id, or `null` when nothing cleared the threshold |
+| `similarity` | float −1–1 | Cosine similarity to the closest active centroid |
+| `matched` | bool | Whether `similarity ≥ 0.85` (manuscript Stage 5b threshold) |
+| `should_buffer` | bool | `true` when unmatched — hold the embedding for the next offline HDBSCAN pass |
+
+The AI service **decides** the match; the backend **persists** it (writes
+`clusterId` on the message, increments `messageCount`). The AI service has no
+database access, which keeps the dependency one-directional.
+
+`campaign` is `null` at cold start, before any clustering run has produced
+centroids. This is an additive field — callers that ignore it are unaffected.
+Full data flow: [`campaigns.md`](campaigns.md).
 
 **Store `masked_text`, not the raw body,** wherever message content is persisted
 for analytics or campaign clustering — URLs, phone numbers, amounts, emails and
@@ -177,5 +201,7 @@ Rough correspondence for anyone migrating:
 | *(no equivalent)* | `label: "Spam"` + `bucket: "spam"` |
 | *(no equivalent)* | `label: "Ham"` + `bucket: "safe"` |
 
-`docs/api/sms.md` still documents the old vocabulary and needs updating to match
-once the backend adopts this contract.
+`docs/api/sms.md` was reconciled with the shipped code on 2026-07-30 and now
+documents `Ham`/`Spam`/`Scam` correctly. The manuscript's own prose still uses
+the old three-value wording — a known, separately-tracked mismatch to raise
+with the adviser, not a code defect.

@@ -88,25 +88,25 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ## Sprint 3: Clustering, Explainability, Alerts & Campaigns
 > Jul 25 – Jul 31, 2026 · All members
 
-- [ ] **3** Sprint 3: Clustering, Explainability, Alerts & Campaigns
+- [-] **3** Sprint 3: Clustering, Explainability, Alerts & Campaigns
 
-  - [ ] **3.1** Analysis: refine backlog for Sprint 3, clarify acceptance criteria
+  - [-] **3.1** Analysis: refine backlog for Sprint 3, clarify acceptance criteria
     - [ ] **3.1.1** Refine clustering + explainability requirements *(All members)*
-    - [ ] **3.1.2** Confirm SHAP indicator tag dictionary contents *(Track B — AI/ML)*
+    - [-] **3.1.2** Confirm SHAP indicator tag dictionary contents *(Track B — AI/ML)*
 
-  - [ ] **3.2** Design: technical specifications and interface designs for Sprint 3 items
-    - [ ] **3.2.1** Campaign clustering data flow spec *(Track B — AI/ML)*
-    - [ ] **3.2.2** Explainability output format for mobile & dashboard *(Track B — AI/ML)*
+  - [-] **3.2** Design: technical specifications and interface designs for Sprint 3 items
+    - [-] **3.2.1** Campaign clustering data flow spec *(Track B — AI/ML)*
+    - [-] **3.2.2** Explainability output format for mobile & dashboard *(Track B — AI/ML)*
     - [ ] **3.2.3** Alerts + Campaigns mobile UX spec *(Track C — Mobile)*
 
   - [-] **3.3** Build: implement Sprint 3 work packages
     - [-] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
     - [-] **3.3.2** Sender verification endpoint *(Track A — Backend)*
     - [-] **3.3.3** Link suppression API logic *(Track A — Backend)*
-    - [ ] **3.3.4** Cosine similarity module (threshold 0.85 against active centroids) *(Track B — AI/ML)*
-    - [ ] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
-    - [ ] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
-    - [ ] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
+    - [-] **3.3.4** Cosine similarity module (threshold 0.85 against active centroids) *(Track B — AI/ML)*
+    - [-] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
+    - [-] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
+    - [-] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
     - [ ] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)*
     - [ ] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)*
     - [ ] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)*
@@ -114,9 +114,9 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
     - [ ] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
 
-  - [ ] **3.4** Test: sprint-level unit and integration testing
-    - [ ] **3.4.1** Unit test: cosine similarity threshold logic *(Track B — AI/ML)*
-    - [ ] **3.4.2** Unit test: HDBSCAN grouping stability *(Track B — AI/ML)*
+  - [-] **3.4** Test: sprint-level unit and integration testing
+    - [-] **3.4.1** Unit test: cosine similarity threshold logic *(Track B — AI/ML)*
+    - [-] **3.4.2** Unit test: HDBSCAN grouping stability *(Track B — AI/ML)*
     - [ ] **3.4.3** Integration test: SHAP output flows from ML service to mobile display *(All members)*
 
   - [ ] **3.5** Sprint Review & Retrospective

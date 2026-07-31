@@ -25,8 +25,8 @@ Expected runtime on a free T4: **~20-30 minutes** end to end.
 ## What the zip contains
 
 `preprocessing/` and `training/` (source, no `__pycache__`), the labeled dataset
-`datasets/labeled/bantai_labeled.csv` (15,728 rows: Ham 9,309 / Spam 3,799 /
-Scam 2,620), and `requirements.txt`.
+`datasets/labeled/bantai_labeled.csv` (16,772 rows: Ham 9,315 / Spam 4,788 /
+Scam 2,669), and `requirements.txt`.
 
 `sample.csv` is deliberately excluded — it is a hand-written format reference,
 not real data, and the training loader now skips it (see

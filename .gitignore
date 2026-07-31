@@ -45,6 +45,10 @@ ai/datasets/raw/*.tsv
 ai/datasets/raw/*.json
 ai/datasets/processed/*.csv
 ai/datasets/processed/*.json
+# Cached embeddings (Sprint 3 clustering). The .npz bundles the message texts
+# alongside the vectors -- real personal SMS, same reason as the CSVs. Also
+# large and fully regenerable via scripts/embed_dataset.py.
+ai/datasets/processed/*.npz
 
 # Raw source corpora + generated labeled data (real personal SMS — never push).
 # sample.csv (format reference) and the *.md guides stay tracked.

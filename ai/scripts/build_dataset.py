@@ -96,6 +96,7 @@ OFFICIAL_DOMAINS = {
     "laco.st", "grab.com", "foodpanda.ph", "zalora.com.ph",
     "accounts-business.globe.com.ph", "phlpost.gov.ph", "metrobank.com.ph",
     "maya.ph", "paymaya.com", "mayaph.co", "jtexpress.ph", "lbcexpress.com", "shopee.ph", "lazada.com.ph",
+    "lzd.co",
     "bdo.com.ph", "online.bdo.com.ph", "landbank.com",
     # Service/utility domains that appear in genuine transactional and
     # service-notice SMS (human review round 3: these were being treated as
@@ -194,6 +195,12 @@ PSA = [
     "pretends to be from", "trick you into", "giving away personal information",
     "nanghihingi ng personal info", "hindi kami humihingi",
     "never ask you to click", "will never ask you",
+    # "SCAM 'YAN!" -- the apostrophe before "yan" made this miss the plain
+    # "scam yan" entry above (substring match, so "scam 'yan" != "scam yan").
+    # Found 2026-07-30: a DSWD/SSS ayuda anti-scam advisory was falling through
+    # to the phishing+action rule ("i-verify" + "otp" both appear in the body,
+    # ironically as safety advice) instead of being caught here first.
+    "scam 'yan", "scam 'iyan",
 ]
 
 # Promotional intent -> Spam (honest selling).
@@ -225,6 +232,20 @@ PROMO_TERMS = [
     "switch to", "upgrade to", "upgrade your account", "claim your free",
     "personal loan", "credit card", "cash loan offer", "loan offer",
     "data promo", "surf promo", "call and text promo",
+    # Regulatory citation + honest-marketing opt-out boilerplate. Round 7
+    # backlog review: 289 Globe/DITO/GCash loyalty-program messages (raffle
+    # entries, rewards points, VoLTE/VoWiFi education) were defaulting to Ham
+    # because PROMO_TERMS is written around retail/telco-offer wording, not
+    # loyalty-program phrasing. Scammers essentially never cite a real DTI
+    # permit number or offer a working STOP short-code, so these are safe,
+    # general honest-promo signals rather than one-off campaign names. This
+    # doesn't chase every specific brand/app name -- ~57% of that backlog is
+    # covered by this, and the rest is low-stakes (mislabeling an honest promo
+    # as Ham instead of Spam doesn't affect scam-catching).
+    "dti fair trade permit", "dti permit no", "per dti", "no advisories?",
+    "to unsubscribe", "text stop to", "stop txt", "reply stop", "text off to",
+    "rewards points", "reward points", "raffle entries", "redeem rewards",
+    "globe rewards", "volte", "vowifi",
 ]
 
 # Tagalog / Taglish selling vocabulary. PROMO_TERMS above is almost entirely
@@ -304,9 +325,9 @@ GAMBLING_SOFT = [
 # never use -> Scam even without a link.
 WIN_SCAM = [
     "you won", "you have won", "you've won", "you are a winner",
-    "lucky winner", "gcash prize", "cash prize", "claim your prize",
-    "you have been selected", "congratulations you", "winners list",
-    "maswerteng nanalo", "waiting in your account",
+    "lucky winner", "lucky winners", "gcash prize", "cash prize",
+    "claim your prize", "you have been selected", "congratulations you",
+    "winners list", "maswerteng nanalo", "waiting in your account",
     # Prize-collection urgency and spin/roulette bait -- from human review of
     # the low-confidence sample (see review_sheet.csv), these were falling
     # through to the Ham default because they don't use the English phrasing
@@ -360,6 +381,12 @@ JOB_SCAM = [
     "kumita ng malaki", "kumita habang", "nasa bahay lang", "sa bahay lang",
     "walang puhunan", "libreng trabaho", "trabaho sa bahay",
     "kikita ka", "dagdag kita", "raket sa bahay",
+    # "Be an appointment setter, click our Messenger link" job blasts. Round 7
+    # backlog review: these already trip suspicious_link() (m.me isn't an
+    # official domain), but needed susp+JOB_SCAM and this vocabulary wasn't
+    # here, so they fell through to the Ham default anyway.
+    "earn while at home", "appointment setter", "homebased", "home-based",
+    "copy-paste system", "be an onliner",
 ]
 
 # Unsolicited "you already qualify" credit offers. Legitimate lenders do not
@@ -368,9 +395,9 @@ JOB_SCAM = [
 LOAN_BAIT = [
     "you are qualified", "you are granted", "granted credit", "no collateral",
     "no hidden charges", "pre-approved", "preapproved", "cash loan",
-    "personal loan", "unsecured", "no guarantee", "no meetup", "no meet up",
-    "waiting for you to apply", "complete your profile", "apply and get cash",
-    "qualified to avail",
+    "cash loans", "personal loan", "unsecured", "no guarantee", "no meetup",
+    "no meet up", "waiting for you to apply", "complete your profile",
+    "apply and get cash", "qualified to avail",
 ]
 
 # Ham anchors (strong, positive signals).
@@ -448,7 +475,13 @@ DOMAIN_RE = re.compile(r"(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)",
 
 # Punycode or a domain-looking token carrying non-Latin characters:
 # '666рф.рф', '108.भारत', 'xn--80ak6aa92e.com'. Never legitimate in PH SMS.
-IDN_RE = re.compile(r"xn--[a-z0-9-]+|[^\s/]*[^\x00-\x7F][^\s/]*\.[^\s/]{2,}")
+# The negative lookahead on the final segment excludes peso amounts with a
+# decimal point ('...for P16054.5.', '[TikTok] your bill of P554.54 is due') --
+# a real domain's part after the dot never starts with a digit, but a currency
+# amount's does, and the un-guarded version was flagging OTP/receipt messages
+# as scams over nothing but their own peso sign. Found 2026-07-30 while
+# reviewing the newest raw batch.
+IDN_RE = re.compile(r"xn--[a-z0-9-]+|[^\s/]*[^\x00-\x7F][^\s/]*\.(?!\d)[^\s/]{2,}")
 
 
 # --------------------------------------------------------------------------- #
@@ -654,6 +687,16 @@ def label_raw(sender: str, body: str):
     # Non-Latin / punycode domain -- never legitimate here.
     if IDN_RE.search(body or ""):
         return "Scam", "high", "non-latin-domain"
+    # Credit-card ID-harvesting via email. Round 7 backlog review found
+    # RCBC/EastWest/Citibank "FREE FOR LIFE ANNUAL FEE" blasts that ask you to
+    # email 2 government IDs + a photo of your card to a gmail.com address.
+    # No link (gmail.com is explicitly exempt in suspicious_link -- correctly,
+    # most legit replies go there too), and the message is ALL-CAPS rather
+    # than the internal-caps pattern evasion_caps() looks for, so nothing else
+    # in this cascade catches it. This pairing is specific enough that no
+    # legitimate offer uses it.
+    if "government id" in td and ("frontface of" in td or "front face of" in td):
+        return "Scam", "high", "id-harvest-via-email"
     # Invokes a brand but links somewhere that isn't the brand's own domain.
     imp = brand_impersonation(body or "", deleet(body or ""))
     if imp and impersonation_is_deceptive(body or "", deleet(body or ""),

@@ -208,11 +208,26 @@ run so far, each targeting a different risk:
 | 2 | `scripts/make_trusted_review_sheet.py` | `datasets/audit/review_sheet_trusted.csv` | 120 | Low-confidence rows from the corpus previously assumed clean (`kaggle:text-messages`) |
 | 3 | `scripts/make_promo_link_review_sheet.py` | `datasets/audit/review_sheet_promo_link.csv` | 94 (**all** of them, not a sample) | Every row touched by the brand-new `promo-unverified-link` rule (§2.2 step 17) — full population reviewed because the rule was unvalidated at scale |
 | 4 | `scripts/make_confidence_review_sheet.py` | `datasets/audit/review_sheet_confidence.csv` | 100 (stratified, capped 12/rule) | **The blind spot.** Rounds 1–3 all sampled where the rules already admitted doubt; this samples *high- and medium-confidence* rows — 86% of the dataset, never previously checked |
+| 5 | `scripts/make_new_batch_review_sheet.py` | `datasets/audit/review_sheet_new_batch.csv` | 44 (**all** of them) | Full population of low-confidence rows genuinely new in the 2026-07-29 raw-inbox top-up (105615 export) |
+| 6 | `scripts/make_new_batch_review_sheet_2.py` | `datasets/audit/review_sheet_new_batch_2.csv` | 13 (**all** of them) | Same, for a second same-day raw-inbox export (171539) |
+| 7 | `scripts/make_backlog_review_sheet.py` | `datasets/audit/review_sheet_backlog.csv` | 1,004 (**all** of them) | **The other blind spot.** Rounds 1–6 only ever reviewed newly-arrived batches; this is every low-confidence raw-inbox row from *any* earlier batch that no round had ever reached |
+
+(`review_sheet_idn_fix.csv`, 4 rows, isn't a review round — it's a pre-filled
+correction sheet for 4 rows a regex bug fix (§12) couldn't reach cleanly,
+routed through the same overlay mechanism for auditability.)
 
 Round 4 result: **87 agree / 13 disagree (87.0%)** — the confident bucket is
 broadly sound, but the 13 disagreements clustered into three real rule bugs
 (§10, §11, and more of §9) affecting well over a thousand rows. After those
 fixes the rules reproduce **97%** of round 4's verdicts unaided.
+
+Round 7 result: **660 agree / 341 disagree (65.9%)** — by far the lowest
+agreement rate of any round, because it was the first to ever look at the
+backlog rather than a fresh arrival. The disagreements clustered into three
+real rule gaps (§14): 289 legitimate telco/e-wallet loyalty promos mislabeled
+Ham, plus two previously-uncovered Scam categories (Messenger-link job scams,
+credit-card ID-harvesting emails). After the §14 fix the rules reproduce the
+backlog's verdicts natively for 184 of those 337 rows.
 
 **Process, each round:** open the CSV (UTF-8-BOM encoded so Tagalog/emoji
 render correctly in Excel), fill `verdict` (AGREE/DISAGREE), `correct_label`
@@ -230,11 +245,16 @@ Bug History §5).
 | 2 (trusted corpus) | 115 | 5 | 95.8% | The "trusted" corpus is mostly clean, with a thin layer of real noise |
 | 3 (new rule, full population) | 71 | 23 | 75.5% | Exposed a systematic rule gap, not 23 isolated misses — see Bug History §8. After the fix the rules reproduce **93.6%** of these verdicts unaided |
 | 4 (high/medium confidence) | 87 | 13 | 87.0% | Audited the 86% of the dataset no earlier round could reach. Three rule bugs (§9–§11); rules now reproduce **97%** unaided |
+| 5 (new batch, full population) | 34 | 10 | 77.3% | New raw-inbox top-up, low-confidence only |
+| 6 (new batch #2, full population) | 10 | 3 | 76.9% | Second same-day top-up, same scope |
+| 7 (backlog, full population) | 660 | 341 | 65.9% | Lowest of any round — see above. Three rule gaps (§14); rules now reproduce the backlog natively for 184/337 |
 
-**Coverage so far:** 552 of 15,319 rows (~3.6%) human-verified across four
-rounds. Deliberately risk-weighted, not random — rounds 1–3 targeted where the
-rules hesitated, round 4 audited where they were confident. Between them they
-cover both failure modes.
+**Coverage so far:** 1,613 of 16,772 rows (9.6%) human-verified across seven
+rounds. Deliberately risk-weighted, not random — rounds 1–3, 5–6 targeted
+where the rules hesitated on new arrivals, round 4 audited where they were
+confident, round 7 audited the backlog rounds 1–6 never reached. Between them
+they cover the three failure modes: doubtful rules, confident-but-wrong rules,
+and stale/unreviewed rows.
 
 **Round 3 is the model for how these should be read.** A 75.5% agreement rate
 was not "the reviewer disagreed with 23 rows" — 21 of the 23 shared one shape
@@ -459,6 +479,172 @@ rather than depending on whether a real model happens to be installed locally.
 
 ---
 
+## Stage 8 — Explainability (SHAP indicator tags) — Sprint 3, WBS 3.1.2
+
+**Status: dictionary contents drafted and unit-tested (2026-07-30); SHAP
+integration itself is WBS 3.3.6, not yet done.**
+
+**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (14 tests)
+
+The manuscript's Stage 6 (Explainability and Tip Retrieval) specifies SHAP
+computing a Shapley value per token, then mapping the top contributing tokens
+"through a curated dictionary into human readable indicator tags such as
+'Prize Lure,' 'Suspicious URL,' or 'Brand Impersonation'" (manuscript also
+names "Urgency Cue" elsewhere). The manuscript names examples, not an
+exhaustive list — WBS 3.1.2 exists to decide the rest.
+
+**Nine tags, drafted:**
+
+| Tag | Source |
+|---|---|
+| Prize Lure | manuscript-named |
+| Suspicious URL | manuscript-named (structural: shortener or non-whitelisted domain) |
+| Brand Impersonation | manuscript-named (structural: named brand + suspicious link) |
+| Urgency Cue | manuscript-named |
+| Gambling Bait | grounded in `build_dataset.py`'s `GAMBLING_HARD`/`GAMBLING_SOFT` |
+| Fake Job Offer | grounded in `JOB_SCAM` (incl. the §14 Messenger-link additions) |
+| Unsolicited Credit Offer | grounded in `LOAN_BAIT` |
+| Personal Info Request | grounded in the §14 `id-harvest-via-email` rule |
+| OTP / Account Phishing | grounded in `PHISH` |
+
+Deliberately **not** importing `build_dataset.py`'s lexicons directly — that
+file decides a training *label* via a rule cascade (one winner, precedence
+matters); this one *explains* a prediction to a user (multiple tags can apply
+at once, no precedence). Sharing vocabulary is fine; sharing an import would
+let one script's edits silently change the other's output.
+
+**How it works today (pre-SHAP):** `tags_for_message(raw_text)` is a
+standalone keyword/structural tagger — usable right now without any SHAP
+dependency, and returns tags sorted by a placeholder weight (0.3 + 0.2/hit,
+capped at 0.9). `to_indicator_dicts()` shapes the output to exactly what the
+backend already expects (`POST /sms/:messageId/indicators`,
+`[{tag: string, weight: number}]` — see `docs/api/sms.md`).
+
+**3.3.6 (SHAP integration) — done 2026-07-30.** `service/explainer.py` wires
+`shap` against the model for real per-token Shapley values, maps the top tokens
+through `TAG_KEYWORDS` here, and normalizes each tag's summed Shapley mass to a
+0–1 weight. The dictionary contents did not change — 3.3.6 consumes them.
+
+**Why explanation is asynchronous.** True SHAP on a transformer needs hundreds
+of masked forward passes per message — seconds on CPU, not milliseconds.
+Inline it would break the manuscript's real-time interception requirement. So
+classification returns immediately and the explanation is computed after the
+fact, then attached via the backend's `POST /sms/:messageId/indicators`. That
+endpoint already existing as a *separate* call is what makes this clean rather
+than a workaround. `shap` is an optional dependency: when absent (or when
+attribution fails on some input) `explain()` falls back to the deterministic
+keyword tagger, and the result's `method` field records which path ran, so a
+reader can always distinguish a real Shapley value from a heuristic.
+
+**Measured against the real model, 2026-07-30** (CPU, run-3 checkpoint):
+
+| Step | Time |
+|---|---|
+| Classification (+ embedding) | **~50 ms** |
+| Real SHAP attribution | **13–26 s** |
+
+SHAP is roughly **300–500× slower** than classification, which settles the
+design question: asynchronous explanation is required, not merely tidy. The
+`shap` path is verified working end to end — it produced correct tags and
+sensible top tokens on real gambling, phishing and benign messages. Two bugs
+were found doing that verification (Bug History §15, §16).
+
+Client-side contract: [`../docs/api/explainability.md`](../docs/api/explainability.md) (WBS 3.2.2).
+
+---
+
+## Stage 9 — Campaign clustering — Sprint 3, WBS 3.3.4 / 3.3.5
+
+**Code:** `service/embeddings.py`, `service/campaign.py` (fast path),
+`scripts/embed_dataset.py`, `scripts/cluster_campaigns.py` (slow path)
+**Tests:** `tests/test_campaign.py` (21), `tests/test_clustering.py` (15)
+**Data flow spec:** [`../docs/api/campaigns.md`](../docs/api/campaigns.md) (WBS 3.2.1)
+
+Implements the manuscript's Stage 5b. Classification and clustering are two
+branches off **one** embedding, per the manuscript: the final-layer `[CLS]`
+vector (768-dim) is pooled once and "reused by Stages 5a and 5b". So
+`classify_full()` does a single forward pass with `output_hidden_states=True`
+and returns both the class distribution and the embedding — computing them
+separately would double inference cost and risk the two stages drifting into
+different semantic spaces.
+
+**Two speeds:**
+
+| | Fast path (per message) | Slow path (offline batch) |
+|---|---|---|
+| Decides | join a *known* campaign | discover a *new* campaign |
+| Method | cosine vs. active centroids | HDBSCAN over the buffer |
+| Parameter | similarity ≥ **0.85** | `min_cluster_size` = **5** |
+| Cost | microseconds | seconds–minutes |
+
+Both parameters are the manuscript's. HDBSCAN comes from
+`sklearn.cluster.HDBSCAN` (scikit-learn ≥ 1.3) rather than the standalone
+`hdbscan` package — same algorithm, one less dependency, and sklearn was
+already required for the train/val split. Clustering uses euclidean distance on
+L2-normalized vectors, which is monotonically equivalent to cosine distance
+(‖a−b‖² = 2 − 2·cos), so the two paths agree on what "similar" means.
+
+**The AI service never writes to the database.** It decides the match and
+returns it on `/classify`; the backend persists. Otherwise the dependency would
+be circular (backend → AI `/classify`, AI → backend `/campaigns`) and schema
+knowledge would be duplicated across two stacks.
+
+**Retraining invalidates centroids.** Embeddings are only comparable within one
+checkpoint's semantic space — after any retrain, old centroids are meaningless
+against new embeddings, not merely shifted. Re-run both scripts after every
+retrain (`embeddings.npz` records the `model_dir` it came from so a stale cache
+is detectable). Re-clustering *alone* is cheap and safe to repeat any time: it
+is pure math over cached embeddings and touches neither the model nor its
+accuracy.
+
+### First real run — 2026-07-30
+
+Embedded all 16,772 messages with the installed run-3 checkpoint (20.3 min on
+CPU, 13.8 msg/s), then clustered the Spam+Scam population (7,457 messages — Ham
+excluded because personal conversation is not a campaign).
+
+| Metric | Result |
+|---|---|
+| Clusters found | **221** |
+| Messages grouped | 2,993 (40.1%) |
+| Noise / one-offs | 4,464 (59.9%) |
+| Largest cluster | 211 messages (2.8% of population) |
+| Median cluster size | 8 |
+| Scam-dominant clusters | 79 (755 messages) |
+| Spam-dominant clusters | 142 (2,238 messages) |
+| Mixed-label clusters | **5 of 221** |
+
+**The manuscript's parameters hold up on real Philippine SMS.** Both failure
+modes were checked for and neither occurred: no giant blob (the largest cluster
+is 2.8% of the population, not 50%+) and no fragmentation (221 clusters for
+7,457 messages, median size 8). `0.85` and `min_cluster_size = 5` can be cited
+as validated rather than merely proposed.
+
+**The strongest validation is the mixed-label count.** Clustering never sees
+the Ham/Spam/Scam labels — it groups purely on embedding geometry. Yet only
+**5 of 221 clusters** mix Spam and Scam messages. The embedding space separates
+honest marketing from fraud on its own, which independently corroborates that
+the classifier is learning a real semantic distinction rather than surface
+keywords.
+
+Discovered Scam campaign families are recognizable and coherent — Tagalog
+gambling-registration blasts (`lucky6.auction`, `play6.tw`, `maswerte.city`),
+"earn while watching YouTube" job scams, BDO account-restriction phishing,
+and cashback/recharge lures. Spam clusters are similarly clean, dominated by
+Globe/DITO promo template families.
+
+**59.9% noise is expected, not a failure.** HDBSCAN labels a message noise when
+it is not part of a *recurring* pattern; a one-off scam is still classified and
+blocked normally by Stage 5a. Noise here means "no campaign yet" — those
+embeddings stay buffered, and a campaign forms once 5+ similar messages arrive.
+
+Regenerate with `scripts/cluster_campaigns.py` (seconds, over cached
+embeddings). Cluster detail and centroids land in
+`datasets/processed/campaign_clusters.json` (git-ignored — it embeds sample
+message text).
+
+---
+
 ## Bug history — found, fixed, and why each matters
 
 Kept as a permanent record because *how* each was found is itself a
@@ -538,6 +724,132 @@ Sheets/LibreOffice instead of plain Excel "CSV" save.
 **Fix:** `train.py` updated; `requirements.txt` floor raised to
 `transformers>=4.46`. Caught by validating the training path locally before
 spending Colab time on it.
+
+### §17 — Campaign matching ran against Ham, producing false campaign hits (2026-07-30)
+
+**Symptom:** end-to-end verification against the real model showed the
+personal message *"Hi, are we still meeting at 5pm later?"* matching a campaign
+cluster at **0.9636** similarity.
+**Cause:** `/classify` matched *every* message against the centroids. But
+clusters are built from the **Spam+Scam population only** — personal
+conversation is not a coordinated blast — so comparing a Ham message against
+them is meaningless by construction. The specific collision: cluster 2 is a
+short money-transfer-notification family, and a short personal message is
+close to it in tone and length.
+**Fix:** gate campaign matching on `label != "Ham"` in the classify router.
+**Worth knowing:** the embedding space itself is fine — measured Ham-vs-Scam
+pairs average **−0.008** similarity with only **0.8%** above 0.85. The failure
+was matching against the wrong population, not a bad threshold.
+
+### §16 — SHAP indicator vocabulary was English-only (found 2026-07-30)
+
+**Symptom:** SHAP explained a real Tagalog gambling blast (*"Magparehistro
+para sa libreng 7777, tumaya: lucky6.auction/…"*) and produced **no indicator
+tag at all** — the user would see a blocked message with no reason given.
+**Cause:** every term in the `Gambling Bait` vocabulary was English (`jili`,
+`slots`, `cash out`, `deposit bonus`). The Tagalog verbs real blasts actually
+use — `tumaya` (to bet), `magparehistro` (register), `deposito` — were absent.
+**Fix:** added Tagalog gambling vocabulary.
+**Why it matters beyond one message:** this is the *third* time the same
+class of bug has appeared — `PROMO_TL` (§11) and `JOB_SCAM` (§8) were both
+English-only lexicons missing their Filipino equivalents. **Every new lexicon
+in this project should be checked for Tagalog/Taglish coverage before it
+ships**, not after a real message exposes the gap.
+
+### §15 — Substring token matching mislabeled Tagalog prefixes (found 2026-07-30)
+
+**Symptom:** the same gambling blast was tagged **"Urgency Cue"** — confidently
+wrong, which is worse than no tag.
+**Cause:** the SHAP token→tag mapper tested `token in keyword` (substring). The
+token `mag` — an extremely common Tagalog prefix — is a substring of the
+keyword `mag-ingat`, so it scored as urgency language. Tagalog is heavily
+agglutinative, so short prefixes (`mag`, `nag`, `pag`, `ka`) sit inside
+unrelated keywords constantly; substring matching was never safe here.
+**Fix:** whole-word matching (`_matches_keyword`), with a length-≥5 prefix
+allowance so SentencePiece's mid-word splits still match (`gambl` → `gambling`),
+and the minimum token length raised from 3 to 4.
+**Lesson:** substring matching is a reasonable default for English and a
+liability for agglutinative languages. Both fixes are locked in regression
+tests using the exact tokens the real model produced.
+
+### §14 — Round-7 backlog review surfaces two new Scam categories + a promo gap (found 2026-07-30)
+
+**Symptom:** a full-population review of the 1,004 raw-inbox low-confidence
+rows that every prior round had skipped (rounds 1–6 only ever reviewed
+*newly arrived* batches, never the backlog) came back with a 34% disagreement
+rate — 337 of 1,004 — far above the 3–13% seen in earlier rounds.
+**Cause, three distinct gaps in one pass:**
+1. **289 legitimate Globe/DITO/GCash loyalty-program messages** (raffle
+   entries, rewards points, VoLTE/VoWiFi education) were defaulting to Ham.
+   `PROMO_TERMS` was written around retail/telco-*offer* wording (§11 below),
+   not loyalty-*program* wording — a different vocabulary entirely.
+2. **Job scams routed through Facebook Messenger** (`m.me/...`) — these
+   already tripped `suspicious_link()` correctly, but `JOB_SCAM` had no
+   phrasing for "EARN WHILE AT HOME", "appointment setter", "homebased", or
+   "copy-paste system", so `susp + JOB_SCAM` never fired.
+3. **Credit-card ID-harvesting via email** (RCBC/EastWest/Citibank "FREE FOR
+   LIFE ANNUAL FEE" blasts asking for 2 government IDs + a card photo mailed
+   to a `gmail.com` address) — no link to flag (`gmail.com` is deliberately
+   exempt from `suspicious_link`), and the ALL-CAPS styling isn't the
+   *internal*-caps pattern `evasion_caps()` looks for (`CreDit`, not
+   `CREDIT`), so nothing in the cascade caught it.
+**Fix:**
+1. Added DTI Fair Trade Permit citations and honest-marketing opt-out
+   boilerplate (`no advisories?`, `to unsubscribe`, `stop txt`) plus common
+   loyalty vocabulary (`raffle entries`, `rewards points`, `redeem rewards`,
+   `volte`/`vowifi`) to `PROMO_TERMS` — chosen because scammers essentially
+   never cite a real DTI permit number or offer a working STOP short-code, so
+   these are general honest-promo signals, not one-off campaign names. Covers
+   57% (168/293) of the promo backlog; the remaining 125 are individual
+   brand/app names not worth chasing — mislabeling an honest promo as Ham
+   instead of Spam doesn't affect scam-catching.
+2. Added the missing phrasing to `JOB_SCAM`.
+3. New standalone rule: `"government id" + ("frontface of" | "front face of")`
+   → Scam, independent of caps styling — specific enough that no legitimate
+   offer uses this pairing.
+**Impact:** of the 337 disagreements, 184 are now caught by rules natively
+(the correction overlay only needs to carry 153 forward). Human-reviewed
+total across all rounds: 596 → 1,613 rows (9.6% of the corpus). **Lesson:
+review the backlog, not just each new arrival** — rounds scoped to "what just
+came in" systematically never re-examine older low-confidence rows, and nearly
+a third of this backlog turned out to be wrong.
+
+### §13 — Word-boundary matcher missing plural variants (found 2026-07-30)
+
+**Symptom:** two rows the §14 backlog review flagged had exact rule vocabulary
+already present, but didn't match — `"lucky winner"` (singular) didn't fire on
+`"one of our lucky winners"`, and `"cash loan"` didn't fire on `"NEED CITIBANK
+CASH LOANS?"`.
+**Cause:** the matcher's word-boundary regex correctly rejects partial-word
+matches (`"bet"` inside `"alphabet"`), but the same boundary blocks the plural
+form of an otherwise-exact phrase.
+**Fix:** added the plural variants (`"lucky winners"` to `WIN_SCAM`, `"cash
+loans"` to `LOAN_BAIT`) rather than changing the matcher to auto-pluralize
+everything — a global change to matching behavior needs its own full corpus
+re-scan to trust, which two isolated misses didn't justify.
+
+### §12 — Anti-scam-advisory apostrophe miss + Lazada shortlink not whitelisted (found 2026-07-30)
+
+**Symptom:** a DSWD/SSS ayuda anti-scam advisory ("Pag may link, SCAM 'YAN!
+'WAG MAG-CLICK...") was labeled Scam via `phishing+action`, and two genuine
+Lazada security notices ("NEVER SHARE YOUR OTP", "Your PASSWORD has been
+CHANGED") were labeled Scam via `brand-impersonation:lazada`.
+**Cause:** `PSA` already contained `"scam yan"`, but the message read `"SCAM
+'YAN!"` — the apostrophe breaks the literal substring match, same root cause
+as §13. Separately, Lazada's real short-link domain `lzd.co` was never added
+to `OFFICIAL_DOMAINS`, so any Lazada notice using it looked like an off-brand
+link.
+**Fix:** added `"scam 'yan"` / `"scam 'iyan"` to `PSA`, and `lzd.co` to
+`OFFICIAL_DOMAINS`.
+**Also found in the same pass:** `IDN_RE` (the non-Latin-domain detector) was
+matching peso amounts with a decimal point (`₱16054.5.`) as fake domains,
+mislabeling real GRAB OTP deliveries and TikTok billing notices as Scam.
+**Fix:** added a negative lookahead so the "TLD" segment can't start with a
+digit — a real domain's label never does, but a currency amount's does. 7
+rows fixed corpus-wide. Left 4 Thai-language retail-promo rows (still
+matching via a different angle — Thai date abbreviations use periods too)
+corrected directly through the review-sheet pipeline instead of further
+regex surgery for a script this thesis doesn't target.
 
 ### §11 — Promo lexicon blind to telco/bank offer phrasing (found 2026-07-29)
 
@@ -657,27 +969,34 @@ will be the correct ~1.1 GB.
 
 ## Known limitations (for the manuscript's limitations section)
 
-- **Label quality is majority rule-based, not human-verified.** 596 of 15,728
-  rows (3.8%) have been human-checked across 5 review rounds. The dataset
-  should not be treated as ground-truth-clean — treat model metrics as
-  measuring agreement with the rule engine, moderated by the review rounds
-  above.
-- **Tagalog Spam is thin** — still 21 rows of 15,728 even after the
-  2026-07-29 data top-up added 447 new messages. Legitimate Filipino-language
-  marketing SMS is underrepresented in every source corpus used, including the
-  new batch. This is a *data* gap, not a rule gap: `PROMO_TL` was added
-  specifically to catch it and the count hasn't moved, which says the messages
-  genuinely aren't out there in the corpora collected so far.
-- **Scam examples lean heavily on one template family** — gambling-blast
-  messages are 1,111 of 2,620 Scam rows (42.4%), and 37 of the 57 new Scam
-  messages added 2026-07-29 were *more* of the same template family, not new
-  diversity. Genuine scam-type diversity is thin: loan-shark texts have only
+*Updated 2026-07-30 after review round 7 (backlog) and the §12–§14 rule
+fixes — dataset is now 16,772 rows (Ham 9,315 / Spam 4,788 / Scam 2,669),
+up from the 15,728-row snapshot the run-3 model (still the currently
+installed one) was trained on. Not yet retrained on this version — see the
+Results log above for what's actually deployed.*
+
+- **Label quality is majority rule-based, not human-verified.** 1,613 of
+  16,772 rows (9.6%) have been human-checked across 7 review rounds — up
+  sharply from 3.8% after round 7 reviewed the backlog of older low-confidence
+  rows that earlier rounds had skipped (they only ever covered newly-arrived
+  batches). The dataset should still not be treated as ground-truth-clean —
+  treat model metrics as measuring agreement with the rule engine, moderated
+  by the review rounds above.
+- **Tagalog Spam grew from 21 to 41 rows** after the §14 promo-vocabulary fix
+  (loyalty-program phrasing like "Mag-redeem" now recognized), but is still
+  thin relative to the corpus. Legitimate Filipino-language marketing SMS
+  remains underrepresented in every source corpus used — a *data* gap more
+  than a rule gap at this point.
+- **Scam examples lean even more heavily on gambling** — 1,321 of 2,669 Scam
+  rows (49.5%, up from 42.4%) trace to a gambling-flavored rule, since round
+  6's new batch added more of that template family while the §14 fixes added
+  comparatively few non-gambling Scam rows (job-scam-via-Messenger,
+  credit-card ID-harvesting). Those two *are* genuinely new categories now
+  represented for the first time, but the underlying skew is still the most
+  actionable gap if more data collection is possible — loan-shark texts have
   12 rows total, and there is no dedicated romance-scam or fake-courier
-  category at all. This is the most actionable gap if more data collection is
-  possible — targeted collection of underrepresented scam types would likely
-  help Scam recall (currently the weakest class) more than collecting more
-  general SMS volume.
-- **629 rows (4.1%) have `language = undetermined`** — purely a reporting/
+  category at all.
+- **651 rows (3.9%) have `language = undetermined`** — purely a reporting/
   metadata limitation (short/garbled/foreign-language text the detector
   can't confidently classify); confirmed to have zero effect on training,
   since the training loader never reads the `language` column.
@@ -700,6 +1019,8 @@ python scripts/apply_review_corrections.py  # overlay human verdicts back on
 python scripts/make_review_sheet.py            # general sample
 python scripts/make_trusted_review_sheet.py    # trusted-corpus sample
 python scripts/make_promo_link_review_sheet.py # new-rule full population
+python scripts/make_confidence_review_sheet.py # high/medium-confidence blind spot
+python scripts/make_backlog_review_sheet.py    # raw-inbox backlog, full population
 
 # Stage 5: training (needs a GPU -- see colab/README.md if none available locally)
 python -m training.train
@@ -709,9 +1030,15 @@ python -m training.train
 uvicorn service.main:app --port 8001
 # GET /health  -> {"status": "ok", "model_ready": true}
 
+# Stage 9: campaign clustering (re-run BOTH after any retrain -- see Stage 9)
+python scripts/embed_dataset.py       # slow: one forward pass per message
+python scripts/cluster_campaigns.py   # fast, re-runnable over cached embeddings
+
 # Verify everything
-python -m pytest tests/ -q   # 41 tests: masking, normalization, pipeline,
-                              # routing, service, training config
+python -m pytest tests/ -q   # 123 tests: masking, normalization, pipeline,
+                              # routing, service, training config, indicator
+                              # tags, explainability, campaign matching,
+                              # clustering stability
 ```
 
 ---
@@ -725,6 +1052,10 @@ python -m pytest tests/ -q   # 41 tests: masking, normalization, pipeline,
 | `scripts/make_trusted_review_sheet.py` | Review round 2 (trusted-corpus sample) |
 | `scripts/make_promo_link_review_sheet.py` | Review round 3 (new-rule full population) |
 | `scripts/make_confidence_review_sheet.py` | Review round 4 (high/medium-confidence blind spot) |
+| `scripts/make_new_batch_review_sheet.py` | Review round 5 (new raw-inbox top-up, full population) |
+| `scripts/make_new_batch_review_sheet_2.py` | Review round 6 (second same-day top-up, full population) |
+| `scripts/make_backlog_review_sheet.py` | Review round 7 (raw-inbox backlog never previously reviewed, full population) |
+| `scripts/evaluate_buckets.py` | Bucket-level (post-threshold) evaluation using the real production `route()` |
 | `scripts/apply_review_corrections.py` | **Re-applies all human corrections after any rebuild — always run with `build_dataset.py`** |
 | `datasets/LABEL_DEFINITIONS.md` | Ham/Spam/Scam definitions + routing/threshold reference |
 | `datasets/LABELING_GUIDE.md` | Practical labeling guidance for human reviewers |
@@ -733,6 +1064,13 @@ python -m pytest tests/ -q   # 41 tests: masking, normalization, pipeline,
 | `preprocessing/` | NFKC + PII masking (shared by training and inference) |
 | `training/` | Model config, dataset loading, tokenizer, training loop |
 | `service/` | FastAPI inference service |
+| `service/indicator_tags.py` | SHAP indicator tag dictionary (Sprint 3, WBS 3.1.2) |
+| `service/explainer.py` | SHAP attribution → indicator tags (WBS 3.3.6) |
+| `service/tips.py` | Scam awareness card lookup (WBS 3.3.7) |
+| `service/embeddings.py` | Shared 768-dim [CLS] embedding extraction |
+| `service/campaign.py` | Cosine campaign matching, fast path (WBS 3.3.4) |
+| `scripts/embed_dataset.py` | One-off embedding pass over the labeled dataset |
+| `scripts/cluster_campaigns.py` | Offline HDBSCAN re-clustering (WBS 3.3.5) |
 | `colab/` | Colab notebook + package + instructions (no local GPU path) |
 | `tests/` | 41 pytest tests across every module above |
 | `models/` | Trained weights output (git-ignored) |

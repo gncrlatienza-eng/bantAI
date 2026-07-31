@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Literal
+from typing import Dict, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,6 +21,27 @@ class ClassifyRequest(BaseModel):
     message: str = Field(..., min_length=1, description="Raw SMS body to classify")
 
 
+class CampaignMatch(BaseModel):
+    """Campaign-clustering outcome for one message (manuscript Stage 5b).
+
+    The AI service decides the match; the backend persists it. ``cluster_id``
+    refers to a ``CampaignCluster`` row the backend already knows about.
+    """
+
+    cluster_id: Optional[str] = Field(
+        None, description="Matched campaign cluster, or null when nothing cleared the threshold"
+    )
+    similarity: float = Field(
+        ..., ge=-1.0, le=1.0, description="Cosine similarity to the closest active centroid"
+    )
+    matched: bool = Field(..., description="Whether similarity met the 0.85 threshold")
+    should_buffer: bool = Field(
+        ...,
+        description="True when unmatched — the embedding is buffered for the next "
+                    "offline HDBSCAN re-clustering pass",
+    )
+
+
 class ClassifyResponse(BaseModel):
     label: Label = Field(..., description="Predicted class (Ham/Spam/Scam)")
     score: float = Field(..., ge=0.0, le=1.0, description="Confidence of the predicted class")
@@ -29,6 +50,11 @@ class ClassifyResponse(BaseModel):
     )
     bucket: Bucket = Field(..., description="User-facing routing decision")
     masked_text: str = Field(..., description="PII-masked text fed to the model")
+    campaign: Optional[CampaignMatch] = Field(
+        None,
+        description="Campaign clustering result. Null when no campaign centroids "
+                    "are loaded (cold start), so existing callers stay unaffected.",
+    )
 
 
 class HealthResponse(BaseModel):

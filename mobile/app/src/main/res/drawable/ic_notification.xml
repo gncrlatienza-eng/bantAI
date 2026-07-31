@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!--
+      Notification small icon. Android discards colour here and applies its own
+      tint, so this must be a flat white silhouette on transparent. evenOdd
+      knocks the shield out as a hole, same technique as the monochrome layer.
+    -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M1.2,7 A6,6 0 0 1 7.2,1 L16.8,1 A6,6 0 0 1 22.8,7 L22.8,13.5 A6,6 0 0 1 16.8,19.6 L7.7,19.6 C7,21.1 5.1,22.4 2.5,22.8 C1.7,22.9 1.1,22.3 1.2,21.4 Z M12,4.7 L7.7,6.3 L7.7,10.1 C7.7,13.1 9.3,14.7 12,15.5 C14.7,14.7 16.3,13.1 16.3,10.1 L16.3,6.3 Z" />
+
+</vector>

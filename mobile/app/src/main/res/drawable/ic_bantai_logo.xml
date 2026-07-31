@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!--
+      In-app logo mark. Same proportions as the launcher foreground, but sized
+      edge-to-edge: the adaptive-icon safe-zone inset is dropped because the
+      surrounding container in BantAILogo.kt supplies the padding.
+    -->
+
+    <!-- Chat bubble -->
+    <path
+        android:fillColor="#5B4FE8"
+        android:pathData="M2.5,14 A12,12 0 0 1 14.5,2 L33.5,2 A12,12 0 0 1 45.5,14 L45.5,26.9 A12,12 0 0 1 33.5,39 L15.4,39 C14.1,41.9 10.2,44.6 5.1,45.4 C3.4,45.6 2.4,44.5 2.5,42.7 Z" />
+
+    <!-- Small shield -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,9.4 L15.4,12.6 L15.4,20.1 C15.4,25.1 18.7,29.2 24,30.9 C29.3,29.2 32.6,25.1 32.6,20.1 L32.6,12.6 Z" />
+
+</vector>

@@ -8,8 +8,12 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.bantai.MainActivity
+import com.bantai.R
 
 object NotificationHelper {
+
+    /** Brand indigo, used to tint the notification icon backdrop in the shade. */
+    private val BRAND_INDIGO = 0xFF5B4FE8.toInt()
 
     private const val SMISHING_CHANNEL_ID = "bantai_smishing"
     private const val SUSPICIOUS_CHANNEL_ID = "bantai_suspicious"
@@ -54,7 +58,8 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, SMISHING_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(BRAND_INDIGO)
             .setContentTitle("⚠ Smishing detected — $safe")
             .setContentText("Dangerous link or smishing attempt detected. Sender auto-blocked.")
             .setStyle(
@@ -82,7 +87,8 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, SUSPICIOUS_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(BRAND_INDIGO)
             .setContentTitle("⚡ Suspicious message — $safe")
             .setContentText("A suspicious message from $safe contains unverified patterns. Review it in BantAI.")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

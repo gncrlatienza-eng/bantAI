@@ -16,6 +16,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Backend base URL, read through ApiConfig. The default targets a
+        // USB-connected device after `adb reverse tcp:3000 tcp:3000`; for the
+        // Android Studio emulator override this with "http://10.0.2.2:3000/api".
+        // Only localhost and 10.0.2.2 are cleartext-permitted — see
+        // res/xml/network_security_config.xml before pointing at a LAN IP.
+        buildConfigField("String", "BACKEND_BASE_URL", "\"http://localhost:3000/api\"")
     }
 
     buildTypes {
@@ -40,6 +47,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

@@ -1,5 +1,9 @@
 # Label Definitions — Dataset and App
 
+> Part of the full pipeline documentation — see [`../PIPELINE.md`](../PIPELINE.md)
+> for how these labels are actually assigned (rule cascade, human review,
+> training, evaluation).
+
 ## Dataset Labels (Internal ML training)
 
 Used to train the classifier. Every labeled SMS gets exactly one.

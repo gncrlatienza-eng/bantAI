@@ -2,12 +2,28 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="512"
+    android:viewportHeight="512">
 
-    <!-- Shield centered and smaller with proper padding -->
+    <!--
+      Adaptive-icon foreground: white messaging bubble with an indigo shield,
+      copied verbatim from icon-assets/bantai-icon-foreground.svg (viewport kept
+      at 512 so the paths need no rescaling).
+
+      Safe zone: launcher masks crop to a circle of radius 156 about the centre
+      (256,256). The furthest point of the artwork is the bubble's left edge at
+      (144,243), 112 from centre, and the tail tip at (187,355) reaches 121 —
+      both comfortably inside, so the mark survives every mask shape.
+    -->
+
+    <!-- Chat bubble: rounded body with a tail at bottom-left -->
     <path
-        android:fillColor="#5B4FE8"
-        android:pathData="M54,28 L36,36 L36,52 C36,63.0 43.8,73.2 54,76 C64.2,73.2 72,63.0 72,52 L72,36 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M256,156 C193,156 144,195 144,243 C144,278 169,309 206,323 C203,335 196,346 187,355 C185,357 186,360 189,360 C211,359 231,351 247,340 C250,340 253,340 256,340 C319,340 368,301 368,243 C368,195 319,156 256,156 Z" />
+
+    <!-- Small shield, sitting inside the bubble -->
+    <path
+        android:fillColor="#4338CA"
+        android:pathData="M256,202 L282,213 L282,235 C282,257 271,272 256,279 C241,272 230,257 230,235 L230,213 Z" />
 
 </vector>

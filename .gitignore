@@ -45,6 +45,25 @@ ai/datasets/raw/*.tsv
 ai/datasets/raw/*.json
 ai/datasets/processed/*.csv
 ai/datasets/processed/*.json
+# Cached embeddings (Sprint 3 clustering). The .npz bundles the message texts
+# alongside the vectors -- real personal SMS, same reason as the CSVs. Also
+# large and fully regenerable via scripts/embed_dataset.py.
+ai/datasets/processed/*.npz
+
+# Raw source corpora + generated labeled data (real personal SMS — never push).
+# sample.csv (format reference) and the *.md guides stay tracked.
+ai/datasets/bantAI-datasets/
+ai/datasets/labeled/*.csv
+!ai/datasets/labeled/sample.csv
+ai/datasets/audit/
+
+# Colab upload package embeds a full copy of the labeled dataset (real personal
+# SMS) inside the zip -- same reason it must never be pushed. Notebook + README
+# stay tracked.
+ai/colab/*.zip
+
+# Trained model artifacts (1GB+ binaries, regenerable via training/train.py).
+ai/models/*/
 
 # ─── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store

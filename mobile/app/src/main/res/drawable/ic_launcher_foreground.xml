@@ -2,24 +2,28 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="512"
+    android:viewportHeight="512">
 
     <!--
-      Messaging bubble with a small shield inside it. Circular launcher masks
-      crop to radius 36 about the centre (54,54); the tail tip at (32,76.5)
-      reaches 30.8 and is the closest point to that limit - moving it further
-      down-left will clip on round-icon launchers.
+      Adaptive-icon foreground: white messaging bubble with an indigo shield,
+      copied verbatim from icon-assets/bantai-icon-foreground.svg (viewport kept
+      at 512 so the paths need no rescaling).
+
+      Safe zone: launcher masks crop to a circle of radius 156 about the centre
+      (256,256). The furthest point of the artwork is the bubble's left edge at
+      (144,243), 112 from centre, and the tail tip at (187,355) reaches 121 —
+      both comfortably inside, so the mark survives every mask shape.
     -->
 
     <!-- Chat bubble: rounded body with a tail at bottom-left -->
     <path
-        android:fillColor="#5B4FE8"
-        android:pathData="M29,40 A14,14 0 0 1 43,26 L65,26 A14,14 0 0 1 79,40 L79,55 A14,14 0 0 1 65,69 L44,69 C42.5,72.5 38,75.5 32,76.5 C30,76.8 28.8,75.4 29,73.4 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M256,156 C193,156 144,195 144,243 C144,278 169,309 206,323 C203,335 196,346 187,355 C185,357 186,360 189,360 C211,359 231,351 247,340 C250,340 253,340 256,340 C319,340 368,301 368,243 C368,195 319,156 256,156 Z" />
 
     <!-- Small shield, sitting inside the bubble -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,34.5 L44,38.3 L44,47 C44,52.7 47.8,57.7 54,59.5 C60.2,57.7 64,52.7 64,47 L64,38.3 Z" />
+        android:fillColor="#4338CA"
+        android:pathData="M256,202 L282,213 L282,235 C282,257 271,272 256,279 C241,272 230,257 230,235 L230,213 Z" />
 
 </vector>

@@ -1,10 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#1A1A2E"
-        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!--
+      Adaptive-icon background: the indigo gradient from
+      icon-assets/bantai-icon-background.svg. Deliberately full-bleed with
+      square corners — the launcher applies its own mask (circle, squircle,
+      rounded square), so rounding here would show up as a double-rounded edge.
+      The rounded corners in bantai-icon-full.svg exist only for previews and
+      store listings.
+
+      Viewport is kept at the source artwork's 512 so the paths can be copied
+      from the SVG verbatim; android:width/height still render it at 108dp.
+    -->
+
+    <path android:pathData="M0,0 L512,0 L512,512 L0,512 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="512"
+                android:endY="512">
+                <item android:offset="0" android:color="#6366F1" />
+                <item android:offset="1" android:color="#4338CA" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
 </vector>

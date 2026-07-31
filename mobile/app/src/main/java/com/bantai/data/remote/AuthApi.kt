@@ -9,10 +9,7 @@ import java.net.URL
 
 object AuthApi {
 
-    // localhost reaches the dev PC on a USB-connected device after running:
-    //   adb reverse tcp:3000 tcp:3000
-    // On the Android Studio emulator use "http://10.0.2.2:3000/api" instead.
-    private const val BASE_URL = "http://localhost:3000/api"
+    private val BASE_URL get() = ApiConfig.BASE_URL
 
     data class AuthResult(
         val accessToken: String,
@@ -56,8 +53,8 @@ object AuthApi {
                     connection.requestMethod = method
                     connection.setRequestProperty("Content-Type", "application/json")
                     if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
-                    connection.connectTimeout = 10_000
-                    connection.readTimeout = 10_000
+                    connection.connectTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+                    connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
                     connection.doOutput = true
                     connection.outputStream.use { it.write(body.toString().toByteArray()) }
 

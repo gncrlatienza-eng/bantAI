@@ -74,10 +74,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **2.3.10** Unsafe Link + Take Action Selection screens *(Track C — Mobile)*
     - [x] **2.3.11** Admin Overview + Classification Log pages *(Track D — Web Dashboard)*
 
-  - [-] **2.4** Test: sprint-level unit and integration testing
+  - [x] **2.4** Test: sprint-level unit and integration testing
     - [x] **2.4.1** Unit test: privacy masking & NFKC normalization *(Track B — AI/ML)*
     - [x] **2.4.2** Unit test: threshold routing boundary cases *(Track B — AI/ML)*
-    - [ ] **2.4.3** Integration test: mobile → backend → ML service round trip *(All members)*
+    - [x] **2.4.3** Integration test: mobile → backend → ML service round trip *(All members)*
 
   - [ ] **2.5** Sprint Review & Retrospective
     - [ ] **2.5.1** Sprint 2 demo (live SMS → classification → inbox routing) *(All members)*
@@ -100,7 +100,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **3.2.3** Alerts + Campaigns mobile UX spec *(Track C — Mobile)*
 
   - [-] **3.3** Build: implement Sprint 3 work packages
-    - [-] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
+    - [x] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
     - [-] **3.3.2** Sender verification endpoint *(Track A — Backend)*
     - [-] **3.3.3** Link suppression API logic *(Track A — Backend)*
     - [-] **3.3.4** Cosine similarity module (threshold 0.85 against active centroids) *(Track B — AI/ML)*
@@ -111,8 +111,8 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)*
     - [ ] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)*
     - [ ] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)*
-    - [ ] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
-    - [ ] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
+    - [x] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
+    - [x] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
 
   - [-] **3.4** Test: sprint-level unit and integration testing
     - [-] **3.4.1** Unit test: cosine similarity threshold logic *(Track B — AI/ML)*

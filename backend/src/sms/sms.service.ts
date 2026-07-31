@@ -67,8 +67,11 @@ export class SmsService {
       ? this.routeFromBucket(bucket as 'safe' | 'unknown' | 'spam' | 'blocked')
       : this.routeFromScore(score);
 
-    // Step 5 — auto-block: if high-confidence smishing, add sender to blocked list
-    if (score >= 0.9) {
+    // Step 5 — auto-block: if high-confidence smishing, add sender to blocked list.
+    // Gated on the routing decision, not the raw score: `score` is the winning
+    // class's confidence, so a confidently-Ham message (Ham at 0.94) would
+    // otherwise block a legitimate sender.
+    if (action === 'blocked') {
       await this.prisma.blockedNumber.upsert({
         where: { userId_sender: { userId, sender: dto.sender } },
         create: { userId, sender: dto.sender, source: 'AutoBlock' },

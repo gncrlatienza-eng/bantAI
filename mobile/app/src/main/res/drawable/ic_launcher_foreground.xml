@@ -5,9 +5,21 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Shield centered and smaller with proper padding -->
+    <!--
+      Messaging bubble with a small shield inside it. Circular launcher masks
+      crop to radius 36 about the centre (54,54); the tail tip at (32,76.5)
+      reaches 30.8 and is the closest point to that limit - moving it further
+      down-left will clip on round-icon launchers.
+    -->
+
+    <!-- Chat bubble: rounded body with a tail at bottom-left -->
     <path
         android:fillColor="#5B4FE8"
-        android:pathData="M54,28 L36,36 L36,52 C36,63.0 43.8,73.2 54,76 C64.2,73.2 72,63.0 72,52 L72,36 Z" />
+        android:pathData="M29,40 A14,14 0 0 1 43,26 L65,26 A14,14 0 0 1 79,40 L79,55 A14,14 0 0 1 65,69 L44,69 C42.5,72.5 38,75.5 32,76.5 C30,76.8 28.8,75.4 29,73.4 Z" />
+
+    <!-- Small shield, sitting inside the bubble -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34.5 L44,38.3 L44,47 C44,52.7 47.8,57.7 54,59.5 C60.2,57.7 64,52.7 64,47 L64,38.3 Z" />
 
 </vector>

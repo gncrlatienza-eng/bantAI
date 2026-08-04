@@ -481,10 +481,11 @@ rather than depending on whether a real model happens to be installed locally.
 
 ## Stage 8 — Explainability (SHAP indicator tags) — Sprint 3, WBS 3.1.2
 
-**Status: dictionary contents drafted and unit-tested (2026-07-30); SHAP
-integration itself is WBS 3.3.6, not yet done.**
+**Status: confirmed 2026-08-04.** Dictionary drafted and unit-tested
+2026-07-30; SHAP integration (3.3.6) shipped the same session; this entry is
+the 3.1.2 sign-off pass.
 
-**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (14 tests)
+**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (17 tests)
 
 The manuscript's Stage 6 (Explainability and Tip Retrieval) specifies SHAP
 computing a Shapley value per token, then mapping the top contributing tokens
@@ -550,6 +551,33 @@ sensible top tokens on real gambling, phishing and benign messages. Two bugs
 were found doing that verification (Bug History §15, §16).
 
 Client-side contract: [`../docs/api/explainability.md`](../docs/api/explainability.md) (WBS 3.2.2).
+
+### 3.1.2 confirmation (2026-08-04)
+
+Reviewed the dictionary for sign-off rather than treating the 2026-07-30 draft
+as automatically final:
+
+- All four manuscript-named tags are present verbatim: Prize Lure, Suspicious
+  URL, Brand Impersonation, Urgency Cue.
+- The 5 additional tags (Gambling Bait, Fake Job Offer, Unsolicited Credit
+  Offer, Personal Info Request, OTP/Account Phishing) are each grounded in an
+  existing, dataset-validated rule from `build_dataset.py` rather than
+  invented — see the source table above.
+- **Language-coverage audit:** checked every keyword-based tag (the two
+  structural tags, Suspicious URL and Brand Impersonation, don't apply — they
+  key off domains, not phrasing) for Tagalog/Taglish coverage, since this
+  exact class of bug — an English-only lexicon silently missing real Filipino
+  scam traffic — had already recurred three times (`PROMO_TL`, `JOB_SCAM`,
+  and Gambling Bait itself, §16 below). Found the same gap a fourth time:
+  Unsolicited Credit Offer, Personal Info Request, and OTP/Account Phishing
+  had zero non-English terms. Fixed by adding Tagalog/Taglish keywords to all
+  three (e.g. "walang collateral", "i-share mo", "ma-block ang account");
+  3 new regression tests added (`test_*_tagalog` in
+  `tests/test_indicator_tags.py`), all passing. Prize Lure, Urgency Cue, Fake
+  Job Offer, and Gambling Bait already had Tagalog terms from the 2026-07-30
+  draft and needed no change.
+
+Dictionary contents are final for Sprint 3 as of this pass.
 
 ---
 

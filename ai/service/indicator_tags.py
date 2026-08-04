@@ -97,18 +97,27 @@ _UNSOLICITED_CREDIT_OFFER = [
     "you are qualified", "you are granted", "granted credit",
     "pre-approved", "preapproved", "no collateral", "cash loan",
     "cash loans", "personal loan", "no guarantee", "qualified to avail",
+    # Tagalog/Taglish loan-offer vocabulary. Added 2026-08-04 during the
+    # 3.1.2 confirmation pass -- this tag had zero non-English coverage,
+    # the same recurring gap already fixed for PROMO_TL, JOB_SCAM, and
+    # Gambling Bait (see the note on that tag below).
+    "walang collateral", "kwalipikado ka", "confirmed loan", "pautang",
 ]
 
 _PERSONAL_INFO_REQUEST = [
     "government id", "frontface of", "front face of", "send your name",
     "email your requirements", "provide your", "share your otp",
     "confirm your identity", "verify your account",
+    # Tagalog/Taglish. Added 2026-08-04, see note on _UNSOLICITED_CREDIT_OFFER.
+    "ipadala ang", "i-share mo", "kailangan ng id",
 ]
 
 _OTP_PHISHING = [
     "account will be blocked", "will be suspended", "will be deactivated",
     "temporarily disabled", "click the link", "click this link",
     "verify now", "reactivate", "otp", "one time pin", "one-time pin",
+    # Tagalog/Taglish. Added 2026-08-04, see note on _UNSOLICITED_CREDIT_OFFER.
+    "ma-block ang account", "i-verify ang account", "i-click ang link",
 ]
 
 TAG_KEYWORDS: dict[str, List[str]] = {

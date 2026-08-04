@@ -78,6 +78,29 @@ def test_otp_phishing():
     )
 
 
+# --- Tagalog/Taglish coverage (added 2026-08-04, WBS 3.1.2 confirmation) ----
+# Unsolicited Credit Offer, Personal Info Request, and OTP/Account Phishing
+# had zero non-English keywords -- the same recurring language-coverage gap
+# already fixed for PROMO_TL, JOB_SCAM, and Gambling Bait (see that tag's
+# Tagalog vocabulary above). These lock in the fix.
+def test_unsolicited_credit_offer_tagalog():
+    assert "Unsolicited Credit Offer" in tag_names(
+        "Kwalipikado ka na para sa pautang, walang collateral kailangan!"
+    )
+
+
+def test_personal_info_request_tagalog():
+    assert "Personal Info Request" in tag_names(
+        "Kailangan ng ID, i-share mo agad at ipadala ang mga detalye mo."
+    )
+
+
+def test_otp_phishing_tagalog():
+    assert "OTP / Account Phishing" in tag_names(
+        "Ma-block ang account mo, i-verify ang account mo ngayon din."
+    )
+
+
 # --- ordering and output shape ----------------------------------------------
 def test_tags_sorted_by_weight_descending():
     tags = tags_for_message(

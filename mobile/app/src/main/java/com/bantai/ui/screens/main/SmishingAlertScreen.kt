@@ -38,7 +38,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
@@ -150,9 +149,7 @@ fun SmishingAlertScreen(navController: NavController) {
                     }
                     HorizontalDivider(color = Color(0xFF2A2A2A))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { navController.navigate(Screen.CampaignDetail.createRoute(true)) },
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
@@ -163,7 +160,6 @@ fun SmishingAlertScreen(navController: NavController) {
                             fontSize = 12.sp,
                             modifier = Modifier.weight(1f),
                         )
-                        Text("View campaign →", color = Indigo, fontSize = 12.sp)
                     }
                 }
             }

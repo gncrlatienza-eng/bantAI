@@ -13,7 +13,11 @@ torch>=2.2
 sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
 datasets>=2.19
 accelerate>=0.30
-scikit-learn>=1.4           # train/val split + metrics
+scikit-learn>=1.4           # train/val split + metrics + TF-IDF + HDBSCAN
+scipy>=1.11                 # exact binomial test (retraining/promotion.py).
+                            # Ships as a scikit-learn dependency, but declared
+                            # explicitly because we import it directly -- a
+                            # transitive pin is free to disappear.
 pandas>=2.2
 numpy>=1.26
 

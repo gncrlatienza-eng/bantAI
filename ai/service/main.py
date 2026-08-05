@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from .campaign import CampaignMatcher
 from .centroid_source import load_centroids
 from .config import settings
-from .routers import classify, health
+from .routers import classify, health, summarize
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(classify.router)
+app.include_router(summarize.router)
 
 
 @app.get("/", tags=["health"])

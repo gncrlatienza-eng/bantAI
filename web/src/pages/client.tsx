@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { BarChart } from '../components/charts/BarChart';
 import { DonutChart } from '../components/charts/DonutChart';
 import { LineAreaChart } from '../components/charts/LineAreaChart';
@@ -246,17 +246,8 @@ export function ClientMessagesPage() {
 
       {/* Main Container */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header Title & Controls */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Messages
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              Classification log — all flagged incoming messages
-            </p>
-          </div>
-
+        {/* Top Controls Header */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ position: 'relative' }}>
               <input
@@ -567,37 +558,35 @@ export function ClientCampaignsPage() {
       )}
 
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Header Title & Top Summary */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Campaigns
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              Coordinated smishing clusters tracked by BantAI
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <div style={{ display: 'flex', gap: 18, fontSize: '0.8125rem' }}>
-              <div>
-                <strong style={{ color: '#ffffff', fontSize: '1rem', display: 'block' }}>10</strong>
-                <small style={{ color: 'var(--text-muted)' }}>Total Clusters</small>
-              </div>
-              <div>
-                <strong style={{ color: '#34d399', fontSize: '1rem', display: 'block' }}>6</strong>
-                <small style={{ color: 'var(--text-muted)' }}>Active</small>
-              </div>
-              <div>
-                <strong style={{ color: '#60a5fa', fontSize: '1rem', display: 'block' }}>442,679</strong>
-                <small style={{ color: 'var(--text-muted)' }}>Total Messages</small>
-              </div>
+        {/* Visually Appealing Stat Cards & Export Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: 16, width: '100%', alignItems: 'center' }}>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 14, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Clusters</small>
+              <span className="badge badge-gray" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>🛡️ Clusters</span>
             </div>
-
-            <Button variant="secondary" size="md" onClick={handleExportCampaigns}>
-              📥 Export
-            </Button>
+            <strong style={{ color: '#ffffff', fontSize: '1.875rem', fontWeight: 800, margin: '4px 0 0 0', display: 'block' }}>10</strong>
           </div>
+
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(52, 211, 153, 0.25)', borderRadius: 14, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Active Campaigns</small>
+              <span className="badge badge-green" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>● Live</span>
+            </div>
+            <strong style={{ color: '#34d399', fontSize: '1.875rem', fontWeight: 800, margin: '4px 0 0 0', display: 'block' }}>6</strong>
+          </div>
+
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(96, 165, 250, 0.25)', borderRadius: 14, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Messages</small>
+              <span className="badge badge-blue" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>💬 Logged</span>
+            </div>
+            <strong style={{ color: '#60a5fa', fontSize: '1.875rem', fontWeight: 800, margin: '4px 0 0 0', display: 'block', fontFamily: 'var(--font-mono)' }}>442,679</strong>
+          </div>
+
+          <Button variant="secondary" size="md" onClick={handleExportCampaigns} style={{ height: 48, padding: '0 24px', borderRadius: 12 }}>
+            📥 Export
+          </Button>
         </div>
 
         {/* Filter Pills */}
@@ -828,17 +817,8 @@ export function ClientAnalyticsPage() {
       )}
 
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Page Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Analytics &amp; Threat Intelligence
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              Detailed breakdown of smishing patterns and classification logs
-            </p>
-          </div>
-
+        {/* Top Controls Header */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <select
               className="form-input"
@@ -996,15 +976,6 @@ export function ClientExportPage() {
       )}
 
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Header */}
-        <div>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-            Export Reports
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Download structured threat intelligence datasets
-          </p>
-        </div>
 
         {/* Quick Export 3 Cards */}
         <div>
@@ -1223,15 +1194,6 @@ export function ClientHelpPage() {
       )}
 
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Header */}
-        <div>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-            Help &amp; Support
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Frequently asked questions and contact information for the BantAI team
-          </p>
-        </div>
 
         {/* 2-Column Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
@@ -1477,15 +1439,7 @@ export function ClientSettingsPage({ notifications }: { notifications?: boolean 
       {/* Main Full Width Space Maximized Container */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Page Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Account Settings
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-              Manage your organization profile, contact person, alert preferences, and active subscription credentials
-            </p>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <span className="badge badge-blue" style={{ padding: '6px 14px', fontSize: '0.8125rem' }}>
             🏢 Licensed Subscriber Hub
           </span>

@@ -56,8 +56,11 @@
             android:name=".receiver.SmsReceiver"
             android:exported="true"
             android:permission="android.permission.BROADCAST_SMS">
+            <!-- SMS_DELIVER only: it is delivered exclusively to the current default SMS
+                 app. SMS_RECEIVED is a separate broadcast sent to every app holding
+                 READ_SMS (including the default app), so registering both here would
+                 fire onReceive() twice per message and double-insert it. -->
             <intent-filter android:priority="2147483647">
-                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
                 <action android:name="android.provider.Telephony.SMS_DELIVER"/>
             </intent-filter>
         </receiver>

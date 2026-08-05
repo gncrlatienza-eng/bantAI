@@ -64,7 +64,10 @@ sealed class Screen(val route: String) {
         fun createRoute(campaignId: String) = "campaign_detail/${Uri.encode(campaignId)}"
     }
     data object SmishingAlert : Screen("smishing_alert")
-    data object Compose : Screen("compose")
+    data object Compose : Screen("compose?recipient={recipient}&body={body}") {
+        fun createRoute(recipient: String = "", body: String = "") =
+            "compose?recipient=${Uri.encode(recipient)}&body=${Uri.encode(body)}"
+    }
     data object SettingsNotifications : Screen("settings/notifications")
     data object SettingsScamAwareness : Screen("settings/scam_awareness")
     data object SettingsTipDetail : Screen("settings/tip/{tip}") {
@@ -88,7 +91,7 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun NavGraph() {
+fun NavGraph(requestedTab: Int? = null, requestedConversationSender: String? = null) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val viewModel: OnboardingViewModel = viewModel()
@@ -158,7 +161,7 @@ fun NavGraph() {
         }
 
         composable("main") {
-            MainScreen(navController, settingsViewModel)
+            MainScreen(navController, settingsViewModel, initialTab = requestedTab)
         }
 
         // Main app sub-screens
@@ -188,7 +191,19 @@ fun NavGraph() {
             CampaignDetailScreen(campaignId = campaignId, navController = navController)
         }
         composable(Screen.SmishingAlert.route) { SmishingAlertScreen(navController) }
-        composable(Screen.Compose.route) { ComposeScreen(navController) }
+        composable(
+            route = Screen.Compose.route,
+            arguments = listOf(
+                navArgument("recipient") { type = NavType.StringType; defaultValue = "" },
+                navArgument("body") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { backStackEntry ->
+            ComposeScreen(
+                navController = navController,
+                initialRecipient = backStackEntry.arguments?.getString("recipient") ?: "",
+                initialBody = backStackEntry.arguments?.getString("body") ?: "",
+            )
+        }
         composable(Screen.SettingsNotifications.route) { NotificationsScreen(navController, settingsViewModel) }
         composable(Screen.SettingsEditProfile.route) { EditProfileScreen(navController, settingsViewModel) }
         composable(Screen.SettingsHowItWorks.route) { HowItWorksScreen(navController) }
@@ -207,6 +222,14 @@ fun NavGraph() {
         ) { backStackEntry ->
             val sender = backStackEntry.arguments?.getString("sender") ?: return@composable
             MessageDetailScreen(sender = sender, navController = navController)
+        }
+    }
+
+    // A failed-send notification deep-links straight into that conversation rather
+    // than just the Messages tab — fires once the graph above is actually up.
+    LaunchedEffect(requestedConversationSender) {
+        if (requestedConversationSender != null) {
+            navController.navigate(Screen.Detail.createRoute(requestedConversationSender))
         }
     }
 }

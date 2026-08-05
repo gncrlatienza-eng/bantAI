@@ -101,14 +101,14 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 
   - [-] **3.3** Build: implement Sprint 3 work packages
     - [x] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
-    - [-] **3.3.2** Sender verification endpoint *(Track A — Backend)*
-    - [-] **3.3.3** Link suppression API logic *(Track A — Backend)*
+    - [x] **3.3.2** Sender verification endpoint *(Track A — Backend)*
+    - [x] **3.3.3** Link suppression API logic *(Track A — Backend)*
     - [x] **3.3.4** Cosine similarity module (threshold 0.85 against active centroids) *(Track B — AI/ML)*
     - [x] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
     - [x] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
     - [x] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
-    - [-] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — UI built, hardcoded data, not wired
-    - [-] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active screen wired to real `GET /campaigns`/`GET /campaigns/:id`; Inactive/Modal still blocked on backend (no endpoint lists inactive clusters)
+    - [-] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — UI built, hardcoded data; backend `GET /sms/alerts` + `GET /sms/:messageId/indicators` now available for wiring
+    - [-] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active screen wired; backend `GET /campaigns/inactive` now available for Inactive tab
     - [-] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)* — built as one tabbed screen, preview content static
     - [-] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)* — UI built, hardcoded content
     - [x] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
@@ -132,12 +132,12 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 
   - [-] **4.1** Analysis: refine backlog for Sprint 4, clarify acceptance criteria
     - [ ] **4.1.1** Refine report feedback pipeline requirements *(All members)*
-    - [-] **4.1.2** Confirm retraining trigger thresholds (50 samples · F1 drop 5% · Page-Hinkley) *(Track B — AI/ML)*
+    - [x] **4.1.2** Confirm retraining trigger thresholds (50 samples · F1 drop 5% · Page-Hinkley) *(Track B — AI/ML)*
 
   - [-] **4.2** Design: technical specifications and interface designs for Sprint 4 items
     - [ ] **4.2.1** Report feedback state machine (Pending / Validated / Rejected / Resolved) *(Track A — Backend)*
-    - [-] **4.2.2** Retraining workflow architecture *(Track B — AI/ML)*
-    - [-] **4.2.3** Model promotion + rollback design *(Track B — AI/ML)*
+    - [x] **4.2.2** Retraining workflow architecture *(Track B — AI/ML)*
+    - [x] **4.2.3** Model promotion + rollback design *(Track B — AI/ML)*
 
   - [-] **4.3** Build: implement Sprint 4 work packages
     - [ ] **4.3.1** UserReports table + report intake endpoint *(Track A — Backend)*
@@ -145,10 +145,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **4.3.3** Hourly retraining trigger service (cron) *(Track A — Backend)*
     - [ ] **4.3.4** ModelVersions table + promotion/rollback logic *(Track A — Backend)*
     - [ ] **4.3.5** Automated retraining pipeline (snapshot + AdamW fine-tune) *(Track B — AI/ML)*
-    - [-] **4.3.6** Reservoir sampling (Vitter's Algorithm R) *(Track B — AI/ML)*
-    - [-] **4.3.7** McNemar test + F1 floor promotion gate *(Track B — AI/ML)*
-    - [ ] **4.3.8** Campaign evolution tracking *(Track B — AI/ML)*
-    - [-] **4.3.9** TF-IDF summarization pipeline (unread threads) *(Track B — AI/ML)*
+    - [x] **4.3.6** Reservoir sampling (Vitter's Algorithm R) *(Track B — AI/ML)*
+    - [x] **4.3.7** McNemar test + F1 floor promotion gate *(Track B — AI/ML)*
+    - [-] **4.3.8** Campaign evolution tracking *(Track B — AI/ML)*
+    - [x] **4.3.9** TF-IDF summarization pipeline (unread threads) *(Track B — AI/ML)*
     - [ ] **4.3.10** Compose Message + Unknown Filter screens *(Track C — Mobile)*
     - [ ] **4.3.11** AI Message Summary display *(Track C — Mobile)*
     - [ ] **4.3.12** Settings: Blocked Numbers screen *(Track C — Mobile)*
@@ -158,7 +158,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 
   - [-] **4.4** Test: sprint-level unit and integration testing
     - [ ] **4.4.1** Unit test: report intake → dataset append flow *(Track A — Backend)*
-    - [-] **4.4.2** Unit test: retraining trigger evaluation logic *(Track B — AI/ML)*
+    - [x] **4.4.2** Unit test: retraining trigger evaluation logic *(Track B — AI/ML)*
     - [ ] **4.4.3** Integration test: full retraining round trip (report → validate → retrain → deploy) *(All members)*
 
   - [ ] **4.5** Sprint Review & Retrospective

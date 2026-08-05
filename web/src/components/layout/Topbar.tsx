@@ -90,11 +90,13 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
 
   return (
     <header className="dashboard-topbar">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
           {breadcrumbs || 'Dashboard'}
         </div>
-        <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>{title}</strong>
+        <strong style={{ fontSize: '2.125rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+          {title}
+        </strong>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

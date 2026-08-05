@@ -73,10 +73,17 @@ export class CampaignsService {
     });
   }
 
-  deactivate(id: string) {
+  async deactivate(id: string) {
+    const cluster = await this.prisma.campaignCluster.findUnique({
+      where: { id },
+    });
+    if (!cluster)
+      throw new NotFoundException(`Campaign cluster ${id} not found`);
+
     return this.prisma.campaignCluster.update({
       where: { id },
       data: { isActive: false },
+      select: { id: true, isActive: true, updatedAt: true },
     });
   }
 
@@ -88,6 +95,22 @@ export class CampaignsService {
       where: {
         isActive: true,
         urlDomains: { hasSome: domains },
+      },
+    });
+  }
+
+  findAllInactive() {
+    return this.prisma.campaignCluster.findMany({
+      where: { isActive: false },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        label: true,
+        urlDomains: true,
+        isActive: true,
+        messageCount: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }

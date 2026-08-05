@@ -1,7 +1,6 @@
 package com.bantai.ui.screens.main
 
-import android.os.Build
-import android.telephony.SmsManager
+import android.provider.Telephony
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -29,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,21 +43,42 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.data.SmsRepository
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.util.NotificationHelper
+import com.bantai.util.SmsSender
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.ComposeViewModel
 
 @Composable
-fun ComposeScreen(navController: NavController, initialRecipient: String = "") {
+fun ComposeScreen(
+    navController: NavController,
+    initialRecipient: String = "",
+    initialBody: String = "",
+    viewModel: ComposeViewModel = viewModel(),
+) {
     val context = LocalContext.current
     var recipient by remember { mutableStateOf(initialRecipient) }
-    var messageBody by remember { mutableStateOf("") }
+    var messageBody by remember { mutableStateOf(initialBody) }
     var isSending by remember { mutableStateOf(false) }
+    // Set right before navigating away after a successful send, so the draft-save
+    // below doesn't re-save text that was just sent (and already had its draft cleared).
+    var justSent by remember { mutableStateOf(false) }
+
+    // Leaving this screen any other way (back button, system back gesture) should
+    // preserve unsent text as a draft instead of silently discarding it.
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!justSent) viewModel.saveDraft(recipient, messageBody)
+        }
+    }
 
     // Accept E.164 (+[1-15 digits]) or local all-digit numbers (7-15 digits).
     // Rejects alphanumeric sender IDs (which are receive-only) and short codes
@@ -87,22 +108,30 @@ fun ComposeScreen(navController: NavController, initialRecipient: String = "") {
         }
         isSending = true
         try {
-            @Suppress("DEPRECATION")
-            val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                context.getSystemService(SmsManager::class.java)
-                    ?: SmsManager.getDefault()
-            } else {
-                SmsManager.getDefault()
-            }
-            val parts = smsManager.divideMessage(body)
-            if (parts.size == 1) {
-                smsManager.sendTextMessage(to, null, body, null, null)
-            } else {
-                smsManager.sendMultipartTextMessage(to, null, parts, null, null)
-            }
+            // Record it as Outbox and jump into the thread immediately — like a
+            // normal messaging app, the message shows right away with a "Sending…"
+            // state instead of the UI just sitting there through the network round trip.
+            val repo = SmsRepository(context)
+            val outboxId = repo.insertOutgoingMessage(to, body)
+            viewModel.clearDraft(to)
+            justSent = true
             isSending = false
             navController.navigate(Screen.Detail.createRoute(to)) {
                 popUpTo(Screen.Compose.route) { inclusive = true }
+            }
+            SmsSender.send(context, to, body) { success, error ->
+                if (outboxId != null) {
+                    repo.updateMessageType(
+                        outboxId,
+                        if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
+                    )
+                }
+                if (!success) {
+                    Log.w("ComposeScreen", "Send failed: $error")
+                    // Real-time, not just the in-thread indicator — the result can
+                    // resolve well after the user has moved past this screen.
+                    NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))
+                }
             }
         } catch (e: Exception) {
             Log.e("ComposeScreen", "Failed to send message", e)

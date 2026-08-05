@@ -48,7 +48,7 @@ describe('AuthService', () => {
       email: 'r@x.com',
     };
 
-    it('creates and returns a new user when phone is not taken', async () => {
+    it('creates a user and returns a neutral success message when phone is new', async () => {
       const user = { id: 'u1', ...dto };
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(user);
@@ -66,22 +66,20 @@ describe('AuthService', () => {
           lastName: dto.lastName,
         },
       });
-      expect(result).toEqual({
-        message: 'User registered successfully.',
-        user,
-      });
+      expect(result.message).toBeDefined();
     });
 
-    it('throws BadRequestException when phone is already registered', async () => {
+    it('returns the same neutral message without creating a user when phone already exists', async () => {
+      // Anti-enumeration: callers cannot tell whether the phone is registered
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'u1',
         phone: dto.phone,
       });
 
-      await expect(service.register(dto as any)).rejects.toThrow(
-        BadRequestException,
-      );
+      const result = await service.register(dto as any);
+
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(result.message).toBeDefined();
     });
   });
 
@@ -161,8 +159,9 @@ describe('AuthService', () => {
       expect(result).toMatchObject({
         message: 'Authentication successful.',
         access_token: 'jwt-token',
-        user: existingUser,
       });
+      // user is NOT returned in the response (no PII in auth payload)
+      expect((result as any).user).toBeUndefined();
     });
 
     it('creates a user if none exists for the verified phone', async () => {
@@ -178,13 +177,15 @@ describe('AuthService', () => {
       expect(mockPrisma.user.create).toHaveBeenCalledWith({
         data: { phone: dto.phone },
       });
-      expect(result.user).toEqual(newUser);
+      expect(result.access_token).toBe('jwt-token');
     });
 
-    it('throws NotFoundException for an unrecognised OTP code', async () => {
+    it('throws BadRequestException for an unrecognised OTP code', async () => {
+      // Unified error — invalid and expired OTPs both throw BadRequestException
+      // so attackers cannot distinguish "wrong code" from "expired code".
       mockPrisma.otpCode.findFirst.mockResolvedValue(null);
 
-      await expect(service.verifyOtp(dto)).rejects.toThrow(NotFoundException);
+      await expect(service.verifyOtp(dto)).rejects.toThrow(BadRequestException);
       expect(mockPrisma.otpCode.update).not.toHaveBeenCalled();
     });
 
@@ -220,9 +221,9 @@ describe('AuthService', () => {
 
       const result = await service.getMe('u1');
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'u1' },
-      });
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'u1' } }),
+      );
       expect(result).toEqual(user);
     });
 

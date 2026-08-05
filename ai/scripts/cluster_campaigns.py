@@ -39,6 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 AI = os.path.normpath(os.path.join(HERE, ".."))
 EMBEDDINGS = os.path.join(AI, "datasets", "processed", "embeddings.npz")
 OUT_DIR = os.path.join(AI, "datasets", "processed")
+SNAPSHOT_DIR = os.path.join(OUT_DIR, "campaign_snapshots")
 
 # Manuscript-specified (Stage 5b).
 DEFAULT_MIN_CLUSTER_SIZE = 5
@@ -204,10 +205,26 @@ def main() -> None:
         }
         report.append(entry)
 
+    # Archive the outgoing snapshot BEFORE overwriting it. This file is the
+    # only record of "what clustering looked like last time" -- without it,
+    # scripts/track_campaign_evolution.py (WBS 4.3.8) would have nothing to
+    # diff the new run against. Best-effort: a snapshot-archiving failure
+    # must never block writing the actual clustering result below.
+    out_path = os.path.join(OUT_DIR, "campaign_clusters.json")
+    if os.path.isfile(out_path):
+        try:
+            import shutil
+            from datetime import datetime, timezone
+
+            os.makedirs(SNAPSHOT_DIR, exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            shutil.copy2(out_path, os.path.join(SNAPSHOT_DIR, f"campaign_clusters_{stamp}.json"))
+        except OSError as exc:
+            print(f"  WARN  Could not archive previous snapshot: {exc}")
+
     # Persist BEFORE printing. The centroids are the actual deliverable and
     # cost a 20-minute embedding pass to produce; a console-display problem
     # must never be able to lose them (it did, once -- see below).
-    out_path = os.path.join(OUT_DIR, "campaign_clusters.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(
             {

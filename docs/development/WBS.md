@@ -107,10 +107,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
     - [x] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
     - [x] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
-    - [ ] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)*
-    - [ ] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)*
-    - [ ] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)*
-    - [ ] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)*
+    - [-] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — UI built, hardcoded data, not wired
+    - [-] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active screen wired to real `GET /campaigns`/`GET /campaigns/:id`; Inactive/Modal still blocked on backend (no endpoint lists inactive clusters)
+    - [-] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)* — built as one tabbed screen, preview content static
+    - [-] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)* — UI built, hardcoded content
     - [x] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
     - [x] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
 

@@ -1,12 +1,17 @@
 package com.bantai.viewmodel
 
 import android.app.Application
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Telephony
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.model.groupedBySenderLatest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,9 +47,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _scanPeriod = MutableStateFlow("daily")
     val scanPeriod: StateFlow<String> = _scanPeriod.asStateFlow()
 
+    // The SMS provider gives no push signal on its own — without this, the home
+    // preview would only pick up a new message after leaving and re-entering the screen.
+    private val contentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            loadMessages()
+        }
+    }
+
     init {
         loadUserData()
         loadMessages()
+        application.contentResolver.registerContentObserver(
+            Telephony.Sms.CONTENT_URI, true, contentObserver,
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        getApplication<Application>().contentResolver.unregisterContentObserver(contentObserver)
     }
 
     private fun loadUserData() {
@@ -68,9 +89,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
 
-            // 1. Recent messages for inbox preview — always ALL messages, no period filter
+            // 1. Recent messages for inbox preview — always ALL messages, no period filter,
+            // grouped to one row per sender so a repeat sender doesn't crowd out others.
             val allMessages = smsRepository.getInboxMessages(limit = 50)
-            _recentMessages.value = allMessages.take(6)
+            _recentMessages.value = allMessages.groupedBySenderLatest().take(6)
 
             // 2. Stats — filtered by scan period
             val periodMessages = smsRepository.getInboxMessagesByPeriod(_scanPeriod.value)

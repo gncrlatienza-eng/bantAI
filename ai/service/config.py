@@ -44,12 +44,12 @@ class Settings(BaseSettings):
 
     # --- Campaign clustering (Sprint 3) ---------------------------------- #
     # Where the live matcher gets its campaign centroids from:
-    #   "file"    -- read scripts/cluster_campaigns.py output (default; works
-    #                with no backend and no database)
-    #   "backend" -- fetch from the NestJS service. Blocked until the backend
-    #                returns the `centroid` field, see service/centroid_source.py
+    #   "backend" -- fetch from GET /campaigns/centroids on the NestJS
+    #                service (default; the production path)
+    #   "file"    -- read scripts/cluster_campaigns.py output. No-backend,
+    #                no-database bootstrap/local-dev fallback.
     #   "none"    -- disable campaign matching entirely
-    centroid_source: str = "file"
+    centroid_source: str = "backend"
     cluster_file: str = "datasets/processed/campaign_clusters.json"
     backend_url: str = "http://localhost:3000/api"
 

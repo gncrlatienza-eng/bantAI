@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Key
@@ -176,7 +175,6 @@ fun ThreatAnalysisScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Surface, RoundedCornerShape(16.dp))
-                        .clickable { navController.navigate(Screen.CampaignDetail.createRoute(true)) }
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -193,7 +191,6 @@ fun ThreatAnalysisScreen(navController: NavController) {
                         Text("Operation GCash Clone #14", color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Text("248 messages · 4 domains · Active since May 3", color = TextSecondary, fontSize = 12.sp)
                     }
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF666666))
                 }
             }
 

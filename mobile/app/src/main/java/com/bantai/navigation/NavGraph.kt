@@ -60,8 +60,8 @@ sealed class Screen(val route: String) {
         fun createRoute(type: String) = "report_sent/$type"
     }
     data object BlockedNumbers : Screen("blocked_numbers")
-    data object CampaignDetail : Screen("campaign_detail/{isActive}") {
-        fun createRoute(isActive: Boolean) = "campaign_detail/$isActive"
+    data object CampaignDetail : Screen("campaign_detail/{campaignId}") {
+        fun createRoute(campaignId: String) = "campaign_detail/${Uri.encode(campaignId)}"
     }
     data object SmishingAlert : Screen("smishing_alert")
     data object Compose : Screen("compose")
@@ -182,10 +182,10 @@ fun NavGraph() {
         composable(Screen.BlockedNumbers.route) { BlockedNumbersScreen(navController) }
         composable(
             route = Screen.CampaignDetail.route,
-            arguments = listOf(navArgument("isActive") { type = NavType.BoolType }),
+            arguments = listOf(navArgument("campaignId") { type = NavType.StringType }),
         ) { backStackEntry ->
-            val isActive = backStackEntry.arguments?.getBoolean("isActive") ?: true
-            CampaignDetailScreen(isActive = isActive, navController = navController)
+            val campaignId = backStackEntry.arguments?.getString("campaignId") ?: return@composable
+            CampaignDetailScreen(campaignId = campaignId, navController = navController)
         }
         composable(Screen.SmishingAlert.route) { SmishingAlertScreen(navController) }
         composable(Screen.Compose.route) { ComposeScreen(navController) }

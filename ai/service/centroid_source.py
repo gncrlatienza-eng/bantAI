@@ -8,34 +8,16 @@ match against.
 
 Two sources, in priority order:
 
-1. **Backend** (``GET /campaigns``) -- the production path. Currently
-   **disabled by default**, see the blocker below.
+1. **Backend** (``GET /campaigns/centroids``) -- the production path, and now
+   the default. Resolved 2026-07-31 (Reymark, commit ``5dd8e30``): a
+   dedicated internal route was added rather than widening the general
+   ``GET /campaigns`` list -- it returns just ``{id, centroid}`` per active
+   cluster, since a centroid is 768 floats and every mobile/dashboard client
+   also calls the general list.
 2. **Local file** (``datasets/processed/campaign_clusters.json``, produced by
-   ``scripts/cluster_campaigns.py``) -- works today with no backend and no
-   database, which is why it is the default.
-
-----------------------------------------------------------------------------
-BLOCKER for the backend path (Track A / Reymark) -- 2026-07-30
-----------------------------------------------------------------------------
-``backend/src/campaigns/campaigns.service.ts:findAll()`` uses an explicit
-``select`` that omits ``centroid``:
-
-    select: { id, label, urlDomains, isActive, messageCount, createdAt, updatedAt }
-
-The centroid is the one field this module actually needs -- it is the vector
-the cosine comparison runs against. ``CampaignCluster.centroid`` already
-exists in the Prisma schema and ``create()`` already accepts it; only the read
-path drops it.
-
-Fix is one line -- add ``centroid: true`` to that select. Worth noting the
-field is large (768 floats per cluster), so if ``GET /campaigns`` is also what
-the mobile app and dashboard call, better to add a separate internal route
-(e.g. ``GET /campaigns/centroids``) than to fatten the list every client
-already fetches.
-
-Once that lands, set ``BANTAI_AI_CENTROID_SOURCE=backend`` and
-``BANTAI_AI_BACKEND_URL=...`` -- the code below is written and tested, just
-switched off.
+   ``scripts/cluster_campaigns.py``) -- the no-backend, no-database bootstrap
+   path. Still available via ``BANTAI_AI_CENTROID_SOURCE=file`` for local dev
+   without a running backend.
 """
 
 from __future__ import annotations
@@ -83,14 +65,13 @@ def load_from_backend(
 ) -> List[CampaignCentroid]:
     """Fetch active campaign centroids from the NestJS backend.
 
-    Written and tested, but not reachable until the backend returns the
-    ``centroid`` field -- see the module docstring. Clusters that arrive
-    without a centroid are skipped rather than crashing the service, so the
-    day the backend starts sending them this simply begins working.
+    Hits the dedicated ``/campaigns/centroids`` route (not the general
+    ``/campaigns`` list, which omits the centroid field). Clusters that
+    arrive without a centroid are skipped rather than crashing the service.
     """
     import urllib.request
 
-    url = base_url.rstrip("/") + "/campaigns"
+    url = base_url.rstrip("/") + "/campaigns/centroids"
     with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
         payload = json.loads(resp.read().decode("utf-8"))
 

@@ -146,6 +146,25 @@ matching against the wrong population, not a badly chosen threshold.
 
 ---
 
+## `GET /campaigns/centroids`
+
+Internal route, AI-service-only (not called by mobile or the dashboard).
+Returns just the vectors the cosine matcher needs, deliberately narrower than
+the general `GET /campaigns` list — a centroid is 768 floats, and fattening
+the list every client fetches wasn't worth it for one internal consumer.
+
+```json
+[
+  { "id": "7", "centroid": [0.0123, -0.0456, "... 768 floats"] }
+]
+```
+
+Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.py`
+(`load_from_backend`), which is the default centroid source
+(`BANTAI_AI_CENTROID_SOURCE=backend`) — see `ai/.env.example`.
+
+---
+
 ## Centroid refresh
 
 The AI service holds centroids in memory (`routers/classify.py:matcher`). They

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,6 +54,37 @@ class ClassifyResponse(BaseModel):
         None,
         description="Campaign clustering result. Null when no campaign centroids "
                     "are loaded (cold start), so existing callers stay unaffected.",
+    )
+
+
+class SummarizeRequest(BaseModel):
+    """Thread bodies to summarize, oldest first (WBS 4.3.9).
+
+    A list rather than one blob because the summariser reports how many
+    messages it condensed, which the UI needs in order to say "summary of
+    30 messages" rather than implying the user has seen everything.
+    """
+
+    messages: List[str] = Field(
+        ..., min_length=1, description="Message bodies in the thread, oldest first"
+    )
+    max_sentences: int = Field(
+        3, ge=1, le=10, description="Upper bound on sentences in the summary"
+    )
+
+
+class SummarizeResponse(BaseModel):
+    summary: str = Field(
+        ...,
+        description="Extractive summary — sentences that were actually sent, in "
+                    "chronological order. Empty when the thread has no "
+                    "summarizable content (e.g. only short fragments).",
+    )
+    sentence_count: int = Field(..., description="Sentences in the summary")
+    source_message_count: int = Field(..., description="Messages summarized")
+    truncated: bool = Field(
+        ..., description="Whether content was left out. False means the summary "
+                         "covers every usable sentence in the thread."
     )
 
 

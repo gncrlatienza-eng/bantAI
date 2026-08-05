@@ -20,31 +20,28 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.data.remote.CampaignsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
+import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
@@ -52,39 +49,20 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
-
-private data class Campaign(
-    val name: String,
-    val isActive: Boolean,
-    val messages: Int,
-    val domains: Int,
-    val since: String,
-)
-
-private val campaigns = listOf(
-    Campaign("Operation GCash Clone #14", true,  248, 4, "May 3"),
-    Campaign("BDO Fake Support Wave",     true,  134, 2, "May 7"),
-    Campaign("Shopee Prize Scam #6",      false, 89,  3, "Apr 22"),
-    Campaign("Piso Fare Lure",            false, 56,  1, "Apr 15"),
-    Campaign("Landline OTP Intercept",    false, 31,  2, "Apr 8"),
-)
+import com.bantai.viewmodel.CampaignsViewModel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun CampaignsScreen(navController: NavController, innerPadding: PaddingValues) {
-    var showInactiveModal by remember { mutableStateOf(false) }
-
-    if (showInactiveModal) {
-        InactiveCampaignModal(
-            onDismiss = { showInactiveModal = false },
-            onViewDetails = {
-                showInactiveModal = false
-                navController.navigate(Screen.CampaignDetail.createRoute(false))
-            },
-        )
-    }
-
-    val active = campaigns.filter { it.isActive }
-    val past = campaigns.filter { !it.isActive }
+fun CampaignsScreen(
+    navController: NavController,
+    innerPadding: PaddingValues,
+    viewModel: CampaignsViewModel = viewModel(),
+) {
+    val activeCampaigns by viewModel.activeCampaigns.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -107,19 +85,21 @@ fun CampaignsScreen(navController: NavController, innerPadding: PaddingValues) {
 
         item {
             SectionHeader("ACTIVE")
-            GroupedList(
-                items = active,
-                onClick = { navController.navigate(Screen.CampaignDetail.createRoute(true)) },
-            )
+            when {
+                isLoading -> LoadingRow()
+                errorMessage != null -> InfoRow(errorMessage ?: "Could not load campaigns", isError = true)
+                activeCampaigns.isEmpty() -> InfoRow("No active campaigns right now")
+                else -> GroupedList(
+                    items = activeCampaigns,
+                    onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
+                )
+            }
             Spacer(Modifier.height(24.dp))
         }
 
         item {
             SectionHeader("PAST CAMPAIGNS")
-            GroupedList(
-                items = past,
-                onClick = { showInactiveModal = true },
-            )
+            InfoRow("Past campaigns aren't available yet", icon = Icons.Default.HourglassEmpty)
         }
     }
 }
@@ -137,7 +117,44 @@ private fun SectionHeader(label: String) {
 }
 
 @Composable
-private fun GroupedList(items: List<Campaign>, onClick: (Campaign) -> Unit) {
+private fun LoadingRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceElevated)
+            .padding(20.dp),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun InfoRow(
+    message: String,
+    isError: Boolean = false,
+    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.HourglassEmpty,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceElevated)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = if (isError) Danger else TextTertiary, modifier = Modifier.size(18.dp))
+        Text(message, color = if (isError) Danger else TextSecondary, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun GroupedList(
+    items: List<CampaignsApi.CampaignSummary>,
+    onClick: (CampaignsApi.CampaignSummary) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -158,7 +175,7 @@ private fun GroupedList(items: List<Campaign>, onClick: (Campaign) -> Unit) {
 }
 
 @Composable
-private fun CampaignRow(campaign: Campaign, onClick: () -> Unit) {
+private fun CampaignRow(campaign: CampaignsApi.CampaignSummary, onClick: () -> Unit) {
     val accent = if (campaign.isActive) Suspicious else TextTertiary
 
     Row(
@@ -184,7 +201,7 @@ private fun CampaignRow(campaign: Campaign, onClick: () -> Unit) {
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                campaign.name,
+                campaign.label ?: "Unlabeled campaign",
                 color = White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
@@ -202,7 +219,7 @@ private fun CampaignRow(campaign: Campaign, onClick: () -> Unit) {
                 Text(
                     buildString {
                         append(if (campaign.isActive) "Active" else "Ended")
-                        append(" · ${campaign.messages} messages")
+                        append(" · ${campaign.messageCount} messages")
                     },
                     color = TextSecondary,
                     fontSize = 12.sp,
@@ -212,7 +229,7 @@ private fun CampaignRow(campaign: Campaign, onClick: () -> Unit) {
             }
         }
         Spacer(Modifier.width(8.dp))
-        Text(campaign.since, color = TextTertiary, fontSize = 12.sp)
+        Text(formatShortDate(campaign.createdAt), color = TextTertiary, fontSize = 12.sp)
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = null,
@@ -222,42 +239,8 @@ private fun CampaignRow(campaign: Campaign, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun InactiveCampaignModal(onDismiss: () -> Unit, onViewDetails: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceElevated,
-        shape = RoundedCornerShape(20.dp),
-        title = null,
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(32.dp))
-                Text("Campaign inactive", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(
-                    "This campaign is no longer active. It has been archived for reference. No new messages or domains have been associated with it recently.",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                )
-                OutlinedButton(
-                    onClick = onViewDetails,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF3A3A3A)),
-                ) {
-                    Icon(Icons.Default.Visibility, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                    Box(Modifier.size(8.dp))
-                    Text("View details anyway", color = White, fontSize = 14.sp)
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Go back", color = TextSecondary, fontSize = 13.sp)
-                }
-            }
-        },
-        confirmButton = {},
-    )
+private fun formatShortDate(iso: String): String = try {
+    Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d"))
+} catch (_: Exception) {
+    ""
 }

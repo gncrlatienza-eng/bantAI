@@ -673,6 +673,87 @@ message text).
 
 ---
 
+## Stage 9b — Campaign evolution tracking — Sprint 4, WBS 4.3.8
+
+**Code:** `campaign_evolution.py`, `scripts/track_campaign_evolution.py`
+**Tests:** `tests/test_campaign_evolution.py` (20)
+
+Every offline re-clustering pass (Stage 9) used to overwrite
+`campaign_clusters.json` in place, so nothing recorded how a campaign looked
+*before* the latest run — no way to answer "is this campaign growing?", "did
+it pick up a new domain?", or "did two campaigns fold into one?" from data
+that was actually kept.
+
+**Two pieces close that gap:**
+
+1. `scripts/cluster_campaigns.py` now archives the outgoing snapshot to
+   `datasets/processed/campaign_snapshots/campaign_clusters_<UTC-timestamp>.json`
+   before writing the new one, best-effort (a snapshot-archiving failure must
+   never block writing the actual clustering result).
+2. `campaign_evolution.py` compares any two snapshots and reports what
+   changed: **new** campaigns, **dissolved** ones, **continuing** campaigns
+   (with growth, a surge flag, and newly-seen domains), **merges** (two
+   previously-distinct campaigns that now match the same current cluster),
+   **splits** (one campaign that fragmented into variants), and **merge
+   candidates** (two still-distinct current clusters similar enough to
+   plausibly be the same campaign — evaluated on one snapshot alone, no
+   history needed).
+
+**Continuity is re-derived by centroid similarity, not by id.** HDBSCAN
+relabels clusters from scratch every run, so `cluster_id` has no persistent
+meaning across snapshots — "campaign 7 last week" and "campaign 7 this week"
+are unrelated integers. Matching reuses the same 0.85 cosine threshold Stage
+9's fast path uses to decide message membership (`DEFAULT_SIMILARITY_THRESHOLD`
+in `service/campaign.py`) — using a different bar to decide *campaign*
+continuity than the one used to decide *message* membership would make "same
+campaign" mean two different things in two places.
+
+**Growth is measured as share of traffic, not raw message count.** This is
+the subtle one. `cluster_campaigns.py` re-clusters the *entire* Spam+Scam
+population on every run rather than an incremental buffer, so when the
+dataset itself grows — 15,728 → 16,772 rows already, and it keeps growing —
+every cluster's raw `size` grows with it. A surge flag on raw counts would
+fire on every campaign simultaneously after any routine dataset top-up, and
+an alert that fires on everything is the same as no alert. So each snapshot's
+`n_messages` is carried through and growth is computed on each campaign's
+*share* of the clustered population (`share_growth_ratio`). Raw
+`growth_ratio` is still reported for transparency; it is just not what the
+surge decision reads. Locked in by
+`test_dataset_growth_alone_does_not_count_as_surging`.
+
+**Splits are the dual of merges, and matter for the same reason merges do.**
+Matching runs previous → current and each previous campaign claims only its
+single closest fragment, so without explicit split handling the *other*
+fragments fall through looking like brand-new campaigns. Scam operators
+rotate templates constantly, so campaigns fragmenting into variants is
+ordinary behaviour here — treating those variants as new campaigns is not
+merely incomplete, it is the wrong answer, and it would make new-campaign
+counts spike every time an existing campaign mutated.
+
+**Pure module, same ownership boundary as `retraining/`** (see
+`RETRAINING.md` § Ownership boundary): no database, no HTTP. The CLI script
+(`scripts/track_campaign_evolution.py`) loads two snapshot files and writes
+`datasets/processed/campaign_evolution_report.json`; wiring an evolution
+report into the admin dashboard's Campaign Evolution Timeline (mock UI exists
+in `web/src/pages/admin.tsx`, not yet backed by real data) is a future
+Track A/D task, not part of this deliverable.
+
+> **Archived snapshots carry real message text.** Each cluster entry keeps a
+> 160-character `sample` for human inspection, so
+> `datasets/processed/campaign_snapshots/` is git-ignored for exactly the
+> reason the labeled CSVs and `embeddings.npz` are. The root `.gitignore`
+> needed a recursive `ai/datasets/processed/**/*.json` rule to cover it —
+> the pre-existing `processed/*.json` matches only the top level, not the
+> new subdirectory. Snapshots also accumulate indefinitely (~1–2 MB each);
+> pruning old ones is a deliberate manual decision, same policy as old model
+> checkpoints (`RETRAINING.md` § Rollback).
+
+Run: `cd ai && python scripts/cluster_campaigns.py` (produces/archives a
+snapshot) then `python scripts/track_campaign_evolution.py` (diffs the two
+most recent snapshots and prints a summary).
+
+---
+
 ## Bug history — found, fixed, and why each matters
 
 Kept as a permanent record because *how* each was found is itself a
@@ -1060,13 +1141,19 @@ uvicorn service.main:app --port 8001
 
 # Stage 9: campaign clustering (re-run BOTH after any retrain -- see Stage 9)
 python scripts/embed_dataset.py       # slow: one forward pass per message
-python scripts/cluster_campaigns.py   # fast, re-runnable over cached embeddings
+python scripts/cluster_campaigns.py   # fast, re-runnable over cached embeddings; archives
+                                       # the previous snapshot before overwriting (Stage 9b)
+
+# Stage 9b: campaign evolution report (needs at least two archived snapshots)
+python scripts/track_campaign_evolution.py
 
 # Verify everything
-python -m pytest tests/ -q   # 123 tests: masking, normalization, pipeline,
+python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
                               # routing, service, training config, indicator
                               # tags, explainability, campaign matching,
-                              # clustering stability
+                              # clustering stability, campaign evolution,
+                              # retraining triggers/sampling/promotion,
+                              # thread summarization
 ```
 
 ---
@@ -1097,9 +1184,17 @@ python -m pytest tests/ -q   # 123 tests: masking, normalization, pipeline,
 | `service/tips.py` | Scam awareness card lookup (WBS 3.3.7) |
 | `service/embeddings.py` | Shared 768-dim [CLS] embedding extraction |
 | `service/campaign.py` | Cosine campaign matching, fast path (WBS 3.3.4) |
+| `service/summarize.py` | TF-IDF extractive thread summarization, `POST /summarize` (WBS 4.3.9) |
 | `scripts/embed_dataset.py` | One-off embedding pass over the labeled dataset |
-| `scripts/cluster_campaigns.py` | Offline HDBSCAN re-clustering (WBS 3.3.5) |
+| `scripts/cluster_campaigns.py` | Offline HDBSCAN re-clustering (WBS 3.3.5); archives snapshots for Stage 9b |
+| `campaign_evolution.py` | Compares clustering snapshots — new/dissolved/growing/merged/split campaigns (WBS 4.3.8) |
+| `scripts/track_campaign_evolution.py` | CLI for `campaign_evolution.py` |
+| `retraining/triggers.py` | Retrain-decision thresholds — sample count, F1 floor, Page-Hinkley (WBS 4.1.2) |
+| `retraining/sampling.py` | Reservoir sampling, Vitter's Algorithm R (WBS 4.3.6) |
+| `retraining/promotion.py` | McNemar test + F1-floor promotion gate (WBS 4.3.7) |
 | `colab/` | Colab notebook + package + instructions (no local GPU path) |
-| `tests/` | 41 pytest tests across every module above |
+| `tests/` | 220 pytest tests across every module above |
 | `models/` | Trained weights output (git-ignored) |
 | `../docs/api/classify.md` | ML service API contract (consumed by the NestJS backend) |
+| `../docs/api/summarize.md` | Thread summarization API contract (WBS 4.3.9) |
+| `RETRAINING.md` | Retraining workflow design — triggers, snapshot, fine-tune, promotion gate |

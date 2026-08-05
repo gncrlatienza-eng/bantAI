@@ -119,5 +119,22 @@ pytest            # preprocessing/service tests run with the base deps;
   - ✅ Fine-tuned on the PH smishing dataset (Colab T4; see
     [`PIPELINE.md`](PIPELINE.md) for the full training/evaluation record and
     [`colab/README.md`](colab/README.md) to reproduce a run).
-- **Sprint 3+:** cosine-similarity campaign clustering, HDBSCAN, SHAP
-  explainability, retraining workflow, TF-IDF summarization.
+- **Sprint 3 (done):**
+  - ✅ Cosine-similarity campaign matching, threshold 0.85 (`service/campaign.py`).
+  - ✅ HDBSCAN offline re-clustering, `min_cluster_size = 5` (`scripts/cluster_campaigns.py`).
+  - ✅ SHAP explainability + curated indicator tag dictionary, incl. Tagalog/Taglish
+    coverage (`service/explainer.py`, `service/indicator_tags.py`).
+  - ✅ Scam awareness tip lookup by cluster (`service/tips.py`).
+- **Sprint 4 (Track B — 7/8 done):**
+  - ✅ Retraining trigger thresholds — sample count, macro-F1 floor, Page-Hinkley
+    drift (`retraining/triggers.py`).
+  - ✅ Reservoir sampling, Vitter's Algorithm R (`retraining/sampling.py`).
+  - ✅ McNemar test + F1-floor promotion gate (`retraining/promotion.py`).
+  - ✅ TF-IDF thread summarization, `POST /summarize` (`service/summarize.py`).
+  - ✅ Campaign evolution tracking — new/dissolved/growing/merged/split
+    campaigns between clustering snapshots (`campaign_evolution.py`).
+  - ⛔ **Automated retraining pipeline** — blocked on Track A's `UserReports`
+    table + intake endpoint (WBS 4.3.1); nothing to retrain from until that
+    exists. Design is done (see [`RETRAINING.md`](RETRAINING.md)); the fine-tune
+    step itself reuses `training/train.py` unchanged once a snapshot can be
+    assembled.

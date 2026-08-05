@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SmsService } from './sms.service';
@@ -7,11 +8,12 @@ import { CampaignsService } from '../campaigns/campaigns.service';
 
 const mockPrisma = {
   blockedNumber: { findUnique: jest.fn(), upsert: jest.fn() },
-  smsMessage:    { create: jest.fn(), update: jest.fn() },
-  contact:       { findUnique: jest.fn() },
+  smsMessage: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
+  contact: { findUnique: jest.fn() },
   messageFeature: { create: jest.fn() },
   classification: { create: jest.fn(), findUnique: jest.fn() },
   explainableIndicator: { upsert: jest.fn() },
+  alert: { findMany: jest.fn(), create: jest.fn() },
 };
 
 const mockAiService: Partial<AiService> = {
@@ -19,8 +21,8 @@ const mockAiService: Partial<AiService> = {
 };
 
 const mockCampaignsService: Partial<CampaignsService> = {
-  getActiveDomains:      jest.fn().mockResolvedValue(new Set<string>()),
-  findByDomains:         jest.fn().mockResolvedValue(null),
+  getActiveDomains: jest.fn().mockResolvedValue(new Set<string>()),
+  findByDomains: jest.fn().mockResolvedValue(null),
   incrementMessageCount: jest.fn().mockResolvedValue({}),
 };
 
@@ -31,8 +33,8 @@ describe('SmsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmsService,
-        { provide: PrismaService,    useValue: mockPrisma },
-        { provide: AiService,        useValue: mockAiService },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AiService, useValue: mockAiService },
         { provide: CampaignsService, useValue: mockCampaignsService },
       ],
     }).compile();
@@ -44,10 +46,15 @@ describe('SmsService', () => {
     mockPrisma.blockedNumber.findUnique.mockResolvedValue(null);
     mockPrisma.contact.findUnique.mockResolvedValue(null);
     mockPrisma.smsMessage.create.mockResolvedValue(savedMsg);
+    mockPrisma.smsMessage.findUnique.mockResolvedValue(null);
     mockPrisma.messageFeature.create.mockResolvedValue({});
     mockPrisma.classification.create.mockResolvedValue({});
+    mockPrisma.alert.findMany.mockResolvedValue([]);
+    mockPrisma.alert.create.mockResolvedValue({});
     (mockAiService.classify as jest.Mock).mockResolvedValue(null);
-    (mockCampaignsService.getActiveDomains as jest.Mock).mockResolvedValue(new Set<string>());
+    (mockCampaignsService.getActiveDomains as jest.Mock).mockResolvedValue(
+      new Set<string>(),
+    );
     (mockCampaignsService.findByDomains as jest.Mock).mockResolvedValue(null);
   });
 
@@ -68,7 +75,9 @@ describe('SmsService', () => {
 
   describe('ingest', () => {
     it('suppresses immediately when sender is blocked', async () => {
-      mockPrisma.blockedNumber.findUnique.mockResolvedValue({ sender: dto.sender });
+      mockPrisma.blockedNumber.findUnique.mockResolvedValue({
+        sender: dto.sender,
+      });
 
       const result = await service.ingest(userId, dto);
 
@@ -156,13 +165,49 @@ describe('SmsService', () => {
       expect(Array.isArray((result as any).suppressedLinks)).toBe(true);
     });
 
+    it('creates a Pending alert for messages routed to alert', async () => {
+      // score 0.5 → 'Spam' → 'alert' action via local fallback
+      const midRiskDto = { ...dto, body: 'verify locked click prize' };
+      await service.ingest(userId, midRiskDto);
+
+      expect(mockPrisma.alert.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'Pending' }),
+        }),
+      );
+    });
+
+    it('creates a Blocked alert for messages routed to blocked', async () => {
+      const highRiskDto = {
+        ...dto,
+        body: '[URL] verify locked click prize won gcash account',
+      };
+      await service.ingest(userId, highRiskDto);
+
+      expect(mockPrisma.alert.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'Blocked' }),
+        }),
+      );
+    });
+
+    it('does not create an alert for inbox messages', async () => {
+      const safeDto = { ...dto, body: 'Kumain ka na ba?' };
+      await service.ingest(userId, safeDto);
+
+      expect(mockPrisma.alert.create).not.toHaveBeenCalled();
+    });
+
     it('writes in order: blockedNumber check → smsMessage → messageFeature → classification', async () => {
       await service.ingest(userId, dto);
 
-      const blockedOrder = mockPrisma.blockedNumber.findUnique.mock.invocationCallOrder[0];
-      const msgOrder     = mockPrisma.smsMessage.create.mock.invocationCallOrder[0];
-      const featOrder    = mockPrisma.messageFeature.create.mock.invocationCallOrder[0];
-      const classOrder   = mockPrisma.classification.create.mock.invocationCallOrder[0];
+      const blockedOrder =
+        mockPrisma.blockedNumber.findUnique.mock.invocationCallOrder[0];
+      const msgOrder = mockPrisma.smsMessage.create.mock.invocationCallOrder[0];
+      const featOrder =
+        mockPrisma.messageFeature.create.mock.invocationCallOrder[0];
+      const classOrder =
+        mockPrisma.classification.create.mock.invocationCallOrder[0];
 
       expect(blockedOrder).toBeLessThan(msgOrder);
       expect(msgOrder).toBeLessThan(featOrder);
@@ -173,7 +218,8 @@ describe('SmsService', () => {
   // ── maskLocally (private) ────────────────────────────────────────────────────
 
   describe('maskLocally', () => {
-    const mask = (body: string) => (service as any).maskLocally(body.normalize('NFKC'));
+    const mask = (body: string) =>
+      (service as any).maskLocally(body.normalize('NFKC'));
 
     it('returns the original text unchanged for a clean message', () => {
       expect(mask('Hello, how are you?')).toBe('Hello, how are you?');
@@ -191,7 +237,9 @@ describe('SmsService', () => {
     });
 
     it('masks https URLs with [URL]', () => {
-      expect(mask('Visit https://secure.example.com/path?q=1')).toContain('[URL]');
+      expect(mask('Visit https://secure.example.com/path?q=1')).toContain(
+        '[URL]',
+      );
     });
 
     it('masks 10–13 digit strings as [PHONE]', () => {
@@ -217,7 +265,9 @@ describe('SmsService', () => {
     });
 
     it('masks multiple patterns in one message', () => {
-      const result = mask('Click https://x.com, your code 654321, reward ₱1,000');
+      const result = mask(
+        'Click https://x.com, your code 654321, reward ₱1,000',
+      );
       expect(result).toContain('[URL]');
       expect(result).toContain('[OTP]');
       expect(result).toContain('[AMOUNT]');
@@ -243,13 +293,17 @@ describe('SmsService', () => {
     });
 
     it('returns "Scam" when all keywords are present', () => {
-      const { label, score } = classify('[url] verify locked click prize won gcash account');
+      const { label, score } = classify(
+        '[url] verify locked click prize won gcash account',
+      );
       expect(label).toBe('Scam');
       expect(score).toBeGreaterThanOrEqual(0.9);
     });
 
     it('caps score at 0.99 regardless of keyword count', () => {
-      const { score } = classify('[url] verify locked click prize won gcash account extra extra');
+      const { score } = classify(
+        '[url] verify locked click prize won gcash account extra extra',
+      );
       expect(score).toBeLessThanOrEqual(0.99);
     });
 
@@ -286,6 +340,111 @@ describe('SmsService', () => {
     it('returns "blocked" for score above 0.9', () => {
       expect(route(0.99)).toBe('blocked');
       expect(route(1.0)).toBe('blocked');
+    });
+  });
+
+  // ── getAlerts ────────────────────────────────────────────────────────────────
+
+  describe('getAlerts', () => {
+    it('queries alerts filtered by userId through the message relation', async () => {
+      await service.getAlerts(userId);
+
+      expect(mockPrisma.alert.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { message: { userId } },
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+
+    it('returns an empty array when the user has no alerts', async () => {
+      mockPrisma.alert.findMany.mockResolvedValue([]);
+
+      const result = await service.getAlerts(userId);
+
+      expect(result).toEqual([]);
+    });
+
+    it('returns alert list with message and classification fields', async () => {
+      const alerts = [
+        {
+          id: 'alert-1',
+          status: 'Pending',
+          createdAt: new Date(),
+          message: {
+            id: 'msg-1',
+            sender: 'GCash',
+            body: 'Click here',
+            receivedAt: new Date(),
+            classification: { label: 'Scam', score: 0.95, bucket: 'blocked' },
+          },
+        },
+      ];
+      mockPrisma.alert.findMany.mockResolvedValue(alerts);
+
+      const result = await service.getAlerts(userId);
+
+      expect(result).toEqual(alerts);
+    });
+  });
+
+  // ── getIndicators ─────────────────────────────────────────────────────────────
+
+  describe('getIndicators', () => {
+    it('throws NotFoundException when message does not exist', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue(null);
+
+      await expect(service.getIndicators(userId, 'msg-x')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws NotFoundException when message belongs to a different user', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId: 'other-user',
+        classification: null,
+      });
+
+      await expect(service.getIndicators(userId, 'msg-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('returns empty indicators array when no ExplainableIndicator row exists yet', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId,
+        classification: null,
+      });
+
+      const result = await service.getIndicators(userId, 'msg-1');
+
+      expect(result).toEqual({ indicators: [] });
+    });
+
+    it('returns empty indicators array when classification exists but indicator is null', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId,
+        classification: { indicator: null },
+      });
+
+      const result = await service.getIndicators(userId, 'msg-1');
+
+      expect(result).toEqual({ indicators: [] });
+    });
+
+    it('returns stored indicator tags when ExplainableIndicator row exists', async () => {
+      const indicators = [
+        { tag: 'Prize Lure', weight: 1.0 },
+        { tag: 'Suspicious URL', weight: 0.62 },
+      ];
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId,
+        classification: { indicator: { indicators } },
+      });
+
+      const result = await service.getIndicators(userId, 'msg-1');
+
+      expect(result).toEqual({ indicators });
     });
   });
 

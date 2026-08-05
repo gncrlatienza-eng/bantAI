@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReportSenderDto } from './dto/report-sender.dto';
@@ -34,6 +43,8 @@ export class VerificationController {
   }
 
   // User-submitted fraud report — immediately marks sender as fraud in cache.
+  // Stricter throttle: 20 reports per minute per IP to prevent cache poisoning.
+  @Throttle({ global: { ttl: 60_000, limit: 20 } })
   @UseGuards(JwtAuthGuard)
   @Post('sender/report')
   reportFraud(@Body() dto: ReportSenderDto) {

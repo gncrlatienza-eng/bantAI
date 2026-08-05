@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,9 +81,19 @@ private val GlassStroke = Color(0x21FFFFFF)
 private val Unselected = Color(0xFF8E8E93)
 
 @Composable
-fun MainScreen(navController: NavController, settingsViewModel: SettingsViewModel) {
+fun MainScreen(
+    navController: NavController,
+    settingsViewModel: SettingsViewModel,
+    initialTab: Int? = null,
+) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var barExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // Jumps to the requested tab on cold start from a notification tap, and again
+    // whenever a new notification is tapped while the app is already running.
+    LaunchedEffect(initialTab) {
+        if (initialTab != null) selectedTab = initialTab
+    }
 
     // Content draws edge to edge behind the floating bar.
     val contentPadding = PaddingValues(bottom = 116.dp)

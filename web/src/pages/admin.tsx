@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart } from '../components/charts/BarChart';
 import { DonutChart } from '../components/charts/DonutChart';
@@ -409,6 +409,172 @@ const REPORT_ITEMS: UserReportItem[] = [
     confidence: '88.9%',
     url: 'shopee-voucher-claim.site',
   },
+  {
+    id: '#RPT-0905',
+    user: 'user_1154',
+    preview: 'Maya Advisory: Unusual login detected from new device.',
+    campaign: 'Maya Account Takeover #3',
+    category: 'Smishing / Brand Impersonation',
+    submittedAt: 'May 13 5:45 AM',
+    status: 'Pending',
+    fullMessage: 'Maya Advisory: Unusual login detected on your account from IP 182.25.14.3. Secure your account now at http://maya-verify-auth.com',
+    confidence: '97.2%',
+    url: 'maya-verify-auth.com',
+  },
+  {
+    id: '#RPT-0904',
+    user: 'user_6672',
+    preview: 'BPI Alert: Your online session has expired.',
+    campaign: 'BPI Phishing Campaign #9',
+    category: 'Smishing / Urgency',
+    submittedAt: 'May 13 5:10 AM',
+    status: 'Validated',
+    fullMessage: 'BPI Alert: Your online session has expired due to inactivity. Re-authenticate at http://bpi-online-portal-sec.info',
+    confidence: '93.7%',
+    url: 'bpi-online-portal-sec.info',
+  },
+  {
+    id: '#RPT-0903',
+    user: 'user_5021',
+    preview: 'Globe Telecom: You have 1,500 unused rewards points.',
+    campaign: 'Globe Points Scam #14',
+    category: 'Smishing / Prize Lure',
+    submittedAt: 'May 13 4:35 AM',
+    status: 'Pending',
+    fullMessage: 'Globe Telecom: You have 1,500 unused rewards points expiring today! Redeem for items at http://globe-rewards-claim.org',
+    confidence: '91.8%',
+    url: 'globe-rewards-claim.org',
+  },
+  {
+    id: '#RPT-0902',
+    user: 'user_3890',
+    preview: 'Lazada Voucher: Free ₱1,000 shopping credit.',
+    campaign: 'Lazada Lure #6',
+    category: 'Smishing / Prize Lure',
+    submittedAt: 'May 13 4:00 AM',
+    status: 'Rejected',
+    fullMessage: 'Lazada Sale: Use code FREESHIP50 at checkout for free delivery on orders over ₱500. Visit lazada.com.ph',
+    confidence: '35.4%',
+  },
+  {
+    id: '#RPT-0901',
+    user: 'user_7741',
+    preview: 'UnionBank: Transaction of ₱15,400 initiated.',
+    campaign: 'UnionBank Alert Fake #2',
+    category: 'Smishing / Urgency',
+    submittedAt: 'May 13 3:15 AM',
+    status: 'Validated',
+    fullMessage: 'UnionBank: Transaction of ₱15,400 initiated to Juan Dela Cruz. If you did not authorize this, cancel immediately at http://ubp-secure-cancel.net',
+    confidence: '98.1%',
+    url: 'ubp-secure-cancel.net',
+  },
+  {
+    id: '#RPT-0900',
+    user: 'user_2098',
+    preview: 'SSS Advisory: Loan disbursement confirmation required.',
+    campaign: 'SSS Impersonation #1',
+    category: 'Smishing / Brand Impersonation',
+    submittedAt: 'May 13 2:40 AM',
+    status: 'Pending',
+    fullMessage: 'SSS Advisory: Your salary loan request of ₱30,000 requires member portal confirmation. Confirm at http://sss-gov-ph-loan.com',
+    confidence: '89.6%',
+    url: 'sss-gov-ph-loan.com',
+  },
+  {
+    id: '#RPT-0899',
+    user: 'user_4119',
+    preview: 'DTI Scam Alert: Verify your business permit registration.',
+    campaign: 'DTI Business Lure #3',
+    category: 'Smishing / Urgency',
+    submittedAt: 'May 13 1:55 AM',
+    status: 'Pending',
+    fullMessage: 'DTI Notice: Your business permit registration #DTI-8891 requires immediate verification. Update status at http://dti-gov-verify.info',
+    confidence: '90.3%',
+    url: 'dti-gov-verify.info',
+  },
+  {
+    id: '#RPT-0898',
+    user: 'user_9012',
+    preview: 'GCash Advisory: SIM Registration deadline reminder.',
+    campaign: 'Op. GCash Clone #17',
+    category: 'Smishing / Urgency',
+    submittedAt: 'May 12 11:30 PM',
+    status: 'Validated',
+    fullMessage: 'GCash Urgent: Unregistered SIM cards will be permanently deactivated. Complete registration at http://sim-registration-gcash.online',
+    confidence: '95.8%',
+    url: 'sim-registration-gcash.online',
+  },
+  {
+    id: '#RPT-0897',
+    user: 'user_1430',
+    preview: 'J&T Express: Package delivery address incomplete.',
+    campaign: 'Express Parcel Lure #5',
+    category: 'Smishing / Fake Domain',
+    submittedAt: 'May 12 10:45 PM',
+    status: 'Pending',
+    fullMessage: 'J&T Express: Parcel #JT9920 cannot be delivered due to missing house number. Update address at http://jtexpress-ph-track.site',
+    confidence: '94.6%',
+    url: 'jtexpress-ph-track.site',
+  },
+  {
+    id: '#RPT-0896',
+    user: 'user_6189',
+    preview: 'Metrobank: Account locked due to failed passcode attempts.',
+    campaign: 'Metrobank Phish #4',
+    category: 'Smishing / Brand Impersonation',
+    submittedAt: 'May 12 10:15 PM',
+    status: 'Validated',
+    fullMessage: 'Metrobank Warning: Your account has been temporarily locked. Unlock your account via http://metrobank-online-help.com',
+    confidence: '96.9%',
+    url: 'metrobank-online-help.com',
+  },
+  {
+    id: '#RPT-0895',
+    user: 'user_8321',
+    preview: 'Security Bank: Important notice regarding your credit card.',
+    campaign: 'Security Bank Scam #1',
+    category: 'Smishing / Urgency',
+    submittedAt: 'May 12 9:40 PM',
+    status: 'Pending',
+    fullMessage: 'Security Bank: Suspicious charge of ₱8,900 on your card ending in 4092. Report unauthorized transaction at http://securitybank-alert-center.org',
+    confidence: '92.1%',
+    url: 'securitybank-alert-center.org',
+  },
+  {
+    id: '#RPT-0894',
+    user: 'user_3552',
+    preview: 'Pag-IBIG Fund: Housing loan rebate released.',
+    campaign: 'Pag-IBIG Rebate Lure #2',
+    category: 'Smishing / Prize Lure',
+    submittedAt: 'May 12 9:00 PM',
+    status: 'Rejected',
+    fullMessage: 'Pag-IBIG Fund Reminder: Virtual Pag-IBIG portal maintenance scheduled on May 15. Plan your transactions accordingly.',
+    confidence: '38.2%',
+  },
+  {
+    id: '#RPT-0893',
+    user: 'user_7710',
+    preview: 'Landbank: Your account requires mandatory e-KYC update.',
+    campaign: 'Landbank e-KYC Phish #7',
+    category: 'Smishing / Fake Domain',
+    submittedAt: 'May 12 8:20 PM',
+    status: 'Pending',
+    fullMessage: 'Landbank Notice: Mandatory e-KYC update required per BSP circular. Submit documents at http://landbank-ekyc-portal.com',
+    confidence: '95.3%',
+    url: 'landbank-ekyc-portal.com',
+  },
+  {
+    id: '#RPT-0892',
+    user: 'user_2844',
+    preview: 'Cebuana Lhuillier: Remittance reference ready for pickup.',
+    campaign: 'Cebuana Remittance Lure #3',
+    category: 'Smishing / Prize Lure',
+    submittedAt: 'May 12 7:45 PM',
+    status: 'Pending',
+    fullMessage: 'Cebuana Lhuillier: Remittance of ₱12,000 is ready for cash-out. Verify receiver details at http://cebuana-remit-claim.info',
+    confidence: '91.0%',
+    url: 'cebuana-remit-claim.info',
+  },
 ];
 
 export function AdminReportsPage() {
@@ -416,6 +582,18 @@ export function AdminReportsPage() {
   const [activeTab, setActiveTab] = useState<'All' | 'Pending' | 'Validated' | 'Rejected'>('All');
   const [selectedReport, setSelectedReport] = useState<UserReportItem | null>(null);
   const [reportsList, setReportsList] = useState<UserReportItem[]>(REPORT_ITEMS);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleTabChange = (tab: 'All' | 'Pending' | 'Validated' | 'Rejected') => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  };
 
   // Filtered List
   const filteredReports = reportsList.filter((item) => {
@@ -428,6 +606,11 @@ export function AdminReportsPage() {
       item.category.toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredReports.length);
+  const paginatedReports = filteredReports.slice(startIndex, endIndex);
 
   const pendingCount = reportsList.filter((r) => r.status === 'Pending').length;
   const validatedCount = reportsList.filter((r) => r.status === 'Validated').length;
@@ -443,15 +626,8 @@ export function AdminReportsPage() {
   return (
     <AdminShell title="User Reports Workbench">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Page Title & Context Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>User Reports Workbench</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Suspicious messages manually reported by BantAI app users — only reported messages are sent to the backend for analyst review.
-            </p>
-          </div>
-
+        {/* Top Controls Header */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           {/* Search Bar */}
           <div style={{ position: 'relative', width: 280 }}>
             <input
@@ -459,7 +635,7 @@ export function AdminReportsPage() {
               className="form-input"
               placeholder="Search reports, users, lures..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={handleSearchChange}
               style={{ width: '100%', height: 38, paddingLeft: 34, fontSize: '0.8125rem' }}
             />
             <span style={{ position: 'absolute', left: 10, top: 9, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
@@ -468,41 +644,42 @@ export function AdminReportsPage() {
           </div>
         </div>
 
-        {/* Top Summary Stat Strip (Matching Screenshot Header Metrics) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 24,
-            background: 'var(--bg-surface-elevated)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 10,
-            padding: '14px 20px',
-            fontSize: '0.875rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--amber-text)' }}>{pendingCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Pending Review</span>
+        {/* Visually Appealing Stat Cards Grid */}
+        <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Pending Review</small>
+              <span className="badge badge-amber" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>⏳ Action Needed</span>
+            </div>
+            <strong style={{ color: 'var(--amber-text)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>{pendingCount}</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Awaiting analyst review</span>
           </div>
-          <span style={{ color: 'var(--border-default)' }}>|</span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--green-text)' }}>{validatedCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Validated Smishing</span>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Validated Smishing</small>
+              <span className="badge badge-green" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>🛡️ Confirmed</span>
+            </div>
+            <strong style={{ color: 'var(--green-text)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>{validatedCount}</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Flagged &amp; cluster matched</span>
           </div>
-          <span style={{ color: 'var(--border-default)' }}>|</span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--red-text)' }}>{rejectedCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Rejected Reports</span>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Rejected Reports</small>
+              <span className="badge badge-red" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>✕ Benign</span>
+            </div>
+            <strong style={{ color: 'var(--red-text)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>{rejectedCount}</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>False alarms dismissed</span>
           </div>
-          <span style={{ color: 'var(--border-default)' }}>|</span>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>4.2h</strong>
-            <span style={{ color: 'var(--text-muted)' }}>Avg Review Time</span>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Avg Review Time</small>
+              <span className="badge badge-blue" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>⚡ Analyst SLA</span>
+            </div>
+            <strong style={{ color: 'var(--text-primary)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>4.2h</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Average turnaround time</span>
           </div>
         </div>
 
@@ -510,25 +687,25 @@ export function AdminReportsPage() {
         <div className="tabs-row" style={{ borderBottom: 'none', padding: 0 }}>
           <button
             className={`tab-btn ${activeTab === 'All' ? 'active' : ''}`}
-            onClick={() => setActiveTab('All')}
+            onClick={() => handleTabChange('All')}
           >
-            All 847
+            All ({reportsList.length})
           </button>
           <button
             className={`tab-btn ${activeTab === 'Pending' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Pending')}
+            onClick={() => handleTabChange('Pending')}
           >
             Pending Review ({pendingCount})
           </button>
           <button
             className={`tab-btn ${activeTab === 'Validated' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Validated')}
+            onClick={() => handleTabChange('Validated')}
           >
             Validated ({validatedCount})
           </button>
           <button
             className={`tab-btn ${activeTab === 'Rejected' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Rejected')}
+            onClick={() => handleTabChange('Rejected')}
           >
             Rejected ({rejectedCount})
           </button>
@@ -551,7 +728,7 @@ export function AdminReportsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredReports.map((item) => (
+                {paginatedReports.map((item) => (
                   <tr key={item.id}>
                     <td>
                       <code style={{ color: 'var(--accent-light)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
@@ -626,15 +803,55 @@ export function AdminReportsPage() {
               background: 'var(--bg-surface-elevated)',
             }}
           >
-            <span>Showing 1–{filteredReports.length} of 847 results</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-ghost" style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}>‹</button>
-              <button className="btn btn-primary" style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}>1</button>
-              <button className="btn btn-ghost" style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}>2</button>
-              <button className="btn btn-ghost" style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}>3</button>
-              <span style={{ padding: '4px 6px' }}>...</span>
-              <button className="btn btn-ghost" style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}>85</button>
-              <button className="btn btn-ghost" style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}>›</button>
+            <span>
+              Showing {filteredReports.length === 0 ? 0 : startIndex + 1}–{endIndex} of {filteredReports.length} results
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button
+                className="btn btn-ghost"
+                style={{
+                  padding: '4px 8px',
+                  height: 28,
+                  fontSize: '0.75rem',
+                  opacity: currentPage === 1 ? 0.5 : 1,
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                }}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                ‹
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  className={`btn ${currentPage === pageNum ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{
+                    padding: '4px 10px',
+                    height: 28,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              ))}
+
+              <button
+                className="btn btn-ghost"
+                style={{
+                  padding: '4px 8px',
+                  height: 28,
+                  fontSize: '0.75rem',
+                  opacity: currentPage >= totalPages ? 0.5 : 1,
+                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                }}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                ›
+              </button>
             </div>
           </div>
         </div>
@@ -735,15 +952,8 @@ export function AdminModelPage() {
   return (
     <AdminShell title="Model Performance Dashboard">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header & Subtitle Banner */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Model Performance Dashboard</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              XLM-RoBERTa v3.1 — Last retrained May 8, 2026
-            </p>
-          </div>
-
+        {/* Top Actions Bar */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <Button variant="secondary" size="md" onClick={() => setShowHistoryModal(true)}>
             View Version History →
           </Button>
@@ -1233,14 +1443,6 @@ export function AdminConceptDriftPage() {
   return (
     <AdminShell title="Concept Drift Monitoring">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header Title & Context Subtitle */}
-        <div>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Concept Drift Monitoring</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-            Statistical divergence metrics comparing current baseline dataset with last 30 days of reported messages.
-          </p>
-        </div>
-
         {/* Top Graph Panel: Concept Drift Lines & Threshold Crossing Alert */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="panel-head">
@@ -1584,15 +1786,8 @@ export function AdminDatasetPage() {
   return (
     <AdminShell title="Dataset Management">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header Title Banner with Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Dataset Management</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Training samples sourced from user-reported suspicious messages and auto-blocked smishing numbers
-            </p>
-          </div>
-
+        {/* Top Actions Bar */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', gap: 12 }}>
             <Button variant="secondary" size="md" onClick={() => setShowDownloadModal(true)}>
               📥 Download Full Dataset
@@ -2245,15 +2440,8 @@ export function AdminClassificationPage() {
   return (
     <AdminShell title="Full Classification Log">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Top Header Row with Title, Date Picker, Search & Export Button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Detailed Classification Log</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Classification log of all user-reported suspicious messages and automated blocked-number detections sent to the backend
-            </p>
-          </div>
-
+        {/* Top Controls Header with Date Picker, Search & Export Button */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* CLICKABLE INTERACTIVE DATE SELECTOR DROPDOWN */}
             <div style={{ position: 'relative' }}>
@@ -2742,45 +2930,33 @@ export function AdminFpFnPage() {
   return (
     <AdminShell title="FP / FN Review">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Title Header Banner */}
-        <div>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>FP / FN Review Workbench</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-            Review and resolve misclassified messages to improve model training quality
-          </p>
-        </div>
-
-        {/* Top Summary Metric Pill Strip (Matching Reference Image) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 24,
-            background: 'var(--bg-surface-elevated)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 10,
-            padding: '14px 20px',
-            fontSize: '0.875rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--amber-text)' }}>{openFpCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Open FP Cases</span>
+        {/* Visually Appealing Stat Cards Grid */}
+        <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Open FP Cases</small>
+              <span className="badge badge-amber" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>⚠️ Over-Blocked</span>
+            </div>
+            <strong style={{ color: 'var(--amber-text)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>{openFpCount}</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Clean messages misflagged</span>
           </div>
 
-          <span style={{ color: 'var(--border-default)' }}>|</span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--red-text)' }}>{openFnCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Open FN Cases</span>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Open FN Cases</small>
+              <span className="badge badge-red" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>🚨 Missed Threats</span>
+            </div>
+            <strong style={{ color: 'var(--red-text)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>{openFnCount}</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Smishing passed to users</span>
           </div>
 
-          <span style={{ color: 'var(--border-default)' }}>|</span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: '1.25rem', color: 'var(--green-text)' }}>{resolvedTodayCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Resolved Today</span>
+          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 14, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Resolved Today</small>
+              <span className="badge badge-green" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>✓ Reviewed</span>
+            </div>
+            <strong style={{ color: 'var(--green-text)', fontSize: '2.25rem', fontWeight: 800, margin: '6px 0 2px 0', display: 'block' }}>{resolvedTodayCount}</strong>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Audit cases cleared today</span>
           </div>
         </div>
 
@@ -3356,43 +3532,33 @@ export function AdminCampaignsPage() {
   return (
     <AdminShell title="All Campaign Clusters">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header Title & Top Summary Stat Cards Bar (Matching Screenshot Header) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Campaign Management</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Manage all tracked smishing clusters - merge, archive, and control client access
-            </p>
+        {/* Top Summary Stat Badges & Export All Button Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 16, width: '100%', alignItems: 'center' }}>
+          <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '10px 16px', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <strong style={{ display: 'block', fontSize: '1.25rem', color: 'var(--text-primary)', fontWeight: 800 }}>{totalClustersCount}</strong>
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', fontWeight: 600 }}>Total Clusters</small>
           </div>
 
-          {/* Top Right Summary Stat Badges & Export All Button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-              <strong style={{ display: 'block', fontSize: '1.125rem', color: 'var(--text-primary)' }}>{totalClustersCount}</strong>
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Total Clusters</small>
-            </div>
-
-            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-              <strong style={{ display: 'block', fontSize: '1.125rem', color: 'var(--green-text)' }}>{activeCount}</strong>
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Active</small>
-            </div>
-
-            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-              <strong style={{ display: 'block', fontSize: '1.125rem', color: 'var(--accent-light)', fontFamily: 'var(--font-mono)' }}>
-                {totalMessagesCount.toLocaleString()}
-              </strong>
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Total Messages</small>
-            </div>
-
-            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-              <strong style={{ display: 'block', fontSize: '1.125rem', color: 'var(--text-primary)' }}>3</strong>
-              <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Client Orgs</small>
-            </div>
-
-            <Button variant="secondary" size="md" onClick={handleExportAll} disabled={isExporting}>
-              {isExporting ? '⏳ Exporting...' : '📥 Export All'}
-            </Button>
+          <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '10px 16px', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <strong style={{ display: 'block', fontSize: '1.25rem', color: 'var(--green-text)', fontWeight: 800 }}>{activeCount}</strong>
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', fontWeight: 600 }}>Active</small>
           </div>
+
+          <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '10px 16px', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <strong style={{ display: 'block', fontSize: '1.25rem', color: 'var(--accent-light)', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
+              {totalMessagesCount.toLocaleString()}
+            </strong>
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', fontWeight: 600 }}>Total Messages</small>
+          </div>
+
+          <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', padding: '10px 16px', borderRadius: 12, textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+            <strong style={{ display: 'block', fontSize: '1.25rem', color: 'var(--text-primary)', fontWeight: 800 }}>3</strong>
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', fontWeight: 600 }}>Client Orgs</small>
+          </div>
+
+          <Button variant="secondary" size="md" onClick={handleExportAll} disabled={isExporting} style={{ height: 46, padding: '0 20px' }}>
+            {isExporting ? '⏳ Exporting...' : '📥 Export All'}
+          </Button>
         </div>
 
         {/* Filter Pills Row & Search Input */}
@@ -4065,15 +4231,8 @@ export function AdminTimelinePage() {
   return (
     <AdminShell title="Campaign Timeline">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header Title & Dropdown Campaign Selector */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Campaign Evolution Timeline</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Track how a campaign has changed, grown, and adapted over time
-            </p>
-          </div>
-
+        {/* Dropdown Campaign Selector Header */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           {/* SELECTOR DROPDOWN */}
           <div style={{ position: 'relative' }}>
             <select
@@ -4624,15 +4783,8 @@ export function AdminUsersPage() {
   return (
     <AdminShell title="Registered Users">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Top Header Row with Title & Search Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Registered Users</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Manage BantAI app users and authorized client organizations
-            </p>
-          </div>
-
+        {/* Top Search Bar Header */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ position: 'relative', width: 280 }}>
             <input
               type="text"
@@ -5104,14 +5256,6 @@ export function AdminExportPage() {
             <span>{downloadToast}</span>
           </div>
         )}
-
-        {/* Page Title & Subtitle */}
-        <div>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Export Hub</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-            Generate and download datasets, logs, and reports for the system and for client organizations
-          </p>
-        </div>
 
         {/* Section 1: SYSTEM EXPORTS (SUPER ADMIN ONLY) */}
         <div>
@@ -5624,14 +5768,7 @@ export function AdminServerPage({ tab = 'server' }: { tab?: 'server' | 'api' | '
     <AdminShell title="Server Monitoring">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header Title & Subtitle + Refresh Indicator Button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Server Monitoring</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Real-time infrastructure health for the BantAI system
-            </p>
-          </div>
-
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <button
             onClick={handleRefreshHealth}
             className="btn btn-ghost"
@@ -6059,15 +6196,6 @@ export function AdminApiLogsPage() {
     <AdminShell title="API Logs">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header Title & Subtitle */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>API Logs</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Monitor system API request volume, latency, and client consumption
-            </p>
-          </div>
-        </div>
-
         {/* Top Sub-Tabs Row (Matching Photo 1) */}
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -6398,15 +6526,6 @@ export function AdminDbStoragePage() {
     <AdminShell title="DB Storage">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header Title */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>DB Storage</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              PostgreSQL database storage utilization, table indexes, and growth projection
-            </p>
-          </div>
-        </div>
-
         {/* Top Sub-Tabs Row (Matching Photo 2) */}
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -6904,15 +7023,8 @@ export function AdminTipsPage() {
   return (
     <AdminShell title="Scam Awareness Tips">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* Header Section */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: 4, color: 'var(--text-primary)' }}>Scam Awareness Tips</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-              Tips shown to BantAI app users via <span style={{ color: 'var(--accent-light)', fontWeight: 600 }}>Settings &gt; Learn</span>
-            </p>
-          </div>
-
+        {/* Top Action Header */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <Button variant="primary" size="md" onClick={openCreateModal} style={{ borderRadius: 8, padding: '10px 20px', fontSize: '0.875rem' }}>
             + Add New Tip
           </Button>
@@ -7583,15 +7695,7 @@ export function AdminSettingsPage({ notifications }: { notifications?: boolean }
       {/* Main Container - Space Maximized (Full Width) */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Page Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Account Settings
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-              Manage your Super Admin profile, security credentials, alert notifications, and access permissions
-            </p>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <span className="badge badge-amber" style={{ padding: '6px 14px', fontSize: '0.8125rem' }}>
             👑 Super Administrator Control Center
           </span>

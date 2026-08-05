@@ -1,10 +1,11 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { UsersService } from './users.service';
 import { PrismaService } from '../../database/prisma.service';
 
 const mockPrisma = {
-  user: { update: jest.fn() },
+  user: { findUnique: jest.fn(), update: jest.fn() },
 };
 
 describe('UsersService', () => {
@@ -24,6 +25,21 @@ describe('UsersService', () => {
 
   describe('updateMe', () => {
     const userId = 'u1';
+    const existingUser = { id: userId, phone: '+639171234567' };
+
+    beforeEach(() => {
+      // Default: user exists
+      mockPrisma.user.findUnique.mockResolvedValue(existingUser);
+    });
+
+    it('throws NotFoundException when user does not exist', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.updateMe(userId, {})).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
 
     it('updates all profile fields and returns the updated user', async () => {
       const dto = {
@@ -36,14 +52,16 @@ describe('UsersService', () => {
 
       const result = await service.updateMe(userId, dto);
 
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: userId },
-        data: {
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          email: dto.email,
-        },
-      });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: userId },
+          data: {
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email,
+          },
+        }),
+      );
       expect(result).toEqual(updated);
     });
 
@@ -60,18 +78,19 @@ describe('UsersService', () => {
 
       const result = await service.updateMe(userId, dto);
 
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: userId },
-        data: { firstName: 'Reymark', lastName: undefined, email: undefined },
-      });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { firstName: 'Reymark', lastName: undefined, email: undefined },
+        }),
+      );
       expect(result).toEqual(updated);
     });
 
     it('passes the correct userId to the where clause', async () => {
-      const dto = { firstName: 'Gio' };
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'u2' });
       mockPrisma.user.update.mockResolvedValue({ id: 'u2' });
 
-      await service.updateMe('u2', dto);
+      await service.updateMe('u2', { firstName: 'Gio' });
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'u2' } }),

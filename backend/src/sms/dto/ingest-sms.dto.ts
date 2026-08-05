@@ -8,6 +8,7 @@ export class IngestSmsDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(1600)
   body: string;
 
   @IsDateString()

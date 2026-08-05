@@ -7,8 +7,18 @@ import { IngestSmsDto } from './dto/ingest-sms.dto';
 
 // Shortened URL services whose domains trigger caution regardless of content.
 const SHORTENED_URL_HOSTS = new Set([
-  'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly', 'buff.ly',
-  'short.io', 'rb.gy', 'is.gd', 'v.gd', 'cutt.ly', 'bl.ink',
+  'bit.ly',
+  'tinyurl.com',
+  'goo.gl',
+  't.co',
+  'ow.ly',
+  'buff.ly',
+  'short.io',
+  'rb.gy',
+  'is.gd',
+  'v.gd',
+  'cutt.ly',
+  'bl.ink',
 ]);
 
 @Injectable()
@@ -22,9 +32,13 @@ export class SmsService {
   ) {}
 
   async ingest(userId: string, dto: IngestSmsDto) {
+    // Normalize once; all DB lookups keyed on sender use this value so that
+    // +639171234567, 09171234567, and 639171234567 resolve to the same record.
+    const normalizedSender = this.normalizePhone(dto.sender);
+
     // Step 1 — check if sender is blocked; suppress before doing any work
     const blocked = await this.prisma.blockedNumber.findUnique({
-      where: { userId_sender: { userId, sender: dto.sender } },
+      where: { userId_sender: { userId, sender: normalizedSender } },
     });
     if (blocked) {
       return { suppressed: true, reason: 'blocked_sender' };
@@ -57,7 +71,9 @@ export class SmsService {
       bucket = aiResult.bucket;
       maskedBody = aiResult.maskedText;
     } else {
-      this.logger.warn(`Falling back to local heuristic for message ${message.id}`);
+      this.logger.warn(
+        `Falling back to local heuristic for message ${message.id}`,
+      );
       maskedBody = this.maskLocally(normalizedBody);
       ({ label, score } = this.classifyLocally(maskedBody));
     }
@@ -73,15 +89,15 @@ export class SmsService {
     // otherwise block a legitimate sender.
     if (action === 'blocked') {
       await this.prisma.blockedNumber.upsert({
-        where: { userId_sender: { userId, sender: dto.sender } },
-        create: { userId, sender: dto.sender, source: 'AutoBlock' },
+        where: { userId_sender: { userId, sender: normalizedSender } },
+        create: { userId, sender: normalizedSender, source: 'AutoBlock' },
         update: {},
       });
     }
 
     // Step 6 — determine sender verification status (needed for link suppression trigger)
     const senderContact = await this.prisma.contact.findUnique({
-      where: { userId_phone: { userId, phone: this.normalizePhone(dto.sender) } },
+      where: { userId_phone: { userId, phone: normalizedSender } },
     });
     const senderIsUnknown = !senderContact;
 
@@ -108,9 +124,12 @@ export class SmsService {
       }
 
       // Link campaign cluster if any URL domain matches
-      const matchedDomains = urls.map((u) => this.extractHost(u)).filter((h) => clusterDomains.has(h));
+      const matchedDomains = urls
+        .map((u) => this.extractHost(u))
+        .filter((h) => clusterDomains.has(h));
       if (matchedDomains.length > 0) {
-        const cluster = await this.campaignsService.findByDomains(matchedDomains);
+        const cluster =
+          await this.campaignsService.findByDomains(matchedDomains);
         if (cluster) {
           await Promise.all([
             this.prisma.smsMessage.update({
@@ -119,7 +138,9 @@ export class SmsService {
             }),
             this.campaignsService.incrementMessageCount(cluster.id),
           ]);
-          this.logger.log(`Message ${message.id} linked to cluster ${cluster.id}`);
+          this.logger.log(
+            `Message ${message.id} linked to cluster ${cluster.id}`,
+          );
         }
       }
     }
@@ -145,6 +166,19 @@ export class SmsService {
       },
     });
 
+    // Step 10 — create an Alert row for flagged messages so the Alerts screen
+    //   has something to display. Inbox messages do not generate an alert.
+    //   Status mirrors the routing decision: blocked messages are already
+    //   suppressed, so they are recorded as Blocked rather than Pending.
+    if (action === 'alert' || action === 'blocked') {
+      await this.prisma.alert.create({
+        data: {
+          messageId: message.id,
+          status: action === 'blocked' ? 'Blocked' : 'Pending',
+        },
+      });
+    }
+
     return {
       messageId: message.id,
       classification: { label, score },
@@ -152,6 +186,54 @@ export class SmsService {
       senderStatus: senderIsUnknown ? 'unknown' : 'verified',
       suppressedLinks,
     };
+  }
+
+  async getAlerts(userId: string) {
+    return this.prisma.alert.findMany({
+      where: { message: { userId } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        message: {
+          select: {
+            id: true,
+            sender: true,
+            body: true,
+            receivedAt: true,
+            classification: {
+              select: { label: true, score: true, bucket: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getIndicators(userId: string, messageId: string) {
+    const message = await this.prisma.smsMessage.findUnique({
+      where: { id: messageId },
+      select: {
+        userId: true,
+        classification: {
+          select: {
+            indicator: { select: { indicators: true } },
+          },
+        },
+      },
+    });
+
+    if (!message || message.userId !== userId) {
+      throw new NotFoundException(`Message ${messageId} not found`);
+    }
+
+    const indicators =
+      (message.classification?.indicator?.indicators as {
+        tag: string;
+        weight: number;
+      }[]) ?? [];
+    return { indicators };
   }
 
   // Called by the AI/ML service after SHAP analysis to store explainability data.
@@ -163,7 +245,9 @@ export class SmsService {
       where: { messageId },
     });
     if (!classification) {
-      throw new NotFoundException(`No classification found for message ${messageId}`);
+      throw new NotFoundException(
+        `No classification found for message ${messageId}`,
+      );
     }
 
     return this.prisma.explainableIndicator.upsert({
@@ -192,13 +276,30 @@ export class SmsService {
       .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
       .replace(/https?:\/\/\S+/gi, '[URL]')
       .replace(/\b(09\d{9}|\+639\d{9}|\d{7,8})\b/g, '[PHONE]')
-      .replace(/[₱P][\d,]+(\.\d+)?|\b\d+(\.\d+)?\s*(pesos?|php)\b/gi, '[AMOUNT]')
+      .replace(
+        /[₱P][\d,]+(\.\d+)?|\b\d+(\.\d+)?\s*(pesos?|php)\b/gi,
+        '[AMOUNT]',
+      )
       .replace(/\b\d{4,8}\b/g, '[OTP]');
   }
 
-  private classifyLocally(maskedBody: string): { label: string; score: number } {
-    const keywords = ['[url]', 'verify', 'locked', 'click', 'prize', 'won', 'gcash', 'account'];
-    const hits = keywords.filter((kw) => maskedBody.toLowerCase().includes(kw)).length;
+  private classifyLocally(maskedBody: string): {
+    label: string;
+    score: number;
+  } {
+    const keywords = [
+      '[url]',
+      'verify',
+      'locked',
+      'click',
+      'prize',
+      'won',
+      'gcash',
+      'account',
+    ];
+    const hits = keywords.filter((kw) =>
+      maskedBody.toLowerCase().includes(kw),
+    ).length;
     const score = Math.min(hits / keywords.length, 0.99);
     let label: string;
     if (score >= 0.9) label = 'Scam';
@@ -223,7 +324,8 @@ export class SmsService {
   private normalizePhone(phone: string): string {
     if (/[a-zA-Z]/.test(phone)) return phone.trim().toLowerCase();
     const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('63') && digits.length === 12) return '0' + digits.slice(2);
+    if (digits.startsWith('63') && digits.length === 12)
+      return '0' + digits.slice(2);
     return digits;
   }
 }

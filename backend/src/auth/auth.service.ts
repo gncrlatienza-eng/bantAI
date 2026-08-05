@@ -1,6 +1,8 @@
+import { randomInt } from 'crypto';
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +15,8 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -20,32 +24,28 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({
-      where: {
-        phone: dto.phone,
-      },
+      where: { phone: dto.phone },
     });
 
-    if (existing) {
-      throw new BadRequestException('Phone number already registered.');
+    // Return the same response whether the phone is new or already registered.
+    // This prevents attackers from enumerating which phone numbers have accounts.
+    if (!existing) {
+      await this.prisma.user.create({
+        data: {
+          phone: dto.phone,
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+        },
+      });
     }
 
-    const user = await this.prisma.user.create({
-      data: {
-        phone: dto.phone,
-        email: dto.email,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-      },
-    });
-
-    return {
-      message: 'User registered successfully.',
-      user,
-    };
+    return { message: 'If this number is new, your account has been created.' };
   }
 
   async requestOtp(dto: RequestOtpDto) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // crypto.randomInt is cryptographically secure; Math.random() is not
+    const otp = randomInt(100_000, 1_000_000).toString();
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -63,7 +63,10 @@ export class AuthService {
       },
     });
 
-    console.log(`OTP for ${dto.phone}: ${otp}`);
+    // TODO: deliver OTP via SMS provider (currently no provider integrated)
+    this.logger.warn(
+      `OTP generated for [redacted] — SMS delivery not yet implemented`,
+    );
 
     return {
       message: 'OTP generated successfully.',
@@ -82,12 +85,10 @@ export class AuthService {
       },
     });
 
-    if (!otp) {
-      throw new NotFoundException('Invalid OTP.');
-    }
-
-    if (otp.expiresAt < new Date()) {
-      throw new BadRequestException('OTP expired.');
+    // Unified error message — don't distinguish "wrong code" from "expired code"
+    // so attackers can't tell whether a guessed code would have been valid.
+    if (!otp || otp.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired OTP.');
     }
 
     await this.prisma.otpCode.update({
@@ -113,24 +114,26 @@ export class AuthService {
       });
     }
 
-    const payload = {
-      sub: user.id,
-      phone: user.phone,
-    };
-
-    const access_token = await this.jwtService.signAsync(payload);
+    // Minimal payload — no PII in the token; phone is fetched from DB when needed
+    const access_token = await this.jwtService.signAsync({ sub: user.id });
 
     return {
       message: 'Authentication successful.',
       access_token,
-      user,
     };
   }
 
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
+      where: { id: userId },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 

@@ -210,4 +210,4 @@ the ML code, while "run this every hour" is infrastructure.
 | 4.3.9 | TF-IDF summarization pipeline | ✅ Done (`service/summarize.py` + `POST /summarize`) |
 | 4.4.2 | Unit test: trigger evaluation logic | ✅ Done |
 | 4.3.5 | Automated retraining pipeline | ⛔ Blocked on WBS 4.3.1 (Track A) |
-| 4.3.8 | Campaign evolution tracking | ⬜ Not started |
+| 4.3.8 | Campaign evolution tracking | ✅ Done (`campaign_evolution.py`, see `PIPELINE.md` Stage 9b — not a retraining component, listed here for status continuity) |

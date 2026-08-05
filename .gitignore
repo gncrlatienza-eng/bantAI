@@ -45,6 +45,11 @@ ai/datasets/raw/*.tsv
 ai/datasets/raw/*.json
 ai/datasets/processed/*.csv
 ai/datasets/processed/*.json
+# Recursive, not just the top level: campaign_snapshots/ (Sprint 4, WBS 4.3.8)
+# holds archived clustering runs, and each cluster entry carries a `sample` of
+# real message text. A bare `processed/*.json` does not match a subdirectory,
+# so archived snapshots would otherwise be committed.
+ai/datasets/processed/**/*.json
 # Cached embeddings (Sprint 3 clustering). The .npz bundles the message texts
 # alongside the vectors -- real personal SMS, same reason as the CSVs. Also
 # large and fully regenerable via scripts/embed_dataset.py.

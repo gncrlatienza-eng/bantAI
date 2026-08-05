@@ -1,4 +1,12 @@
-import { IsArray, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ContactItemDto {
@@ -14,6 +22,8 @@ class ContactItemDto {
 
 export class SyncContactsDto {
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
   @ValidateNested({ each: true })
   @Type(() => ContactItemDto)
   contacts: ContactItemDto[];

@@ -88,18 +88,18 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ## Sprint 3: Clustering, Explainability, Alerts & Campaigns
 > Jul 25 – Jul 31, 2026 · All members
 
-- [-] **3** Sprint 3: Clustering, Explainability, Alerts & Campaigns
+- [x] **3** Sprint 3: Clustering, Explainability, Alerts & Campaigns
 
-  - [-] **3.1** Analysis: refine backlog for Sprint 3, clarify acceptance criteria
-    - [ ] **3.1.1** Refine clustering + explainability requirements *(All members)*
+  - [x] **3.1** Analysis: refine backlog for Sprint 3, clarify acceptance criteria
+    - [x] **3.1.1** Refine clustering + explainability requirements *(All members)*
     - [x] **3.1.2** Confirm SHAP indicator tag dictionary contents *(Track B — AI/ML)*
 
-  - [-] **3.2** Design: technical specifications and interface designs for Sprint 3 items
+  - [x] **3.2** Design: technical specifications and interface designs for Sprint 3 items
     - [x] **3.2.1** Campaign clustering data flow spec *(Track B — AI/ML)*
     - [x] **3.2.2** Explainability output format for mobile & dashboard *(Track B — AI/ML)*
-    - [ ] **3.2.3** Alerts + Campaigns mobile UX spec *(Track C — Mobile)*
+    - [x] **3.2.3** Alerts + Campaigns mobile UX spec *(Track C — Mobile)*
 
-  - [-] **3.3** Build: implement Sprint 3 work packages
+  - [x] **3.3** Build: implement Sprint 3 work packages
     - [x] **3.3.1** Campaign_Cluster + Explainable_Indicator + Sender_Verification_Cache tables *(Track A — Backend)*
     - [x] **3.3.2** Sender verification endpoint *(Track A — Backend)*
     - [x] **3.3.3** Link suppression API logic *(Track A — Backend)*
@@ -107,21 +107,21 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
     - [x] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
     - [x] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
-    - [-] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — UI built, hardcoded data; backend `GET /sms/alerts` + `GET /sms/:messageId/indicators` now available for wiring
-    - [-] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active screen wired; backend `GET /campaigns/inactive` now available for Inactive tab
-    - [-] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)* — built as one tabbed screen, preview content static
-    - [-] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)* — UI built, hardcoded content
+    - [x] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)*
+    - [x] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)*
+    - [x] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)*
+    - [x] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)*
     - [x] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
     - [x] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
 
-  - [-] **3.4** Test: sprint-level unit and integration testing
+  - [x] **3.4** Test: sprint-level unit and integration testing
     - [x] **3.4.1** Unit test: cosine similarity threshold logic *(Track B — AI/ML)*
     - [x] **3.4.2** Unit test: HDBSCAN grouping stability *(Track B — AI/ML)*
-    - [ ] **3.4.3** Integration test: SHAP output flows from ML service to mobile display *(All members)*
+    - [x] **3.4.3** Integration test: SHAP output flows from ML service to mobile display *(All members)*
 
-  - [ ] **3.5** Sprint Review & Retrospective
-    - [ ] **3.5.1** Sprint 3 demo (grouped campaign alert with explainable indicators) *(All members)*
-    - [ ] **3.5.2** Sprint 3 retrospective *(All members)*
+  - [x] **3.5** Sprint Review & Retrospective
+    - [x] **3.5.1** Sprint 3 demo (grouped campaign alert with explainable indicators) *(All members)*
+    - [x] **3.5.2** Sprint 3 retrospective *(All members)*
 
 ---
 
@@ -182,7 +182,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 
   - [ ] **5.3** Build: implement Sprint 5 work packages
     - [ ] **5.3.1** End-to-end integration hardening across all seams *(All members)*
-    - [ ] **5.3.2** API security review + rate limiting *(Track A — Backend)*
+    - [x] **5.3.2** API security review + rate limiting *(Track A — Backend)*
     - [ ] **5.3.3** Performance pass on hot paths (classification, dashboard queries) *(All members)*
     - [ ] **5.3.4** Manual retraining trigger endpoint (fallback if auto is unstable) *(Track A — Backend)*
     - [ ] **5.3.5** XLM-RoBERTa refinement on data collected during S2–S4 *(Track B — AI/ML)*

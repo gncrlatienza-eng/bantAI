@@ -9,9 +9,6 @@ import java.net.URL
 
 /**
  * Reads campaign clusters from the backend (GET /api/campaigns, GET /api/campaigns/:id).
- *
- * `list()` only ever returns active clusters — the backend hardcodes that filter
- * server-side, so there is currently no way to fetch inactive/past campaigns.
  */
 object CampaignsApi {
 
@@ -52,6 +49,9 @@ object CampaignsApi {
 
     suspend fun list(token: String): Result<List<CampaignSummary>> =
         get("/campaigns", token).mapCatching { body -> parseCampaignList(JSONArray(body)) }
+
+    suspend fun listInactive(token: String): Result<List<CampaignSummary>> =
+        get("/campaigns/inactive", token).mapCatching { body -> parseCampaignList(JSONArray(body)) }
 
     suspend fun getById(token: String, id: String): Result<CampaignDetail> =
         get("/campaigns/${java.net.URLEncoder.encode(id, "UTF-8")}", token)

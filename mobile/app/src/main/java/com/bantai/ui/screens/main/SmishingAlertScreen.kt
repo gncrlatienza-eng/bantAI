@@ -2,7 +2,6 @@ package com.bantai.ui.screens.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,51 +19,61 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
-import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
-
-private data class ShapFeature(
-    val label: String,
-    val sublabel: String,
-    val progress: Float,
-    val percentage: String,
-)
-
-private val shapFeatures = listOf(
-    ShapFeature("Fake domain in link", "\"gcash-ph-support.net\" is not a registered GCash domain", 0.90f, "38%"),
-    ShapFeature("Urgency keywords", "\"24 hours\", \"suspended\", \"immediately\" detected", 0.58f, "24%"),
-    ShapFeature("Brand impersonation", "Message mimics GCash tone and branding", 0.44f, "18%"),
-    ShapFeature("Credential request", "Asks user to log in via an external link", 0.29f, "12%"),
-    ShapFeature("Unknown sender", "Number not in contact list or verified sender list", 0.19f, "8%"),
-    ShapFeature("No personalization", "Generic \"Dear user\" — legitimate banks include your name", 0.07f, "3%"),
-)
+import com.bantai.viewmodel.SmishingAlertViewModel
+import kotlin.math.roundToInt
 
 @Composable
-fun SmishingAlertScreen(navController: NavController) {
+fun SmishingAlertScreen(
+    navController: NavController,
+    messageId: String,
+    sender: String,
+    score: Double,
+    status: String,
+    body: String,
+) {
+    val viewModel: SmishingAlertViewModel = viewModel()
+    LaunchedEffect(messageId) { viewModel.loadIndicators(messageId) }
+
+    val indicators by viewModel.indicators.collectAsState()
+    val isAnalyzing by viewModel.isLoading.collectAsState()
+
+    val scorePercent = (score * 100).roundToInt()
+    val isBlocked = status == "Blocked"
+
+    val topTags = indicators.take(2).joinToString(" and ") { it.tag.lowercase() }
+    val summaryText = buildString {
+        append("XLM-RoBERTa classified this message as smishing with $scorePercent% confidence.")
+        if (topTags.isNotEmpty()) append(" The strongest signals were $topTags.")
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -97,25 +106,26 @@ fun SmishingAlertScreen(navController: NavController) {
             contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Auto-blocked banner
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
-                    Column {
-                        Text("Number auto-blocked", color = Danger, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(
-                            "+63 908 000 1234 has been blocked. It can no longer send you messages.",
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                        )
+            if (isBlocked) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
+                        Column {
+                            Text("Number auto-blocked", color = Danger, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(
+                                "$sender has been blocked. It can no longer send you messages.",
+                                color = TextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 18.sp,
+                            )
+                        }
                     }
                 }
             }
@@ -142,29 +152,14 @@ fun SmishingAlertScreen(navController: NavController) {
                             Icon(Icons.Default.Shield, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("GCash Alert", color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text("+63 908 000 1234", color = TextSecondary, fontSize = 12.sp)
+                            Text(sender, color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
-                        Text("94% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                    HorizontalDivider(color = Color(0xFF2A2A2A))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(Icons.Default.Hub, contentDescription = null, tint = Suspicious, modifier = Modifier.size(14.dp))
-                        Text(
-                            "Part of: Operation GCash Clone #14",
-                            color = Suspicious,
-                            fontSize = 12.sp,
-                            modifier = Modifier.weight(1f),
-                        )
+                        Text("$scorePercent% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }
 
-            // Blocked message content header
+            // Message content header
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -172,115 +167,50 @@ fun SmishingAlertScreen(navController: NavController) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        "BLOCKED MESSAGE CONTENT",
+                        if (isBlocked) "BLOCKED MESSAGE CONTENT" else "MESSAGE CONTENT",
                         color = Color(0xFF666666),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         letterSpacing = 0.8.sp,
                     )
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
-                    ) {
-                        Text("Read-only", color = TextSecondary, fontSize = 10.sp)
+                    if (isBlocked) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                        ) {
+                            Text("Read-only", color = TextSecondary, fontSize = 10.sp)
+                        }
                     }
                 }
             }
 
-            // Chat bubbles
+            // Message body bubble
             item {
+                val bubbleBg = if (isBlocked) Color(0xFF2A0A0A) else Color(0xFF2A2A2A)
+                val bubbleBorder = if (isBlocked) Danger else Color.Transparent
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Surface, RoundedCornerShape(16.dp))
                         .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // Bubble 1
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
+                            .background(bubbleBg, RoundedCornerShape(16.dp))
+                            .then(
+                                if (isBlocked) Modifier.border(1.dp, bubbleBorder, RoundedCornerShape(16.dp))
+                                else Modifier,
+                            )
                             .padding(12.dp),
                     ) {
-                        Text(
-                            "Dear GCash user, your account has been flagged for unusual activity.",
-                            color = White,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text("9:01 AM", color = TextSecondary, fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
-                    }
-
-                    // Bubble 2
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
-                            .padding(12.dp),
-                    ) {
-                        Text(
-                            "Please verify your identity immediately at:",
-                            color = White,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                        )
-                    }
-
-                    // Bubble 3 — BLOCKED
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF2A0A0A), RoundedCornerShape(16.dp))
-                            .border(1.dp, Danger, RoundedCornerShape(16.dp))
-                            .padding(12.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFF3A0A0A), RoundedCornerShape(100.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            ) {
-                                Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(10.dp))
-                                Text("BLOCKED", color = Danger, fontWeight = FontWeight.Bold, fontSize = 9.sp, letterSpacing = 0.5.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "gcash-ph-support.net/verify",
-                            color = Danger,
-                            fontSize = 14.sp,
-                            textDecoration = TextDecoration.LineThrough,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text("9:01 AM", color = TextSecondary, fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
-                    }
-
-                    // Bubble 4
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
-                            .padding(12.dp),
-                    ) {
-                        Text(
-                            "Failure to verify within 24 hours will result in permanent account suspension.",
-                            color = White,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text("9:02 AM", color = TextSecondary, fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
+                        Text(body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
                     }
                 }
             }
 
-            // Why flagged section label
+            // Why flagged section
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -291,7 +221,7 @@ fun SmishingAlertScreen(navController: NavController) {
                         letterSpacing = 0.8.sp,
                     )
                     Text(
-                        "These features contributed to the 94% smishing classification. Longer bars = stronger signal.",
+                        "These features contributed to the $scorePercent% smishing classification. Longer bars = stronger signal.",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
@@ -308,26 +238,42 @@ fun SmishingAlertScreen(navController: NavController) {
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    shapFeatures.forEach { feature ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Bottom,
-                            ) {
-                                Text(feature.label, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text(feature.percentage, color = Danger, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    when {
+                        isAnalyzing -> {
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
                             }
-                            Text(feature.sublabel, color = TextSecondary, fontSize = 11.sp, lineHeight = 15.sp)
-                            LinearProgressIndicator(
-                                progress = { feature.progress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp)),
-                                color = Danger,
-                                trackColor = BorderColor,
-                            )
+                        }
+                        indicators.isEmpty() -> {
+                            Text("No indicators available yet.", color = TextSecondary, fontSize = 13.sp)
+                        }
+                        else -> {
+                            indicators.forEach { indicator ->
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Bottom,
+                                    ) {
+                                        Text(indicator.tag, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text(
+                                            "${(indicator.weight * 100).roundToInt()}%",
+                                            color = Danger,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                    }
+                                    LinearProgressIndicator(
+                                        progress = { indicator.weight.toFloat() },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(2.dp)),
+                                        color = Danger,
+                                        trackColor = BorderColor,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -343,12 +289,7 @@ fun SmishingAlertScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
-                    Text(
-                        "XLM-RoBERTa classified this message as smishing with 94% confidence. The strongest signals were a fraudulent domain and urgency manipulation. HDBSCAN linked it to an active campaign targeting GCash users.",
-                        color = White,
-                        fontSize = 13.sp,
-                        lineHeight = 20.sp,
-                    )
+                    Text(summaryText, color = White, fontSize = 13.sp, lineHeight = 20.sp)
                 }
             }
         }

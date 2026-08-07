@@ -14,6 +14,10 @@ const mockPrisma = {
   classification: { create: jest.fn(), findUnique: jest.fn() },
   explainableIndicator: { upsert: jest.fn() },
   alert: { findMany: jest.fn(), create: jest.fn() },
+  campaignCluster: { update: jest.fn().mockResolvedValue({}) },
+  $transaction: jest
+    .fn()
+    .mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
 };
 
 const mockAiService: Partial<AiService> = {
@@ -88,10 +92,11 @@ describe('SmsService', () => {
     it('persists the raw SMS with correct fields', async () => {
       await service.ingest(userId, dto);
 
+      // sender is normalized before storage: 'GCash' → 'gcash'
       expect(mockPrisma.smsMessage.create).toHaveBeenCalledWith({
         data: {
           userId,
-          sender: dto.sender,
+          sender: 'gcash',
           body: dto.body,
           receivedAt: new Date(dto.receivedAt),
         },

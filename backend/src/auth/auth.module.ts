@@ -5,6 +5,7 @@ import { PrismaModule } from '../../database/prisma.module';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { OtpSmsService } from './otp-sms.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { jwtConstants } from './constants';
 
@@ -20,7 +21,7 @@ import { jwtConstants } from './constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, OtpSmsService, JwtStrategy],
   exports: [JwtModule],
 })
 export class AuthModule {}

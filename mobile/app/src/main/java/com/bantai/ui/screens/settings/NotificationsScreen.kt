@@ -179,7 +179,7 @@ private fun ThreatAlertsTab(
     onSuspiciousAlertsChanged: (Boolean) -> Unit,
     autoBlockNotice: Boolean,
     onAutoBlockNoticeChanged: (Boolean) -> Unit,
-    recentAlerts: List<SmsApi.AlertItem>,
+    recentAlerts: List<SmsApi.AlertSummary>,
     alertsLoading: Boolean,
 ) {
     LazyColumn(
@@ -224,14 +224,14 @@ private fun ThreatAlertsTab(
                             HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
                         }
                         val isBlocked = alert.status == "Blocked"
-                        val scoreText = alert.message.score
+                        val scoreText = alert.score
                             ?.let { " ${"%.0f".format(it * 100)}% confidence." }
                             ?: ""
                         NotificationItem(
                             title = if (isBlocked)
-                                "⚠ Smishing detected — ${alert.message.sender}"
+                                "⚠ Smishing detected — ${alert.sender}"
                             else
-                                "⚡ Suspicious message — ${alert.message.sender}",
+                                "⚡ Suspicious message — ${alert.sender}",
                             subtitle = if (isBlocked)
                                 "Auto-blocked.$scoreText"
                             else

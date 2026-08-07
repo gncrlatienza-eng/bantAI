@@ -50,10 +50,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ## Sprint 2: Classification Pipeline & Mobile Inbox
 > Jul 17 – Jul 24, 2026 · All members
 
-- [-] **2** Sprint 2: Classification Pipeline & Mobile Inbox
+- [x] **2** Sprint 2: Classification Pipeline & Mobile Inbox
 
-  - [-] **2.1** Analysis: refine backlog for Sprint 2, clarify acceptance criteria
-    - [-] **2.1.1** Refine classification pipeline requirements *(All members)*
+  - [x] **2.1** Analysis: refine backlog for Sprint 2, clarify acceptance criteria
+    - [x] **2.1.1** Refine classification pipeline requirements *(All members)*
     - [x] **2.1.2** Confirm confidence-threshold routing rules (0.90 / 0.50) *(Track B — AI/ML)*
 
   - [x] **2.2** Design: technical specifications and interface designs for Sprint 2 items
@@ -79,9 +79,9 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **2.4.2** Unit test: threshold routing boundary cases *(Track B — AI/ML)*
     - [x] **2.4.3** Integration test: mobile → backend → ML service round trip *(All members)*
 
-  - [ ] **2.5** Sprint Review & Retrospective
-    - [ ] **2.5.1** Sprint 2 demo (live SMS → classification → inbox routing) *(All members)*
-    - [ ] **2.5.2** Sprint 2 retrospective *(All members)*
+  - [x] **2.5** Sprint Review & Retrospective
+    - [x] **2.5.1** Sprint 2 demo (live SMS → classification → inbox routing) *(All members)*
+    - [x] **2.5.2** Sprint 2 retrospective *(All members)*
 
 ---
 
@@ -107,10 +107,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
     - [x] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
     - [x] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
-    - [-] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — wired to `GET /sms/alerts` + `GET /sms/:messageId/indicators`; not yet committed. Campaign-link field on both detail screens has no backend source yet (see DEV_LOG); dropped rather than faked
-    - [-] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active + Inactive both wired to real backend now; not yet committed
-    - [-] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)* — built as one tabbed screen, preview content static
-    - [-] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)* — UI built, hardcoded content
+    - [x] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — wired to `GET /sms/alerts` + `GET /sms/:messageId/indicators`, committed (PR #33, #34). Campaign-link field on both detail screens has no backend source yet (see DEV_LOG); dropped rather than faked
+    - [x] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active + Inactive both wired to real backend (`GET /campaigns`, `GET /campaigns/inactive`, `GET /campaigns/:id`), committed
+    - [x] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)* — Threat alerts tab wired to `GET /sms/alerts`; Weekly digest tab intentionally stays a labeled preview (no backend weekly-report generation exists — not a Sprint 3 item)
+    - [x] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)* — `ScamAwarenessViewModel` derives per-user relevant tips from real `GET /sms/alerts` data; tip educational content itself is static reference text (no backend source for that content exists or is needed)
     - [x] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
     - [x] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
 
@@ -149,12 +149,12 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **4.3.7** McNemar test + F1 floor promotion gate *(Track B — AI/ML)*
     - [-] **4.3.8** Campaign evolution tracking *(Track B — AI/ML)*
     - [x] **4.3.9** TF-IDF summarization pipeline (unread threads) *(Track B — AI/ML)*
-    - [ ] **4.3.10** Compose Message + Unknown Filter screens *(Track C — Mobile)*
-    - [ ] **4.3.11** AI Message Summary display *(Track C — Mobile)*
-    - [ ] **4.3.12** Settings: Blocked Numbers screen *(Track C — Mobile)*
-    - [ ] **4.3.13** Admin: User Reports + FP/FN Review + Model Performance pages *(Track D — Web Dashboard)*
-    - [ ] **4.3.14** Admin: Registered Users + Export Hub + Server Monitoring + API Logs + DB Storage pages *(Track D — Web Dashboard)*
-    - [ ] **4.3.15** Admin: Scam Tips + Settings + Notifications pages *(Track D — Web Dashboard)*
+    - [-] **4.3.10** Compose Message + Unknown Filter screens *(Track C — Mobile)* — `ComposeScreen.kt` fully built (real send via `SmsManager`, drafts, outbox/sent/failed states); the "Unknown Filter" half has no `MessageFilter.UNKNOWN` case or screen yet
+    - [-] **4.3.11** AI Message Summary display *(Track C — Mobile)* — `AISummaryBottomSheet.kt` wired into `MessageDetailScreen.kt` off a real suspicious/unknown signal, but verdict text + confidence % are still 100% hardcoded; no mobile client calls the AI service's `POST /summarize` (no `SummarizeApi.kt`), and the NestJS backend has no proxy route for it either (mirrors how `/classify` is proxied)
+    - [-] **4.3.12** Settings: Blocked Numbers screen *(Track C — Mobile)* — `BlockedNumbersScreen.kt`/`BlockedNumbersViewModel.kt` fully built but purely device-local (`BlockedNumberContract` via `BlockHelper.kt`); not synced to the backend's `BlockedNumber` table
+    - [x] **4.3.13** Admin: User Reports + FP/FN Review + Model Performance pages *(Track D — Web Dashboard)* — all three built in `web/src/pages/admin.tsx` (`AdminReportsPage`, `AdminFpFnPage`, `AdminModelPage`), routed in `AppRoutes.tsx`; mock data only, same as other already-complete admin pages (see 3.3.12/3.3.13) — web↔backend wiring is a separate, not-yet-scheduled effort
+    - [x] **4.3.14** Admin: Registered Users + Export Hub + Server Monitoring + API Logs + DB Storage pages *(Track D — Web Dashboard)* — all five built (`AdminUsersPage`, `AdminExportPage`, `AdminServerPage`, `AdminApiLogsPage`, `AdminDbStoragePage`), routed; mock data only
+    - [x] **4.3.15** Admin: Scam Tips + Settings + Notifications pages *(Track D — Web Dashboard)* — built (`AdminTipsPage`, `AdminSettingsPage` reused for Notifications), routed; mock data only
 
   - [-] **4.4** Test: sprint-level unit and integration testing
     - [ ] **4.4.1** Unit test: report intake → dataset append flow *(Track A — Backend)*
@@ -170,7 +170,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 ## Sprint 5: Integration, Hardening & Stretch Features
 > Aug 8 – Aug 14, 2026 · All members
 
-- [ ] **5** Sprint 5: Integration, Hardening & Stretch Features
+- [-] **5** Sprint 5: Integration, Hardening & Stretch Features
 
   - [ ] **5.1** Analysis: refine backlog for Sprint 5, clarify acceptance criteria
     - [ ] **5.1.1** Review integration issues surfaced during Sprints 2–4 *(All members)*
@@ -180,7 +180,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **5.2.1** Hardening plan (security + performance) *(Track A — Backend)*
     - [ ] **5.2.2** Model refinement plan using S2–S4 collected data *(Track B — AI/ML)*
 
-  - [ ] **5.3** Build: implement Sprint 5 work packages
+  - [-] **5.3** Build: implement Sprint 5 work packages
     - [ ] **5.3.1** End-to-end integration hardening across all seams *(All members)*
     - [x] **5.3.2** API security review + rate limiting *(Track A — Backend)*
     - [ ] **5.3.3** Performance pass on hot paths (classification, dashboard queries) *(All members)*

@@ -43,8 +43,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _scanPeriod = MutableStateFlow("daily")
     val scanPeriod: StateFlow<String> = _scanPeriod.asStateFlow()
 
-    private val _recentAlerts = MutableStateFlow<List<SmsApi.AlertItem>>(emptyList())
-    val recentAlerts: StateFlow<List<SmsApi.AlertItem>> = _recentAlerts.asStateFlow()
+    private val _recentAlerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
+    val recentAlerts: StateFlow<List<SmsApi.AlertSummary>> = _recentAlerts.asStateFlow()
 
     private val _alertsLoading = MutableStateFlow(true)
     val alertsLoading: StateFlow<Boolean> = _alertsLoading.asStateFlow()

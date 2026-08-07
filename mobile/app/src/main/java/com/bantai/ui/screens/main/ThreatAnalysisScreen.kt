@@ -46,6 +46,7 @@ import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
+import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious

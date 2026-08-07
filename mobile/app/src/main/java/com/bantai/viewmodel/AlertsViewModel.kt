@@ -15,8 +15,8 @@ class AlertsViewModel(application: Application) : AndroidViewModel(application) 
 
     private val userPreferences = UserPreferences(application)
 
-    private val _alerts = MutableStateFlow<List<SmsApi.AlertItem>>(emptyList())
-    val alerts: StateFlow<List<SmsApi.AlertItem>> = _alerts.asStateFlow()
+    private val _alerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
+    val alerts: StateFlow<List<SmsApi.AlertSummary>> = _alerts.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -41,8 +41,8 @@ class AlertsViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             SmsApi.getAlerts(token)
-                .onSuccess { _alerts.value = it }
-                .onFailure { _errorMessage.value = it.message ?: "Could not reach the server" }
+                .onSuccess { alerts -> _alerts.value = alerts }
+                .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
             _isLoading.value = false
         }
     }

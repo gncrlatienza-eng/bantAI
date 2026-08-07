@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -54,8 +51,8 @@ import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertsViewModel
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 
 @Composable
 fun AlertsScreen(
@@ -66,10 +63,6 @@ fun AlertsScreen(
     val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-
-    val pendingCount = alerts.count { it.status == "Pending" }
-    val statusText = if (pendingCount == 0) "All threats reviewed" else "$pendingCount unreviewed"
-    val statusDot = if (pendingCount == 0) Safe else Suspicious
 
     LazyColumn(
         modifier = Modifier
@@ -91,39 +84,44 @@ fun AlertsScreen(
                 Box(
                     modifier = Modifier
                         .size(7.dp)
-                        .background(statusDot, CircleShape),
+                        .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(statusText, color = TextSecondary, fontSize = 14.sp)
+                Text(
+                    if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged",
+                    color = TextSecondary,
+                    fontSize = 14.sp,
+                )
             }
             Spacer(Modifier.height(4.dp))
         }
 
         when {
             isLoading -> item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(24.dp))
+                Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
-
             errorMessage != null -> item {
-                InfoRow(
-                    message = errorMessage ?: "Could not load alerts",
-                    icon = Icons.Default.Warning,
-                    isError = true,
-                )
+                Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)
             }
-
             alerts.isEmpty() -> item {
-                InfoRow(
-                    message = "No threats detected yet",
-                    icon = Icons.Default.HourglassEmpty,
-                )
+                Text("No alerts yet — you'll see flagged messages here.", color = TextSecondary, fontSize = 13.sp)
+            }
+            else -> alerts.forEach { alert ->
+                val blocked = alert.status.equals("Blocked", ignoreCase = true)
+                item {
+                    AlertCard(
+                        alert = alert,
+                        blocked = blocked,
+                        onClick = {
+                            navController.navigate(
+                                if (blocked) Screen.SmishingAlert.createRoute(alert.messageId)
+                                else Screen.ThreatAnalysis.createRoute(alert.messageId),
+                            )
+                        },
+                    )
+                }
             }
 
             else -> alerts.forEach { alert ->
@@ -162,40 +160,9 @@ fun AlertsScreen(
 }
 
 @Composable
-private fun InfoRow(
-    message: String,
-    icon: ImageVector,
-    isError: Boolean = false,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceElevated, RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = if (isError) Danger else TextTertiary,
-            modifier = Modifier.size(18.dp),
-        )
-        Text(
-            message,
-            color = if (isError) Danger else TextSecondary,
-            fontSize = 13.sp,
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AlertCard(alert: SmsApi.AlertItem, onClick: () -> Unit) {
-    val blocked = alert.status == "Blocked"
+private fun AlertCard(alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () -> Unit) {
     val accent = if (blocked) Danger else Suspicious
     val icon: ImageVector = if (blocked) Icons.Default.Block else Icons.Default.Warning
-    val scorePercent = alert.message.score?.let { "${(it * 100).roundToInt()}%" } ?: ""
 
     Column(
         modifier = Modifier
@@ -217,23 +184,16 @@ private fun AlertCard(alert: SmsApi.AlertItem, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    alert.message.sender,
+                    alert.sender,
                     color = White,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (scorePercent.isNotEmpty()) {
-                    Text("$scorePercent confidence", color = TextSecondary, fontSize = 13.sp)
-                }
             }
             Spacer(Modifier.width(8.dp))
-            Text(
-                formatAlertTime(alert.message.receivedAt),
-                color = TextSecondary,
-                fontSize = 13.sp,
-            )
+            Text(formatAlertTime(alert.receivedAt), color = TextSecondary, fontSize = 13.sp)
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
@@ -243,7 +203,7 @@ private fun AlertCard(alert: SmsApi.AlertItem, onClick: () -> Unit) {
         }
 
         Text(
-            alert.message.body,
+            alert.body,
             color = TextSecondary,
             fontSize = 14.sp,
             lineHeight = 19.sp,
@@ -251,28 +211,22 @@ private fun AlertCard(alert: SmsApi.AlertItem, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
         )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusPill(
-                label = if (blocked) "Auto-blocked" else "Suspicious",
-                color = accent,
-            )
-        }
-
-        if (alert.message.label != null) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(White.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text(alert.message.label, color = TextSecondary, fontSize = 12.sp)
-                }
-            }
-        }
+        StatusPill(
+            label = if (blocked) "Auto-blocked" else "Suspicious",
+            color = accent,
+        )
     }
+}
+
+private fun formatAlertTime(iso: String): String = try {
+    val zoned = Instant.parse(iso).atZone(ZoneId.systemDefault())
+    if (zoned.toLocalDate() == ZonedDateTime.now().toLocalDate()) {
+        zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
+    } else {
+        zoned.format(DateTimeFormatter.ofPattern("MMM d"))
+    }
+} catch (_: Exception) {
+    ""
 }
 
 @Composable

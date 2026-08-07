@@ -107,10 +107,10 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [x] **3.3.5** HDBSCAN offline re-clustering (min_cluster_size = 5) *(Track B — AI/ML)*
     - [x] **3.3.6** SHAP integration + indicator tag mapping via curated dictionary *(Track B — AI/ML)*
     - [x] **3.3.7** Scam awareness tip lookup by cluster ID *(Track B — AI/ML)*
-    - [x] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)*
-    - [x] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)*
-    - [x] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)*
-    - [x] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)*
+    - [-] **3.3.8** Alert Screen + Suspicious Alert Screen *(Track C — Mobile)* — wired to `GET /sms/alerts` + `GET /sms/:messageId/indicators`; not yet committed. Campaign-link field on both detail screens has no backend source yet (see DEV_LOG); dropped rather than faked
+    - [-] **3.3.9** Campaign Screen + Active/Inactive Campaign screens + Modal *(Track C — Mobile)* — Active + Inactive both wired to real backend now; not yet committed
+    - [-] **3.3.10** Notification screens (Threat Alert · Weekly Report · Smishing Alert · Weekly Alert) *(Track C — Mobile)* — built as one tabbed screen, preview content static
+    - [-] **3.3.11** Settings: Scam Awareness Tips + Tip Details screens *(Track C — Mobile)* — UI built, hardcoded content
     - [x] **3.3.12** Admin Concept Drift + Campaign + Campaign Timeline pages *(Track D — Web Dashboard)*
     - [x] **3.3.13** Admin Dataset Management page *(Track D — Web Dashboard)*
 

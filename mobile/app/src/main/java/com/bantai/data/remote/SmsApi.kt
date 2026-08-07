@@ -34,6 +34,21 @@ object SmsApi {
 
     class ApiException(message: String) : Exception(message)
 
+    data class AlertSummary(
+        val id: String,
+        val status: String,
+        val createdAt: String,
+        val messageId: String,
+        val sender: String,
+        val body: String,
+        val receivedAt: String,
+        val label: String?,
+        val score: Double?,
+        val bucket: String?,
+    )
+
+    data class IndicatorTag(val tag: String, val weight: Double)
+
     /**
      * @param receivedAtMillis epoch millis from the SMS intent; converted to the
      *   ISO-8601 string the backend's `@IsDateString` validator requires.
@@ -51,6 +66,67 @@ object SmsApi {
                 .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
 
             parseIngestResponse(post("/sms/ingest", payload, token))
+        }
+    }
+
+    /** GET /sms/alerts — all alerts for the signed-in user, newest first. */
+    suspend fun getAlerts(token: String): Result<List<AlertSummary>> =
+        get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
+
+    /**
+     * GET /sms/:messageId/indicators — SHAP-derived tags for one message.
+     * An empty list is valid (SHAP may still be computing), not an error.
+     */
+    suspend fun getIndicators(token: String, messageId: String): Result<List<IndicatorTag>> =
+        get("/sms/${java.net.URLEncoder.encode(messageId, "UTF-8")}/indicators", token)
+            .mapCatching { body -> parseIndicators(JSONObject(body)) }
+
+    private fun parseAlerts(json: JSONArray): List<AlertSummary> =
+        List(json.length()) { i -> parseAlert(json.getJSONObject(i)) }
+
+    private fun parseAlert(json: JSONObject): AlertSummary {
+        val message = json.getJSONObject("message")
+        val classification = message.optJSONObject("classification")
+        return AlertSummary(
+            id = json.getString("id"),
+            status = json.optString("status"),
+            createdAt = json.optString("createdAt"),
+            messageId = message.getString("id"),
+            sender = message.optString("sender"),
+            body = message.optString("body"),
+            receivedAt = message.optString("receivedAt"),
+            label = classification?.optString("label")?.takeIf { it.isNotEmpty() },
+            score = classification?.takeIf { it.has("score") }?.optDouble("score"),
+            bucket = classification?.optString("bucket")?.takeIf { it.isNotEmpty() },
+        )
+    }
+
+    private fun parseIndicators(json: JSONObject): List<IndicatorTag> {
+        val indicators = json.optJSONArray("indicators") ?: return emptyList()
+        return List(indicators.length()) { i ->
+            val tag = indicators.getJSONObject(i)
+            IndicatorTag(tag = tag.optString("tag"), weight = tag.optDouble("weight", 0.0))
+        }
+    }
+
+    private suspend fun get(path: String, token: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
+            try {
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.connectTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+                connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+
+                val status = connection.responseCode
+                val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                    ?.bufferedReader()?.use { it.readText() }
+                    .orEmpty()
+                if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
+                text
+            } finally {
+                connection.disconnect()
+            }
         }
     }
 

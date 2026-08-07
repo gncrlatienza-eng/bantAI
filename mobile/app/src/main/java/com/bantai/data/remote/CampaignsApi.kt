@@ -8,7 +8,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Reads campaign clusters from the backend (GET /api/campaigns, GET /api/campaigns/:id).
+ * Reads campaign clusters from the backend (GET /api/campaigns, GET /api/campaigns/:id,
+ * GET /api/campaigns/inactive).
  */
 object CampaignsApi {
 

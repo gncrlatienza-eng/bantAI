@@ -29,7 +29,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,6 +50,7 @@ import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.ScamAwarenessViewModel
 
 private data class TipEntry(
     val tipId: String,
@@ -66,7 +71,12 @@ private val tips = listOf(
 )
 
 @Composable
-fun ScamAwarenessScreen(navController: NavController) {
+fun ScamAwarenessScreen(
+    navController: NavController,
+    viewModel: ScamAwarenessViewModel = viewModel(),
+) {
+    val relevantTipIds by viewModel.relevantTipIds.collectAsState()
+
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
         Box(
             modifier = Modifier
@@ -97,6 +107,7 @@ fun ScamAwarenessScreen(navController: NavController) {
         ) {
             items(tips.size) { i ->
                 val tip = tips[i]
+                val isRelevant = tip.tipId in relevantTipIds
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -106,14 +117,33 @@ fun ScamAwarenessScreen(navController: NavController) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            tip.category,
-                            color = TextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = 0.5.sp,
-                        )
-                        Spacer(Modifier.padding(top = 4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                tip.category,
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.5.sp,
+                            )
+                            if (isRelevant) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(Suspicious.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                                ) {
+                                    Text(
+                                        "Relevant to you",
+                                        color = Suspicious,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier

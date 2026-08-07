@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.CampaignsApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,15 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _inactiveCampaigns = MutableStateFlow<List<CampaignsApi.CampaignSummary>>(emptyList())
+    val inactiveCampaigns: StateFlow<List<CampaignsApi.CampaignSummary>> = _inactiveCampaigns.asStateFlow()
+
+    private val _isLoadingInactive = MutableStateFlow(true)
+    val isLoadingInactive: StateFlow<Boolean> = _isLoadingInactive.asStateFlow()
+
+    private val _inactiveError = MutableStateFlow<String?>(null)
+    val inactiveError: StateFlow<String?> = _inactiveError.asStateFlow()
+
     init {
         loadCampaigns()
     }
@@ -31,19 +41,33 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
     fun loadCampaigns() {
         viewModelScope.launch {
             _isLoading.value = true
+            _isLoadingInactive.value = true
             _errorMessage.value = null
+            _inactiveError.value = null
 
             val token = userPreferences.userData.first().authToken
             if (token.isEmpty()) {
                 _isLoading.value = false
+                _isLoadingInactive.value = false
                 _errorMessage.value = "Sign in to see campaigns"
+                _inactiveError.value = "Sign in to see campaigns"
                 return@launch
             }
 
-            CampaignsApi.list(token)
-                .onSuccess { campaigns -> _activeCampaigns.value = campaigns }
-                .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
-            _isLoading.value = false
+            coroutineScope {
+                launch {
+                    CampaignsApi.list(token)
+                        .onSuccess { _activeCampaigns.value = it }
+                        .onFailure { _errorMessage.value = it.message ?: "Could not reach the server" }
+                    _isLoading.value = false
+                }
+                launch {
+                    CampaignsApi.listInactive(token)
+                        .onSuccess { _inactiveCampaigns.value = it }
+                        .onFailure { _inactiveError.value = it.message ?: "Could not reach the server" }
+                    _isLoadingInactive.value = false
+                }
+            }
         }
     }
 }

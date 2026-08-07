@@ -1,15 +1,27 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsNumber,
-  IsString,
   Max,
   Min,
   ValidateNested,
 } from 'class-validator';
 
+export const INDICATOR_TAGS = [
+  'Prize Lure',
+  'Urgency Cue',
+  'Gambling Bait',
+  'Fake Job Offer',
+  'Unsolicited Credit Offer',
+  'Personal Info Request',
+  'OTP / Account Phishing',
+  'Suspicious URL',
+  'Brand Impersonation',
+] as const;
+
 class IndicatorDto {
-  @IsString()
+  @IsIn(INDICATOR_TAGS)
   tag: string;
 
   @IsNumber()

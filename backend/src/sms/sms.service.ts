@@ -44,11 +44,12 @@ export class SmsService {
       return { suppressed: true, reason: 'blocked_sender' };
     }
 
-    // Step 2 — store the raw SMS
+    // Step 2 — store the SMS with the normalized sender so all DB lookups
+    // keyed on sender (alerts, verification cache) resolve consistently.
     const message = await this.prisma.smsMessage.create({
       data: {
         userId,
-        sender: dto.sender,
+        sender: normalizedSender,
         body: dto.body,
         receivedAt: new Date(dto.receivedAt),
       },
@@ -131,12 +132,15 @@ export class SmsService {
         const cluster =
           await this.campaignsService.findByDomains(matchedDomains);
         if (cluster) {
-          await Promise.all([
+          await this.prisma.$transaction([
             this.prisma.smsMessage.update({
               where: { id: message.id },
               data: { clusterId: cluster.id },
             }),
-            this.campaignsService.incrementMessageCount(cluster.id),
+            this.prisma.campaignCluster.update({
+              where: { id: cluster.id },
+              data: { messageCount: { increment: 1 } },
+            }),
           ]);
           this.logger.log(
             `Message ${message.id} linked to cluster ${cluster.id}`,

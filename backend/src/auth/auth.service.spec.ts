@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 import { AuthService } from './auth.service';
+import { OtpSmsService } from './otp-sms.service';
 import { PrismaService } from '../../database/prisma.service';
 
 const mockPrisma = {
@@ -31,6 +32,10 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwt },
+        {
+          provide: OtpSmsService,
+          useValue: { send: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

@@ -5,9 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.remote.SmsApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,6 +43,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _scanPeriod = MutableStateFlow("daily")
     val scanPeriod: StateFlow<String> = _scanPeriod.asStateFlow()
 
+    private val _recentAlerts = MutableStateFlow<List<SmsApi.AlertItem>>(emptyList())
+    val recentAlerts: StateFlow<List<SmsApi.AlertItem>> = _recentAlerts.asStateFlow()
+
+    private val _alertsLoading = MutableStateFlow(true)
+    val alertsLoading: StateFlow<Boolean> = _alertsLoading.asStateFlow()
+
     init {
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
@@ -53,6 +61,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _autoBlockNotice.value = data.autoBlockNotice
                 _scanPeriod.value = data.scanPeriod
             }
+        }
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) {
+                _alertsLoading.value = false
+                return@launch
+            }
+            SmsApi.getAlerts(token).onSuccess { _recentAlerts.value = it }
+            _alertsLoading.value = false
         }
     }
 

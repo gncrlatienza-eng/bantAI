@@ -194,4 +194,85 @@ object SmsApi {
     } catch (_: Exception) {
         "Request failed (HTTP $status)"
     }
+
+    // ── Alert types ───────────────────────────────────────────────────────────
+
+    data class AlertMessage(
+        val id: String,
+        val sender: String,
+        val body: String,
+        val receivedAt: String,
+        val label: String?,
+        val score: Double?,
+        val bucket: String?,
+    )
+
+    data class AlertItem(
+        val id: String,
+        val status: String,
+        val createdAt: String,
+        val message: AlertMessage,
+    )
+
+    data class Indicator(
+        val tag: String,
+        val weight: Double,
+    )
+
+    suspend fun getAlerts(token: String): Result<List<AlertItem>> =
+        get("/sms/alerts", token).mapCatching { body ->
+            val arr = JSONArray(body)
+            List(arr.length()) { i -> parseAlertItem(arr.getJSONObject(i)) }
+        }
+
+    suspend fun getIndicators(token: String, messageId: String): Result<List<Indicator>> =
+        get("/sms/${java.net.URLEncoder.encode(messageId, "UTF-8")}/indicators", token)
+            .mapCatching { body ->
+                val arr = JSONObject(body).getJSONArray("indicators")
+                List(arr.length()) { i ->
+                    val obj = arr.getJSONObject(i)
+                    Indicator(tag = obj.getString("tag"), weight = obj.getDouble("weight"))
+                }
+            }
+
+    private fun parseAlertItem(json: JSONObject): AlertItem {
+        val msg = json.getJSONObject("message")
+        val cls = msg.optJSONObject("classification")
+        return AlertItem(
+            id = json.getString("id"),
+            status = json.getString("status"),
+            createdAt = json.getString("createdAt"),
+            message = AlertMessage(
+                id = msg.getString("id"),
+                sender = msg.getString("sender"),
+                body = msg.getString("body"),
+                receivedAt = msg.getString("receivedAt"),
+                label = cls?.optString("label")?.takeIf { it.isNotEmpty() },
+                score = cls?.takeIf { it.has("score") }?.optDouble("score"),
+                bucket = cls?.optString("bucket")?.takeIf { it.isNotEmpty() },
+            ),
+        )
+    }
+
+    private suspend fun get(path: String, token: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
+                try {
+                    connection.requestMethod = "GET"
+                    connection.setRequestProperty("Authorization", "Bearer $token")
+                    connection.connectTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+                    connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+
+                    val status = connection.responseCode
+                    val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                        ?.bufferedReader()?.use { it.readText() }
+                        .orEmpty()
+                    if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
+                    text
+                } finally {
+                    connection.disconnect()
+                }
+            }
+        }
 }

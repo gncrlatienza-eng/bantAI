@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.CampaignsApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,19 +42,33 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
     fun loadCampaigns() {
         viewModelScope.launch {
             _isLoading.value = true
+            _isLoadingInactive.value = true
             _errorMessage.value = null
+            _inactiveError.value = null
 
             val token = userPreferences.userData.first().authToken
             if (token.isEmpty()) {
                 _isLoading.value = false
+                _isLoadingInactive.value = false
                 _errorMessage.value = "Sign in to see campaigns"
+                _inactiveError.value = "Sign in to see campaigns"
                 return@launch
             }
 
-            CampaignsApi.list(token)
-                .onSuccess { campaigns -> _activeCampaigns.value = campaigns }
-                .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
-            _isLoading.value = false
+            coroutineScope {
+                launch {
+                    CampaignsApi.list(token)
+                        .onSuccess { _activeCampaigns.value = it }
+                        .onFailure { _errorMessage.value = it.message ?: "Could not reach the server" }
+                    _isLoading.value = false
+                }
+                launch {
+                    CampaignsApi.listInactive(token)
+                        .onSuccess { _inactiveCampaigns.value = it }
+                        .onFailure { _inactiveError.value = it.message ?: "Could not reach the server" }
+                    _isLoadingInactive.value = false
+                }
+            }
         }
     }
 

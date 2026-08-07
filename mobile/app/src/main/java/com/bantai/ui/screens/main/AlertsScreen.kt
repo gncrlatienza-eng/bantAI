@@ -123,6 +123,38 @@ fun AlertsScreen(
                     )
                 }
             }
+
+            else -> alerts.forEach { alert ->
+                item {
+                    AlertCard(
+                        alert = alert,
+                        onClick = {
+                            val msg = alert.message
+                            if (alert.status == "Blocked") {
+                                navController.navigate(
+                                    Screen.SmishingAlert.createRoute(
+                                        messageId = msg.id,
+                                        sender = msg.sender,
+                                        score = msg.score ?: 0.0,
+                                        status = alert.status,
+                                        body = msg.body.take(400),
+                                    ),
+                                )
+                            } else {
+                                navController.navigate(
+                                    Screen.ThreatAnalysis.createRoute(
+                                        messageId = msg.id,
+                                        sender = msg.sender,
+                                        score = msg.score ?: 0.0,
+                                        status = alert.status,
+                                        body = msg.body.take(400),
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -140,9 +172,7 @@ private fun AlertCard(alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () 
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(38.dp)
@@ -208,4 +238,20 @@ private fun StatusPill(label: String, color: Color) {
     ) {
         Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
+}
+
+private fun formatAlertTime(iso: String): String = try {
+    val instant = Instant.parse(iso)
+    val now = Instant.now()
+    val seconds = now.epochSecond - instant.epochSecond
+    when {
+        seconds < 3600 -> "${seconds / 60}m"
+        seconds < 86400 -> DateTimeFormatter.ofPattern("h:mm a")
+            .format(instant.atZone(ZoneId.systemDefault()))
+        seconds < 172800 -> "Yesterday"
+        else -> DateTimeFormatter.ofPattern("MMM d")
+            .format(instant.atZone(ZoneId.systemDefault()))
+    }
+} catch (_: Exception) {
+    ""
 }

@@ -36,7 +36,6 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         loadCampaigns()
-        loadInactiveCampaigns()
     }
 
     fun loadCampaigns() {
@@ -44,14 +43,14 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
             _isLoading.value = true
             _isLoadingInactive.value = true
             _errorMessage.value = null
-            _inactiveError.value = null
+            _inactiveErrorMessage.value = null
 
             val token = userPreferences.userData.first().authToken
             if (token.isEmpty()) {
                 _isLoading.value = false
                 _isLoadingInactive.value = false
                 _errorMessage.value = "Sign in to see campaigns"
-                _inactiveError.value = "Sign in to see campaigns"
+                _inactiveErrorMessage.value = "Sign in to see campaigns"
                 return@launch
             }
 
@@ -65,29 +64,10 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
                 launch {
                     CampaignsApi.listInactive(token)
                         .onSuccess { _inactiveCampaigns.value = it }
-                        .onFailure { _inactiveError.value = it.message ?: "Could not reach the server" }
+                        .onFailure { _inactiveErrorMessage.value = it.message ?: "Could not reach the server" }
                     _isLoadingInactive.value = false
                 }
             }
-        }
-    }
-
-    fun loadInactiveCampaigns() {
-        viewModelScope.launch {
-            _isLoadingInactive.value = true
-            _inactiveErrorMessage.value = null
-
-            val token = userPreferences.userData.first().authToken
-            if (token.isEmpty()) {
-                _isLoadingInactive.value = false
-                _inactiveErrorMessage.value = "Sign in to see campaigns"
-                return@launch
-            }
-
-            CampaignsApi.listInactive(token)
-                .onSuccess { campaigns -> _inactiveCampaigns.value = campaigns }
-                .onFailure { error -> _inactiveErrorMessage.value = error.message ?: "Could not reach the server" }
-            _isLoadingInactive.value = false
         }
     }
 }

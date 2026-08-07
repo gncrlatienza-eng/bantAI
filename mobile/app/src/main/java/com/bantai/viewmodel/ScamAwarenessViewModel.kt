@@ -28,11 +28,11 @@ class ScamAwarenessViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    private fun deriveRelevantTips(alerts: List<SmsApi.AlertItem>): Set<String> {
+    private fun deriveRelevantTips(alerts: List<SmsApi.AlertSummary>): Set<String> {
         val tips = mutableSetOf<String>()
         for (alert in alerts) {
-            val label = alert.message.label?.lowercase() ?: ""
-            val bucket = alert.message.bucket?.lowercase() ?: ""
+            val label = alert.label?.lowercase() ?: ""
+            val bucket = alert.bucket?.lowercase() ?: ""
             if (label.contains("scam") || bucket == "blocked") {
                 tips += setOf("gcash", "otp", "links")
             }

@@ -24,8 +24,18 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _inactiveCampaigns = MutableStateFlow<List<CampaignsApi.CampaignSummary>>(emptyList())
+    val inactiveCampaigns: StateFlow<List<CampaignsApi.CampaignSummary>> = _inactiveCampaigns.asStateFlow()
+
+    private val _isLoadingInactive = MutableStateFlow(true)
+    val isLoadingInactive: StateFlow<Boolean> = _isLoadingInactive.asStateFlow()
+
+    private val _inactiveErrorMessage = MutableStateFlow<String?>(null)
+    val inactiveErrorMessage: StateFlow<String?> = _inactiveErrorMessage.asStateFlow()
+
     init {
         loadCampaigns()
+        loadInactiveCampaigns()
     }
 
     fun loadCampaigns() {
@@ -44,6 +54,25 @@ class CampaignsViewModel(application: Application) : AndroidViewModel(applicatio
                 .onSuccess { campaigns -> _activeCampaigns.value = campaigns }
                 .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
             _isLoading.value = false
+        }
+    }
+
+    fun loadInactiveCampaigns() {
+        viewModelScope.launch {
+            _isLoadingInactive.value = true
+            _inactiveErrorMessage.value = null
+
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) {
+                _isLoadingInactive.value = false
+                _inactiveErrorMessage.value = "Sign in to see campaigns"
+                return@launch
+            }
+
+            CampaignsApi.listInactive(token)
+                .onSuccess { campaigns -> _inactiveCampaigns.value = campaigns }
+                .onFailure { error -> _inactiveErrorMessage.value = error.message ?: "Could not reach the server" }
+            _isLoadingInactive.value = false
         }
     }
 }

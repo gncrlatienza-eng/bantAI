@@ -167,7 +167,7 @@ fun MessageDetailScreen(
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false
-                navController.navigate(Screen.ThreatAnalysis.route)
+                navController.navigate(Screen.ThreatAnalysis.createRoute())
             },
         )
     }
@@ -275,7 +275,7 @@ fun MessageDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF2A1A00))
-                    .clickable { navController.navigate(Screen.ThreatAnalysis.route) }
+                    .clickable { navController.navigate(Screen.ThreatAnalysis.createRoute()) }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),

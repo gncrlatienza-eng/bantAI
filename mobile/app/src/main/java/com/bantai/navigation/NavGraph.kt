@@ -54,7 +54,12 @@ sealed class Screen(val route: String) {
         fun createRoute(sender: String) = "suspicious_detail/${Uri.encode(sender)}"
     }
     data object UnsafeLink : Screen("unsafe_link")
-    data object ThreatAnalysis : Screen("threat_analysis")
+    // messageId is an optional query arg, not a required path segment: the AI-summary
+    // shortcut and suspicious-thread banner in MessageDetailScreen/SuspiciousDetailScreen
+    // navigate here with no specific message tracked, alongside AlertsScreen's real one.
+    data object ThreatAnalysis : Screen("threat_analysis?messageId={messageId}") {
+        fun createRoute(messageId: String = "") = "threat_analysis?messageId=${Uri.encode(messageId)}"
+    }
     data object TakeAction : Screen("take_action")
     data object ReportSent : Screen("report_sent/{type}") {
         fun createRoute(type: String) = "report_sent/$type"
@@ -63,7 +68,9 @@ sealed class Screen(val route: String) {
     data object CampaignDetail : Screen("campaign_detail/{campaignId}") {
         fun createRoute(campaignId: String) = "campaign_detail/${Uri.encode(campaignId)}"
     }
-    data object SmishingAlert : Screen("smishing_alert")
+    data object SmishingAlert : Screen("smishing_alert/{messageId}") {
+        fun createRoute(messageId: String) = "smishing_alert/${Uri.encode(messageId)}"
+    }
     data object Compose : Screen("compose?recipient={recipient}&body={body}") {
         fun createRoute(recipient: String = "", body: String = "") =
             "compose?recipient=${Uri.encode(recipient)}&body=${Uri.encode(body)}"
@@ -173,7 +180,13 @@ fun NavGraph(requestedTab: Int? = null, requestedConversationSender: String? = n
             SuspiciousDetailScreen(sender = sender, navController = navController)
         }
         composable(Screen.UnsafeLink.route) { UnsafeLinkScreen(navController) }
-        composable(Screen.ThreatAnalysis.route) { ThreatAnalysisScreen(navController) }
+        composable(
+            route = Screen.ThreatAnalysis.route,
+            arguments = listOf(navArgument("messageId") { type = NavType.StringType; defaultValue = "" }),
+        ) { backStackEntry ->
+            val messageId = backStackEntry.arguments?.getString("messageId") ?: ""
+            ThreatAnalysisScreen(messageId = messageId, navController = navController)
+        }
         composable(Screen.TakeAction.route) { TakeActionScreen(navController) }
         composable(
             route = Screen.ReportSent.route,
@@ -190,7 +203,13 @@ fun NavGraph(requestedTab: Int? = null, requestedConversationSender: String? = n
             val campaignId = backStackEntry.arguments?.getString("campaignId") ?: return@composable
             CampaignDetailScreen(campaignId = campaignId, navController = navController)
         }
-        composable(Screen.SmishingAlert.route) { SmishingAlertScreen(navController) }
+        composable(
+            route = Screen.SmishingAlert.route,
+            arguments = listOf(navArgument("messageId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val messageId = backStackEntry.arguments?.getString("messageId") ?: return@composable
+            SmishingAlertScreen(messageId = messageId, navController = navController)
+        }
         composable(
             route = Screen.Compose.route,
             arguments = listOf(

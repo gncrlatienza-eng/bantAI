@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +55,10 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+
+private const val ALERTS_POLL_INTERVAL_MS = 5_000L
 
 @Composable
 fun AlertsScreen(
@@ -63,6 +69,18 @@ fun AlertsScreen(
     val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+
+    // The ViewModel is scoped to the nav backstack, not this composable, so it
+    // only loads once per app session on its own — poll while this screen is
+    // actually on screen so new alerts (e.g. a message just ingested) show up
+    // without needing to relaunch the app. Cancels/restarts automatically as
+    // this composable leaves/re-enters composition.
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(ALERTS_POLL_INTERVAL_MS)
+            viewModel.loadAlerts(silent = true)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -106,7 +124,14 @@ fun AlertsScreen(
                 Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)
             }
             alerts.isEmpty() -> item {
-                Text("No alerts yet — you'll see flagged messages here.", color = TextSecondary, fontSize = 13.sp)
+                Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No alerts yet — you'll see flagged messages here.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
             else -> alerts.forEach { alert ->
                 val blocked = alert.status.equals("Blocked", ignoreCase = true)

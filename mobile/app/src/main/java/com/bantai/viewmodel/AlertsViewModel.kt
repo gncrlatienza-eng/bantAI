@@ -28,9 +28,13 @@ class AlertsViewModel(application: Application) : AndroidViewModel(application) 
         loadAlerts()
     }
 
-    fun loadAlerts() {
+    /**
+     * @param silent true for background polling refreshes — skips the loading
+     *   spinner so an already-populated list doesn't flash empty every poll.
+     */
+    fun loadAlerts(silent: Boolean = false) {
         viewModelScope.launch {
-            _isLoading.value = true
+            if (!silent) _isLoading.value = true
             _errorMessage.value = null
 
             val token = userPreferences.userData.first().authToken
@@ -42,8 +46,8 @@ class AlertsViewModel(application: Application) : AndroidViewModel(application) 
 
             SmsApi.getAlerts(token)
                 .onSuccess { alerts -> _alerts.value = alerts }
-                .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
-            _isLoading.value = false
+                .onFailure { error -> if (!silent) _errorMessage.value = error.message ?: "Could not reach the server" }
+            if (!silent) _isLoading.value = false
         }
     }
 }

@@ -33,10 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bantai.R
 import com.bantai.ui.components.AccentIconTile
 import com.bantai.ui.components.FeatureListRow
 import com.bantai.ui.components.GroupedCard
@@ -85,7 +88,7 @@ fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
     ) {
         Spacer(Modifier.height(48.dp))
 
-        AccentIconTile(icon = Icons.Filled.Shield, size = 56.dp)
+        AccentIconTile(icon = ImageVector.vectorResource(id = R.drawable.ic_bantai_logo_monochrome), size = 56.dp)
         Spacer(Modifier.height(20.dp))
 
         OnboardingHeader(

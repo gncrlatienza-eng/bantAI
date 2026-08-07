@@ -1,5 +1,6 @@
 package com.bantai.ui.screens.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -46,11 +46,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.data.remote.SmsApi
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
@@ -297,7 +299,7 @@ private fun NotificationItem(
                 .background(Indigo, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Shield, contentDescription = null, tint = White, modifier = Modifier.size(18.dp))
+            Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -390,7 +392,7 @@ private fun WeeklyDigestTab() {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Shield, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
+                    Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Column {
                         Text("Your weekly report", color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -466,7 +468,7 @@ private fun WeeklyDigestTab() {
                             .background(Indigo, RoundedCornerShape(6.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Filled.Shield, contentDescription = null, tint = White, modifier = Modifier.size(14.dp))
+                        Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(14.dp))
                     }
                     Spacer(Modifier.width(8.dp))
                     Text("BantAI", color = TextSecondary, fontSize = 12.sp, modifier = Modifier.weight(1f))

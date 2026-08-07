@@ -11,6 +11,15 @@
       drawn in a second colour. Both subpaths live in one path with evenOdd fill
       so the shield reads as a hole punched through the bubble.
       Keep in sync with ic_launcher_foreground.
+
+      Viewport/coordinates deliberately kept at the launcher's original 512
+      safe-zone-padded space here (unlike ic_bantai_logo, which is cropped
+      tight) — the OS applies its own adaptive-icon mask to this layer, which
+      relies on that padding to avoid clipping the mark. Anyone reusing this
+      drawable directly as a plain in-app icon (no mask involved, e.g. via
+      ImageVector.vectorResource) should expect it to render small within its
+      bounding box for the same reason — size the container generously rather
+      than assuming edge-to-edge fill.
     -->
 
     <path

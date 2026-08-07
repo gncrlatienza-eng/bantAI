@@ -6,7 +6,7 @@ Authentication is phone-based OTP. There are no passwords. A successful OTP veri
 
 - **JWT expiry:** 7 days by default (`JWT_EXPIRES_IN`).
 - **Secret:** `JWT_SECRET` env var (falls back to a hardcoded dev secret — must be set in production).
-- **OTP delivery (dev):** codes are NOT sent by SMS yet; they are printed to the backend console: `OTP for <phone>: <code>`. OTPs are 6 digits and expire after 5 minutes.
+- **OTP delivery (dev):** requires `SEMAPHORE_API_KEY` in `.env`; without it, `OtpSmsService` logs a warning and no-ops (the code is *not* printed to the console — read it straight from the `OtpCode` table, e.g. `SELECT phone, code FROM "OtpCode" ORDER BY "createdAt" DESC LIMIT 1;`). OTPs are 6 digits and expire after 5 minutes.
 - **Validation:** requests are validated with a global `ValidationPipe` (`whitelist: true, forbidNonWhitelisted: true`) — unknown body fields cause a 400.
 
 ---
@@ -68,21 +68,13 @@ Verify the OTP. On success: marks the code used, creates the user if the phone i
 ```json
 {
   "message": "Authentication successful.",
-  "access_token": "<jwt>",
-  "user": {
-    "id": "5892f7b5-91f3-4c4e-a52a-6d0ad693ae13",
-    "phone": "+639170000001",
-    "email": null,
-    "firstName": null,
-    "lastName": null,
-    "createdAt": "2026-07-17T14:17:11.235Z",
-    "updatedAt": "2026-07-17T14:17:11.235Z"
-  }
+  "access_token": "<jwt>"
 }
 ```
 
-- `404` — invalid OTP (wrong code, or already used).
-- `400` — OTP expired.
+No `user` object is returned here by design — the auth payload deliberately carries no PII (see `auth.service.spec.ts`). Callers that already know the phone number they just verified don't need it back; call `GET /auth/me` if you need the full profile.
+
+- `400` — invalid or expired OTP (the two cases are deliberately not distinguished, so a guessed code can't be told apart from an expired one).
 
 **JWT payload:** `{ "sub": "<userId>", "phone": "<phone>" }`.
 

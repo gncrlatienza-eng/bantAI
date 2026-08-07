@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="224"
+    android:viewportHeight="204">
+
+    <!--
+      Single-tint version of ic_bantai_logo, for contexts that apply a uniform
+      tint to whatever icon they're given (e.g. AccentIconTile) — a plain
+      Icon() call flattens ic_bantai_logo's two hardcoded colours to one, so
+      this combines both subpaths into one evenOdd path instead (the shield
+      reads as a hole punched through the bubble). Same crop as ic_bantai_logo;
+      NOT the same file as ic_launcher_monochrome, which must keep its
+      safe-zone padding for the OS adaptive-icon mask — this one is edge-to-edge
+      on purpose. Keep in sync with ic_bantai_logo.
+    -->
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M112,0 C49,0 0,39 0,87 C0,122 25,153 62,167 C59,179 52,190 43,199 C41,201 42,204 45,204 C67,203 87,195 103,184 C106,184 109,184 112,184 C175,184 224,145 224,87 C224,39 175,0 112,0 Z M112,46 L138,57 L138,79 C138,101 127,116 112,123 C97,116 86,101 86,79 L86,57 Z" />
+
+</vector>

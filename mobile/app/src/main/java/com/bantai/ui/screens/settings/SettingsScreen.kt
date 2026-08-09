@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
@@ -36,9 +37,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.BuildConfig
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
@@ -89,6 +94,7 @@ fun SettingsScreen(
     var showPhoneDialog by remember { mutableStateOf(false) }
     var showContactSupportDialog by remember { mutableStateOf(false) }
     var showScanPeriodDialog by remember { mutableStateOf(false) }
+    var showSimulateSmsDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -235,6 +241,81 @@ fun SettingsScreen(
         )
     }
 
+    if (showSimulateSmsDialog) {
+        val simulateStatus by viewModel.simulateStatus.collectAsState()
+        var simSender by remember { mutableStateOf("+639171234567") }
+        var simBody by remember {
+            mutableStateOf("Congratulations! You won a P50,000 GCash prize. Claim now at gcash-claim.example")
+        }
+
+        LaunchedEffect(Unit) { viewModel.clearSimulateStatus() }
+
+        AlertDialog(
+            onDismissRequest = { showSimulateSmsDialog = false },
+            containerColor = Color(0xFF1A1A1A),
+            title = { Text("Simulate incoming SMS", color = White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Debug-only: feeds a message straight into the same detection " +
+                            "pipeline a real SMS would, for testing/demos.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                    )
+                    OutlinedTextField(
+                        value = simSender,
+                        onValueChange = { simSender = it },
+                        label = { Text("Sender") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF5B4FE8),
+                            unfocusedBorderColor = Color(0xFF2A2A2A),
+                            focusedTextColor = White,
+                            unfocusedTextColor = White,
+                            focusedLabelColor = Color(0xFF5B4FE8),
+                            unfocusedLabelColor = TextSecondary,
+                            cursorColor = Color(0xFF5B4FE8),
+                        ),
+                    )
+                    OutlinedTextField(
+                        value = simBody,
+                        onValueChange = { simBody = it },
+                        label = { Text("Message body") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF5B4FE8),
+                            unfocusedBorderColor = Color(0xFF2A2A2A),
+                            focusedTextColor = White,
+                            unfocusedTextColor = White,
+                            focusedLabelColor = Color(0xFF5B4FE8),
+                            unfocusedLabelColor = TextSecondary,
+                            cursorColor = Color(0xFF5B4FE8),
+                        ),
+                    )
+                    if (simulateStatus != null) {
+                        Text(simulateStatus!!, color = Color(0xFF5B4FE8), fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.simulateIncomingSms(simSender, simBody) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B4FE8)),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Simulate", color = White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSimulateSmsDialog = false }) {
+                    Text("Close", color = TextSecondary)
+                }
+            },
+        )
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Black).statusBarsPadding(),
         contentPadding = PaddingValues(
@@ -349,6 +430,25 @@ fun SettingsScreen(
                     title = "How BantAI works",
                     onClick = { navController.navigate(Screen.SettingsHowItWorks.route) },
                 )
+            }
+        }
+
+        // DEVELOPER section — debug builds only, never ships in a release build.
+        if (BuildConfig.DEBUG) {
+            item { SectionLabel("DEVELOPER") }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp)),
+                ) {
+                    SettingsRow(
+                        icon = Icons.Filled.BugReport,
+                        title = "Simulate incoming SMS",
+                        subtitle = "Test detection without a real message",
+                        onClick = { showSimulateSmsDialog = true },
+                    )
+                }
             }
         }
 

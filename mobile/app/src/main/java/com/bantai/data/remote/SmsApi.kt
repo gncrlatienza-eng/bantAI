@@ -58,6 +58,7 @@ object SmsApi {
         sender: String,
         body: String,
         receivedAtMillis: Long,
+        timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
     ): Result<IngestResult> = withContext(Dispatchers.IO) {
         runCatching {
             val payload = JSONObject()
@@ -65,7 +66,7 @@ object SmsApi {
                 .put("body", body)
                 .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
 
-            parseIngestResponse(post("/sms/ingest", payload, token))
+            parseIngestResponse(post("/sms/ingest", payload, token, timeoutMs))
         }
     }
 
@@ -164,14 +165,14 @@ object SmsApi {
         else -> Action.INBOX
     }
 
-    private fun post(path: String, body: JSONObject, token: String): String {
+    private fun post(path: String, body: JSONObject, token: String, timeoutMs: Int): String {
         val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $token")
-            connection.connectTimeout = ApiConfig.SMS_TIMEOUT_MS
-            connection.readTimeout = ApiConfig.SMS_TIMEOUT_MS
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
             connection.doOutput = true
             connection.outputStream.use { it.write(body.toString().toByteArray()) }
 

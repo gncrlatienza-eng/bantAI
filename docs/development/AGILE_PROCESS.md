@@ -2,7 +2,7 @@
 
 This document records how the team works and serves as proof of process for the project. It is kept up to date as the process evolves.
 
-**Team:** Group 7 — DLSL CITE
+**Team:** Group 7 — DLSL CITE (Gio — Mobile · Maxene — AI/ML · Reymark De Castro — Backend · Daryl De Castro — Web)
 **Methodology:** Agile (Scrum-style iterations with feature-branch Git workflow)
 
 ---

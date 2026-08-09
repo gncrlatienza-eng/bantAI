@@ -6,6 +6,8 @@
 
 Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
 
+Track ownership: Track A — Backend (Reymark De Castro) · Track B — AI/ML (Maxene) · Track C — Mobile (Gio) · Track D — Web Dashboard (Daryl De Castro)
+
 ---
 
 ## Sprint 1: Foundation & Core Backend
@@ -147,7 +149,7 @@ Status key: `[x]` Complete · `[-]` In Progress · `[ ]` Not Started
     - [ ] **4.3.5** Automated retraining pipeline (snapshot + AdamW fine-tune) *(Track B — AI/ML)*
     - [x] **4.3.6** Reservoir sampling (Vitter's Algorithm R) *(Track B — AI/ML)*
     - [x] **4.3.7** McNemar test + F1 floor promotion gate *(Track B — AI/ML)*
-    - [-] **4.3.8** Campaign evolution tracking *(Track B — AI/ML)*
+    - [x] **4.3.8** Campaign evolution tracking *(Track B — AI/ML)*
     - [x] **4.3.9** TF-IDF summarization pipeline (unread threads) *(Track B — AI/ML)*
     - [-] **4.3.10** Compose Message + Unknown Filter screens *(Track C — Mobile)* — `ComposeScreen.kt` fully built (real send via `SmsManager`, drafts, outbox/sent/failed states); the "Unknown Filter" half has no `MessageFilter.UNKNOWN` case or screen yet
     - [-] **4.3.11** AI Message Summary display *(Track C — Mobile)* — `AISummaryBottomSheet.kt` wired into `MessageDetailScreen.kt` off a real suspicious/unknown signal, but verdict text + confidence % are still 100% hardcoded; no mobile client calls the AI service's `POST /summarize` (no `SummarizeApi.kt`), and the NestJS backend has no proxy route for it either (mirrors how `/classify` is proxied)

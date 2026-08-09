@@ -7,9 +7,10 @@ bantAI is a thesis project: an SMS smishing/scam detection system for Filipino m
 **GitHub:** https://github.com/gncrlatienza-eng/bantAI
 
 **Team:**
-- Gio (`gncrlatienza-eng`) — primary committer, mobile/backend
-- Reymark De Castro — backend, git management
-- Daryl De Castro — contributor
+- Gio (`gncrlatienza-eng`) — Mobile
+- Maxene — AI/ML
+- Reymark De Castro — Backend, git management
+- Daryl De Castro — Web
 
 ---
 

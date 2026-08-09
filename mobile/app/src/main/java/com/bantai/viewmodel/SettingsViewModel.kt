@@ -3,6 +3,7 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.SmsApi
@@ -48,6 +49,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _alertsLoading = MutableStateFlow(true)
     val alertsLoading: StateFlow<Boolean> = _alertsLoading.asStateFlow()
+
+    // Debug-only: lets the "Simulate incoming SMS" tool report success/failure
+    // without needing a real SMS to arrive first.
+    private val _simulateStatus = MutableStateFlow<String?>(null)
+    val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -139,5 +145,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             userPreferences.clearAll()
             onComplete()
         }
+    }
+
+    // Feeds a synthetic message through the same pipeline SmsReceiver uses for a
+    // real SMS_DELIVER broadcast, so it's classified/notified/shown identically —
+    // used for testing/demos where a real carrier SMS isn't a reliable trigger
+    // (e.g. carrier-side smishing filters silently dropping scam-pattern content).
+    fun simulateIncomingSms(sender: String, body: String) {
+        val trimmedSender = sender.trim()
+        val trimmedBody = body.trim()
+        if (trimmedSender.isEmpty() || trimmedBody.isEmpty()) {
+            _simulateStatus.value = "Enter both a sender and a message body."
+            return
+        }
+        viewModelScope.launch {
+            _simulateStatus.value = "Sending…"
+            val now = System.currentTimeMillis()
+            runCatching {
+                SmsIngestPipeline.ingest(getApplication(), trimmedSender, trimmedBody, now, now)
+            }.onSuccess {
+                _simulateStatus.value = "Sent — check Messages/Alerts."
+            }.onFailure { e ->
+                _simulateStatus.value = "Failed: ${e.message}"
+            }
+        }
+    }
+
+    fun clearSimulateStatus() {
+        _simulateStatus.value = null
     }
 }

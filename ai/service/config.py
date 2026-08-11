@@ -54,8 +54,12 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:3000/api"
 
     # Cosine similarity a message must reach to join an existing campaign
-    # (manuscript Stage 5b).
-    campaign_threshold: float = 0.85
+    # (manuscript Stage 5b). The manuscript specifies 0.85; measured against
+    # real data that attaches 54.5% of *unrelated* messages, because the
+    # classifier embedding this reuses encodes class rather than campaign.
+    # Re-calibrated to 0.999 in Sprint 5 (WBS 5.3.6) -- see
+    # service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD for the full sweep.
+    campaign_threshold: float = 0.999
 
 
 settings = Settings()

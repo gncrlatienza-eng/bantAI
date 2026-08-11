@@ -51,13 +51,36 @@ def test_zero_vector_does_not_divide_by_zero():
 
 
 # --- threshold behaviour ----------------------------------------------------
-def test_manuscript_threshold_is_085():
-    assert DEFAULT_SIMILARITY_THRESHOLD == 0.85
+def test_threshold_is_the_calibrated_value_not_the_manuscript_default():
+    """0.999, re-calibrated in Sprint 5 (WBS 5.3.6) -- not the manuscript's 0.85.
+
+    The manuscript's value was measured to attach 54.5% of *unrelated*
+    messages to campaigns, because Stage 5b reuses a classifier embedding and
+    that embedding encodes class rather than campaign: unrelated Scam pairs
+    already average 0.90 cosine. Pinned here so the number cannot drift back
+    without someone reading why it moved.
+    """
+    assert DEFAULT_SIMILARITY_THRESHOLD == 0.999
+
+
+def test_manuscript_threshold_would_admit_unrelated_messages():
+    """Documents the defect the re-calibration fixes.
+
+    0.90 is the measured average similarity between two *unrelated* Scam
+    messages. Under the manuscript's 0.85 this attached; it must not now.
+    """
+    matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
+    angle = np.arccos(0.90)
+    unrelated = unit(np.cos(angle), np.sin(angle), 0.0)
+    assert matcher.match(unrelated).matched is False
 
 
 def test_close_message_attaches_to_cluster():
     matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
-    result = matcher.match(unit(0.99, 0.14, 0.0))  # ~0.99 similarity
+    # 0.9998 -- the measured mean similarity of a real campaign member to its
+    # own centroid (scripts/calibrate_match_threshold.py).
+    angle = np.arccos(0.9998)
+    result = matcher.match(unit(np.cos(angle), np.sin(angle), 0.0))
     assert result.matched is True
     assert result.cluster_id == "c1"
     assert result.should_buffer is False
@@ -72,17 +95,17 @@ def test_distant_message_buffers_instead():
 
 
 def test_just_below_threshold_does_not_match():
-    """0.84 must buffer -- the boundary is the whole point of the rule."""
+    """0.9989 must buffer -- the boundary is the whole point of the rule."""
     matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
-    angle = np.arccos(0.84)
+    angle = np.arccos(0.9989)
     just_below = unit(np.cos(angle), np.sin(angle), 0.0)
     assert matcher.match(just_below).matched is False
 
 
 def test_at_threshold_matches():
-    """>= 0.85 attaches, per the manuscript's 'at least 0.85'."""
+    """'At least' is inclusive -- the manuscript's rule shape is unchanged."""
     matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
-    angle = np.arccos(0.8501)
+    angle = np.arccos(0.9991)
     at_threshold = unit(np.cos(angle), np.sin(angle), 0.0)
     assert matcher.match(at_threshold).matched is True
 
@@ -94,7 +117,10 @@ def test_picks_the_closest_of_several_clusters():
             CampaignCentroid("near", unit(1, 0, 0)),
         ]
     )
-    result = matcher.match(unit(0.98, 0.2, 0.0))
+    # Must clear the calibrated 0.999 bar, or "closest" is moot -- nothing
+    # matches and the ranking under test never runs.
+    angle = np.arccos(0.9999)
+    result = matcher.match(unit(np.cos(angle), np.sin(angle), 0.0))
     assert result.cluster_id == "near"
 
 
@@ -156,8 +182,18 @@ def test_build_matcher_creates_one_centroid_per_cluster():
 
 
 def test_round_trip_member_matches_its_own_cluster():
-    """A message used to build a cluster must match that cluster back."""
-    embeddings = np.array([unit(1, 0, 0), unit(0.99, 0.1, 0), unit(0, 1, 0)])
+    """A message used to build a cluster must match that cluster back.
+
+    Members are spaced to match real campaigns rather than the loose 0.99 this
+    used before the 5.3.6 re-calibration. Measured campaign members sit at
+    ~0.9998 from their own centroid, so two members 0.99 apart -- which put the
+    centroid ~0.9987 from each -- were never representative; under the
+    calibrated 0.999 they would (correctly) fail to round-trip.
+    """
+    close = np.arccos(0.99999)
+    embeddings = np.array(
+        [unit(1, 0, 0), unit(np.cos(close), np.sin(close), 0), unit(0, 1, 0)]
+    )
     matcher = build_matcher_from_clusters(embeddings, [0, 0, -1])
     assert matcher.match(embeddings[0]).cluster_id == "0"
 

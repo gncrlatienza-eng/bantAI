@@ -20,6 +20,19 @@ def unit(*values) -> list:
     return list(v / np.linalg.norm(v))
 
 
+def near_unit(similarity: float) -> list:
+    """Unit vector at exactly ``similarity`` cosine from ``unit(1, 0, 0)``.
+
+    These tests need centroids that are "the same campaign, one snapshot
+    later". They used to hard-code ``unit(0.99, 0.14, 0)`` (~0.99), which was
+    comfortably above the manuscript's 0.85 continuity bar. Sprint 5 (WBS
+    5.3.6) re-calibrated that bar to 0.999 after measuring that 0.85 attached
+    54.5% of unrelated messages, so 0.99 now reads as *different* campaigns and
+    the fixtures have to be tightened to keep testing what they intend.
+    """
+    return [similarity, float(np.sqrt(max(0.0, 1.0 - similarity**2))), 0.0]
+
+
 def cluster(cluster_id, size, centroid, domains=None) -> dict:
     """Build a ``campaign_clusters.json``-shaped cluster entry."""
     return {
@@ -51,7 +64,7 @@ def test_cluster_with_no_current_match_is_dissolved():
 
 def test_below_threshold_similarity_does_not_count_as_continuing():
     previous = [cluster(1, 10, unit(1, 0, 0))]
-    # ~0.6 similarity -- close but short of the 0.85 default.
+    # ~0.6 similarity -- well short of the 0.999 default (WBS 5.3.6).
     current = [cluster(2, 10, unit(0.6, 0.8, 0.0))]
     report = detect_evolution(previous, current)
     assert report.continuing == []
@@ -69,7 +82,7 @@ def test_empty_current_dissolves_everything():
 # --- continuing campaigns -----------------------------------------------------
 def test_matching_centroid_is_a_continuing_campaign():
     previous = [cluster(1, 10, unit(1, 0, 0))]
-    current = [cluster(2, 15, unit(0.99, 0.14, 0.0))]  # ~0.99 similarity
+    current = [cluster(2, 15, near_unit(0.9995))]
     report = detect_evolution(previous, current)
     assert len(report.continuing) == 1
     c = report.continuing[0]
@@ -77,7 +90,7 @@ def test_matching_centroid_is_a_continuing_campaign():
     assert c.current_id == "2"
     assert c.size_before == 10
     assert c.size_after == 15
-    assert c.centroid_similarity == pytest.approx(0.99, abs=1e-2)
+    assert c.centroid_similarity == pytest.approx(0.9995, abs=1e-4)
 
 
 def test_growth_ratio_is_after_over_before():
@@ -220,7 +233,7 @@ def test_no_new_domains_yields_empty_list():
 def test_two_previous_campaigns_matching_one_current_cluster_is_a_merge():
     previous = [
         cluster(1, 6, unit(1, 0, 0)),
-        cluster(2, 9, unit(0.99, 0.14, 0.0)),  # also matches the same current
+        cluster(2, 9, near_unit(0.9995)),  # also matches the same current
     ]
     current = [cluster(3, 20, unit(1, 0, 0))]
     report = detect_evolution(previous, current)
@@ -252,7 +265,7 @@ def test_one_campaign_fragmenting_is_a_split_not_two_new_campaigns():
     previous = [cluster(1, 20, unit(1, 0, 0))]
     current = [
         cluster(5, 12, unit(1, 0, 0)),            # closest fragment
-        cluster(6, 9, unit(0.99, 0.14, 0.0)),     # variant, still ~0.99 similar
+        cluster(6, 9, near_unit(0.9995)),     # variant, still same campaign
     ]
     report = detect_evolution(previous, current)
 
@@ -270,7 +283,7 @@ def test_split_still_reports_the_primary_fragment_as_continuing():
     """The campaign did continue -- the split event records the fragmentation
     on top of that, rather than replacing it."""
     previous = [cluster(1, 20, unit(1, 0, 0))]
-    current = [cluster(5, 12, unit(1, 0, 0)), cluster(6, 9, unit(0.99, 0.14, 0.0))]
+    current = [cluster(5, 12, unit(1, 0, 0)), cluster(6, 9, near_unit(0.9995))]
     report = detect_evolution(previous, current)
     assert [c.current_id for c in report.continuing] == ["5"]
 
@@ -288,8 +301,8 @@ def test_overlapping_merge_and_split_does_not_crash():
     current cluster (a merge) while one of them also has a second fragment
     (a split). Both events are individually true, and split lookup must not
     assume its previous campaign landed in `continuing`."""
-    previous = [cluster(1, 10, unit(1, 0, 0)), cluster(2, 8, unit(0.999, 0.045, 0.0))]
-    current = [cluster(5, 20, unit(1, 0, 0)), cluster(6, 5, unit(0.99, 0.14, 0.0))]
+    previous = [cluster(1, 10, unit(1, 0, 0)), cluster(2, 8, near_unit(0.9999))]
+    current = [cluster(5, 20, unit(1, 0, 0)), cluster(6, 5, near_unit(0.9995))]
     report = detect_evolution(previous, current)
     assert len(report.merges) == 1
     assert len(report.splits) == 1
@@ -301,7 +314,7 @@ def test_split_offshoots_are_excluded_from_new_campaigns():
     previous = [cluster(1, 20, unit(1, 0, 0))]
     current = [
         cluster(5, 10, unit(1, 0, 0)),
-        cluster(6, 6, unit(0.99, 0.14, 0.0)),
+        cluster(6, 6, near_unit(0.9995)),
         cluster(7, 4, unit(0, 1, 0)),  # actually new
     ]
     report = detect_evolution(previous, current)
@@ -313,7 +326,7 @@ def test_split_offshoots_are_excluded_from_new_campaigns():
 def test_two_similar_current_clusters_are_flagged_as_merge_candidates():
     current = [
         cluster(1, 10, unit(1, 0, 0)),
-        cluster(2, 8, unit(0.99, 0.14, 0.0)),  # ~0.99 similarity to cluster 1
+        cluster(2, 8, near_unit(0.9995)),  # ~0.99 similarity to cluster 1
     ]
     report = detect_evolution([], current)
     assert len(report.merge_candidates) == 1
@@ -332,7 +345,7 @@ def test_merge_candidates_do_not_duplicate_pairs():
     """Each unordered pair should appear once, not twice (a,b) and (b,a)."""
     current = [
         cluster(1, 10, unit(1, 0, 0)),
-        cluster(2, 8, unit(0.99, 0.14, 0.0)),
+        cluster(2, 8, near_unit(0.9995)),
         cluster(3, 6, unit(0.98, 0.20, 0.0)),
     ]
     report = detect_evolution([], current)

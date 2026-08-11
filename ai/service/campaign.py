@@ -8,6 +8,12 @@ Implements the manuscript's Stage 5b (campaign-level branch):
     not, the embedding is buffered for an offline HDBSCAN re-clustering pass
     with min_cluster_size = 5."
 
+The mechanism is implemented as specified. The **threshold** is not: 0.85 was
+measured to attach 54.5% of unrelated messages on this embedding space and has
+been re-calibrated to 0.999 (Sprint 5, WBS 5.3.6 -- "re-evaluate thresholds
+against real campaign data"). See ``DEFAULT_SIMILARITY_THRESHOLD`` below for
+the measurement and why the gap is structural.
+
 This module is the **fast path** -- it runs per message, in-process, during
 /classify. The slow path (offline HDBSCAN over the buffer) is
 ``scripts/cluster_campaigns.py`` (WBS 3.3.5).
@@ -25,9 +31,38 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
-# Manuscript-specified threshold (Stage 5b). Configurable so it can be tuned
-# against real traffic later, but this is the documented default.
-DEFAULT_SIMILARITY_THRESHOLD = 0.85
+# Campaign match threshold, re-calibrated against real data (Sprint 5, WBS
+# 5.3.6). The manuscript specifies 0.85; that value does not discriminate on
+# this embedding space, and the reason is structural rather than a tuning miss.
+#
+# Stage 5b reuses the classifier's final-layer [CLS] vector for campaign
+# matching. A classifier is trained to collapse each class toward a single
+# prototype, so *within* the Scam class the vectors are nearly parallel: two
+# entirely unrelated Scam messages average 0.90 cosine, and random Spam/Scam
+# pairs average 0.84. The 0.85 bar therefore sits inside the distribution of
+# unrelated messages rather than above it.
+#
+# Measured against centroids under the real operating condition
+# (scripts/calibrate_match_threshold.py -- held-out members of a campaign vs.
+# random strangers, both scored against that campaign's centroid):
+#
+#     threshold   members attached   strangers attached
+#     0.85               100.0%            54.5%   <- manuscript
+#     0.99               100.0%            30.5%
+#     0.999               93.8%             2.6%   <- selected
+#     0.9995              87.9%             0.5%
+#
+# 0.999 is the knee: stricter costs 6pp of real campaign members to save 2pp of
+# false attachments. At 0.85 the feature was attaching a majority of unrelated
+# messages to campaigns, which is worse than not grouping at all -- a user told
+# "this is part of a known campaign" learns nothing if it is a coin flip.
+#
+# ⚠️ The margin is narrow by construction: members sit at ~0.9998 and the
+# threshold at 0.999. That is a property of reusing a classifier embedding for
+# similarity, not of this particular number, and it is the strongest argument
+# for giving campaign matching its own representation. See PIPELINE.md
+# "Stage 5b -- measured limits" and scripts/compare_campaign_embeddings.py.
+DEFAULT_SIMILARITY_THRESHOLD = 0.999
 
 
 def cosine_similarity(a, b) -> float:

@@ -34,7 +34,11 @@ class CampaignMatch(BaseModel):
     similarity: float = Field(
         ..., ge=-1.0, le=1.0, description="Cosine similarity to the closest active centroid"
     )
-    matched: bool = Field(..., description="Whether similarity met the 0.85 threshold")
+    matched: bool = Field(
+        ...,
+        description="Whether similarity met the campaign match threshold "
+                    "(0.999, re-calibrated in WBS 5.3.6 from the manuscript's 0.85)",
+    )
     should_buffer: bool = Field(
         ...,
         description="True when unmatched — the embedding is buffered for the next "

@@ -146,7 +146,7 @@ Track ownership: Track A — Backend (Reymark De Castro) · Track B — AI/ML (M
     - [ ] **4.3.2** Admin validate/reject endpoints *(Track A — Backend)*
     - [ ] **4.3.3** Hourly retraining trigger service (cron) *(Track A — Backend)*
     - [ ] **4.3.4** ModelVersions table + promotion/rollback logic *(Track A — Backend)*
-    - [ ] **4.3.5** Automated retraining pipeline (snapshot + AdamW fine-tune) *(Track B — AI/ML)*
+    - [-] **4.3.5** Automated retraining pipeline (snapshot + AdamW fine-tune) *(Track B — AI/ML)* — built and dry-run verified end-to-end on the real dataset (`retraining/snapshot.py`, `retraining/reports.py`, `retraining/pipeline.py`, `scripts/retrain.py`, 57 tests). Report ingestion goes through a `ReportSource` interface; the `DatabaseReportSource` implementation is blocked on **4.3.1** (Track A) — a `FileReportSource` (CSV/JSONL) covers it meanwhile. Stays `[-]` until 4.3.1 lands and one real GPU fine-tune has run
     - [x] **4.3.6** Reservoir sampling (Vitter's Algorithm R) *(Track B — AI/ML)*
     - [x] **4.3.7** McNemar test + F1 floor promotion gate *(Track B — AI/ML)*
     - [x] **4.3.8** Campaign evolution tracking *(Track B — AI/ML)*

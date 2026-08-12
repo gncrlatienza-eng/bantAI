@@ -12,6 +12,9 @@ const mockPrisma = {
     findUnique: jest.fn(),
     upsert: jest.fn(),
   },
+  $transaction: jest
+    .fn()
+    .mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
 };
 
 describe('VerificationService', () => {

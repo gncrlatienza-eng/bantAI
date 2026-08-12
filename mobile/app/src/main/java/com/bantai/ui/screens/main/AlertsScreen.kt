@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,20 +21,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
@@ -46,49 +50,38 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.AlertsViewModel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
-private data class ThreatAlert(
-    val title: String,
-    val number: String,
-    val time: String,
-    val preview: String,
-    val reasons: List<String>,
-    val campaign: String?,
-    val blocked: Boolean,
-)
-
-private val alerts = listOf(
-    ThreatAlert(
-        title = "GCash Alert",
-        number = "+63 908 000 1234",
-        time = "9:01 AM",
-        preview = "Your account has been flagged. Verify now at gcash-ph-support.net/verify...",
-        reasons = listOf("Fake domain in link", "Urgency keywords", "Brand impersonation"),
-        campaign = "Operation GCash Clone #14",
-        blocked = true,
-    ),
-    ThreatAlert(
-        title = "+63 908 111 2222",
-        number = "Unknown sender",
-        time = "Yesterday",
-        preview = "Congratulations! You've been selected for a ₱5,000 GCash reward. Claim at...",
-        reasons = listOf("Credential request via link", "Reward bait language", "Unknown sender"),
-        campaign = "Operation GCash Clone #14",
-        blocked = true,
-    ),
-    ThreatAlert(
-        title = "BDO Online",
-        number = "+63 2 8631 8000",
-        time = "18m",
-        preview = "You have a pending transaction of ₱12,500. Tap to review and confirm.",
-        reasons = listOf("Unverified sender domain", "Urgency language", "Shortened URL"),
-        campaign = null,
-        blocked = false,
-    ),
-)
+private const val ALERTS_POLL_INTERVAL_MS = 5_000L
 
 @Composable
-fun AlertsScreen(navController: NavController, innerPadding: PaddingValues) {
+fun AlertsScreen(
+    navController: NavController,
+    innerPadding: PaddingValues,
+    viewModel: AlertsViewModel = viewModel(),
+) {
+    val alerts by viewModel.alerts.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    // The ViewModel is scoped to the nav backstack, not this composable, so it
+    // only loads once per app session on its own — poll while this screen is
+    // actually on screen so new alerts (e.g. a message just ingested) show up
+    // without needing to relaunch the app. Cancels/restarts automatically as
+    // this composable leaves/re-enters composition.
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(ALERTS_POLL_INTERVAL_MS)
+            viewModel.loadAlerts(silent = true)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -109,35 +102,60 @@ fun AlertsScreen(navController: NavController, innerPadding: PaddingValues) {
                 Box(
                     modifier = Modifier
                         .size(7.dp)
-                        .background(Safe, CircleShape),
+                        .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("All threats reviewed", color = TextSecondary, fontSize = 14.sp)
+                Text(
+                    if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged",
+                    color = TextSecondary,
+                    fontSize = 14.sp,
+                )
             }
             Spacer(Modifier.height(4.dp))
         }
 
-        alerts.forEach { alert ->
-            item {
-                AlertCard(
-                    alert = alert,
-                    onClick = {
-                        navController.navigate(
-                            if (alert.blocked) Screen.SmishingAlert.route
-                            else Screen.ThreatAnalysis.route,
-                        )
-                    },
-                )
+        when {
+            isLoading -> item {
+                Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
+                }
+            }
+            errorMessage != null -> item {
+                Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)
+            }
+            alerts.isEmpty() -> item {
+                Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No alerts yet — you'll see flagged messages here.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            else -> alerts.forEach { alert ->
+                val blocked = alert.status.equals("Blocked", ignoreCase = true)
+                item {
+                    AlertCard(
+                        alert = alert,
+                        blocked = blocked,
+                        onClick = {
+                            navController.navigate(
+                                if (blocked) Screen.SmishingAlert.createRoute(alert.messageId)
+                                else Screen.ThreatAnalysis.createRoute(alert.messageId),
+                            )
+                        },
+                    )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AlertCard(alert: ThreatAlert, onClick: () -> Unit) {
-    val accent = if (alert.blocked) Danger else Suspicious
-    val icon: ImageVector = if (alert.blocked) Icons.Default.Block else Icons.Default.Warning
+private fun AlertCard(alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () -> Unit) {
+    val accent = if (blocked) Danger else Suspicious
+    val icon: ImageVector = if (blocked) Icons.Default.Block else Icons.Default.Warning
 
     Column(
         modifier = Modifier
@@ -147,9 +165,7 @@ private fun AlertCard(alert: ThreatAlert, onClick: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(38.dp)
@@ -161,17 +177,16 @@ private fun AlertCard(alert: ThreatAlert, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    alert.title,
+                    alert.sender,
                     color = White,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(alert.number, color = TextSecondary, fontSize = 13.sp)
             }
             Spacer(Modifier.width(8.dp))
-            Text(alert.time, color = TextSecondary, fontSize = 13.sp)
+            Text(formatAlertTime(alert.receivedAt), color = TextSecondary, fontSize = 13.sp)
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
@@ -181,7 +196,7 @@ private fun AlertCard(alert: ThreatAlert, onClick: () -> Unit) {
         }
 
         Text(
-            alert.preview,
+            alert.body,
             color = TextSecondary,
             fontSize = 14.sp,
             lineHeight = 19.sp,
@@ -189,45 +204,22 @@ private fun AlertCard(alert: ThreatAlert, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
         )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusPill(
-                label = if (alert.blocked) "Auto-blocked" else "Suspicious",
-                color = accent,
-            )
-            if (alert.campaign != null) {
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    Icons.Default.Hub,
-                    contentDescription = null,
-                    tint = TextTertiary,
-                    modifier = Modifier.size(13.dp),
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    alert.campaign,
-                    color = TextTertiary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            alert.reasons.forEach { reason ->
-                Box(
-                    modifier = Modifier
-                        .background(White.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text(reason, color = TextSecondary, fontSize = 12.sp)
-                }
-            }
-        }
+        StatusPill(
+            label = if (blocked) "Auto-blocked" else "Suspicious",
+            color = accent,
+        )
     }
+}
+
+private fun formatAlertTime(iso: String): String = try {
+    val zoned = Instant.parse(iso).atZone(ZoneId.systemDefault())
+    if (zoned.toLocalDate() == ZonedDateTime.now().toLocalDate()) {
+        zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
+    } else {
+        zoned.format(DateTimeFormatter.ofPattern("MMM d"))
+    }
+} catch (_: Exception) {
+    ""
 }
 
 @Composable

@@ -185,7 +185,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             AuthApi.verifyOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
-                    userPreferences.saveAuth(auth.accessToken, auth.phone)
+                    userPreferences.saveAuth(auth.accessToken, current.phoneNumber)
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
                 }

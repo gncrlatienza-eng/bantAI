@@ -2,6 +2,31 @@
 
 Android-based AI smishing detection system for Filipino mobile users.
 
+## Overview
+
+BantAI is a thesis project that detects SMS smishing (SMS phishing) and scam
+messages targeting Filipino mobile users. It intercepts incoming SMS on
+Android, classifies each message using a fine-tuned XLM-RoBERTa model (with
+an on-device keyword fallback when the classifier is unreachable), and
+surfaces the result as an inbox message, a smishing alert, or an auto-block
+— with SHAP-based explainability and campaign-level clustering to group
+related scam waves.
+
+- **Mobile app** (Kotlin + Jetpack Compose) — stands in as the user's default
+  SMS app so messages are classified before the user ever sees them; includes
+  live alerts, campaign tracking, and full message management.
+- **Backend** (NestJS + Prisma + PostgreSQL) — OTP-only phone auth (no
+  passwords), ingests messages, orchestrates classification, and serves
+  alerts/campaigns/verification data to the app.
+- **AI service** (Python/FastAPI) — the classifier itself: privacy-masked
+  preprocessing, a fine-tuned XLM-RoBERTa model routing messages to
+  Safe/Review/Spam/Blocked, HDBSCAN campaign clustering, and SHAP
+  explainability.
+- **Web dashboard** (React + Vite) — admin/client views for monitoring
+  detections (UI only; not yet wired to the backend).
+
+See the per-folder READMEs and `docs/` for details on each piece.
+
 ## Project Structure
 
 | Folder | Description |
@@ -28,4 +53,11 @@ Android-based AI smishing detection system for Filipino mobile users.
 
 ## Team
 
-Built by Group 7 — DLSL CITE
+Built by Group 7 — DLSL CITE (BS Computer Science thesis project, De La Salle Lipa)
+
+| Member | Role |
+|---|---|
+| Gio | Mobile |
+| Maxene | AI/ML |
+| Reymark De Castro | Backend |
+| Daryl De Castro | Web |

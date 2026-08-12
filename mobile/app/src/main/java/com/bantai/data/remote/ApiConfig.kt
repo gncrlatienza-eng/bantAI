@@ -29,4 +29,14 @@ object ApiConfig {
      * is capped well short of the limit.
      */
     const val SMS_TIMEOUT_MS = 5_000
+
+    /**
+     * Calls made from the debug "Simulate incoming SMS" tool. Unlike
+     * SmsReceiver, this runs in an ordinary ViewModel coroutine with no
+     * goAsync() deadline, so it can afford to actually wait out a slow
+     * classification instead of racing it. Needs to comfortably exceed the
+     * backend's own 5s timeout on the AI service call (ai.service.ts) plus
+     * its heuristic-fallback and DB-write overhead.
+     */
+    const val SIMULATE_TIMEOUT_MS = 15_000
 }

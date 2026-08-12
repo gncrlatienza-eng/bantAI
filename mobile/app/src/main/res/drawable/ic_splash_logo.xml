@@ -5,10 +5,22 @@
     android:viewportWidth="240"
     android:viewportHeight="240">
 
-    <!-- Android 12+ splash icon. Icon background IS set, so content is
-         confined to the inner 160dp circle of the 240dp canvas. -->
+    <!--
+      Android 12+ splash icon. NOT currently wired up (no
+      android:windowSplashScreenAnimatedIcon in themes.xml references this) —
+      kept in sync with ic_launcher_foreground for whenever it is. Icon
+      background IS set, so content is confined to the inner 160dp circle of
+      the 240dp canvas: same bubble+shield mark scaled 0.667x and re-centred
+      from ic_launcher_foreground's 512-space coordinates.
+    -->
+
+    <!-- Chat bubble -->
     <path
-        android:fillColor="#5B4BE8"
-        android:fillType="evenOdd"
-        android:pathData="M62.68,71.44 A12.23,12.23 0 0 1 74.91,59.21 L165.09,59.21 A12.23,12.23 0 0 1 177.32,71.44 C177.32,147.87 141.13,140.95 101.12,192.16 A6.11,6.11 0 0 1 91.11,191.62 L66.42,152 C61.49,138.35 62.68,116.46 62.68,71.44 Z M98.27,121.2 L114.7,138.78 A5.16,5.16 0 0 0 122.42,138.58 L154.52,100.36 A5.16,5.16 0 1 0 146.62,93.72 L118.26,127.48 L105.81,114.16 A5.16,5.16 0 1 0 98.27,121.2 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M120,52 C78,52 45.3,78 45.3,110 C45.3,133.3 62,154 86.65,163.4 C84.65,171.36 79.98,178.7 73.98,184.7 C72.64,186.03 73.31,188.03 75.31,188.03 C89.98,187.37 103.32,182.03 114,174.69 C116,174.69 118,174.69 120,174.69 C162.02,174.69 194.7,148.68 194.7,110 C194.7,78 162.02,52 120,52 Z" />
+
+    <!-- Small shield -->
+    <path
+        android:fillColor="#4338CA"
+        android:pathData="M120,82.65 L137.34,89.98 L137.34,104.66 C137.34,119.33 130,129.34 120,134.01 C110,129.34 102.66,119.33 102.66,104.66 L102.66,89.98 Z" />
 </vector>

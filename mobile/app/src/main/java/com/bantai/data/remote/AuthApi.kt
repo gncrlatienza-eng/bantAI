@@ -13,8 +13,6 @@ object AuthApi {
 
     data class AuthResult(
         val accessToken: String,
-        val userId: String,
-        val phone: String,
     )
 
     class ApiException(message: String) : Exception(message)
@@ -22,16 +20,15 @@ object AuthApi {
     suspend fun requestOtp(phone: String): Result<Unit> =
         post("/auth/request-otp", JSONObject().put("phone", phone)).map { }
 
+    /**
+     * The backend deliberately omits a `user` object from this response (no
+     * PII in the auth payload — see auth.service.spec.ts); the caller already
+     * knows the phone number it just verified, so only the token is needed.
+     */
     suspend fun verifyOtp(phone: String, otp: String): Result<AuthResult> =
         post("/auth/verify-otp", JSONObject().put("phone", phone).put("otp", otp))
             .mapCatching { body ->
-                val json = JSONObject(body)
-                val user = json.getJSONObject("user")
-                AuthResult(
-                    accessToken = json.getString("access_token"),
-                    userId = user.getString("id"),
-                    phone = user.getString("phone"),
-                )
+                AuthResult(accessToken = JSONObject(body).getString("access_token"))
             }
 
     suspend fun updateProfile(token: String, firstName: String, lastName: String): Result<Unit> {

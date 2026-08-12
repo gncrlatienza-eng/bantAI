@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../database/prisma.service';
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;        // 24 hours for unknown
-const FRAUD_TTL_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days for fraud records
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for unknown
+const FRAUD_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for fraud records
 
 @Injectable()
 export class VerificationService {
@@ -37,7 +37,12 @@ export class VerificationService {
     if (cached) {
       const expired = cached.expiresAt && cached.expiresAt < new Date();
       if (!expired) {
-        return { sender, status: cached.status, source: cached.source, name: null };
+        return {
+          sender,
+          status: cached.status,
+          source: cached.source,
+          name: null,
+        };
       }
     }
 
@@ -57,26 +62,30 @@ export class VerificationService {
 
   // Bulk-sync the user's Android contacts. Mobile app calls this on first
   // launch and whenever the contact list changes.
-  async syncContacts(userId: string, contacts: { phone: string; name?: string }[]) {
+  async syncContacts(
+    userId: string,
+    contacts: { phone: string; name?: string }[],
+  ) {
     const normalized = contacts.map((c) => ({
       userId,
       phone: this.normalizePhone(c.phone),
       name: c.name ?? null,
     }));
 
-    // Upsert all contacts; skip entries where phone normalized to empty
-    let synced = 0;
-    for (const contact of normalized) {
-      if (!contact.phone) continue;
-      await this.prisma.contact.upsert({
-        where: { userId_phone: { userId, phone: contact.phone } },
-        create: contact,
-        update: { name: contact.name },
-      });
-      synced++;
-    }
+    // Batch all upserts into a single transaction — avoids N sequential round
+    // trips for large contact lists (up to 5000 items per request).
+    const upserts = normalized
+      .filter((c) => c.phone)
+      .map((contact) =>
+        this.prisma.contact.upsert({
+          where: { userId_phone: { userId, phone: contact.phone } },
+          create: contact,
+          update: { name: contact.name },
+        }),
+      );
 
-    return { synced };
+    await this.prisma.$transaction(upserts);
+    return { synced: upserts.length };
   }
 
   // User-submitted fraud report — overrides any cached status immediately.
@@ -86,7 +95,12 @@ export class VerificationService {
 
     await this.prisma.senderVerificationCache.upsert({
       where: { sender: normalized },
-      create: { sender: normalized, status: 'fraud', source: 'user-report', expiresAt },
+      create: {
+        sender: normalized,
+        status: 'fraud',
+        source: 'user-report',
+        expiresAt,
+      },
       update: { status: 'fraud', source: 'user-report', expiresAt },
     });
 
@@ -99,7 +113,8 @@ export class VerificationService {
   private normalizePhone(phone: string): string {
     if (/[a-zA-Z]/.test(phone)) return phone.trim().toLowerCase();
     const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('63') && digits.length === 12) return '0' + digits.slice(2);
+    if (digits.startsWith('63') && digits.length === 12)
+      return '0' + digits.slice(2);
     return digits;
   }
 }

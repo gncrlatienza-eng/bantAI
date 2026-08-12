@@ -12,6 +12,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { OtpSmsService } from './otp-sms.service';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private otpSmsService: OtpSmsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -63,10 +65,7 @@ export class AuthService {
       },
     });
 
-    // TODO: deliver OTP via SMS provider (currently no provider integrated)
-    this.logger.warn(
-      `OTP generated for [redacted] — SMS delivery not yet implemented`,
-    );
+    await this.otpSmsService.send(dto.phone, otp);
 
     return {
       message: 'OTP generated successfully.',

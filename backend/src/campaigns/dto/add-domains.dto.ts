@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsString,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -11,6 +12,10 @@ export class AddDomainsDto {
   @ArrayMinSize(1)
   @ArrayMaxSize(100)
   @IsString({ each: true })
-  @MaxLength(253, { each: true }) // max valid DNS domain length
+  @MaxLength(253, { each: true })
+  @Matches(
+    /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i,
+    { each: true, message: 'Each domain must be a valid DNS hostname' },
+  )
   domains: string[];
 }

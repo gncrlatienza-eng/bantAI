@@ -1,5 +1,6 @@
 package com.bantai.ui.screens.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,7 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,11 +46,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.data.remote.SmsApi
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
@@ -65,6 +69,8 @@ fun NotificationsScreen(navController: NavController, viewModel: SettingsViewMod
     val smishingAlerts by viewModel.smishingAlerts.collectAsState()
     val suspiciousAlerts by viewModel.suspiciousAlerts.collectAsState()
     val autoBlockNotice by viewModel.autoBlockNotice.collectAsState()
+    val recentAlerts by viewModel.recentAlerts.collectAsState()
+    val alertsLoading by viewModel.alertsLoading.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
         Box(
@@ -117,6 +123,8 @@ fun NotificationsScreen(navController: NavController, viewModel: SettingsViewMod
                 onSuspiciousAlertsChanged = { viewModel.toggleSuspiciousAlerts(it) },
                 autoBlockNotice = autoBlockNotice,
                 onAutoBlockNoticeChanged = { viewModel.toggleAutoBlockNotice(it) },
+                recentAlerts = recentAlerts,
+                alertsLoading = alertsLoading,
             )
             1 -> WeeklyDigestTab()
         }
@@ -173,6 +181,8 @@ private fun ThreatAlertsTab(
     onSuspiciousAlertsChanged: (Boolean) -> Unit,
     autoBlockNotice: Boolean,
     onAutoBlockNoticeChanged: (Boolean) -> Unit,
+    recentAlerts: List<SmsApi.AlertSummary>,
+    alertsLoading: Boolean,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -195,38 +205,44 @@ private fun ThreatAlertsTab(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("9:02 AM", color = TextSecondary, fontSize = 12.sp)
-                }
+                Text("Recent alerts", color = TextSecondary, fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))
 
-                NotificationItem(
-                    title = "⚠ Smishing detected — GCash Alert",
-                    subtitle = "Likely smishing message received from GCash Alert. Dangerous link detected. Sender auto-blocked.",
-                    time = "now",
-                    expanded = true,
-                    dangerLink = "gcash-ph-support.net/verify — do not tap",
-                )
-                HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
-
-                NotificationItem(
-                    title = "⚡ Suspicious message — BDO Online",
-                    subtitle = "A suspicious message from BDO Online contains an unverified link. Review it in BantAI.",
-                    time = "18m",
-                    expanded = false,
-                )
-                HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
-
-                NotificationItem(
-                    title = "BantAI is protecting you",
-                    subtitle = "1,284 messages scanned today. All clear except 2 threats already handled.",
-                    time = "6h",
-                    expanded = false,
-                )
+                when {
+                    alertsLoading -> Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
+                    }
+                    recentAlerts.isEmpty() -> NotificationItem(
+                        title = "BantAI is protecting you",
+                        subtitle = "No threats detected yet. All messages are clear.",
+                        time = "",
+                        expanded = false,
+                    )
+                    else -> recentAlerts.take(3).forEachIndexed { index, alert ->
+                        if (index > 0) {
+                            HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                        val isBlocked = alert.status == "Blocked"
+                        val scoreText = alert.score
+                            ?.let { " ${"%.0f".format(it * 100)}% confidence." }
+                            ?: ""
+                        NotificationItem(
+                            title = if (isBlocked)
+                                "⚠ Smishing detected — ${alert.sender}"
+                            else
+                                "⚡ Suspicious message — ${alert.sender}",
+                            subtitle = if (isBlocked)
+                                "Auto-blocked.$scoreText"
+                            else
+                                "Review in BantAI.$scoreText",
+                            time = alertRelativeTime(alert.createdAt),
+                            expanded = index == 0 && isBlocked,
+                        )
+                    }
+                }
             }
         }
 
@@ -283,7 +299,7 @@ private fun NotificationItem(
                 .background(Indigo, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Shield, contentDescription = null, tint = White, modifier = Modifier.size(18.dp))
+            Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -376,7 +392,7 @@ private fun WeeklyDigestTab() {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Shield, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
+                    Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Column {
                         Text("Your weekly report", color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -452,7 +468,7 @@ private fun WeeklyDigestTab() {
                             .background(Indigo, RoundedCornerShape(6.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Filled.Shield, contentDescription = null, tint = White, modifier = Modifier.size(14.dp))
+                        Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(14.dp))
                     }
                     Spacer(Modifier.width(8.dp))
                     Text("BantAI", color = TextSecondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
@@ -526,3 +542,15 @@ private fun SectionLabel(text: String) {
         modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
     )
 }
+
+private fun alertRelativeTime(iso: String): String = try {
+    val instant = java.time.Instant.parse(iso)
+    val diffMin = (java.time.Instant.now().toEpochMilli() - instant.toEpochMilli()) / 60_000
+    when {
+        diffMin < 1 -> "now"
+        diffMin < 60 -> "${diffMin}m"
+        diffMin < 1440 -> "${diffMin / 60}h"
+        else -> java.time.format.DateTimeFormatter.ofPattern("MMM d")
+            .format(instant.atZone(java.time.ZoneId.systemDefault()))
+    }
+} catch (_: Exception) { "" }

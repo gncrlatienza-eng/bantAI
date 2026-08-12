@@ -63,6 +63,9 @@ fun CampaignsScreen(
     val activeCampaigns by viewModel.activeCampaigns.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val inactiveCampaigns by viewModel.inactiveCampaigns.collectAsState()
+    val isLoadingInactive by viewModel.isLoadingInactive.collectAsState()
+    val inactiveErrorMessage by viewModel.inactiveErrorMessage.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -99,7 +102,15 @@ fun CampaignsScreen(
 
         item {
             SectionHeader("PAST CAMPAIGNS")
-            InfoRow("Past campaigns aren't available yet", icon = Icons.Default.HourglassEmpty)
+            when {
+                isLoadingInactive -> LoadingRow()
+                inactiveErrorMessage != null -> InfoRow(inactiveErrorMessage ?: "Could not load past campaigns", isError = true)
+                inactiveCampaigns.isEmpty() -> InfoRow("No past campaigns yet")
+                else -> GroupedList(
+                    items = inactiveCampaigns,
+                    onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
+                )
+            }
         }
     }
 }

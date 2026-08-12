@@ -137,15 +137,15 @@ Track ownership: Track A — Backend (Reymark De Castro) · Track B — AI/ML (M
     - [x] **4.1.2** Confirm retraining trigger thresholds (50 samples · F1 drop 5% · Page-Hinkley) *(Track B — AI/ML)*
 
   - [-] **4.2** Design: technical specifications and interface designs for Sprint 4 items
-    - [ ] **4.2.1** Report feedback state machine (Pending / Validated / Rejected / Resolved) *(Track A — Backend)*
+    - [x] **4.2.1** Report feedback state machine (Pending / Validated / Rejected / Resolved) *(Track A — Backend)*
     - [x] **4.2.2** Retraining workflow architecture *(Track B — AI/ML)*
     - [x] **4.2.3** Model promotion + rollback design *(Track B — AI/ML)*
 
   - [-] **4.3** Build: implement Sprint 4 work packages
-    - [ ] **4.3.1** UserReports table + report intake endpoint *(Track A — Backend)*
-    - [ ] **4.3.2** Admin validate/reject endpoints *(Track A — Backend)*
-    - [ ] **4.3.3** Hourly retraining trigger service (cron) *(Track A — Backend)*
-    - [ ] **4.3.4** ModelVersions table + promotion/rollback logic *(Track A — Backend)*
+    - [x] **4.3.1** UserReports table + report intake endpoint *(Track A — Backend)*
+    - [x] **4.3.2** Admin validate/reject endpoints *(Track A — Backend)*
+    - [x] **4.3.3** Hourly retraining trigger service (cron) *(Track A — Backend)*
+    - [x] **4.3.4** ModelVersions table + promotion/rollback logic *(Track A — Backend)*
     - [ ] **4.3.5** Automated retraining pipeline (snapshot + AdamW fine-tune) *(Track B — AI/ML)*
     - [x] **4.3.6** Reservoir sampling (Vitter's Algorithm R) *(Track B — AI/ML)*
     - [x] **4.3.7** McNemar test + F1 floor promotion gate *(Track B — AI/ML)*
@@ -159,7 +159,7 @@ Track ownership: Track A — Backend (Reymark De Castro) · Track B — AI/ML (M
     - [x] **4.3.15** Admin: Scam Tips + Settings + Notifications pages *(Track D — Web Dashboard)* — built (`AdminTipsPage`, `AdminSettingsPage` reused for Notifications), routed; mock data only
 
   - [-] **4.4** Test: sprint-level unit and integration testing
-    - [ ] **4.4.1** Unit test: report intake → dataset append flow *(Track A — Backend)*
+    - [x] **4.4.1** Unit test: report intake → dataset append flow *(Track A — Backend)*
     - [x] **4.4.2** Unit test: retraining trigger evaluation logic *(Track B — AI/ML)*
     - [ ] **4.4.3** Integration test: full retraining round trip (report → validate → retrain → deploy) *(All members)*
 

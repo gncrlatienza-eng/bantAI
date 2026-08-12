@@ -34,6 +34,7 @@ sys.path.insert(0, ".")
 import numpy as np
 
 from service.campaign import DEFAULT_SIMILARITY_THRESHOLD, compute_centroid
+from service.lexical import build_profile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AI = os.path.normpath(os.path.join(HERE, ".."))
@@ -297,6 +298,14 @@ def main() -> None:
         )
         centroid = compute_centroid(emb[idxs])
 
+        # Lexical fingerprint for the hybrid match tiers (WBS 5.3.6). Built
+        # from *all* this cluster's domains, not just the top 8 shown in the
+        # report: the report is truncated for human reading, but a rare domain
+        # is still conclusive evidence when it turns up in a new message.
+        profile = build_profile(
+            [str(t) for t in sub_texts[idxs]], domains=list(domains)
+        )
+
         entry = {
             "cluster_id": int(cid),
             "size": int(size),
@@ -305,6 +314,7 @@ def main() -> None:
             "top_domains": [d for d, _ in domains.most_common(8)],
             "sample": str(sub_texts[idxs[0]])[:160],
             "centroid": [round(float(x), 6) for x in centroid],
+            "lexical": profile.to_dict(),
         }
         report.append(entry)
 

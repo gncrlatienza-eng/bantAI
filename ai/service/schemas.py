@@ -44,6 +44,19 @@ class CampaignMatch(BaseModel):
         description="True when unmatched — the embedding is buffered for the next "
                     "offline HDBSCAN re-clustering pass",
     )
+    lexical_similarity: float = Field(
+        0.0,
+        ge=0.0,
+        le=1.0,
+        description="Word-overlap with the matched campaign's template (WBS 5.3.6 "
+                    "second signal). 0.0 when the campaign has no lexical profile.",
+    )
+    match_reason: Optional[Literal["domain", "hybrid", "embedding"]] = Field(
+        None,
+        description="Which route produced the match — 'domain' (shared scam link), "
+                    "'hybrid' (relaxed embedding corroborated by wording), or "
+                    "'embedding' (the calibrated 0.999 bar alone). Null when unmatched.",
+    )
 
 
 class ClassifyResponse(BaseModel):

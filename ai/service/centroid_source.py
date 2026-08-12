@@ -27,6 +27,7 @@ import os
 from typing import List, Optional
 
 from .campaign import CampaignCentroid
+from .lexical import LexicalProfile
 
 #: Where cluster_campaigns.py writes its results.
 DEFAULT_CLUSTER_FILE = os.path.join("datasets", "processed", "campaign_clusters.json")
@@ -55,6 +56,10 @@ def load_from_file(path: str = DEFAULT_CLUSTER_FILE) -> List[CampaignCentroid]:
                 centroid=centroid,
                 label=cluster.get("label"),
                 url_domains=list(cluster.get("top_domains", [])),
+                # ``from_dict`` returns None for clusters written before WBS
+                # 5.3.6, which is the correct degradation: those campaigns
+                # match on the embedding alone, exactly as they did before.
+                lexical=LexicalProfile.from_dict(cluster.get("lexical")),
             )
         )
     return out
@@ -68,6 +73,13 @@ def load_from_backend(
     Hits the dedicated ``/campaigns/centroids`` route (not the general
     ``/campaigns`` list, which omits the centroid field). Clusters that
     arrive without a centroid are skipped rather than crashing the service.
+
+    ⚠️ The ``lexical`` field is read here but the backend does not store it
+    yet -- ``CampaignCluster`` has no such column (see
+    ``backend/database/prisma/schema.prisma``). Until that migration lands,
+    the backend path silently yields embedding-only campaigns while the file
+    path gets the hybrid tiers. Reading the field now means no second AI-side
+    change is needed once the column exists.
     """
     import urllib.request
 
@@ -86,6 +98,7 @@ def load_from_backend(
                 centroid=centroid,
                 label=cluster.get("label"),
                 url_domains=list(cluster.get("urlDomains", [])),
+                lexical=LexicalProfile.from_dict(cluster.get("lexical")),
             )
         )
     return out

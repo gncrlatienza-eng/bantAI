@@ -1,8 +1,13 @@
 """Unit tests for cosine-similarity campaign matching (WBS 3.4.1).
 
 Exercises the fast-path matcher directly with synthetic embeddings -- no model
-and no database needed. The manuscript's threshold is 0.85 (Stage 5b), so the
-boundary cases around it are the point of this file.
+and no database needed. The boundary cases around the match threshold are the
+point of this file. That threshold is ``DEFAULT_SIMILARITY_THRESHOLD``, which
+Sprint 5 (WBS 5.3.6) re-calibrated from the manuscript's 0.85 to 0.999 after
+measuring that 0.85 attached 54.5% of unrelated messages.
+
+The hybrid corroboration tiers added in the same WBS item are covered
+separately in ``test_campaign_hybrid.py``.
 """
 
 import numpy as np
@@ -201,4 +206,15 @@ def test_round_trip_member_matches_its_own_cluster():
 def test_match_result_serializes_for_api():
     matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
     payload = matcher.match(unit(1, 0, 0)).to_dict()
-    assert set(payload) == {"cluster_id", "similarity", "matched", "should_buffer"}
+    # ``lexical_similarity`` and ``match_reason`` were added by the WBS 5.3.6
+    # hybrid tiers; they are always present so a campaign attribution can be
+    # explained after the fact, even on the embedding-only route.
+    assert set(payload) == {
+        "cluster_id",
+        "similarity",
+        "matched",
+        "should_buffer",
+        "lexical_similarity",
+        "match_reason",
+    }
+    assert payload["match_reason"] == "embedding"

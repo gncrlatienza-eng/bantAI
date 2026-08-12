@@ -583,9 +583,10 @@ Dictionary contents are final for Sprint 3 as of this pass.
 
 ## Stage 9 — Campaign clustering — Sprint 3, WBS 3.3.4 / 3.3.5
 
-**Code:** `service/embeddings.py`, `service/campaign.py` (fast path),
-`scripts/embed_dataset.py`, `scripts/cluster_campaigns.py` (slow path)
-**Tests:** `tests/test_campaign.py` (21), `tests/test_clustering.py` (15)
+**Code:** `service/embeddings.py`, `service/campaign.py` + `service/lexical.py`
+(fast path), `scripts/embed_dataset.py`, `scripts/cluster_campaigns.py` (slow path)
+**Tests:** `tests/test_campaign.py` (21), `tests/test_campaign_hybrid.py` (14),
+`tests/test_lexical.py` (15), `tests/test_clustering.py` (15)
 **Data flow spec:** [`../docs/api/campaigns.md`](../docs/api/campaigns.md) (WBS 3.2.1)
 
 Implements the manuscript's Stage 5b. Classification and clustering are two
@@ -601,15 +602,17 @@ different semantic spaces.
 | | Fast path (per message) | Slow path (offline batch) |
 |---|---|---|
 | Decides | join a *known* campaign | discover a *new* campaign |
-| Method | cosine vs. active centroids | HDBSCAN over the buffer |
-| Parameter | similarity ≥ **0.999** ⚠️ | `min_cluster_size` = **5** |
+| Method | cosine vs. active centroids, corroborated by wording | HDBSCAN over the buffer |
+| Parameter | similarity ≥ **0.999** ⚠️, or a corroborated relaxed bar | `min_cluster_size` = **5** |
 | Cost | microseconds | seconds–minutes |
 
 ⚠️ The manuscript specifies **0.85** here. That value was measured to attach
 54.5% of *unrelated* messages and has been re-calibrated to 0.999 under WBS
-5.3.6 ("re-evaluate thresholds against real campaign data") — see
+5.3.6 ("re-evaluate thresholds against real campaign data"). Because 0.999
+leaves only ~0.0008 of usable margin, the same WBS item added an independent
+**lexical** second signal that can corroborate a relaxed embedding score — see
 [Stage 5b — measured limits](#stage-5b--measured-limits--sprint-5-wbs-536)
-below. `min_cluster_size` is unchanged. HDBSCAN comes from
+below for both. `min_cluster_size` is unchanged. HDBSCAN comes from
 `sklearn.cluster.HDBSCAN` (scikit-learn ≥ 1.3) rather than the standalone
 `hdbscan` package — same algorithm, one less dependency, and sklearn was
 already required for the train/val split. Clustering uses euclidean distance on
@@ -697,7 +700,8 @@ message text).
 ### Stage 5b — measured limits — Sprint 5, WBS 5.3.6
 
 **Scripts:** `scripts/compare_campaign_embeddings.py`,
-`scripts/calibrate_match_threshold.py`, `scripts/tune_clustering.py`
+`scripts/calibrate_match_threshold.py`, `scripts/calibrate_hybrid_match.py`,
+`scripts/tune_clustering.py`
 **Reports:** `evaluation/*.json`
 
 WBS 5.3.6 asks the Stage 5b parameters be re-evaluated against real campaign
@@ -796,6 +800,81 @@ than necessary, at essentially no purity cost (99.6% → 99.2%). Now explicit at
 and only live phone ingestion does. Every one of the 221 clusters therefore
 reported `unique_senders: 1`, counting a single empty string. Now `null` when
 no sender data exists.
+
+#### The fix: a second, independent signal (`service/lexical.py`)
+
+0.999 works, but it is a threshold placed inside a 0.0008-wide window, and
+Sprint 4's retraining pipeline periodically fine-tunes the very model that
+window is a property of. If retraining shifts the embedding geometry, campaign
+matching degrades **silently** — no error, just fewer matches.
+
+So the decision no longer rests on that window alone. `service/lexical.py`
+compares the *words* of a message against the wording a campaign actually
+blasts (word unigrams + bigrams of the masked text, scored by Dice
+coefficient), plus the domains it links to. It needs no corpus fit, no second
+model, and no state — it is string work on the fast path.
+
+A message may now attach by any of three routes, checked in order of how much
+evidence each carries:
+
+| tier | rule | rationale |
+|---|---|---|
+| `domain` | shares a blasted domain **and** cosine ≥ 0.90 | a campaign's whole purpose is one destination, so link identity is near-conclusive; the floor stops a Ham message *quoting* a scam link from being filed as a member |
+| `hybrid` | cosine ≥ 0.99 **and** lexical ≥ 0.45 | a coarse "same neighbourhood" filter that wording then has to confirm |
+| `embedding` | cosine ≥ 0.999 | unchanged — exactly the calibrated rule above |
+
+Because the third tier *is* the pre-hybrid rule, the change is **monotone**:
+anything that matched before still matches. Nothing that was calibrated can
+regress. Wording is never sufficient on its own, so the manuscript's specified
+embedding comparison stays primary rather than decorative.
+
+**Calibration and its circularity problem.**
+`scripts/calibrate_hybrid_match.py` measures the three gates rather than
+guessing them. But the ground truth used for the 0.999 work groups messages by
+*lexical* near-duplication — and calibrating a wording gate on wording-defined
+groups is circular, guaranteed to flatter this signal for free. So the whole
+sweep runs under two independent groupings:
+
+| grouping | defined by | baseline (0.999) | with hybrid (0.99 / 0.45) |
+|---|---|---|---|
+| `lexical` | trigram near-duplication | 93.8% recall / 2.6% false | 100.0% / 3.2% |
+| `hdbscan` | embedding geometry only | 44.4% recall / 3.4% false | 49.6% / 4.0% |
+
+The `hdbscan` row is the one that counts: its groups know nothing about
+wording, so it cannot be rigged in the lexical gate's favour. It still shows
+**+5.2pp recall for +0.6pp false matches**, so the gain is real rather than an
+artifact of how ground truth was built.
+
+Gate choices, all measured:
+
+- **0.99 hybrid gate** — 0.95/0.97/0.98/0.99 produce *identical* recall once
+  the lexical gate applies, so the strictest costs nothing.
+- **0.45 lexical gate** — 0.30 buys +5.5pp recall for +1.4pp false matches;
+  0.45 buys +5.2pp for +0.6pp. 0.45 and 0.50 differ by 0.1pp on both axes, so
+  this is a plateau, not a sharp optimum — it will not shift under small data
+  changes.
+- **0.90 domain floor** — the tier holds 0.3% false matches across 0.80–0.95,
+  so the floor is a safety rail, not an accuracy knob.
+
+**Manuscript status:** the manuscript specifies the embedding comparison for
+Stage 5b, and that is unchanged and still primary. This adds a corroborating
+check on top. Flagged for adviser sign-off alongside the 0.85 → 0.999
+recalibration.
+
+#### ⚠️ Open: HDBSCAN's own clusters do not survive the fast path
+
+The two baseline rows above differ by ~50pp, and that gap is a finding in its
+own right. Under `hdbscan` grouping, only **44.4%** of a cluster's own held-out
+members re-match their own centroid at 0.999. The offline pass is producing
+clusters the fast path then cannot recognise.
+
+This is consistent with the diffuse "generic scam" region documented above: at
+`min_cluster_size = 5` on de-duplicated data, HDBSCAN groups messages that are
+near each other in a flat, anisotropic space without being one campaign. The
+fast path, correctly, declines to call them the same campaign later.
+
+It is a second, independent argument that the `min_cluster_size` question needs
+settling with the adviser rather than being left at the manuscript default.
 
 #### Open: centroid drift is uncalibrated
 
@@ -1318,7 +1397,8 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `service/explainer.py` | SHAP attribution → indicator tags (WBS 3.3.6) |
 | `service/tips.py` | Scam awareness card lookup (WBS 3.3.7) |
 | `service/embeddings.py` | Shared 768-dim [CLS] embedding extraction |
-| `service/campaign.py` | Cosine campaign matching, fast path (WBS 3.3.4) |
+| `service/campaign.py` | Cosine campaign matching, fast path (WBS 3.3.4); three-tier hybrid rule (WBS 5.3.6) |
+| `service/lexical.py` | Lexical campaign fingerprints — the corroborating second signal (WBS 5.3.6) |
 | `service/summarize.py` | TF-IDF extractive thread summarization, `POST /summarize` (WBS 4.3.9) |
 | `scripts/embed_dataset.py` | One-off embedding pass over the labeled dataset |
 | `scripts/cluster_campaigns.py` | Offline HDBSCAN re-clustering (WBS 3.3.5); archives snapshots for Stage 9b |

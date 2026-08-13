@@ -102,17 +102,86 @@ to add then, against a real requirement.
 
 ---
 
-## Stage 3 — Fine-tune (WBS 4.3.5 — not yet built)
+## Stage 3 — Fine-tune (WBS 4.3.5)
+
+**Code:** `retraining/snapshot.py`, `retraining/reports.py`,
+`retraining/pipeline.py` · **CLI:** `scripts/retrain.py` ·
+**Tests:** `tests/test_snapshot.py` (20), `tests/test_reports.py` (19),
+`tests/test_retraining_pipeline.py` (18)
 
 Reuses `training/train.py` unchanged: XLM-RoBERTa-base, AdamW, class-weighted
-loss, 80/20 stratified split, seed 42.
+loss, 80/20 stratified split, seed 42. Keeping one training implementation is
+what makes a retrained checkpoint comparable to the original.
 
-The new part is assembling the snapshot: existing labeled dataset **+**
-validated reports since the last retrain, sampled per Stage 2, written to a
-timestamped directory so every run's exact training input is recoverable.
+Every run writes a self-contained directory under `models/retraining_runs/`:
 
-Blocked on `UserReports` (WBS 4.3.1, Track A) — there is no source of
-validated reports until that table and its intake endpoint exist.
+```
+2026-08-11T10-57-10Z/
+    manifest.json     what went into the snapshot, and why
+    snapshot/
+        snapshot.csv  the exact training input
+    candidate/        the fine-tuned checkpoint
+    decision.json     promote-or-not, with the numbers behind it
+```
+
+### Snapshot assembly
+
+Existing labeled dataset **+** validated reports since the last retrain.
+Three decisions where the obvious implementation is wrong:
+
+**Reports are never sampled away.** The natural reading of "combine, then
+reservoir-sample" is to pool everything and draw uniformly — which would let a
+cap discard some of the 50 corrections that *triggered* the retrain. Reports
+are always included in full; the reservoir samples the **historical** side down
+to whatever budget remains. Stage 2's job is keeping the historical draw
+uniform, not rationing corrections.
+
+**Report labels win on collision.** A validated report contradicting a dataset
+row is a human correction of that row. Keeping both would train on two readings
+of the same text and learn nothing from the correction.
+
+**De-duplication compares masked text; the snapshot stores raw text.**
+`...libre 1q2w3e7.ca` and `...libre 1q2w3e8.ca` are one model input once
+masked — the same leakage `training/dataset.py` guards against on the split.
+But what gets *written* is the raw body, so the training path does its own
+preprocessing exactly as always. Masked text is a comparison key, never a
+stored artifact.
+
+`max_history` defaults to **None** — no cap. At ~16.8k rows there is no reason
+to sample, and sampling by default would silently discard training data.
+
+### The report source (⚠️ partial — WBS 4.3.1, Track A)
+
+The canonical source is the `UserReports` table, which **does not exist yet**.
+Rather than block the pipeline on it, the source is an interface:
+
+| Implementation | Status |
+|---|---|
+| `NullReportSource` | Default. Yields nothing; manifest records `null (no report store configured)` |
+| `FileReportSource` | CSV/JSONL from a directory — see `datasets/reports/README.md` |
+| `DatabaseReportSource` | **Not built.** Drops in behind the same two methods when 4.3.1 lands |
+
+Running without reports is a legitimate operation — it is what you do to
+reproduce a checkpoint. What would be wrong is *pretending* reports were
+consulted, which `describe()` prevents.
+
+### The `since` watermark
+
+A run consumes only reports validated after the previous run's timestamp,
+read from that run's manifest. **Dry runs are skipped** when computing it: a
+dry run trains nothing, so letting it advance the watermark would make the next
+real run silently skip every report the dry run merely looked at. `--since all`
+overrides the watermark entirely.
+
+### Validation caveat
+
+The candidate is scored on the held-out 20% of its own snapshot, which it has
+genuinely not trained on. The **baseline** may have seen some of those rows
+during its original training, since they come from the same labeled dataset.
+That biases the comparison conservatively — in the incumbent's favour — so a
+candidate that clears the gate cleared a bar that is, if anything, slightly too
+high. A permanently held-out test set would remove the caveat, and is the right
+fix if this ever becomes the deciding factor.
 
 ---
 
@@ -188,13 +257,25 @@ Two properties this depends on:
 
 ## Ownership boundary
 
-Everything in `retraining/` is **pure** — no database, no model loading, no
-HTTP. Callers supply numbers; these modules only decide.
+The **policy** modules are pure — no database, no model loading, no HTTP.
+Callers supply numbers; these modules only decide:
 
-That keeps the policy unit-testable and lets the NestJS hourly cron
-(WBS 4.3.3) own *scheduling* without duplicating the *policy*. The split
-matters because the trigger thresholds are an ML judgement that belongs with
+| Module | Purity |
+|---|---|
+| `triggers.py` · `sampling.py` · `promotion.py` | Pure. Decide only. |
+| `snapshot.py` | `build_snapshot` pure; `write_snapshot` / `read_labeled_dataset` touch the filesystem. |
+| `reports.py` · `pipeline.py` | Impure by nature — "where do reports come from" and "run a training job" are I/O questions. |
+
+Impurity is quarantined into its own modules rather than threaded through the
+policy, which is what keeps the policy trivially unit-testable. That in turn
+lets the NestJS hourly cron (WBS 4.3.3) own *scheduling* without duplicating
+the *policy* — the trigger thresholds are an ML judgement that belongs with
 the ML code, while "run this every hour" is infrastructure.
+
+Note that `pipeline.py` decides but never *acts* on promotion: it writes a
+verdict to `decision.json` and stops. Swapping a checkpoint as a side effect of
+a training run, with no `ModelVersions` row to roll back to, is the
+unrecoverable step this document exists to prevent.
 
 ---
 
@@ -209,5 +290,5 @@ the ML code, while "run this every hour" is infrastructure.
 | 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done |
 | 4.3.9 | TF-IDF summarization pipeline | ✅ Done (`service/summarize.py` + `POST /summarize`) |
 | 4.4.2 | Unit test: trigger evaluation logic | ✅ Done |
-| 4.3.5 | Automated retraining pipeline | ⛔ Blocked on WBS 4.3.1 (Track A) |
+| 4.3.5 | Automated retraining pipeline | 🟡 Built and dry-run verified; report source pending WBS 4.3.1 (Track A) |
 | 4.3.8 | Campaign evolution tracking | ✅ Done (`campaign_evolution.py`, see `PIPELINE.md` Stage 9b — not a retraining component, listed here for status continuity) |

@@ -69,6 +69,13 @@ ai/datasets/labeled/*.csv
 !ai/datasets/labeled/sample.csv
 ai/datasets/audit/
 
+# Admin-validated user report exports feeding retraining (Sprint 4, WBS 4.3.5).
+# These are real reported SMS bodies -- same reason as the labeled data. The
+# README documenting the export format stays tracked.
+ai/datasets/reports/*.csv
+ai/datasets/reports/*.json
+ai/datasets/reports/*.jsonl
+
 # Colab upload package embeds a full copy of the labeled dataset (real personal
 # SMS) inside the zip -- same reason it must never be pushed. Notebook + README
 # stay tracked.

@@ -583,9 +583,10 @@ Dictionary contents are final for Sprint 3 as of this pass.
 
 ## Stage 9 — Campaign clustering — Sprint 3, WBS 3.3.4 / 3.3.5
 
-**Code:** `service/embeddings.py`, `service/campaign.py` (fast path),
-`scripts/embed_dataset.py`, `scripts/cluster_campaigns.py` (slow path)
-**Tests:** `tests/test_campaign.py` (21), `tests/test_clustering.py` (15)
+**Code:** `service/embeddings.py`, `service/campaign.py` + `service/lexical.py`
+(fast path), `scripts/embed_dataset.py`, `scripts/cluster_campaigns.py` (slow path)
+**Tests:** `tests/test_campaign.py` (21), `tests/test_campaign_hybrid.py` (14),
+`tests/test_lexical.py` (15), `tests/test_clustering.py` (15)
 **Data flow spec:** [`../docs/api/campaigns.md`](../docs/api/campaigns.md) (WBS 3.2.1)
 
 Implements the manuscript's Stage 5b. Classification and clustering are two
@@ -601,11 +602,17 @@ different semantic spaces.
 | | Fast path (per message) | Slow path (offline batch) |
 |---|---|---|
 | Decides | join a *known* campaign | discover a *new* campaign |
-| Method | cosine vs. active centroids | HDBSCAN over the buffer |
-| Parameter | similarity ≥ **0.85** | `min_cluster_size` = **5** |
+| Method | cosine vs. active centroids, corroborated by wording | HDBSCAN over the buffer |
+| Parameter | similarity ≥ **0.999** ⚠️, or a corroborated relaxed bar | `min_cluster_size` = **5** |
 | Cost | microseconds | seconds–minutes |
 
-Both parameters are the manuscript's. HDBSCAN comes from
+⚠️ The manuscript specifies **0.85** here. That value was measured to attach
+54.5% of *unrelated* messages and has been re-calibrated to 0.999 under WBS
+5.3.6 ("re-evaluate thresholds against real campaign data"). Because 0.999
+leaves only ~0.0008 of usable margin, the same WBS item added an independent
+**lexical** second signal that can corroborate a relaxed embedding score — see
+[Stage 5b — measured limits](#stage-5b--measured-limits--sprint-5-wbs-536)
+below for both. `min_cluster_size` is unchanged. HDBSCAN comes from
 `sklearn.cluster.HDBSCAN` (scikit-learn ≥ 1.3) rather than the standalone
 `hdbscan` package — same algorithm, one less dependency, and sklearn was
 already required for the train/val split. Clustering uses euclidean distance on
@@ -642,18 +649,37 @@ excluded because personal conversation is not a campaign).
 | Spam-dominant clusters | 142 (2,238 messages) |
 | Mixed-label clusters | **5 of 221** |
 
-**The manuscript's parameters hold up on real Philippine SMS.** Both failure
+> **⚠️ Superseded 2026-08-12 — see "Stage 5b — measured limits (WBS 5.3.6)"
+> below.** The two claims originally made here — that the manuscript's
+> parameters were *validated*, and that the low mixed-label count was the
+> *strongest validation* — do not survive direct measurement. They are kept
+> verbatim below, struck through, because the reasoning error is instructive
+> and the corrected analysis is a Sprint 5 deliverable.
+
+~~**The manuscript's parameters hold up on real Philippine SMS.** Both failure
 modes were checked for and neither occurred: no giant blob (the largest cluster
 is 2.8% of the population, not 50%+) and no fragmentation (221 clusters for
 7,457 messages, median size 8). `0.85` and `min_cluster_size = 5` can be cited
-as validated rather than merely proposed.
+as validated rather than merely proposed.~~
 
-**The strongest validation is the mixed-label count.** Clustering never sees
+~~**The strongest validation is the mixed-label count.** Clustering never sees
 the Ham/Spam/Scam labels — it groups purely on embedding geometry. Yet only
 **5 of 221 clusters** mix Spam and Scam messages. The embedding space separates
 honest marketing from fraud on its own, which independently corroborates that
 the classifier is learning a real semantic distinction rather than surface
-keywords.
+keywords.~~
+
+**Why the mixed-label argument is circular.** It reasons that because
+clustering never sees the labels yet produces label-pure clusters, the
+embedding must be capturing real structure. But the embedding *is* a
+classifier's final layer — separating Ham/Spam/Scam is the one thing it is
+trained to do. Label-pure clusters are therefore guaranteed by construction,
+and confirm only that the classifier works. They say nothing about whether the
+clusters are *campaigns*, which is what Stage 5b claims to produce.
+
+**Neither failure-mode check was sensitive enough.** "No giant blob" used a
+50%-of-population bar, which a later run at 27.4% passed clean. That bar has
+been tightened to 15% (`scripts/cluster_campaigns.py`).
 
 Discovered Scam campaign families are recognizable and coherent — Tagalog
 gambling-registration blasts (`lucky6.auction`, `play6.tw`, `maswerte.city`),
@@ -670,6 +696,194 @@ Regenerate with `scripts/cluster_campaigns.py` (seconds, over cached
 embeddings). Cluster detail and centroids land in
 `datasets/processed/campaign_clusters.json` (git-ignored — it embeds sample
 message text).
+
+### Stage 5b — measured limits — Sprint 5, WBS 5.3.6
+
+**Scripts:** `scripts/compare_campaign_embeddings.py`,
+`scripts/calibrate_match_threshold.py`, `scripts/calibrate_hybrid_match.py`,
+`scripts/tune_clustering.py`
+**Reports:** `evaluation/*.json`
+
+WBS 5.3.6 asks the Stage 5b parameters be re-evaluated against real campaign
+data. They do not hold, and the reason is structural.
+
+#### The 0.85 threshold sits inside the distribution of unrelated messages
+
+Stage 5b reuses the classifier's final-layer `[CLS]` vector, per the
+manuscript's "one embedding, two branches". A classifier is trained to collapse
+each class toward a single prototype, so *within* a class the vectors are
+nearly parallel:
+
+| Random pairs | Mean cosine | Above 0.85 |
+|---|---|---|
+| Same class (unrelated messages) | 0.841 | **76.3%** |
+| Scam–Scam specifically | 0.903 | **88.0%** |
+| Cross class | −0.236 | 0.9% |
+
+Measured under the real operating condition — held-out campaign members vs.
+random strangers, both scored against that campaign's centroid:
+
+| Threshold | Members attached | Strangers attached |
+|---|---|---|
+| **0.85** (manuscript) | 100.0% | **54.5%** |
+| 0.99 | 100.0% | 30.5% |
+| **0.999** (adopted) | **93.8%** | **2.6%** |
+| 0.9995 | 87.9% | 0.5% |
+
+At the manuscript's value the fast path attached a **majority of unrelated
+messages** to existing campaigns. `DEFAULT_SIMILARITY_THRESHOLD` is now
+`0.999`; the mechanism is unchanged, only the constant.
+
+#### No layer of this model does better
+
+Middle layers were tested on the theory that collapse is a final-layer effect.
+It is not — earlier layers are *worse* (unrelated pairs reach 0.961 at layer 4).
+This is representation anisotropy, a general property of transformer encoders,
+not a defect in this training run.
+
+| Representation | Same campaign | Unrelated | Gap |
+|---|---|---|---|
+| mean-pool L4 | 0.999 | 0.961 | 0.038 |
+| mean-pool L8 | 0.998 | 0.881 | 0.117 |
+| **`[CLS]` L12 (current)** | 0.999 | 0.840 | **0.160** |
+| TF-IDF word 1-2 | 0.823 | 0.035 | **0.788** |
+
+The current representation is the **best** of the model-based options. A
+lexical representation separates campaigns roughly five times more widely — but
+adopting one would contradict the manuscript's shared-embedding design, so it
+is recorded here as the strongest available evidence for **future work**, not
+applied. (Caveat: the ground-truth campaign pairs are defined lexically, which
+favours TF-IDF. That bias does not touch the unrelated-pair measurements above,
+which is where the manuscript's threshold fails.)
+
+#### De-duplication, and the blob it exposes
+
+The clustering population was never de-duplicated, though training always was.
+748 of 7,457 Spam/Scam rows (10.0%) are masked-text duplicates, and **191 of
+the 326 duplicate groups span more than one source corpus** — the same message
+present in several Kaggle sets, counted once per corpus. The largest is 34
+copies drawn from three of them. Those manufacture campaigns: 34 identical rows
+clear `min_cluster_size = 5` unaided.
+
+De-duplicating is correct, but interacts with `min_cluster_size`:
+
+| Population | mcs | Clusters | Noise | Largest |
+|---|---|---|---|---|
+| raw | 5 (sklearn default `min_samples`) | 221 | 59.9% | 2.8% |
+| raw | 5, `min_samples=2` | 348 | 50.3% | 1.8% |
+| deduped | 5, `min_samples=2` | 238 | 33.2% | **27.4%** ⚠️ |
+| deduped | 3, `min_samples=2` | 589 | 44.8% | 1.8% |
+
+Duplicates act as dense anchors. Removing them flattens the density landscape,
+and at `min_cluster_size = 5` the diffuse "generic scam" region connects into a
+single 1,841-message mass — not a campaign. At 3 it separates again.
+
+**`min_cluster_size` remains 5 (the manuscript's value); de-duplication is
+on by default.** That pairing is the one combination above that produces a
+blob, so it is deliberately left visible rather than papered over: the
+tightened 15% sanity check now fires on it, and choosing between the two
+non-blob configurations is a manuscript-parameter decision, not one to make
+silently in a script default. Use `--min-cluster-size 3` or `--no-dedup` to
+select either.
+
+#### `min_samples` was never specified, and the default was doing harm
+
+sklearn defaults `min_samples` to `min_cluster_size` — HDBSCAN's most
+conservative setting. The manuscript specifies only `min_cluster_size`, so the
+coupling was inherited by accident and discarded ~10pp more messages as noise
+than necessary, at essentially no purity cost (99.6% → 99.2%). Now explicit at
+`2`.
+
+#### `unique_senders` was reporting a fabricated number
+
+100% of the Spam/Scam population has an empty sender — corpus rows carry none,
+and only live phone ingestion does. Every one of the 221 clusters therefore
+reported `unique_senders: 1`, counting a single empty string. Now `null` when
+no sender data exists.
+
+#### The fix: a second, independent signal (`service/lexical.py`)
+
+0.999 works, but it is a threshold placed inside a 0.0008-wide window, and
+Sprint 4's retraining pipeline periodically fine-tunes the very model that
+window is a property of. If retraining shifts the embedding geometry, campaign
+matching degrades **silently** — no error, just fewer matches.
+
+So the decision no longer rests on that window alone. `service/lexical.py`
+compares the *words* of a message against the wording a campaign actually
+blasts (word unigrams + bigrams of the masked text, scored by Dice
+coefficient), plus the domains it links to. It needs no corpus fit, no second
+model, and no state — it is string work on the fast path.
+
+A message may now attach by any of three routes, checked in order of how much
+evidence each carries:
+
+| tier | rule | rationale |
+|---|---|---|
+| `domain` | shares a blasted domain **and** cosine ≥ 0.90 | a campaign's whole purpose is one destination, so link identity is near-conclusive; the floor stops a Ham message *quoting* a scam link from being filed as a member |
+| `hybrid` | cosine ≥ 0.99 **and** lexical ≥ 0.45 | a coarse "same neighbourhood" filter that wording then has to confirm |
+| `embedding` | cosine ≥ 0.999 | unchanged — exactly the calibrated rule above |
+
+Because the third tier *is* the pre-hybrid rule, the change is **monotone**:
+anything that matched before still matches. Nothing that was calibrated can
+regress. Wording is never sufficient on its own, so the manuscript's specified
+embedding comparison stays primary rather than decorative.
+
+**Calibration and its circularity problem.**
+`scripts/calibrate_hybrid_match.py` measures the three gates rather than
+guessing them. But the ground truth used for the 0.999 work groups messages by
+*lexical* near-duplication — and calibrating a wording gate on wording-defined
+groups is circular, guaranteed to flatter this signal for free. So the whole
+sweep runs under two independent groupings:
+
+| grouping | defined by | baseline (0.999) | with hybrid (0.99 / 0.45) |
+|---|---|---|---|
+| `lexical` | trigram near-duplication | 93.8% recall / 2.6% false | 100.0% / 3.2% |
+| `hdbscan` | embedding geometry only | 44.4% recall / 3.4% false | 49.6% / 4.0% |
+
+The `hdbscan` row is the one that counts: its groups know nothing about
+wording, so it cannot be rigged in the lexical gate's favour. It still shows
+**+5.2pp recall for +0.6pp false matches**, so the gain is real rather than an
+artifact of how ground truth was built.
+
+Gate choices, all measured:
+
+- **0.99 hybrid gate** — 0.95/0.97/0.98/0.99 produce *identical* recall once
+  the lexical gate applies, so the strictest costs nothing.
+- **0.45 lexical gate** — 0.30 buys +5.5pp recall for +1.4pp false matches;
+  0.45 buys +5.2pp for +0.6pp. 0.45 and 0.50 differ by 0.1pp on both axes, so
+  this is a plateau, not a sharp optimum — it will not shift under small data
+  changes.
+- **0.90 domain floor** — the tier holds 0.3% false matches across 0.80–0.95,
+  so the floor is a safety rail, not an accuracy knob.
+
+**Manuscript status:** the manuscript specifies the embedding comparison for
+Stage 5b, and that is unchanged and still primary. This adds a corroborating
+check on top. Flagged for adviser sign-off alongside the 0.85 → 0.999
+recalibration.
+
+#### ⚠️ Open: HDBSCAN's own clusters do not survive the fast path
+
+The two baseline rows above differ by ~50pp, and that gap is a finding in its
+own right. Under `hdbscan` grouping, only **44.4%** of a cluster's own held-out
+members re-match their own centroid at 0.999. The offline pass is producing
+clusters the fast path then cannot recognise.
+
+This is consistent with the diffuse "generic scam" region documented above: at
+`min_cluster_size = 5` on de-duplicated data, HDBSCAN groups messages that are
+near each other in a flat, anisotropic space without being one campaign. The
+fast path, correctly, declines to call them the same campaign later.
+
+It is a second, independent argument that the `min_cluster_size` question needs
+settling with the adviser rather than being left at the manuscript default.
+
+#### Open: centroid drift is uncalibrated
+
+`campaign_evolution.py` deliberately shares this threshold, so that "same
+campaign" means one thing everywhere. Raising it to 0.999 tightens continuity
+matching between snapshots too — and **that use was not calibrated**, because
+no archived snapshots existed to measure real centroid drift against. If
+campaigns begin reporting as *dissolved + new* rather than *continuing*, this
+is the first thing to check; the fix is a separate constant there.
 
 ---
 
@@ -1183,7 +1397,8 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `service/explainer.py` | SHAP attribution → indicator tags (WBS 3.3.6) |
 | `service/tips.py` | Scam awareness card lookup (WBS 3.3.7) |
 | `service/embeddings.py` | Shared 768-dim [CLS] embedding extraction |
-| `service/campaign.py` | Cosine campaign matching, fast path (WBS 3.3.4) |
+| `service/campaign.py` | Cosine campaign matching, fast path (WBS 3.3.4); three-tier hybrid rule (WBS 5.3.6) |
+| `service/lexical.py` | Lexical campaign fingerprints — the corroborating second signal (WBS 5.3.6) |
 | `service/summarize.py` | TF-IDF extractive thread summarization, `POST /summarize` (WBS 4.3.9) |
 | `scripts/embed_dataset.py` | One-off embedding pass over the labeled dataset |
 | `scripts/cluster_campaigns.py` | Offline HDBSCAN re-clustering (WBS 3.3.5); archives snapshots for Stage 9b |

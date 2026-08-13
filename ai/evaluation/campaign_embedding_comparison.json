@@ -1,0 +1,79 @@
+{
+  "n_messages": 2500,
+  "n_positive_pairs": 3409,
+  "n_negative_pairs": 20000,
+  "positive_jaccard": 0.75,
+  "target_recall": 0.9,
+  "results": [
+    {
+      "name": "classifier [CLS] L12 (CURRENT)",
+      "threshold_at_90pct_recall": 0.9996,
+      "false_match_rate": 0.0014,
+      "positive_mean": 0.9994,
+      "negative_mean": 0.8396,
+      "separation": 0.1599,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    },
+    {
+      "name": "tfidf char_wb 3-5",
+      "threshold_at_90pct_recall": 0.6979,
+      "false_match_rate": 0.0001,
+      "positive_mean": 0.8065,
+      "negative_mean": 0.0705,
+      "separation": 0.736,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    },
+    {
+      "name": "tfidf word 1-2",
+      "threshold_at_90pct_recall": 0.7185,
+      "false_match_rate": 0.0,
+      "positive_mean": 0.8227,
+      "negative_mean": 0.0345,
+      "separation": 0.7882,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    },
+    {
+      "name": "xlm-r mean-pool L4",
+      "threshold_at_90pct_recall": 0.9975,
+      "false_match_rate": 0.0,
+      "positive_mean": 0.999,
+      "negative_mean": 0.9611,
+      "separation": 0.0379,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    },
+    {
+      "name": "xlm-r mean-pool L6",
+      "threshold_at_90pct_recall": 0.9972,
+      "false_match_rate": 0.0,
+      "positive_mean": 0.9989,
+      "negative_mean": 0.9332,
+      "separation": 0.0657,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    },
+    {
+      "name": "xlm-r mean-pool L8",
+      "threshold_at_90pct_recall": 0.9964,
+      "false_match_rate": 0.0,
+      "positive_mean": 0.9984,
+      "negative_mean": 0.8809,
+      "separation": 0.1175,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    },
+    {
+      "name": "xlm-r mean-pool L12",
+      "threshold_at_90pct_recall": 0.9994,
+      "false_match_rate": 0.0004,
+      "positive_mean": 0.9993,
+      "negative_mean": 0.8581,
+      "separation": 0.1412,
+      "n_positives": 3409,
+      "n_negatives": 20000
+    }
+  ]
+}

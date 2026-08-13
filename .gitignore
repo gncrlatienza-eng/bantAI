@@ -105,3 +105,8 @@ desktop.ini
 *.tmp
 *.swp
 *.swo
+
+# --- Manuscript ----------------------------------------------------------------
+# 15 MB binary; git stores each version whole. Shared outside the
+  repo.
+docs/manuscript/

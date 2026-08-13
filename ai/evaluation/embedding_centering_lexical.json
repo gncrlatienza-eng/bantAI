@@ -1,7 +1,7 @@
 {
   "n_messages": 4000,
   "n_groups": 86,
-  "grouping": "lexical (independent of all variants compared)",
+  "grouping": "lexical (independent of every variant, but sympathetic to abtt-k)",
   "variants": {
     "raw": {
       "member_mean": 0.9998,

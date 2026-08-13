@@ -21,15 +21,29 @@ distinguishes messages remains. Two variants are measured:
 applied to the cached embedding *after* the forward pass, on the copy used for
 campaign comparison only.
 
-## Why the ground truth is lexical here, deliberately
+## Why the ground truth is run under both groupings
 
 ``calibrate_hybrid_match.py`` argues that lexical grouping is the *wrong*
-referee for a lexical signal, because it is circular. The reverse holds here:
-this script compares two *embedding* representations, and a lexical grouping is
-independent of both, so it cannot favour either. Grouping by the raw embedding
-(the hdbscan option there) would rig the result toward leaving things alone,
-since those groups are by construction the ones the raw embedding already
-agrees with.
+referee for a lexical signal, because it is circular. The reverse partly holds
+here: this script compares two *embedding* representations, and a lexical
+grouping is independent of both, so neither gets to see it.
+
+That argument is sound but incomplete. ``abtt-k`` works by deleting the
+dominant shared directions, and what survives leans further toward *surface
+wording* -- which is exactly what a lexical grouping rewards. Not circular, but
+**sympathetic**: the transform may score well partly because it drifts toward
+what this particular referee happens to grade on.
+
+The opposite grouping is available and biased the other way. HDBSCAN groups are
+defined *by the raw embedding*, so they are by construction the groups raw
+already agrees with -- a referee that favours leaving things alone. Neither
+grouping is neutral, so run both and read the pair as a **bracket**:
+
+* ``--groups lexical``  -- friendly to centering (optimistic bound).
+* ``--groups hdbscan``  -- hostile to centering (pessimistic bound).
+
+A variant that wins under *both* has won on something real. A variant that wins
+only under ``lexical`` has not been shown to beat raw at all.
 
 ## Comparing fairly across representations
 
@@ -42,7 +56,8 @@ distance between that threshold and the 10th-percentile member -- the width of
 the window a threshold has to be placed inside, which is the quantity that made
 0.999 fragile in the first place.
 
-Run:  cd ai && python scripts/compare_embedding_centering.py
+Run:  cd ai && python scripts/compare_embedding_centering.py --groups lexical
+      cd ai && python scripts/compare_embedding_centering.py --groups hdbscan
 """
 
 from __future__ import annotations
@@ -60,7 +75,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 AI = os.path.normpath(os.path.join(HERE, ".."))
 EMBEDDINGS = os.path.join(AI, "datasets", "processed", "embeddings.npz")
-REPORT_PATH = os.path.join(AI, "evaluation", "embedding_centering.json")
+REPORT_TEMPLATE = os.path.join(AI, "evaluation", "embedding_centering_{groups}.json")
 
 #: Operating points to compare at, as share of strangers admitted. 0.026 is
 #: today's measured false-match rate at the 0.999 threshold.
@@ -130,10 +145,18 @@ def evaluate(vectors: np.ndarray, groups: List[List[int]], seed: int = 0) -> dic
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample", type=int, default=4000)
+    parser.add_argument(
+        "--groups",
+        choices=["lexical", "hdbscan"],
+        default="lexical",
+        help="Which referee decides 'same campaign'. Neither is neutral -- see "
+             "the module docstring -- so run both and read them as a bracket.",
+    )
+    parser.add_argument("--min-cluster-size", type=int, default=5)
     args = parser.parse_args(argv)
 
     from preprocessing import preprocess
-    from scripts.calibrate_match_threshold import find_campaign_groups
+    from scripts.calibrate_match_threshold import MIN_GROUP, find_campaign_groups
     from scripts.cluster_campaigns import dedupe_by_masked_text
 
     data = np.load(EMBEDDINGS, allow_pickle=True)
@@ -149,12 +172,28 @@ def main(argv=None) -> int:
         texts, vectors = texts[pick], vectors[pick]
 
     vectors = np.asarray(vectors, dtype="float32")
-    groups = find_campaign_groups([preprocess(str(t)) for t in texts])
+
+    if args.groups == "lexical":
+        groups = find_campaign_groups([preprocess(str(t)) for t in texts])
+        referee = "lexical (independent of every variant, but sympathetic to abtt-k)"
+    else:
+        from scripts.cluster_campaigns import cluster_embeddings
+
+        # Clusters are built from the *raw* normalized embedding, deliberately:
+        # that makes this referee the one biased toward leaving things alone.
+        # The grouping is fixed across variants, so the comparison stays fair.
+        ids = cluster_embeddings(normalize(vectors.copy()), args.min_cluster_size, None)
+        buckets: dict = {}
+        for i, cid in enumerate(ids):
+            if int(cid) != -1:
+                buckets.setdefault(int(cid), []).append(i)
+        groups = [g for g in buckets.values() if len(g) >= MIN_GROUP]
+        referee = "hdbscan on the raw embedding (biased in raw's favour)"
 
     print("=" * 78)
     print("Embedding re-centering — does it widen the campaign margin? (WBS 5.3.6)")
     print(f"Messages: {len(texts)}   approximate campaigns: {len(groups)}")
-    print("Ground truth is lexical, which is independent of every variant below.")
+    print(f"Referee: {referee}")
     print("=" * 78)
 
     variants = ["raw", "centered", "abtt-1", "abtt-2", "abtt-3", "abtt-5"]
@@ -178,19 +217,20 @@ def main(argv=None) -> int:
             print(f"{variant:>10} {100*op['recall']:>8.1f}% "
                   f"{op['threshold']:>12.5f} {op['usable_margin']:>15.6f}")
 
-    os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
-    with open(REPORT_PATH, "w", encoding="utf-8") as handle:
+    report_path = REPORT_TEMPLATE.format(groups=args.groups)
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    with open(report_path, "w", encoding="utf-8") as handle:
         json.dump(
             {
                 "n_messages": int(len(texts)),
                 "n_groups": len(groups),
-                "grouping": "lexical (independent of all variants compared)",
+                "grouping": referee,
                 "variants": results,
             },
             handle,
             indent=2,
         )
-    print(f"\nWrote {os.path.relpath(REPORT_PATH, AI)}")
+    print(f"\nWrote {os.path.relpath(report_path, AI)}")
     return 0
 
 

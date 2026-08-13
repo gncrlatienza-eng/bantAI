@@ -701,7 +701,7 @@ message text).
 
 **Scripts:** `scripts/compare_campaign_embeddings.py`,
 `scripts/calibrate_match_threshold.py`, `scripts/calibrate_hybrid_match.py`,
-`scripts/tune_clustering.py`
+`scripts/compare_embedding_centering.py`, `scripts/tune_clustering.py`
 **Reports:** `evaluation/*.json`
 
 WBS 5.3.6 asks the Stage 5b parameters be re-evaluated against real campaign
@@ -755,6 +755,80 @@ is recorded here as the strongest available evidence for **future work**, not
 applied. (Caveat: the ground-truth campaign pairs are defined lexically, which
 favours TF-IDF. That bias does not touch the unrelated-pair measurements above,
 which is where the manuscript's threshold fails.)
+
+#### Re-centering the embedding — measured, not adopted
+
+**Script:** `scripts/compare_embedding_centering.py`
+**Reports:** `evaluation/embedding_centering_lexical.json`,
+`evaluation/embedding_centering_hdbscan.json`
+
+No *layer* does better, but the problem may not be the layer. Cosine similarity
+measures the angle between two vectors **as seen from the origin**, and the
+origin is nowhere near this data: the classifier pushes every Scam message far
+along one shared "this is a scam" direction, so from the origin they all point
+essentially the same way. 0.999 is a threshold placed by squinting harder from
+a bad vantage point.
+
+Re-centering moves the vantage point into the middle of the cloud. Two variants,
+both applied to the cached embedding *after* the forward pass, on the copy used
+for campaign comparison only — **neither touches the model or classification**:
+
+* `centered` — subtract the population mean, re-normalize.
+* `abtt-k` — subtract the mean, then also project out the top *k* principal
+  directions ("all-but-the-top"), which carry scaminess, register, and length
+  rather than campaign identity.
+
+**Both referees are biased, so both were run.** A lexical grouping is
+independent of every variant compared, but `abtt-k` works by deleting dominant
+shared directions and what survives leans toward surface wording — exactly what
+a lexical referee grades on. Not circular, but *sympathetic*. HDBSCAN grouping
+is biased the opposite way: those groups are by construction the ones the raw
+embedding already agrees with. Recall at a matched 2.6% false-match rate:
+
+| Variant | Referee: lexical *(friendly)* | Referee: hdbscan *(hostile)* |
+|---|---|---|
+| **raw (current)** | 93.8% | 44.4% |
+| **centered** | 94.4% *(+0.6)* | **64.6%** *(+20.2)* |
+| abtt-1 | 91.1% *(−2.7)* | 46.9% *(+2.5)* |
+| abtt-2 | 93.2% *(−0.6)* | 44.8% *(+0.4)* |
+| abtt-3 | 98.4% *(+4.6)* | 51.7% *(+7.3)* |
+| **abtt-5** | **99.8%** *(+6.0)* | 61.9% *(+17.5)* |
+
+**The suspected bias was real and large.** `abtt-5` reads as a near-perfect
+99.8% under the friendly referee and 61.9% under the hostile one. Any writeup
+quoting only the lexical column overstates it badly.
+
+**The finding survives anyway.** `centered` and `abtt-5` both beat raw under
+*both* referees, which is the bracket's pass condition — the gain is real even
+if its size is not settled. Note the ranking inverts: `abtt-5` wins the friendly
+referee, `centered` wins the hostile one, which is the sympathy effect visible
+directly.
+
+**`centered` is the better candidate**, despite the smaller headline. It wins
+the referee that cannot be rigged in its favour, by the widest margin of any
+variant (+20.2pp); it has no *k* to tune; and it requires storing only a mean
+vector rather than *k* principal directions.
+
+**One caveat on `usable_margin`:** it is defined as the 10th-percentile member
+score minus the threshold, which is only meaningful once recall clears 90%.
+Under the hdbscan referee no variant does (all sit at 44–65%), so every margin
+there is negative and **uninformative** — read the recall column only. The
+margin argument for re-centering (`raw` 0.00037 → `abtt-5` 0.428, a
+thousandfold-wider window for the threshold to sit in) rests on the **lexical
+referee alone** and inherits its bias. It is suggestive, not established.
+
+The low absolute recall under the hdbscan referee — 44.4% for raw — is not new
+here; it is the same finding recorded below, that the offline pass produces
+clusters the fast path cannot recognise. It reproduces exactly.
+
+**Why this is not adopted.** Not a decision against it; the work was measured
+after the sprint's fix had shipped, and adopting it is a materially larger
+change: the mean (and any principal directions) is a **fitted artifact** that
+must be computed, stored, shipped with the service, and **re-fitted on every
+Sprint 4 retrain**, with every threshold re-calibrated afterward. It also
+deviates from the manuscript's stated 0.85 *further* than 0.999 does, not less.
+Recorded here so the option is visible rather than buried in a JSON file —
+**pending adviser sign-off alongside the three items already flagged.**
 
 #### De-duplication, and the blob it exposes
 

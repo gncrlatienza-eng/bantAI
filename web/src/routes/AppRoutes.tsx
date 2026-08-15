@@ -31,6 +31,7 @@ import {
 
 import { AboutPage } from '../pages/About/index';
 import { AdminLoginPage } from '../pages/AdminLogin';
+import { ForgotPasswordPage } from '../pages/ForgotPassword';
 import { HowItWorksPage } from '../pages/HowItWorks/index';
 import { LandingPage, RequestAccessPage } from '../pages/public';
 import { LoginPage } from '../pages/Login';
@@ -52,6 +53,7 @@ export function AppRoutes() {
       {/* Auth Pages */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/admin-login" element={<AdminLoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/2fa" element={<TwoFactorPage />} />
 
       {/* Account Pages */}

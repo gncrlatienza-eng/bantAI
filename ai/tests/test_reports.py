@@ -16,9 +16,7 @@ from retraining.reports import (
 
 def write_csv(directory, name, rows, header="text,label"):
     path = directory / name
-    path.write_text(
-        header + "\n" + "\n".join(rows) + "\n", encoding="utf-8"
-    )
+    path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
     return path
 
 
@@ -59,8 +57,7 @@ def test_reads_csv_reports(tmp_path):
 def test_reads_jsonl_reports(tmp_path):
     path = tmp_path / "batch.jsonl"
     path.write_text(
-        json.dumps({"text": "you won", "label": "Scam", "report_id": "r1"})
-        + "\n",
+        json.dumps({"text": "you won", "label": "Scam", "report_id": "r1"}) + "\n",
         encoding="utf-8",
     )
     (report,) = list(FileReportSource(str(tmp_path)).fetch())
@@ -185,7 +182,7 @@ def test_trailing_z_timestamps_parse(tmp_path):
 
 # --- null source ------------------------------------------------------------
 def test_null_source_yields_nothing_and_says_so():
-    """"0 reports" from a null source and from a live empty store are
+    """ "0 reports" from a null source and from a live empty store are
     different facts when investigating a regression months later."""
     source = NullReportSource()
     assert list(source.fetch()) == []

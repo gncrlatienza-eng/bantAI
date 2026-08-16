@@ -1,0 +1,7 @@
+# Generated code should never be hand-formatted or committed at all (see
+# DEV_LOG 2026-08-16 -- a stale copy of this was accidentally committed and
+# broke CI). Kept here too as a backstop in case it reappears before anyone
+# notices it needs removing again.
+database/prisma/generated/
+dist/
+coverage/

@@ -25,17 +25,24 @@ import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 FIELDS = [
-    "id", "verdict", "correct_label", "notes",
-    "text", "rule_label", "confidence", "reason", "language",
-    "source", "source_label", "sender",
+    "id",
+    "verdict",
+    "correct_label",
+    "notes",
+    "text",
+    "rule_label",
+    "confidence",
+    "reason",
+    "language",
+    "source",
+    "source_label",
+    "sender",
 ]
 
 
@@ -53,8 +60,7 @@ def load_reviewed_texts() -> set[str]:
 def main() -> None:
     already_reviewed = load_reviewed_texts()
 
-    with open(os.path.join(AUDIT, "needs_review.csv"),
-              encoding="utf-8", newline="") as f:
+    with open(os.path.join(AUDIT, "needs_review.csv"), encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
     seen: set[str] = set()
@@ -72,18 +78,28 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         for i, r in enumerate(picked, 1):
-            w.writerow({
-                "id": f"bl-{i:04d}", "verdict": "", "correct_label": "",
-                "notes": "", "text": r["text"], "rule_label": r["label"],
-                "confidence": r["confidence"], "reason": r.get("reason", ""),
-                "language": r.get("language", ""), "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "sender": r.get("sender", ""),
-            })
+            w.writerow(
+                {
+                    "id": f"bl-{i:04d}",
+                    "verdict": "",
+                    "correct_label": "",
+                    "notes": "",
+                    "text": r["text"],
+                    "rule_label": r["label"],
+                    "confidence": r["confidence"],
+                    "reason": r.get("reason", ""),
+                    "language": r.get("language", ""),
+                    "source": r.get("source", ""),
+                    "source_label": r.get("source_label", ""),
+                    "sender": r.get("sender", ""),
+                }
+            )
 
     print("=" * 68)
-    print(f"Backlog review sheet (round 7): {len(picked)} rows (raw-inbox, "
-          f"low-conf, never reviewed) -> {os.path.relpath(out, DATASETS)}")
+    print(
+        f"Backlog review sheet (round 7): {len(picked)} rows (raw-inbox, "
+        f"low-conf, never reviewed) -> {os.path.relpath(out, DATASETS)}"
+    )
     print("-" * 68)
     print(f"  labels: {Counter(r['label'] for r in picked)}")
     print("-" * 68)

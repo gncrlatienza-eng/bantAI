@@ -69,9 +69,7 @@ def test_unreadable_source_degrades_instead_of_raising(tmp_path):
 
 
 def test_backend_source_falls_back_when_unreachable():
-    assert load_centroids(
-        source="backend", backend_url="http://127.0.0.1:9/api"
-    ) == []
+    assert load_centroids(source="backend", backend_url="http://127.0.0.1:9/api") == []
 
 
 class _FakeResponse:
@@ -99,9 +97,7 @@ def test_backend_parses_cluster_payload(monkeypatch):
         {"id": "abc", "centroid": [1.0, 0.0], "urlDomains": ["bit.ly"], "label": "gambling"},
         {"id": "def", "centroid": [0.0, 1.0], "urlDomains": []},
     ]
-    monkeypatch.setattr(
-        urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload)
-    )
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload))
 
     result = load_centroids(source="backend", backend_url="http://x/api")
     assert [c.cluster_id for c in result] == ["abc", "def"]
@@ -118,9 +114,7 @@ def test_backend_skips_clusters_missing_a_centroid(monkeypatch):
         {"id": "abc", "urlDomains": [], "messageCount": 12},  # no centroid
         {"id": "def", "centroid": [0.0, 1.0], "urlDomains": []},
     ]
-    monkeypatch.setattr(
-        urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload)
-    )
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload))
 
     result = load_centroids(source="backend", backend_url="http://x/api")
     assert [c.cluster_id for c in result] == ["def"]

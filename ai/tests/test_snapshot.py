@@ -43,9 +43,7 @@ def test_reports_survive_a_cap_smaller_than_the_dataset():
 
 def test_cap_below_report_count_keeps_every_report_and_no_history():
     reports = [ValidatedReport(text=f"scam {i}", label="Scam") for i in range(10)]
-    rows, manifest = build_snapshot(
-        dataset_rows=dataset(500), reports=reports, max_history=4, seed=42
-    )
+    rows, manifest = build_snapshot(dataset_rows=dataset(500), reports=reports, max_history=4, seed=42)
     assert manifest.n_reports == 10
     assert manifest.n_history_after_sampling == 0
     assert len(rows) == 10
@@ -128,9 +126,7 @@ def test_snapshot_stores_raw_text_not_masked_text():
     The training path does its own preprocessing; writing pre-masked text
     would put a second pass over already-substituted input.
     """
-    rows, _ = build_snapshot(
-        dataset_rows=[("claim now at 1q2w3e7.ca", "Scam")], reports=[]
-    )
+    rows, _ = build_snapshot(dataset_rows=[("claim now at 1q2w3e7.ca", "Scam")], reports=[])
     assert rows[0].text == "claim now at 1q2w3e7.ca"
 
 
@@ -222,7 +218,5 @@ def test_read_labeled_dataset_raises_on_an_empty_directory(tmp_path):
 
 
 def test_read_labeled_dataset_ignores_extra_columns(tmp_path):
-    (tmp_path / "real.csv").write_text(
-        "text,label,language,source\nkumusta,Ham,tl,inbox\n", encoding="utf-8"
-    )
+    (tmp_path / "real.csv").write_text("text,label,language,source\nkumusta,Ham,tl,inbox\n", encoding="utf-8")
     assert list(read_labeled_dataset(str(tmp_path))) == [("kumusta", "Ham")]

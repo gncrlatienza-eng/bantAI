@@ -60,12 +60,7 @@ def split_sentences(text: str) -> List[str]:
     if not text:
         return []
     parts = _SENTENCE_SPLIT.split(text)
-    return [
-        cleaned
-        for part in parts
-        if (cleaned := part.strip())
-        and len(cleaned.split()) >= _MIN_SENTENCE_WORDS
-    ]
+    return [cleaned for part in parts if (cleaned := part.strip()) and len(cleaned.split()) >= _MIN_SENTENCE_WORDS]
 
 
 def summarize_messages(
@@ -115,11 +110,7 @@ def summarize_messages(
     scores = _score_sentences(sentences)
 
     # Take the top-scoring indices, then restore chronological order.
-    top_indices = sorted(
-        sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)[
-            :max_sentences
-        ]
-    )
+    top_indices = sorted(sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)[:max_sentences])
 
     return Summary(
         text=" ".join(sentences[i] for i in top_indices),

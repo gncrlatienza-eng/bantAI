@@ -36,9 +36,7 @@ import sys
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
@@ -48,9 +46,18 @@ SEED = 20260727
 N_LOW = 150
 
 FIELDS = [
-    "id", "verdict", "correct_label", "notes",
-    "text", "rule_label", "language", "confidence", "reason",
-    "source", "source_label", "sender",
+    "id",
+    "verdict",
+    "correct_label",
+    "notes",
+    "text",
+    "rule_label",
+    "language",
+    "confidence",
+    "reason",
+    "source",
+    "source_label",
+    "sender",
 ]
 
 
@@ -105,20 +112,22 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         for i, (group, r) in enumerate(rows, start=1):
-            w.writerow({
-                "id": f"{group}-{i:03d}",
-                "verdict": "",
-                "correct_label": "",
-                "notes": "",
-                "text": r["text"],
-                "rule_label": r["label"],
-                "language": r.get("language", ""),
-                "confidence": r.get("confidence", ""),
-                "reason": r.get("reason", ""),
-                "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "sender": r.get("sender", ""),
-            })
+            w.writerow(
+                {
+                    "id": f"{group}-{i:03d}",
+                    "verdict": "",
+                    "correct_label": "",
+                    "notes": "",
+                    "text": r["text"],
+                    "rule_label": r["label"],
+                    "language": r.get("language", ""),
+                    "confidence": r.get("confidence", ""),
+                    "reason": r.get("reason", ""),
+                    "source": r.get("source", ""),
+                    "source_label": r.get("source_label", ""),
+                    "sender": r.get("sender", ""),
+                }
+            )
 
     groups = Counter(g for g, _ in rows)
     labels = Counter(r["label"] for _, r in rows)

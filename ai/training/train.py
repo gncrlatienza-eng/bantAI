@@ -26,9 +26,7 @@ def compute_metrics(eval_pred):
 
     logits, labels = eval_pred
     preds = np.argmax(logits, axis=-1)
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        labels, preds, average="macro", zero_division=0
-    )
+    precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average="macro", zero_division=0)
     return {
         "accuracy": accuracy_score(labels, preds),
         "precision": precision,
@@ -87,7 +85,7 @@ def main(config: TrainingConfig | None = None) -> None:
 
     args = TrainingArguments(
         output_dir=config.output_dir,
-        learning_rate=config.learning_rate,          # AdamW (Trainer default)
+        learning_rate=config.learning_rate,  # AdamW (Trainer default)
         weight_decay=config.weight_decay,
         per_device_train_batch_size=config.train_batch_size,
         per_device_eval_batch_size=config.eval_batch_size,
@@ -110,17 +108,11 @@ def main(config: TrainingConfig | None = None) -> None:
         report_to="none",
     )
 
-    weights = (
-        compute_class_weights(train_ds, config.num_labels)
-        if config.class_weighted_loss
-        else None
-    )
+    weights = compute_class_weights(train_ds, config.num_labels) if config.class_weighted_loss else None
 
     trainer_cls = Trainer
     if weights is not None:
-        print("Class-weighted loss: " + ", ".join(
-            f"{config.id2label[i]}={w:.3f}" for i, w in enumerate(weights)
-        ))
+        print("Class-weighted loss: " + ", ".join(f"{config.id2label[i]}={w:.3f}" for i, w in enumerate(weights)))
 
         class WeightedTrainer(Trainer):
             """Trainer with inverse-frequency class weights in the loss.
@@ -130,15 +122,15 @@ def main(config: TrainingConfig | None = None) -> None:
             keeps the override compatible across 4.4x and 5.x.
             """
 
-            def compute_loss(self, model, inputs, return_outputs=False,
-                             num_items_in_batch=None):
+            def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
                 labels = inputs.pop("labels")
                 outputs = model(**inputs)
                 loss = torch.nn.functional.cross_entropy(
                     outputs.logits.view(-1, config.num_labels),
                     labels.view(-1),
                     weight=torch.tensor(
-                        weights, dtype=outputs.logits.dtype,
+                        weights,
+                        dtype=outputs.logits.dtype,
                         device=outputs.logits.device,
                     ),
                 )

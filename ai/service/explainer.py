@@ -121,10 +121,7 @@ def _tokens_to_tags(scored_tokens: Sequence[tuple]) -> List[IndicatorTag]:
     # messages, but their relative ordering is exactly what we want to show.
     peak = max(totals.values())
     return sorted(
-        (
-            IndicatorTag(tag=tag, weight=round(min(total / peak, 1.0), 4))
-            for tag, total in totals.items()
-        ),
+        (IndicatorTag(tag=tag, weight=round(min(total / peak, 1.0), 4)) for tag, total in totals.items()),
         key=lambda t: t.weight,
         reverse=True,
     )
@@ -156,9 +153,7 @@ def explain(
     """
     if model is not None and tokenizer is not None and shap_available():
         try:
-            return _explain_with_shap(
-                raw_text, masked_text or raw_text, model, tokenizer, predicted_label
-            )
+            return _explain_with_shap(raw_text, masked_text or raw_text, model, tokenizer, predicted_label)
         except Exception:  # noqa: BLE001 -- explanation must never break classify
             pass
 
@@ -203,11 +198,7 @@ def _explain_with_shap(
     tokens = list(shap_values.data[0])
     values = shap_values.values[0][:, col]
 
-    scored = [
-        (tok, float(val))
-        for tok, val in zip(tokens, values)
-        if abs(float(val)) >= MIN_ABS_SHAP
-    ]
+    scored = [(tok, float(val)) for tok, val in zip(tokens, values) if abs(float(val)) >= MIN_ABS_SHAP]
     scored.sort(key=lambda p: abs(p[1]), reverse=True)
     top = scored[:TOP_K_TOKENS]
 

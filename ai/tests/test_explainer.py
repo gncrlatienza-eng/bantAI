@@ -73,18 +73,14 @@ def test_weights_normalized_to_peak_of_one():
 
 
 def test_tags_sorted_strongest_first():
-    tags = _tokens_to_tags(
-        [("▁winner", 0.9), ("▁homebased", 0.3), ("▁deposit", 0.1)]
-    )
+    tags = _tokens_to_tags([("▁winner", 0.9), ("▁homebased", 0.3), ("▁deposit", 0.1)])
     weights = [t.weight for t in tags]
     assert weights == sorted(weights, reverse=True)
 
 
 def test_accumulates_across_tokens_of_same_tag():
     """Two prize-ish tokens should outweigh one job-ish token."""
-    tags = _tokens_to_tags(
-        [("▁winner", 0.3), ("▁prize", 0.3), ("▁homebased", 0.4)]
-    )
+    tags = _tokens_to_tags([("▁winner", 0.3), ("▁prize", 0.3), ("▁homebased", 0.4)])
     by_tag = {t.tag: t.weight for t in tags}
     assert by_tag["Prize Lure"] > by_tag["Fake Job Offer"]
 

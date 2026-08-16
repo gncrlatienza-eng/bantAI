@@ -61,24 +61,16 @@ def test_decimal_is_not_a_url():
 
 
 def test_combined_message():
-    raw = (
-        "CONGRATULATIONS! Claim ₱10000 at http://scam.ph/x "
-        "using code 774812 or call 09991234567"
-    )
+    raw = "CONGRATULATIONS! Claim ₱10000 at http://scam.ph/x using code 774812 or call 09991234567"
     masked = mask_pii(raw)
-    assert masked == (
-        "CONGRATULATIONS! Claim <AMOUNT> at <URL> "
-        "using code <OTP> or call <PHONE>"
-    )
+    assert masked == ("CONGRATULATIONS! Claim <AMOUNT> at <URL> using code <OTP> or call <PHONE>")
     # No raw PII survives.
     for leaked in ("10000", "scam.ph", "774812", "09991234567"):
         assert leaked not in masked
 
 
 def test_mask_counts():
-    counts = mask_counts(
-        "Mail me@x.com pay ₱100 at http://x.com code 5555 call 09171234567"
-    )
+    counts = mask_counts("Mail me@x.com pay ₱100 at http://x.com code 5555 call 09171234567")
     assert counts == {"email": 1, "url": 1, "phone": 1, "amount": 1, "otp": 1}
 
 

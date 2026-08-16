@@ -37,9 +37,7 @@ ON_TEMPLATE = "Congrats! Your GCash account won P777. Claim now at http://gcash-
 #: blocked, which is the case the wording tier exists to catch. Kept distinct
 #: from ON_TEMPLATE so the hybrid tier can be tested without the stronger
 #: domain tier claiming the match first.
-ON_TEMPLATE_NEW_DOMAIN = (
-    "Congrats! Your GCash account won P777. Claim now at http://gcash-promo2.top/z"
-)
+ON_TEMPLATE_NEW_DOMAIN = "Congrats! Your GCash account won P777. Claim now at http://gcash-promo2.top/z"
 UNRELATED = "Hi po, nasa palengke na ako. Anong ulam gusto mo mamaya?"
 
 PROFILE = build_profile(CAMPAIGN, domains={"gcash-promo.xyz"})
@@ -51,9 +49,7 @@ def at_similarity(sim: float) -> np.ndarray:
 
 
 def matcher_with_profile(profile=PROFILE) -> CampaignMatcher:
-    return CampaignMatcher(
-        [CampaignCentroid("c1", at_similarity(1.0), lexical=profile)]
-    )
+    return CampaignMatcher([CampaignCentroid("c1", at_similarity(1.0), lexical=profile)])
 
 
 # --- tier 3: the calibrated embedding bar, unchanged ------------------------
@@ -90,10 +86,7 @@ def test_domain_tier_outranks_the_hybrid_tier():
     sim = (HYBRID_EMBEDDING_GATE + DEFAULT_SIMILARITY_THRESHOLD) / 2
     matcher = matcher_with_profile()
     assert matcher.match(at_similarity(sim), ON_TEMPLATE).match_reason == "domain"
-    assert (
-        matcher.match(at_similarity(sim), ON_TEMPLATE_NEW_DOMAIN).match_reason
-        == "hybrid"
-    )
+    assert matcher.match(at_similarity(sim), ON_TEMPLATE_NEW_DOMAIN).match_reason == "hybrid"
 
 
 def test_wording_alone_is_never_enough():
@@ -135,10 +128,12 @@ def test_domain_tier_outranks_a_bare_embedding_match():
     ``weak`` shares the campaign's domain at 0.95; ``strong`` is a different
     campaign that happens to clear 0.999. The domain-corroborated one wins.
     """
-    matcher = CampaignMatcher([
-        CampaignCentroid("domain-hit", at_similarity(0.95), lexical=PROFILE),
-        CampaignCentroid("bare-hit", at_similarity(1.0)),
-    ])
+    matcher = CampaignMatcher(
+        [
+            CampaignCentroid("domain-hit", at_similarity(0.95), lexical=PROFILE),
+            CampaignCentroid("bare-hit", at_similarity(1.0)),
+        ]
+    )
     result = matcher.match(at_similarity(0.95), CAMPAIGN[0])
     assert result.cluster_id == "domain-hit"
     assert result.match_reason == "domain"
@@ -176,9 +171,7 @@ def test_cold_start_buffers_everything():
 def test_build_matcher_from_clusters_attaches_profiles():
     """The offline pass must hand the fast path usable profiles."""
     embeddings = np.array([at_similarity(1.0)] * 4 + [at_similarity(0.0)])
-    matcher = build_matcher_from_clusters(
-        embeddings, [0, 0, 0, 0, -1], texts=CAMPAIGN + [UNRELATED]
-    )
+    matcher = build_matcher_from_clusters(embeddings, [0, 0, 0, 0, -1], texts=CAMPAIGN + [UNRELATED])
     (centroid,) = matcher.centroids
     assert centroid.lexical is not None
     assert centroid.lexical.is_distinctive

@@ -32,9 +32,7 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     try:
         result = classifier.classify_full(req.message)
     except ModelNotReadyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     # Campaign matching is only meaningful for messages that could belong to a
     # campaign. Clusters are built from the Spam+Scam population (personal

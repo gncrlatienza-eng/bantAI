@@ -134,9 +134,7 @@ def evaluate(vectors: np.ndarray, groups: List[List[int]], seed: int = 0) -> dic
                 # How much room a threshold has between "admits this many
                 # strangers" and "still keeps 90% of members". Wider is more
                 # robust to the embedding shifting under retraining.
-                "usable_margin": round(
-                    float(np.percentile(positives, 10)) - threshold, 6
-                ),
+                "usable_margin": round(float(np.percentile(positives, 10)) - threshold, 6),
             }
         )
     return out
@@ -150,7 +148,7 @@ def main(argv=None) -> int:
         choices=["lexical", "hdbscan"],
         default="lexical",
         help="Which referee decides 'same campaign'. Neither is neutral -- see "
-             "the module docstring -- so run both and read them as a bracket.",
+        "the module docstring -- so run both and read them as a bracket.",
     )
     parser.add_argument("--min-cluster-size", type=int, default=5)
     args = parser.parse_args(argv)
@@ -204,18 +202,16 @@ def main(argv=None) -> int:
         results[variant] = evaluate(transform(vectors, variant), groups)
         r = results[variant]
         gap = r["member_mean"] - r["stranger_mean"]
-        print(f"{variant:>10} {r['member_mean']:>9.4f} "
-              f"{r['stranger_mean']:>11.4f} {gap:>8.4f}")
+        print(f"{variant:>10} {r['member_mean']:>9.4f} {r['stranger_mean']:>11.4f} {gap:>8.4f}")
 
     for fmr in TARGET_FMRS:
-        print(f"\nAt a matched false-match rate of {100*fmr:.1f}% "
-              f"(threshold placed to admit that share of strangers):")
+        print(
+            f"\nAt a matched false-match rate of {100 * fmr:.1f}% (threshold placed to admit that share of strangers):"
+        )
         print(f"{'variant':>10} {'recall':>9} {'threshold':>12} {'usable margin':>15}")
         for variant in variants:
-            op = next(o for o in results[variant]["operating_points"]
-                      if o["false_match_rate"] == fmr)
-            print(f"{variant:>10} {100*op['recall']:>8.1f}% "
-                  f"{op['threshold']:>12.5f} {op['usable_margin']:>15.6f}")
+            op = next(o for o in results[variant]["operating_points"] if o["false_match_rate"] == fmr)
+            print(f"{variant:>10} {100 * op['recall']:>8.1f}% {op['threshold']:>12.5f} {op['usable_margin']:>15.6f}")
 
     report_path = REPORT_TEMPLATE.format(groups=args.groups)
     os.makedirs(os.path.dirname(report_path), exist_ok=True)

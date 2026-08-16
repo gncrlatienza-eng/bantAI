@@ -163,16 +163,13 @@ def evaluate(
     reasons: List[str] = []
 
     if validated_samples >= min_samples:
-        reasons.append(
-            f"validated_samples={validated_samples} reached threshold {min_samples}"
-        )
+        reasons.append(f"validated_samples={validated_samples} reached threshold {min_samples}")
 
     if current_macro_f1 is not None:
         drop = baseline_macro_f1 - current_macro_f1
         if drop >= f1_drop_tolerance:
             reasons.append(
-                f"macro_f1 fell {drop:.4f} below baseline "
-                f"{baseline_macro_f1:.4f} (tolerance {f1_drop_tolerance:.4f})"
+                f"macro_f1 fell {drop:.4f} below baseline {baseline_macro_f1:.4f} (tolerance {f1_drop_tolerance:.4f})"
             )
 
     if drift_detected:

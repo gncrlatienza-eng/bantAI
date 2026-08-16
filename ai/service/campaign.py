@@ -252,9 +252,7 @@ class CampaignMatcher:
         enough unmatched messages accumulate.
         """
         if not self._centroids:
-            return MatchResult(
-                cluster_id=None, similarity=0.0, matched=False, should_buffer=True
-            )
+            return MatchResult(cluster_id=None, similarity=0.0, matched=False, should_buffer=True)
 
         # Seeded below -1 (cosine's floor) rather than at 0, so a genuinely
         # negative best similarity is reported honestly instead of being
@@ -268,7 +266,7 @@ class CampaignMatcher:
         # a domain-corroborated match at 0.94 is stronger evidence than a bare
         # embedding match at 0.9991, and picking the higher cosine first would
         # silently invert that ranking.
-        domain_hit: Optional[tuple] = None    # (similarity, lexical, cluster_id)
+        domain_hit: Optional[tuple] = None  # (similarity, lexical, cluster_id)
         hybrid_hit: Optional[tuple] = None
         embedding_hit: Optional[tuple] = None
 

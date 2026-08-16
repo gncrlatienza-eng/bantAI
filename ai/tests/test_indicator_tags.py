@@ -14,21 +14,15 @@ def tag_names(raw_text: str) -> set[str]:
 
 # --- the four manuscript-named tags ----------------------------------------
 def test_prize_lure():
-    assert "Prize Lure" in tag_names(
-        "Congrats! You are a winner of a GCash prize. Claim your prize now!"
-    )
+    assert "Prize Lure" in tag_names("Congrats! You are a winner of a GCash prize. Claim your prize now!")
 
 
 def test_urgency_cue():
-    assert "Urgency Cue" in tag_names(
-        "Act now! This offer expires today, last chance to claim."
-    )
+    assert "Urgency Cue" in tag_names("Act now! This offer expires today, last chance to claim.")
 
 
 def test_suspicious_url_flags_shortener():
-    assert "Suspicious URL" in tag_names(
-        "Claim your reward now: https://bit.ly/fakereward123"
-    )
+    assert "Suspicious URL" in tag_names("Claim your reward now: https://bit.ly/fakereward123")
 
 
 def test_suspicious_url_ignores_official_domain():
@@ -37,9 +31,7 @@ def test_suspicious_url_ignores_official_domain():
 
 
 def test_brand_impersonation_requires_suspicious_link():
-    assert "Brand Impersonation" in tag_names(
-        "GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock"
-    )
+    assert "Brand Impersonation" in tag_names("GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock")
 
 
 def test_brand_named_with_official_link_is_not_impersonation():
@@ -49,15 +41,11 @@ def test_brand_named_with_official_link_is_not_impersonation():
 
 # --- additional grounded tags ------------------------------------------------
 def test_gambling_bait():
-    assert "Gambling Bait" in tag_names(
-        "You have a balance of PHP 3000. Play or cash out now! JILI game."
-    )
+    assert "Gambling Bait" in tag_names("You have a balance of PHP 3000. Play or cash out now! JILI game.")
 
 
 def test_fake_job_offer():
-    assert "Fake Job Offer" in tag_names(
-        "EARN WHILE AT HOME. Be an appointment setter! Homebased business."
-    )
+    assert "Fake Job Offer" in tag_names("EARN WHILE AT HOME. Be an appointment setter! Homebased business.")
 
 
 def test_unsolicited_credit_offer():
@@ -73,9 +61,7 @@ def test_personal_info_request():
 
 
 def test_otp_phishing():
-    assert "OTP / Account Phishing" in tag_names(
-        "Your account will be suspended. Click this link to verify now."
-    )
+    assert "OTP / Account Phishing" in tag_names("Your account will be suspended. Click this link to verify now.")
 
 
 # --- Tagalog/Taglish coverage (added 2026-08-04, WBS 3.1.2 confirmation) ----
@@ -84,28 +70,20 @@ def test_otp_phishing():
 # already fixed for PROMO_TL, JOB_SCAM, and Gambling Bait (see that tag's
 # Tagalog vocabulary above). These lock in the fix.
 def test_unsolicited_credit_offer_tagalog():
-    assert "Unsolicited Credit Offer" in tag_names(
-        "Kwalipikado ka na para sa pautang, walang collateral kailangan!"
-    )
+    assert "Unsolicited Credit Offer" in tag_names("Kwalipikado ka na para sa pautang, walang collateral kailangan!")
 
 
 def test_personal_info_request_tagalog():
-    assert "Personal Info Request" in tag_names(
-        "Kailangan ng ID, i-share mo agad at ipadala ang mga detalye mo."
-    )
+    assert "Personal Info Request" in tag_names("Kailangan ng ID, i-share mo agad at ipadala ang mga detalye mo.")
 
 
 def test_otp_phishing_tagalog():
-    assert "OTP / Account Phishing" in tag_names(
-        "Ma-block ang account mo, i-verify ang account mo ngayon din."
-    )
+    assert "OTP / Account Phishing" in tag_names("Ma-block ang account mo, i-verify ang account mo ngayon din.")
 
 
 # --- ordering and output shape ----------------------------------------------
 def test_tags_sorted_by_weight_descending():
-    tags = tags_for_message(
-        "GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock"
-    )
+    tags = tags_for_message("GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock")
     weights = [t.weight for t in tags]
     assert weights == sorted(weights, reverse=True)
 

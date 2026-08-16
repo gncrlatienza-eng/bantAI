@@ -15,8 +15,8 @@ def labels(n_ham, n_spam, n_scam):
 # --- discordant-cell counting -----------------------------------------------
 def test_counts_fixes_and_regressions():
     truth = ["Ham", "Spam", "Scam", "Ham"]
-    baseline = ["Ham", "Ham", "Scam", "Scam"]   # right, wrong, right, wrong
-    candidate = ["Ham", "Spam", "Ham", "Ham"]   # right, right, wrong, right
+    baseline = ["Ham", "Ham", "Scam", "Scam"]  # right, wrong, right, wrong
+    candidate = ["Ham", "Spam", "Ham", "Ham"]  # right, right, wrong, right
     fixes, regressions = mcnemar_counts(truth, baseline, candidate)
     assert (fixes, regressions) == (2, 1)
 
@@ -56,7 +56,7 @@ def test_clearly_worse_candidate_is_rejected():
     baseline = truth.copy()
     candidate = truth.copy()
     for i in range(70, 95):
-        candidate[i] = "Ham"   # candidate breaks 25 Scam rows
+        candidate[i] = "Ham"  # candidate breaks 25 Scam rows
 
     decision = evaluate_promotion(truth, baseline, candidate)
     assert not decision.promote
@@ -78,8 +78,8 @@ def test_marginal_difference_is_not_promoted():
     truth = labels(20, 20, 20)
     baseline = truth.copy()
     candidate = truth.copy()
-    baseline[0] = baseline[1] = baseline[2] = "Scam"   # 3 fixes for candidate
-    candidate[30] = candidate[31] = "Ham"              # 2 regressions
+    baseline[0] = baseline[1] = baseline[2] = "Scam"  # 3 fixes for candidate
+    candidate[30] = candidate[31] = "Ham"  # 2 regressions
 
     decision = evaluate_promotion(truth, baseline, candidate)
     assert not decision.promote
@@ -91,7 +91,7 @@ def test_f1_floor_rejects_before_significance_is_consulted():
     candidate must be refused regardless of what the test says."""
     truth = labels(40, 30, 30)
     baseline = truth.copy()
-    candidate = ["Ham"] * 100   # predicts one class for everything
+    candidate = ["Ham"] * 100  # predicts one class for everything
 
     decision = evaluate_promotion(truth, baseline, candidate)
     assert not decision.promote
@@ -106,9 +106,9 @@ def test_significant_but_worse_is_rejected():
     baseline = truth.copy()
     candidate = truth.copy()
     for i in range(0, 3):
-        baseline[i] = "Scam"        # 3 fixes
+        baseline[i] = "Scam"  # 3 fixes
     for i in range(40, 58):
-        candidate[i] = "Scam"       # 18 regressions
+        candidate[i] = "Scam"  # 18 regressions
 
     decision = evaluate_promotion(truth, baseline, candidate)
     assert not decision.promote

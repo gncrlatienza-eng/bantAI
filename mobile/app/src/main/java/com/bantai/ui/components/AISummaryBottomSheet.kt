@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,12 +38,21 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
+/**
+ * @param summary Real TF-IDF extractive summary of the thread (WBS 4.3.9/4.3.11,
+ *   `POST /ai/summarize`), oldest-sentence-first. Null while loading; blank is a
+ *   legitimate "nothing worth extracting" result, not an error — falls back to
+ *   generic verdict-based guidance rather than an empty sheet.
+ * @param isLoadingSummary True while the summarize call is in flight.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AISummaryBottomSheet(
     onDismiss: () -> Unit,
     onViewFullAnalysis: () -> Unit,
     isSuspicious: Boolean = true,
+    summary: String? = null,
+    isLoadingSummary: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -96,23 +106,30 @@ fun AISummaryBottomSheet(
                         fontWeight = FontWeight.Medium,
                     )
                 }
-                Text(
-                    if (isSuspicious) "68% confidence" else "92% confidence",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                )
             }
 
-            Text(
-                if (isSuspicious) {
-                    "This message contains suspicious patterns — an unverified external link and urgency language. It may be legitimate but proceed with caution. Do not share personal information."
-                } else {
-                    "No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."
-                },
-                color = White,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-            )
+            if (isLoadingSummary) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(color = Indigo, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                    Text("Summarizing conversation…", color = TextSecondary, fontSize = 13.sp)
+                }
+            } else {
+                Text(
+                    if (!summary.isNullOrBlank()) {
+                        summary
+                    } else if (isSuspicious) {
+                        "This conversation contains suspicious patterns. It may be legitimate but proceed with caution. Do not share personal information."
+                    } else {
+                        "No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."
+                    },
+                    color = White,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                )
+            }
 
             Row(
                 modifier = Modifier

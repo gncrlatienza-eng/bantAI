@@ -72,8 +72,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.SmsRepository
+import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.remote.SummarizeApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.components.SenderAvatar
@@ -91,6 +93,7 @@ import com.bantai.ui.theme.White
 import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsSender
 import com.bantai.viewmodel.MessageDetailViewModel
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -160,10 +163,33 @@ fun MessageDetailScreen(
     val hasSuspicious = conversation.any { it.classification == "suspicious" }
     val hasUnknown = conversation.any { it.classification == "unknown" }
     var showAISummary by remember { mutableStateOf(false) }
+    var summaryText by remember { mutableStateOf<String?>(null) }
+    var isSummaryLoading by remember { mutableStateOf(false) }
+
+    // Reset whenever the thread changes so a stale summary from a previous
+    // conversation can never be shown against this one.
+    LaunchedEffect(sender) {
+        summaryText = null
+    }
+
+    // Fetched lazily on first open, once per thread — not on every recomposition.
+    LaunchedEffect(showAISummary, conversation) {
+        if (showAISummary && summaryText == null && !isSummaryLoading && conversation.isNotEmpty()) {
+            isSummaryLoading = true
+            val token = UserPreferences(context).userData.first().authToken
+            if (token.isNotEmpty()) {
+                SummarizeApi.summarize(token, conversation.map { it.body })
+                    .onSuccess { summaryText = it.summary }
+            }
+            isSummaryLoading = false
+        }
+    }
 
     if (showAISummary) {
         AISummaryBottomSheet(
             isSuspicious = hasSuspicious || hasUnknown,
+            summary = summaryText,
+            isLoadingSummary = isSummaryLoading,
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false

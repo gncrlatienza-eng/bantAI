@@ -39,4 +39,10 @@ object ApiConfig {
      * its heuristic-fallback and DB-write overhead.
      */
     const val SIMULATE_TIMEOUT_MS = 15_000
+
+    /**
+     * AI Summary sheet (WBS 4.3.11). Needs to comfortably exceed the backend's
+     * own 8s timeout on the AI service's /summarize call (ai.service.ts).
+     */
+    const val SUMMARIZE_TIMEOUT_MS = 12_000
 }

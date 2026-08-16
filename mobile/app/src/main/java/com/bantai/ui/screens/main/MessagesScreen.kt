@@ -231,6 +231,7 @@ fun MessagesScreen(
                             val emptyLabel = when (selectedFilter) {
                                 MessageFilter.SPAM             -> "No Spam"
                                 MessageFilter.BLOCKED          -> "No Blocked Messages"
+                                MessageFilter.UNKNOWN          -> "No Unknown Messages"
                                 MessageFilter.RECENTLY_DELETED -> "No Recently Deleted"
                                 MessageFilter.UNREAD           -> "No Unread Messages"
                                 MessageFilter.DRAFTS           -> "No Drafts"
@@ -468,6 +469,7 @@ private fun FilterBubble(
             val mainFilters = listOf(
                 MessageFilter.MESSAGES,
                 MessageFilter.SPAM,
+                MessageFilter.UNKNOWN,
                 MessageFilter.BLOCKED,
                 MessageFilter.RECENTLY_DELETED,
             )

@@ -25,6 +25,7 @@ enum class MessageFilter(val label: String) {
     MESSAGES("Messages"),
     SPAM("Spam"),
     BLOCKED("Blocked"),
+    UNKNOWN("Unknown"),
     RECENTLY_DELETED("Recently Deleted"),
     UNREAD("Unread"),
     DRAFTS("Drafts"),
@@ -221,6 +222,7 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
             MessageFilter.MESSAGES         -> legitimate.groupedBySenderLatest()
             MessageFilter.SPAM             -> suspicious.groupedBySenderLatest()
             MessageFilter.BLOCKED          -> filtered.filter { it.classification == "blocked" }.groupedBySenderLatest()
+            MessageFilter.UNKNOWN          -> unknown.groupedBySenderLatest()
             MessageFilter.RECENTLY_DELETED -> deletedFiltered.groupedBySenderLatest()
             MessageFilter.UNREAD           -> legitimate.filter { !it.isRead }.groupedBySenderLatest()
             MessageFilter.DRAFTS           -> draftsFiltered

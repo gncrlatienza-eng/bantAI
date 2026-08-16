@@ -13,6 +13,7 @@ import { VerificationModule } from './verification/verification.module';
 import { ReportsModule } from './reports/reports.module';
 import { ModelsModule } from './models/models.module';
 import { RetrainingModule } from './retraining/retraining.module';
+import { BlockedNumbersModule } from './blocked-numbers/blocked-numbers.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { RetrainingModule } from './retraining/retraining.module';
     ReportsModule,
     ModelsModule,
     RetrainingModule,
+    BlockedNumbersModule,
   ],
   providers: [
     // Apply throttle globally; individual routes can override with @Throttle()

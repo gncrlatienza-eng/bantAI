@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart } from '../components/charts/BarChart';
 import { DonutChart } from '../components/charts/DonutChart';
 import { LineAreaChart } from '../components/charts/LineAreaChart';
@@ -57,6 +58,7 @@ function ClientShell({ title, children }: { title: string; children: React.React
 }
 
 export function ClientOverviewPage() {
+  const navigate = useNavigate();
   return (
     <ClientShell title="Executive Overview">
       {/* Stat Cards Grid */}
@@ -144,8 +146,8 @@ export function ClientOverviewPage() {
       </div>
 
       {/* Classification Distribution & Active Campaigns */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
-        <div className="panel">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'stretch' }}>
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div className="panel-head">
             <div>
               <strong>Classification Breakdown</strong>
@@ -162,10 +164,20 @@ export function ClientOverviewPage() {
               <small>Targeting Globe Telecom subscribers</small>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-            {campaigns.slice(0, 3).map((item) => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            {campaigns.slice(0, 4).map((item) => (
               <CampaignCard key={item.title} title={item.title} messages={item.messages} domains={item.domains} since={item.since} status={item.status} tags={item.tags} />
             ))}
+          </div>
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Showing top 4 active threat clusters</span>
+            <button
+              type="button"
+              onClick={() => navigate('/client/campaigns')}
+              style={{ background: 'none', border: 'none', color: '#60a5fa', fontWeight: 700, cursor: 'pointer', fontSize: '0.8125rem' }}
+            >
+              View All 6 Clusters →
+            </button>
           </div>
         </div>
       </div>
@@ -211,6 +223,14 @@ export function ClientMessagesPage() {
     { id: '#MSG-4814', sender: '+63 917 000 5544', preview: 'Meralco disconnection notice: Your account balance is overdue. Settle via meralco-pay-online.biz', campaign: 'Meralco Threat #2', confidence: '71%', score: 71, status: 'Suspicious', timestamp: 'May 13, 6:30 AM', indicators: ['Utility Disconnection', 'Fake Domain'], carrier: 'Globe Telecom' },
     { id: '#MSG-4813', sender: '+63 908 777 3321', preview: 'Congratulations! You won a ₱5,000 Shopee voucher. Tap link to claim: shopee-ph-claim.me', campaign: 'Shopee Prize Lure #11', confidence: '85%', score: 85, status: 'Smishing', timestamp: 'May 13, 5:58 AM', indicators: ['Voucher Lure', 'Fake Domain'], carrier: 'Smart Telecom' },
     { id: '#MSG-4812', sender: '+63 932 441 8800', preview: 'GCash Security Alert: Unusual login from new device. Verify immediately at gcash-sec-auth.app', campaign: 'Op. GCash Clone #17', confidence: '93%', score: 93, status: 'Smishing', timestamp: 'May 13, 5:21 AM', indicators: ['Device Verification', 'GCash Impersonation'], carrier: 'DITO Telecommunity' },
+    { id: '#MSG-4811', sender: '+63 918 222 9911', preview: 'Maya Alert: Your Wallet transfer of ₱8,400 requires OTP approval. Visit maya-sec-check.com', campaign: 'Maya Wallet Scam #3', confidence: '92%', score: 92, status: 'Smishing', timestamp: 'May 13, 4:50 AM', indicators: ['FinTech Scam', 'OTP Phishing'], carrier: 'Smart Telecom' },
+    { id: '#MSG-4810', sender: '+63 927 334 1188', preview: 'Landbank Advisory: Account suspended due to unverified KYC. Reactivate at landbank-kyc-verify.net', campaign: 'Landbank Impersonation #1', confidence: '95%', score: 95, status: 'Smishing', timestamp: 'May 13, 4:12 AM', indicators: ['KYC Fraud', 'Bank Impersonation'], carrier: 'Globe Telecom' },
+    { id: '#MSG-4809', sender: '+63 909 555 1212', preview: 'Lazada Notice: Claim your refund of ₱2,350 at lazada-ph-refunds.store', campaign: 'Lazada Refund Lure #7', confidence: '87%', score: 87, status: 'Smishing', timestamp: 'May 13, 3:35 AM', indicators: ['E-Commerce Scam', 'Fake Refund'], carrier: 'Smart Telecom' },
+    { id: '#MSG-4808', sender: '+63 917 889 0011', preview: 'Metrobank: Security notice for your debit card. Confirm details at metrobank-card-sec.info', campaign: 'Metrobank Impersonation #2', confidence: '69%', score: 69, status: 'Suspicious', timestamp: 'May 13, 2:50 AM', indicators: ['Card Verification', 'Suspicious URL'], carrier: 'Globe Telecom' },
+    { id: '#MSG-4807', sender: '+63 945 112 3344', preview: 'SSS Update: Your pension loan application approved. Check status at sss-pension-loan.biz', campaign: 'Govt Impersonation #9', confidence: '91%', score: 91, status: 'Smishing', timestamp: 'May 13, 2:10 AM', indicators: ['Govt Impersonation', 'Loan Lure'], carrier: 'Globe Telecom' },
+    { id: '#MSG-4806', sender: '+63 922 778 9900', preview: 'Globe Telecom: You have 1,500 unredeemed rewards points expiring today! Redeem at globe-rewards-points.site', campaign: 'Globe Rewards Scam #6', confidence: '89%', score: 89, status: 'Smishing', timestamp: 'May 13, 1:40 AM', indicators: ['Rewards Scam', 'Expiring Urgency'], carrier: 'DITO Telecommunity' },
+    { id: '#MSG-4805', sender: '+63 908 667 8899', preview: 'UnionBank: Transaction alert ₱45,000 to ACME Corp. Dispute at unionbank-dispute-sec.org', campaign: 'UnionBank Scam #4', confidence: '94%', score: 94, status: 'Smishing', timestamp: 'May 13, 1:05 AM', indicators: ['Dispute Phishing', 'Bank Fraud'], carrier: 'Smart Telecom' },
+    { id: '#MSG-4804', sender: '+63 919 333 4455', preview: 'Security Advisory: Never share your OTP with anyone calling from customer support.', campaign: 'System Advisory', confidence: '12%', score: 12, status: 'Suspicious', timestamp: 'May 13, 0:30 AM', indicators: ['Educational Note'], carrier: 'Smart Telecom' },
   ];
 
   const filteredMessages = rawMessages.filter((msg) => {
@@ -225,6 +245,13 @@ export function ClientMessagesPage() {
     if (activeTab === 'reviewed') return matchesSearch && msg.score < 75;
     return matchesSearch;
   });
+
+  const itemsPerPage = 6;
+  const totalPages = Math.max(1, Math.ceil(filteredMessages.length / itemsPerPage));
+  const validPage = Math.min(currentPage, totalPages);
+  const startIndex = (validPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredMessages.length);
+  const paginatedMessages = filteredMessages.slice(startIndex, endIndex);
 
   const handleExportCSV = () => {
     const csvContent =
@@ -255,7 +282,7 @@ export function ClientMessagesPage() {
                 className="form-input"
                 placeholder="Q Search sender or content..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
                 style={{ width: 280, paddingLeft: 14 }}
               />
             </div>
@@ -269,7 +296,7 @@ export function ClientMessagesPage() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveTab('all')}
+            onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
             style={{
               borderRadius: 20,
               padding: '6px 18px',
@@ -282,11 +309,11 @@ export function ClientMessagesPage() {
               transition: 'all 0.2s ease',
             }}
           >
-            All 14,892
+            All {rawMessages.length}
           </button>
           <button
             className={`tab-btn ${activeTab === 'smishing' ? 'active' : ''}`}
-            onClick={() => setActiveTab('smishing')}
+            onClick={() => { setActiveTab('smishing'); setCurrentPage(1); }}
             style={{
               borderRadius: 20,
               padding: '6px 18px',
@@ -299,11 +326,11 @@ export function ClientMessagesPage() {
               transition: 'all 0.2s ease',
             }}
           >
-            Likely Smishing 1,247
+            Likely Smishing {rawMessages.filter((m) => m.status === 'Smishing').length}
           </button>
           <button
             className={`tab-btn ${activeTab === 'suspicious' ? 'active' : ''}`}
-            onClick={() => setActiveTab('suspicious')}
+            onClick={() => { setActiveTab('suspicious'); setCurrentPage(1); }}
             style={{
               borderRadius: 20,
               padding: '6px 18px',
@@ -316,11 +343,11 @@ export function ClientMessagesPage() {
               transition: 'all 0.2s ease',
             }}
           >
-            Suspicious 389
+            Suspicious {rawMessages.filter((m) => m.status === 'Suspicious').length}
           </button>
           <button
             className={`tab-btn ${activeTab === 'reviewed' ? 'active' : ''}`}
-            onClick={() => setActiveTab('reviewed')}
+            onClick={() => { setActiveTab('reviewed'); setCurrentPage(1); }}
             style={{
               borderRadius: 20,
               padding: '6px 18px',
@@ -333,28 +360,28 @@ export function ClientMessagesPage() {
               transition: 'all 0.2s ease',
             }}
           >
-            Reviewed 203
+            Reviewed {rawMessages.filter((m) => m.score < 75).length}
           </button>
         </div>
 
         {/* Data Table */}
         <div className="panel no-lift" style={{ padding: 0, borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-          <div className="table-wrap" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8125rem' }}>
+          <div className="table-wrap" style={{ overflowX: 'hidden' }}>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8125rem' }}>
               <thead>
                 <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
-                  <th style={{ padding: '14px 18px' }}>MSG ID</th>
-                  <th style={{ padding: '14px 18px' }}>SENDER</th>
+                  <th style={{ padding: '14px 18px', width: '95px' }}>MSG ID</th>
+                  <th style={{ padding: '14px 18px', width: '145px' }}>SENDER</th>
                   <th style={{ padding: '14px 18px' }}>PREVIEW</th>
-                  <th style={{ padding: '14px 18px' }}>CAMPAIGN</th>
-                  <th style={{ padding: '14px 18px' }}>CONFIDENCE</th>
-                  <th style={{ padding: '14px 18px' }}>STATUS</th>
-                  <th style={{ padding: '14px 18px' }}>TIMESTAMP</th>
-                  <th style={{ padding: '14px 18px', textAlign: 'right' }}>ACTIONS</th>
+                  <th style={{ padding: '14px 18px', width: '160px' }}>CAMPAIGN</th>
+                  <th style={{ padding: '14px 18px', width: '95px' }}>CONFIDENCE</th>
+                  <th style={{ padding: '14px 18px', width: '95px' }}>STATUS</th>
+                  <th style={{ padding: '14px 18px', width: '125px' }}>TIMESTAMP</th>
+                  <th style={{ padding: '14px 18px', width: '75px', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredMessages.map((msg) => (
+                {paginatedMessages.map((msg) => (
                   <tr
                     key={msg.id}
                     className="subtle-row-hover"
@@ -366,11 +393,11 @@ export function ClientMessagesPage() {
                     onClick={() => setSelectedMessage(msg)}
                   >
                     <td style={{ padding: '14px 18px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 600 }}>{msg.id}</td>
-                    <td style={{ padding: '14px 18px', fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap' }}>{msg.sender}</td>
-                    <td style={{ padding: '14px 18px', color: 'var(--text-secondary)', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '14px 18px', fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.sender}</td>
+                    <td style={{ padding: '14px 18px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {msg.preview}
                     </td>
-                    <td style={{ padding: '14px 18px', color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}>{msg.campaign}</td>
+                    <td style={{ padding: '14px 18px', color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.campaign}</td>
                     <td style={{ padding: '14px 18px', fontWeight: 800, color: msg.score >= 85 ? '#ef4444' : '#f59e0b' }}>{msg.confidence}</td>
                     <td style={{ padding: '14px 18px' }}>
                       <span className={`badge ${msg.status === 'Smishing' ? 'badge-red' : 'badge-amber'}`}>
@@ -406,26 +433,34 @@ export function ClientMessagesPage() {
           {/* Pagination Controls */}
           <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-subtle)', background: 'rgba(0, 0, 0, 0.2)' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Showing 1-10 of 14,892 results
+              Showing {filteredMessages.length === 0 ? 0 : startIndex + 1}–{endIndex} of {filteredMessages.length} results
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button
                 type="button"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                style={{ background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                disabled={validPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                style={{
+                  background: 'none',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  cursor: validPage <= 1 ? 'not-allowed' : 'pointer',
+                  opacity: validPage <= 1 ? 0.4 : 1,
+                }}
               >
-                ‹
+                ‹ Prev
               </button>
-              {[1, 2, 3].map((p) => (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                 <button
-                  key={p}
+                  key={pageNum}
                   type="button"
-                  onClick={() => setCurrentPage(p)}
+                  onClick={() => setCurrentPage(pageNum)}
                   style={{
-                    background: currentPage === p ? '#2563eb' : 'none',
+                    background: validPage === pageNum ? '#2563eb' : 'none',
                     border: '1px solid var(--border-subtle)',
-                    color: currentPage === p ? '#ffffff' : 'var(--text-secondary)',
+                    color: validPage === pageNum ? '#ffffff' : 'var(--text-secondary)',
                     borderRadius: 6,
                     padding: '4px 10px',
                     fontWeight: 700,
@@ -433,23 +468,24 @@ export function ClientMessagesPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  {p}
+                  {pageNum}
                 </button>
               ))}
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>...</span>
               <button
                 type="button"
-                onClick={() => setCurrentPage(1490)}
-                style={{ background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: 6, padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer' }}
+                disabled={validPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                style={{
+                  background: 'none',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  cursor: validPage >= totalPages ? 'not-allowed' : 'pointer',
+                  opacity: validPage >= totalPages ? 0.4 : 1,
+                }}
               >
-                1490
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                style={{ background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-              >
-                ›
+                Next ›
               </button>
             </div>
           </div>
@@ -513,7 +549,7 @@ export function ClientMessagesPage() {
 }
 
 // ----------------------------------------------------
-// 2. CLIENT CAMPAIGNS PAGE (Matching Screenshot 2)
+// 2. CLIENT CAMPAIGNS PAGE
 // ----------------------------------------------------
 export function ClientCampaignsPage() {
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -526,27 +562,36 @@ export function ClientCampaignsPage() {
   };
 
   const activeCampaignsList = [
-    { title: 'Operation GCash Clone #17', status: 'Active', messages: '142,847', domains: 4, since: 'May 11', tags: ['Prize Lure', 'Fake Domain', 'Taglish Wording'], desc: 'Aggressive scam campaign impersonating GCash account verification & prize rewards.' },
-    { title: 'BDO Fake Support Wave #5', status: 'Active', messages: '84,291', domains: 2, since: 'May 9', tags: ['Urgency Tactics', 'OTP Harvesting', 'Brand Impersonation'], desc: 'Targeted banking phishing wave luring users to fake OTP verification pages.' },
-    { title: 'LBC Parcel Delivery Scam #8', status: 'Active', messages: '67,128', domains: 3, since: 'May 8', tags: ['Fake Domain', 'Shortened URL', 'Urgency Tactics'], desc: 'Fake courier notification requesting customs clearance fee payment.' },
-    { title: 'PLDT Bill Impersonation #4', status: 'Active', messages: '43,912', domains: 1, since: 'May 7', tags: ['Brand Impersonation', 'Overdue Notice'], desc: 'Utility disconnection threats demanding immediate payment via bogus gateway.' },
+    { title: 'Operation GCash Clone #17', icon: '🛡️', status: 'Active', riskScore: 96, messages: '142,847', domains: 4, since: 'May 11, 2026', tags: ['Prize Lure', 'Fake Domain', 'Taglish Wording'], desc: 'Aggressive scam campaign impersonating GCash account verification & prize rewards.', samplePayload: 'URGENT: Your GCash account has been flagged due to security maintenance. Verify now at http://gcash-ph-support.net/login', domainsList: ['gcash-ph-support.net', 'reward-gcash.com', 'gcash-sec-auth.app', 'claim-gcash-reward.tech'] },
+    { title: 'BDO Fake Support Wave #5', icon: '🏦', status: 'Active', riskScore: 91, messages: '84,291', domains: 2, since: 'May 9, 2026', tags: ['Urgency Tactics', 'OTP Harvesting', 'Bank Impersonation'], desc: 'Targeted banking phishing wave luring users to fake OTP verification pages.', samplePayload: 'You have a pending transaction of ₱12,500. Tap to review and confirm: http://bdo-verify-sec.org', domainsList: ['bdo-verify-sec.org', 'bdo-online-check.info'] },
+    { title: 'LBC Parcel Delivery Scam #8', icon: '📦', status: 'Active', riskScore: 94, messages: '67,128', domains: 3, since: 'May 8, 2026', tags: ['Fake Domain', 'Shortened URL', 'Urgency Tactics'], desc: 'Fake courier notification requesting customs clearance fee payment.', samplePayload: 'URGENT: Your LBC parcel #PH9812 is held at customs. Pay release fee at http://lbc-customs-pay.cc', domainsList: ['lbc-customs-pay.cc', 'lbc-express-track.info', 'parcel-lbc-delivery.com'] },
+    { title: 'PLDT Bill Impersonation #4', icon: '⚡', status: 'Active', riskScore: 88, messages: '43,912', domains: 1, since: 'May 7, 2026', tags: ['Brand Impersonation', 'Overdue Notice'], desc: 'Utility disconnection threats demanding immediate payment via bogus gateway.', samplePayload: 'Your PLDT bill of ₱1,899 is overdue. Avoid disconnection — pay now at http://pldt-paybill-online.net', domainsList: ['pldt-paybill-online.net'] },
+    { title: 'Maya Wallet Phishing Wave #3', icon: '💳', status: 'Active', riskScore: 93, messages: '38,410', domains: 3, since: 'May 5, 2026', tags: ['OTP Harvesting', 'Fake Domain', 'FinTech Scam'], desc: 'Unauthorized transfer notification harvesting Maya OTP security credentials.', samplePayload: 'Maya Alert: Your Wallet transfer of ₱8,400 requires OTP approval. Visit http://maya-sec-check.com', domainsList: ['maya-sec-check.com', 'maya-auth-verify.net', 'maya-wallet-login.online'] },
+    { title: 'Shopee Voucher Lure #11', icon: '🛒', status: 'Active', riskScore: 85, messages: '29,150', domains: 2, since: 'May 3, 2026', tags: ['Prize Lure', 'Shortened URL'], desc: 'Fake e-commerce voucher giveaway scam directing victims to credential stealing forms.', samplePayload: 'SHOPEE NOTICE: Your prize of ₱10,000 is waiting! Claim within 24 hours at http://shopee-reward-hub.tech', domainsList: ['shopee-reward-hub.tech', 'shopee-ph-claim.me'] },
   ];
 
   const inactiveCampaignsList = [
-    { title: 'BDO OTP Harvester Wave #3', status: 'Inactive', messages: '18,920', domains: 2, since: 'Apr 22', tags: ['OTP Harvesting'], desc: 'Deactivated banking credentials harvester.' },
-    { title: 'Piso Fare Lure #6', status: 'Inactive', messages: '12,456', domains: 1, since: 'Apr 15', tags: ['Prize Lure'], desc: 'Fake airline promotional ticket giveaway scam.' },
-    { title: 'Shopee Flash Sale Scam #9', status: 'Inactive', messages: '9,843', domains: 2, since: 'Apr 10', tags: ['Fake Domain'], desc: 'Fake e-commerce flash deal voucher lure.' },
-    { title: 'Landline OTP Intercept #1', status: 'Inactive', messages: '7,231', domains: 2, since: 'Apr 8', tags: ['OTP Harvesting'], desc: 'Targeted landline verification code interception attempt.' },
+    { title: 'BDO OTP Harvester Wave #3', icon: '🔑', status: 'Inactive', riskScore: 78, messages: '18,920', domains: 2, since: 'Apr 22, 2026', tags: ['OTP Harvesting'], desc: 'Deactivated banking credentials harvester.', samplePayload: 'BDO Notice: Unrecognized login attempt detected. Secure your account at http://bdo-sec-check.org', domainsList: ['bdo-sec-check.org', 'bdo-mobile-auth.info'] },
+    { title: 'Piso Fare Lure #6', icon: '✈️', status: 'Inactive', riskScore: 65, messages: '12,456', domains: 1, since: 'Apr 15, 2026', tags: ['Prize Lure'], desc: 'Fake airline promotional ticket giveaway scam.', samplePayload: 'CEB PISO FARE ALERT: Book ₱1 flights today! Claim tickets at http://cebu-pacific-piso.site', domainsList: ['cebu-pacific-piso.site'] },
+    { title: 'Landline OTP Intercept #1', icon: '📞', status: 'Inactive', riskScore: 72, messages: '7,231', domains: 2, since: 'Apr 8, 2026', tags: ['OTP Harvesting'], desc: 'Targeted landline verification code interception attempt.', samplePayload: 'PLDT Landline Security: Verify voice OTP at http://pldt-voice-auth.net', domainsList: ['pldt-voice-auth.net', 'landline-verify-pldt.com'] },
   ];
 
   const handleExportCampaigns = () => {
     const csvContent =
-      'Campaign Title,Status,Messages,Domains,Date Since,Tags\n' +
+      'Campaign Title,Status,Risk Score,Messages,Domains,Date Since,Tags\n' +
       [...activeCampaignsList, ...inactiveCampaignsList]
-        .map((c) => `"${c.title}","${c.status}","${c.messages}","${c.domains}","${c.since}","${c.tags.join('; ')}"`)
+        .map((c) => `"${c.title}","${c.status}","${c.riskScore}%","${c.messages}","${c.domains}","${c.since}","${c.tags.join('; ')}"`)
         .join('\n');
     triggerCSVDownload('bantai-campaign-clusters.csv', csvContent);
     showToast('📥 Campaign clusters dataset exported as CSV!');
+  };
+
+  const handleExportSingleCampaign = (campaign: any) => {
+    const csvContent =
+      'Campaign Title,Status,Risk Score,Messages,Domains,Date Since,Tags,Description,Sample Payload\n' +
+      `"${campaign.title}","${campaign.status}","${campaign.riskScore}%","${campaign.messages}","${campaign.domains}","${campaign.since}","${campaign.tags.join('; ')}","${campaign.desc}","${campaign.samplePayload}"`;
+    triggerCSVDownload(`${campaign.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-report.csv`, csvContent);
+    showToast(`📥 Exported report for ${campaign.title}`);
   };
 
   return (
@@ -558,116 +603,181 @@ export function ClientCampaignsPage() {
       )}
 
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Visually Appealing Stat Cards & Export Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: 16, width: '100%', alignItems: 'center' }}>
-          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 14, padding: '16px 20px' }}>
+        {/* Top Header Metrics Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, width: '100%' }}>
+          <div className="panel campaign-card-interactive" style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', borderRadius: 14, padding: '16px 20px', minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <small style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Clusters</small>
-              <span className="badge badge-gray" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>🛡️ Clusters</span>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Clusters</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                🛡️
+              </div>
             </div>
-            <strong style={{ color: '#ffffff', fontSize: '1.875rem', fontWeight: 800, margin: '4px 0 0 0', display: 'block' }}>10</strong>
+            <strong style={{ color: '#ffffff', fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>9</strong>
           </div>
 
-          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(52, 211, 153, 0.25)', borderRadius: 14, padding: '16px 20px' }}>
+          <div className="panel campaign-card-interactive" style={{ background: 'var(--bg-surface-elevated)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 14, padding: '16px 20px', minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <small style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Active Campaigns</small>
-              <span className="badge badge-green" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>● Live</span>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Active Campaigns</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                🟢
+              </div>
             </div>
-            <strong style={{ color: '#34d399', fontSize: '1.875rem', fontWeight: 800, margin: '4px 0 0 0', display: 'block' }}>6</strong>
+            <strong style={{ color: '#10b981', fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>6</strong>
           </div>
 
-          <div className="stat-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(96, 165, 250, 0.25)', borderRadius: 14, padding: '16px 20px' }}>
+          <div className="panel campaign-card-interactive" style={{ background: 'var(--bg-surface-elevated)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 14, padding: '16px 20px', minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <small style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Messages</small>
-              <span className="badge badge-blue" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>💬 Logged</span>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Logged Messages</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                💬
+              </div>
             </div>
-            <strong style={{ color: '#60a5fa', fontSize: '1.875rem', fontWeight: 800, margin: '4px 0 0 0', display: 'block', fontFamily: 'var(--font-mono)' }}>442,679</strong>
+            <strong style={{ color: '#60a5fa', fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>405,738</strong>
           </div>
 
-          <Button variant="secondary" size="md" onClick={handleExportCampaigns} style={{ height: 48, padding: '0 24px', borderRadius: 12 }}>
-            📥 Export
-          </Button>
+          <div className="panel campaign-card-interactive" style={{ background: 'var(--bg-surface-elevated)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 14, padding: '16px 20px', minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Tracked Domains</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
+                🌐
+              </div>
+            </div>
+            <strong style={{ color: '#ef4444', fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>15</strong>
+          </div>
         </div>
 
-        {/* Filter Pills */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['all', 'active', 'inactive'] as const).map((tab) => (
+        {/* Filter Pills & Export Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
-              key={tab}
-              onClick={() => setFilter(tab)}
+              onClick={() => setFilter('all')}
               style={{
                 borderRadius: 20,
                 padding: '6px 18px',
                 fontSize: '0.8125rem',
                 fontWeight: 700,
-                background: filter === tab ? '#2563eb' : 'var(--bg-surface-elevated)',
-                color: filter === tab ? '#ffffff' : 'var(--text-secondary)',
+                background: filter === 'all' ? '#2563eb' : 'var(--bg-surface-elevated)',
+                color: filter === 'all' ? '#ffffff' : 'var(--text-secondary)',
                 border: '1px solid var(--border-default)',
                 cursor: 'pointer',
-                textTransform: 'capitalize',
                 transition: 'all 0.2s ease',
               }}
             >
-              {tab === 'all' ? 'All' : tab === 'active' ? 'Active' : 'Inactive'}
+              All (9)
             </button>
-          ))}
+            <button
+              onClick={() => setFilter('active')}
+              style={{
+                borderRadius: 20,
+                padding: '6px 18px',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                background: filter === 'active' ? '#2563eb' : 'var(--bg-surface-elevated)',
+                color: filter === 'active' ? '#ffffff' : 'var(--text-secondary)',
+                border: '1px solid var(--border-default)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Active (6)
+            </button>
+            <button
+              onClick={() => setFilter('inactive')}
+              style={{
+                borderRadius: 20,
+                padding: '6px 18px',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                background: filter === 'inactive' ? '#2563eb' : 'var(--bg-surface-elevated)',
+                color: filter === 'inactive' ? '#ffffff' : 'var(--text-secondary)',
+                border: '1px solid var(--border-default)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Inactive (3)
+            </button>
+          </div>
+
+          <Button variant="secondary" size="md" onClick={handleExportCampaigns} style={{ borderRadius: 10, padding: '8px 18px', fontSize: '0.8125rem' }}>
+            📥 Export All Clusters CSV
+          </Button>
         </div>
 
-        {/* Active Campaigns Grid */}
+        {/* Active Campaigns 3-Column Grid */}
         {(filter === 'all' || filter === 'active') && (
           <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Active Campaigns
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <h3 style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Active Campaigns
+              </h3>
+              <span className="badge badge-green" style={{ fontSize: '0.75rem' }}>6 Live</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
               {activeCampaignsList.map((item) => (
                 <div
                   key={item.title}
                   onClick={() => setSelectedCampaign(item)}
-                  className="card-hover-effect"
+                  className="panel campaign-card-interactive"
                   style={{
-                    background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 14,
+                    background: 'linear-gradient(145deg, #13182a 0%, #0d121f 100%)',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    borderRadius: 16,
                     padding: '20px 22px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     gap: 16,
+                    minHeight: 240,
+                    boxShadow: '0 4px 20px rgba(37, 99, 235, 0.1)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: '1.25rem' }}>🌐</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(37, 99, 235, 0.18)', border: '1px solid rgba(59, 130, 246, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
+                        {item.icon}
+                      </div>
                       <div>
-                        <strong style={{ fontSize: '1rem', color: '#ffffff', display: 'block' }}>{item.title}</strong>
-                        <span className="badge badge-green" style={{ marginTop: 4 }}>Active</span>
+                        <strong style={{ fontSize: '0.9375rem', color: '#ffffff', display: 'block', lineHeight: 1.3 }}>{item.title}</strong>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                          <span className="badge badge-green" style={{ fontSize: '0.6875rem' }}>● Active</span>
+                          <span className="badge badge-red" style={{ fontSize: '0.6875rem' }}>🔥 {item.riskScore}% Risk</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 24, fontSize: '0.8125rem' }}>
+                  {/* Metrics Bar */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, background: 'rgba(0, 0, 0, 0.35)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div>
-                      <strong style={{ color: '#ffffff', display: 'block', fontSize: '1.125rem' }}>{item.messages}</strong>
-                      <small style={{ color: 'var(--text-muted)' }}>Messages</small>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Messages</small>
+                      <strong style={{ color: '#ffffff', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{item.messages}</strong>
                     </div>
                     <div>
-                      <strong style={{ color: '#60a5fa', display: 'block', fontSize: '1.125rem' }}>{item.domains}</strong>
-                      <small style={{ color: 'var(--text-muted)' }}>Domains</small>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Domains</small>
+                      <strong style={{ color: '#60a5fa', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{item.domains}</strong>
                     </div>
                     <div>
-                      <strong style={{ color: '#ffffff', display: 'block', fontSize: '1.125rem' }}>{item.since}</strong>
-                      <small style={{ color: 'var(--text-muted)' }}>Since</small>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Since</small>
+                      <strong style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>{item.since}</strong>
                     </div>
                   </div>
 
+                  {/* Pattern Tags */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {item.tags.map((t) => (
-                      <span key={t} style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem', border: '1px solid var(--border-subtle)' }}>
-                        {t}
+                      <span key={t} className="badge badge-purple" style={{ fontSize: '0.6875rem', padding: '3px 9px' }}>
+                        🏷️ {t}
                       </span>
                     ))}
+                  </div>
+
+                  {/* Action Link Footer */}
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 700 }}>
+                    <span>Inspect Cluster Intelligence</span>
+                    <span>→</span>
                   </div>
                 </div>
               ))}
@@ -675,62 +785,77 @@ export function ClientCampaignsPage() {
           </div>
         )}
 
-        {/* Inactive Campaigns Grid */}
+        {/* Inactive Campaigns 3-Column Grid */}
         {(filter === 'all' || filter === 'inactive') && (
-          <div style={{ marginTop: 12 }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Inactive Campaigns
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <h3 style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Inactive Campaigns
+              </h3>
+              <span className="badge badge-gray" style={{ fontSize: '0.75rem' }}>3 Inactive</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
               {inactiveCampaignsList.map((item) => (
                 <div
                   key={item.title}
                   onClick={() => setSelectedCampaign(item)}
-                  className="card-hover-effect"
+                  className="panel campaign-card-interactive"
                   style={{
-                    background: 'rgba(15, 23, 42, 0.5)',
+                    background: 'rgba(15, 23, 42, 0.4)',
                     border: '1px solid var(--border-subtle)',
-                    borderRadius: 14,
+                    borderRadius: 16,
                     padding: '20px 22px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     gap: 16,
+                    minHeight: 240,
                     opacity: 0.85,
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: '1.25rem', opacity: 0.6 }}>⚙️</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', opacity: 0.7 }}>
+                        {item.icon}
+                      </div>
                       <div>
-                        <strong style={{ fontSize: '1rem', color: 'var(--text-secondary)', display: 'block' }}>{item.title}</strong>
-                        <span className="badge" style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-muted)', marginTop: 4 }}>Inactive</span>
+                        <strong style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', display: 'block', lineHeight: 1.3 }}>{item.title}</strong>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                          <span className="badge badge-gray" style={{ fontSize: '0.6875rem' }}>Inactive</span>
+                          <span className="badge badge-amber" style={{ fontSize: '0.6875rem' }}>{item.riskScore}% Risk</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 24, fontSize: '0.8125rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, background: 'rgba(0, 0, 0, 0.2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div>
-                      <strong style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '1.125rem' }}>{item.messages}</strong>
-                      <small style={{ color: 'var(--text-muted)' }}>Messages</small>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Messages</small>
+                      <strong style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{item.messages}</strong>
                     </div>
                     <div>
-                      <strong style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '1.125rem' }}>{item.domains}</strong>
-                      <small style={{ color: 'var(--text-muted)' }}>Domains</small>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Domains</small>
+                      <strong style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>{item.domains}</strong>
                     </div>
                     <div>
-                      <strong style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '1.125rem' }}>{item.since}</strong>
-                      <small style={{ color: 'var(--text-muted)' }}>Since</small>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', display: 'block', fontWeight: 700, textTransform: 'uppercase' }}>Since</small>
+                      <strong style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>{item.since}</strong>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {item.tags.map((t) => (
-                      <span key={t} style={{ background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-muted)', padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem' }}>
+                      <span key={t} className="badge badge-gray" style={{ fontSize: '0.6875rem', padding: '3px 9px' }}>
                         {t}
                       </span>
                     ))}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    <span>View Historical Log</span>
+                    <span>→</span>
                   </div>
                 </div>
               ))}
@@ -741,26 +866,71 @@ export function ClientCampaignsPage() {
 
       {/* Campaign Details Modal */}
       {selectedCampaign && (
-        <Modal isOpen={!!selectedCampaign} onClose={() => setSelectedCampaign(null)} title={`Campaign Audit — ${selectedCampaign.title}`}>
+        <Modal
+          isOpen={Boolean(selectedCampaign)}
+          onClose={() => setSelectedCampaign(null)}
+          title={`Threat Cluster: ${selectedCampaign.title}`}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{selectedCampaign.desc}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, background: 'rgba(0,0,0,0.3)', padding: 14, borderRadius: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface-elevated)', padding: 14, borderRadius: 10, border: '1px solid var(--border-default)' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Messages</span>
-                <strong style={{ display: 'block', fontSize: '1.125rem', color: '#ffffff' }}>{selectedCampaign.messages}</strong>
+                <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Status &amp; Risk Score</small>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                  <span className={`badge ${selectedCampaign.status === 'Active' ? 'badge-green' : 'badge-gray'}`}>
+                    {selectedCampaign.status}
+                  </span>
+                  <span className="badge badge-red">
+                    🔥 {selectedCampaign.riskScore}% Threat Risk
+                  </span>
+                </div>
               </div>
-              <div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Malicious Domains</span>
-                <strong style={{ display: 'block', fontSize: '1.125rem', color: '#60a5fa' }}>{selectedCampaign.domains} Active</strong>
-              </div>
-              <div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>First Tracked</span>
-                <strong style={{ display: 'block', fontSize: '1.125rem', color: '#34d399' }}>{selectedCampaign.since}, 2026</strong>
+              <div style={{ textAlign: 'right' }}>
+                <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Active Since</small>
+                <strong style={{ color: '#ffffff', fontSize: '0.9375rem' }}>{selectedCampaign.since}</strong>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-              <Button variant="primary" onClick={() => { setSelectedCampaign(null); showToast('Exporting campaign audit...'); }}>
-                📥 Download Full Campaign Report
+
+            <div>
+              <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700 }}>
+                Cluster Description
+              </small>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, margin: 0 }}>
+                {selectedCampaign.desc}
+              </p>
+            </div>
+
+            {selectedCampaign.samplePayload && (
+              <div style={{ padding: 14, background: 'rgba(0, 0, 0, 0.35)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', marginBottom: 6, fontWeight: 700 }}>
+                  REPRESENTATIVE SMS PAYLOAD
+                </small>
+                <code style={{ color: '#ffffff', fontSize: '0.84375rem', fontFamily: 'var(--font-mono)', lineHeight: 1.5, display: 'block' }}>
+                  {selectedCampaign.samplePayload}
+                </code>
+              </div>
+            )}
+
+            {selectedCampaign.domainsList && (
+              <div>
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', marginBottom: 6, fontWeight: 700, textTransform: 'uppercase' }}>
+                  Tracked Malicious Domains ({selectedCampaign.domainsList.length})
+                </small>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {selectedCampaign.domainsList.map((domain: string) => (
+                    <span key={domain} className="badge badge-red" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                      🌐 {domain}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid var(--border-subtle)', paddingTop: 14 }}>
+              <Button variant="ghost" onClick={() => setSelectedCampaign(null)}>
+                Close
+              </Button>
+              <Button variant="primary" onClick={() => handleExportSingleCampaign(selectedCampaign)}>
+                📥 Download Cluster Report
               </Button>
             </div>
           </div>
@@ -1092,14 +1262,15 @@ export function ClientExportPage() {
                       <span className="badge badge-green">Complete</span>
                     </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDownloadFile(row.filename)}
-                        style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1rem' }}
-                        title="Download file"
+                        title={`Download ${row.filename}`}
+                        style={{ borderRadius: 6, fontSize: '0.75rem', padding: '4px 10px' }}
                       >
-                        📥
-                      </button>
+                        Download ↓
+                      </Button>
                     </td>
                   </tr>
                 ))}

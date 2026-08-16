@@ -1133,47 +1133,48 @@ export function AdminModelPage() {
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
         title="XLM-RoBERTa Model Checkpoint History"
+        maxWidth={760}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontSize: '0.875rem' }}>
-          <div className="table-wrap">
-            <table>
+          <div className="table-wrap" style={{ width: '100%', overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 620 }}>
               <thead>
                 <tr>
-                  <th>VERSION</th>
-                  <th>RETRAINED DATE</th>
-                  <th>ACCURACY</th>
-                  <th>F1 SCORE</th>
-                  <th>STATUS</th>
+                  <th style={{ textAlign: 'left', padding: '10px 12px' }}>VERSION</th>
+                  <th style={{ textAlign: 'left', padding: '10px 12px' }}>RETRAINED DATE</th>
+                  <th style={{ textAlign: 'center', padding: '10px 12px' }}>ACCURACY</th>
+                  <th style={{ textAlign: 'center', padding: '10px 12px' }}>F1 SCORE</th>
+                  <th style={{ textAlign: 'center', padding: '10px 12px' }}>STATUS</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>XLM-RoBERTa v3.1</strong></td>
-                  <td>May 8, 2026</td>
-                  <td style={{ color: 'var(--green-text)', fontWeight: 700 }}>94.2%</td>
-                  <td>0.931</td>
-                  <td><span className="badge badge-green">Active Production</span></td>
+                  <td style={{ padding: '12px', fontWeight: 700, color: '#f8fafc' }}>XLM-RoBERTa v3.1</td>
+                  <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>May 8, 2026</td>
+                  <td style={{ padding: '12px', textAlign: 'center', color: 'var(--green-text)', fontWeight: 700 }}>94.2%</td>
+                  <td style={{ padding: '12px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>0.931</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}><span className="badge badge-green">Active Production</span></td>
                 </tr>
                 <tr>
-                  <td>XLM-RoBERTa v3.0</td>
-                  <td>Apr 14, 2026</td>
-                  <td>93.0%</td>
-                  <td>0.919</td>
-                  <td><span className="badge badge-gray">Archived</span></td>
+                  <td style={{ padding: '12px', fontWeight: 600 }}>XLM-RoBERTa v3.0</td>
+                  <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>Apr 14, 2026</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>93.0%</td>
+                  <td style={{ padding: '12px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>0.919</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}><span className="badge badge-gray">Archived</span></td>
                 </tr>
                 <tr>
-                  <td>XLM-RoBERTa v2.5</td>
-                  <td>Mar 01, 2026</td>
-                  <td>91.8%</td>
-                  <td>0.904</td>
-                  <td><span className="badge badge-gray">Archived</span></td>
+                  <td style={{ padding: '12px', fontWeight: 600 }}>XLM-RoBERTa v2.5</td>
+                  <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>Mar 01, 2026</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>91.8%</td>
+                  <td style={{ padding: '12px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>0.904</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}><span className="badge badge-gray">Archived</span></td>
                 </tr>
                 <tr>
-                  <td>BERT-Multilingual v1.0</td>
-                  <td>Jan 15, 2026</td>
-                  <td>88.4%</td>
-                  <td>0.865</td>
-                  <td><span className="badge badge-gray">Baseline Initial</span></td>
+                  <td style={{ padding: '12px', fontWeight: 600 }}>BERT-Multilingual v1.0</td>
+                  <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>Jan 15, 2026</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>88.4%</td>
+                  <td style={{ padding: '12px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>0.865</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}><span className="badge badge-gray">Baseline Initial</span></td>
                 </tr>
               </tbody>
             </table>
@@ -1730,6 +1731,9 @@ export function AdminDatasetPage() {
 
   // Upload simulation state
   const [uploadText, setUploadText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [parsedSamplesCount, setParsedSamplesCount] = useState<number>(0);
+  const [uploadedFilePayloads, setUploadedFilePayloads] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   // Filtered dataset logic
@@ -1748,24 +1752,115 @@ export function AdminDatasetPage() {
   const suspiciousCount = samplesList.filter((s) => s.classification === 'Suspicious').length;
   const unreviewedCount = samplesList.filter((s) => s.classification === 'Unreviewed').length;
 
+  // Pagination calculation logic
+  const ITEMS_PER_PAGE = 5;
+  const totalResults = filteredSamples.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalResults);
+  const paginatedSamples = filteredSamples.slice(startIndex, endIndex);
+
   const handleDownloadDataset = () => {
     setIsExporting(true);
     setTimeout(() => {
+      let content = '';
+      let filename = `BantAI_Dataset_Export_${new Date().toISOString().slice(0, 10)}`;
+      let mimeType = 'text/csv;charset=utf-8;';
+
+      if (exportFormat === 'CSV') {
+        filename += '.csv';
+        const headers = ['ID', 'Classification', 'Language', 'Campaign', 'Source', 'Added By', 'Date Added', 'Validated By', 'Text Payload'];
+        const csvRows = samplesList.map((s) => [
+          `"${s.id}"`,
+          `"${s.classification}"`,
+          `"${s.language}"`,
+          `"${s.campaign}"`,
+          `"${s.source}"`,
+          `"${s.addedBy}"`,
+          `"${s.dateAdded}"`,
+          `"${s.validatedBy}"`,
+          `"${(s.textPayload || '').replace(/"/g, '""')}"`
+        ].join(','));
+        content = [headers.join(','), ...csvRows].join('\n');
+      } else {
+        filename += '.json';
+        mimeType = 'application/json;charset=utf-8;';
+        content = JSON.stringify(samplesList, null, 2);
+      }
+
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       setIsExporting(false);
       setShowDownloadModal(false);
-      alert(`Successfully exported dataset (${exportFormat} format) containing 12,190 records!`);
-    }, 1200);
+    }, 600);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const text = (event.target?.result as string) || '';
+      if (!text) return;
+
+      if (file.name.toLowerCase().endsWith('.json')) {
+        try {
+          const parsed = JSON.parse(text);
+          const entries: string[] = Array.isArray(parsed)
+            ? parsed.map((item) => (typeof item === 'string' ? item : item.textPayload || item.text || item.message || JSON.stringify(item)))
+            : [text];
+          setUploadedFilePayloads(entries);
+          setParsedSamplesCount(entries.length);
+        } catch {
+          setUploadedFilePayloads([text]);
+          setParsedSamplesCount(1);
+        }
+      } else if (file.name.toLowerCase().endsWith('.csv')) {
+        const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+        const dataLines = lines.length > 1 && lines[0].toLowerCase().includes('text') ? lines.slice(1) : lines;
+        const entries = dataLines.map((line) => {
+          const parts = line.split(',');
+          return parts[parts.length - 1]?.replace(/^"|"$/g, '').trim() || line;
+        });
+        setUploadedFilePayloads(entries);
+        setParsedSamplesCount(entries.length);
+      } else {
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        setUploadedFilePayloads(lines);
+        setParsedSamplesCount(lines.length);
+      }
+    };
+
+    reader.readAsText(file);
   };
 
   const handleUploadSamples = () => {
-    if (!uploadText.trim()) {
-      alert("Please paste dataset samples or choose a file first.");
+    const rawPayloads = uploadedFilePayloads.length > 0
+      ? uploadedFilePayloads
+      : uploadText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+    if (rawPayloads.length === 0) {
+      alert("Please choose a CSV/JSON file or paste SMS text samples first.");
       return;
     }
+
     setIsUploading(true);
     setTimeout(() => {
-      const newSample: DatasetSampleItem = {
-        id: `S-00${Math.floor(422 + Math.random() * 100)}`,
+      const newItems: DatasetSampleItem[] = rawPayloads.map((payload, idx) => ({
+        id: `S-00${Math.floor(450 + Math.random() * 500) + idx}`,
         language: 'Taglish',
         classification: 'Unreviewed',
         campaign: '—',
@@ -1773,14 +1868,18 @@ export function AdminDatasetPage() {
         addedBy: 'admin_gio',
         dateAdded: 'Just now',
         validatedBy: '—',
-        textPayload: uploadText,
-      };
-      setSamplesList([newSample, ...samplesList]);
+        textPayload: payload,
+      }));
+
+      setSamplesList([...newItems, ...samplesList]);
       setIsUploading(false);
       setUploadText('');
+      setSelectedFile(null);
+      setUploadedFilePayloads([]);
+      setParsedSamplesCount(0);
       setShowUploadModal(false);
-      alert("Successfully ingested new samples into the training dataset!");
-    }, 1500);
+      alert(`Successfully ingested ${newItems.length} new sample(s) into the dataset!`);
+    }, 800);
   };
 
   return (
@@ -1798,46 +1897,35 @@ export function AdminDatasetPage() {
           </div>
         </div>
 
-        {/* Data Source Notice Info Banner (Matching Reference Image) */}
-        <div
-          style={{
-            background: 'rgba(59, 130, 246, 0.12)',
-            border: '1px solid rgba(59, 130, 246, 0.35)',
-            color: '#60a5fa',
-            padding: '14px 18px',
-            borderRadius: 10,
-            fontSize: '0.875rem',
-            lineHeight: 1.5,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12,
-          }}
-        >
-          <span style={{ fontSize: '1.125rem' }}>ⓘ</span>
-          <div>
-            <strong>Data Source:</strong> This dataset contains only messages that were explicitly sent to the backend — either user-reported suspicious SMS or numbers automatically blocked by the system. Legitimate messages verified on the user's device are never transmitted to the backend and do not appear here.
+        {/* Informational Callout */}
+        <div className="panel" style={{ padding: '16px 20px', background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: '1.25rem', color: '#38bdf8' }}>ⓘ</span>
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <strong style={{ color: '#f8fafc' }}>Data Source:</strong> This dataset contains only messages that were explicitly sent to the backend — either user-reported suspicious SMS or numbers automatically blocked by the system. Legitimate messages verified on the user's device are never transmitted to the backend and do not appear here.
+            </div>
           </div>
         </div>
 
-        {/* Top 5 Stat Cards (Matching Reference Screenshot Row) */}
-        <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        {/* Top Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <div className="panel" style={{ padding: '16px 20px' }}>
-            <strong style={{ fontSize: '1.75rem', color: 'var(--text-primary)', display: 'block' }}>12,190</strong>
+            <strong style={{ fontSize: '1.75rem', color: 'var(--text-primary)', display: 'block' }}>{samplesList.length.toLocaleString()}</strong>
             <small style={{ color: 'var(--text-muted)' }}>Total Samples</small>
           </div>
 
           <div className="panel" style={{ padding: '16px 20px' }}>
-            <strong style={{ fontSize: '1.75rem', color: 'var(--red-text)', display: 'block' }}>8,940</strong>
+            <strong style={{ fontSize: '1.75rem', color: 'var(--red-text)', display: 'block' }}>{confirmedCount.toLocaleString()}</strong>
             <small style={{ color: 'var(--text-muted)' }}>Confirmed Smishing</small>
           </div>
 
           <div className="panel" style={{ padding: '16px 20px' }}>
-            <strong style={{ fontSize: '1.75rem', color: 'var(--amber-text)', display: 'block' }}>2,250</strong>
+            <strong style={{ fontSize: '1.75rem', color: 'var(--amber-text)', display: 'block' }}>{suspiciousCount.toLocaleString()}</strong>
             <small style={{ color: 'var(--text-muted)' }}>Suspicious</small>
           </div>
 
           <div className="panel" style={{ padding: '16px 20px' }}>
-            <strong style={{ fontSize: '1.75rem', color: 'var(--text-secondary)', display: 'block' }}>1,000</strong>
+            <strong style={{ fontSize: '1.75rem', color: '#38bdf8', display: 'block' }}>{unreviewedCount.toLocaleString()}</strong>
             <small style={{ color: 'var(--text-muted)' }}>Unreviewed</small>
           </div>
 
@@ -1847,45 +1935,96 @@ export function AdminDatasetPage() {
           </div>
         </div>
 
-        {/* Dataset Composition Bar Panel (Matching Reference Image) */}
-        <div className="panel">
-          <div className="panel-head">
+        {/* Dataset Composition Panel with Individual Stat Boxes */}
+        <div className="panel" style={{ padding: '24px' }}>
+          <div className="panel-head" style={{ marginBottom: 16 }}>
             <div>
-              <strong>DATASET COMPOSITION</strong>
-              <small>Proportional distribution of 12,190 training samples</small>
+              <strong style={{ fontSize: '1.125rem', color: '#f8fafc', fontWeight: 700 }}>DATASET COMPOSITION</strong>
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 4 }}>
+                Proportional distribution of {samplesList.length.toLocaleString()} training samples
+              </small>
             </div>
           </div>
 
-          <div style={{ marginTop: 12 }}>
-            {/* Visual Multi-Color Progress Bar */}
-            <div style={{ height: 24, width: '100%', borderRadius: 6, overflow: 'hidden', display: 'flex', fontSize: '0.75rem', fontWeight: 700, color: '#ffffff' }}>
-              <div style={{ width: '73.3%', background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                Confirmed Smishing 73.3%
+          {/* Sleek Visual Multi-Color Segmented Bar (Clean, no text squishing inside narrow segments) */}
+          <div style={{ height: 12, width: '100%', borderRadius: 6, overflow: 'hidden', display: 'flex', background: 'rgba(255, 255, 255, 0.05)', marginBottom: 20 }}>
+            <div style={{ width: '73.3%', background: '#ef4444', height: '100%', borderRadius: '6px 0 0 6px' }} title="Confirmed Smishing: 73.3%" />
+            <div style={{ width: '18.5%', background: '#f59e0b', height: '100%' }} title="Suspicious: 18.5%" />
+            <div style={{ width: '8.2%', background: '#38bdf8', height: '100%', borderRadius: '0 6px 6px 0' }} title="Unreviewed: 8.2%" />
+          </div>
+
+          {/* Individual Category Stat Boxes Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            {/* Box 1: Confirmed Smishing */}
+            <div
+              style={{
+                background: 'rgba(239, 68, 68, 0.06)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: 12,
+                padding: '16px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="badge badge-red" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Confirmed Smishing</span>
+                <strong style={{ fontSize: '1.25rem', color: '#ef4444', fontWeight: 800 }}>73.3%</strong>
               </div>
-              <div style={{ width: '18.5%', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
-                Suspicious 18.5%
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>
+                {confirmedCount.toLocaleString()} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>samples</span>
               </div>
-              <div style={{ width: '8.2%', background: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                Unreviewed 8.2%
-              </div>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Auto-blocked or validated via report review
+              </p>
             </div>
 
-            {/* Legend Labels */}
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 14, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 10, height: 10, background: '#ef4444', borderRadius: 2 }} />
-                <span>Confirmed Smishing — auto-blocked or validated via report review</span>
-              </span>
+            {/* Box 2: Suspicious */}
+            <div
+              style={{
+                background: 'rgba(245, 158, 11, 0.06)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: 12,
+                padding: '16px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="badge badge-amber" style={{ fontSize: '0.75rem', fontWeight: 700 }}>Suspicious</span>
+                <strong style={{ fontSize: '1.25rem', color: '#f59e0b', fontWeight: 800 }}>18.5%</strong>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>
+                {suspiciousCount.toLocaleString()} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>samples</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                User-reported, awaiting reviewer validation
+              </p>
+            </div>
 
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 10, height: 10, background: '#f59e0b', borderRadius: 2 }} />
-                <span>Suspicious — user-reported, awaiting reviewer validation</span>
-              </span>
-
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 10, height: 10, background: '#64748b', borderRadius: 2 }} />
-                <span>Unreviewed — newly received, pending classification</span>
-              </span>
+            {/* Box 3: Unreviewed */}
+            <div
+              style={{
+                background: 'rgba(56, 189, 248, 0.06)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: 12,
+                padding: '16px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="badge badge-blue" style={{ fontSize: '0.75rem', fontWeight: 700, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>Unreviewed</span>
+                <strong style={{ fontSize: '1.25rem', color: '#38bdf8', fontWeight: 800 }}>8.2%</strong>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', marginTop: 2 }}>
+                {unreviewedCount.toLocaleString()} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>samples</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: '#cbd5e1', lineHeight: 1.4, fontWeight: 500 }}>
+                Newly received, pending classification
+              </p>
             </div>
           </div>
         </div>
@@ -1898,28 +2037,28 @@ export function AdminDatasetPage() {
               onClick={() => { setActiveTab('All'); setCurrentPage(1); }}
               style={{ borderRadius: 20, padding: '6px 16px', fontSize: '0.8125rem' }}
             >
-              All 12,190
+              All {samplesList.length.toLocaleString()}
             </button>
             <button
               className={`btn ${activeTab === 'Confirmed Smishing' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => { setActiveTab('Confirmed Smishing'); setCurrentPage(1); }}
               style={{ borderRadius: 20, padding: '6px 16px', fontSize: '0.8125rem' }}
             >
-              Confirmed Smishing 8,940
+              Confirmed Smishing {confirmedCount.toLocaleString()}
             </button>
             <button
               className={`btn ${activeTab === 'Suspicious' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => { setActiveTab('Suspicious'); setCurrentPage(1); }}
               style={{ borderRadius: 20, padding: '6px 16px', fontSize: '0.8125rem' }}
             >
-              Suspicious 2,250
+              Suspicious {suspiciousCount.toLocaleString()}
             </button>
             <button
               className={`btn ${activeTab === 'Unreviewed' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => { setActiveTab('Unreviewed'); setCurrentPage(1); }}
               style={{ borderRadius: 20, padding: '6px 16px', fontSize: '0.8125rem' }}
             >
-              Unreviewed 1,000
+              Unreviewed {unreviewedCount.toLocaleString()}
             </button>
           </div>
 
@@ -1929,17 +2068,22 @@ export function AdminDatasetPage() {
               className="form-input"
               placeholder="Filter samples..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               style={{ width: '100%', height: 36, paddingLeft: 32, fontSize: '0.8125rem' }}
             />
             <span style={{ position: 'absolute', left: 10, top: 8, color: 'var(--text-muted)' }}>🔍</span>
           </div>
         </div>
 
-        {/* Detailed Dataset Table */}
+        {/* Detailed Dataset Table (Clean 5 items per page view, no internal vertical scrollbar) */}
         <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-wrap">
-            <table>
+          <div
+            className="table-wrap"
+            style={{
+              overflowX: 'auto',
+            }}
+          >
+            <table style={{ width: '100%', minWidth: 850 }}>
               <thead>
                 <tr>
                   <th>SAMPLE ID</th>
@@ -1954,47 +2098,55 @@ export function AdminDatasetPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredSamples.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <code style={{ color: 'var(--accent-light)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                        {item.id}
-                      </code>
-                    </td>
-                    <td>
-                      <span style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>{item.language}</span>
-                    </td>
-                    <td>
-                      {item.classification === 'Confirmed Smishing' ? (
-                        <span className="badge badge-red">Confirmed Smishing</span>
-                      ) : item.classification === 'Suspicious' ? (
-                        <span className="badge badge-amber">Suspicious</span>
-                      ) : (
-                        <span className="badge badge-gray">Unreviewed</span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-primary)' }}>{item.campaign}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{item.source}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.addedBy}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.dateAdded}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.validatedBy}</span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedSample(item)}>
-                        View Payload →
-                      </Button>
+                {paginatedSamples.length > 0 ? (
+                  paginatedSamples.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <code style={{ color: 'var(--accent-light)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                          {item.id}
+                        </code>
+                      </td>
+                      <td>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>{item.language}</span>
+                      </td>
+                      <td>
+                        {item.classification === 'Confirmed Smishing' ? (
+                          <span className="badge badge-red">Confirmed Smishing</span>
+                        ) : item.classification === 'Suspicious' ? (
+                          <span className="badge badge-amber">Suspicious</span>
+                        ) : (
+                          <span className="badge badge-gray" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>Unreviewed</span>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-primary)' }}>{item.campaign}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{item.source}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.addedBy}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.dateAdded}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.validatedBy}</span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedSample(item)}>
+                          View Payload →
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                      No matching dataset samples found.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -2012,50 +2164,61 @@ export function AdminDatasetPage() {
               background: 'var(--bg-surface-elevated)',
             }}
           >
-            <span>Showing 1–{filteredSamples.length} of 12,190 results</span>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <span>Showing {totalResults > 0 ? startIndex + 1 : 0}–{endIndex} of {totalResults.toLocaleString()} results</span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button
                 className="btn btn-ghost"
-                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                style={{ padding: '4px 10px', height: 28, fontSize: '0.85rem' }}
+                disabled={safeCurrentPage === 1}
+                onClick={() => setCurrentPage(Math.max(1, safeCurrentPage - 1))}
               >
-                ‹
+                ‹ Prev
               </button>
-              <button
-                className={`btn ${currentPage === 1 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(1)}
-              >
-                1
-              </button>
-              <button
-                className={`btn ${currentPage === 2 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(2)}
-              >
-                2
-              </button>
-              <button
-                className={`btn ${currentPage === 3 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(3)}
-              >
-                3
-              </button>
-              <span style={{ padding: '4px 6px' }}>...</span>
-              <button
-                className={`btn ${currentPage === 1219 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(1219)}
-              >
-                1219
-              </button>
+
+              {/* Render dynamic page numbers around safeCurrentPage */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum = safeCurrentPage;
+                if (safeCurrentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (safeCurrentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = safeCurrentPage - 2 + i;
+                }
+                if (pageNum < 1 || pageNum > totalPages) return null;
+
+                return (
+                  <button
+                    key={pageNum}
+                    className={`btn ${safeCurrentPage === pageNum ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem', minWidth: 28 }}
+                    onClick={() => setCurrentPage(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              {totalPages > 5 && safeCurrentPage < totalPages - 2 && (
+                <>
+                  <span style={{ padding: '0 4px', color: 'var(--text-muted)' }}>...</span>
+                  <button
+                    className={`btn ${safeCurrentPage === totalPages ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
+                    onClick={() => setCurrentPage(totalPages)}
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+
               <button
                 className="btn btn-ghost"
-                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(currentPage + 1)}
+                style={{ padding: '4px 10px', height: 28, fontSize: '0.85rem' }}
+                disabled={safeCurrentPage === totalPages}
+                onClick={() => setCurrentPage(Math.min(totalPages, safeCurrentPage + 1))}
               >
-                ›
+                Next ›
               </button>
             </div>
           </div>
@@ -2067,10 +2230,11 @@ export function AdminDatasetPage() {
         isOpen={showDownloadModal}
         onClose={() => setShowDownloadModal(false)}
         title="Download Dataset Export"
+        maxWidth={580}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontSize: '0.875rem' }}>
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            Choose format to export all 12,190 training samples (includes SMS text payloads, labels, and telemetry metadata).
+            Choose format to export all {samplesList.length.toLocaleString()} training samples (includes SMS text payloads, labels, and telemetry metadata).
           </p>
 
           <div style={{ display: 'flex', gap: 16 }}>
@@ -2081,7 +2245,7 @@ export function AdminDatasetPage() {
                 checked={exportFormat === 'CSV'}
                 onChange={() => setExportFormat('CSV')}
               />
-              <strong>CSV Spreadsheet Format</strong>
+              <strong>CSV Spreadsheet Format (.csv)</strong>
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -2091,7 +2255,7 @@ export function AdminDatasetPage() {
                 checked={exportFormat === 'JSON'}
                 onChange={() => setExportFormat('JSON')}
               />
-              <strong>JSON Lines (JSONL)</strong>
+              <strong>JSON Structure (.json)</strong>
             </label>
           </div>
 
@@ -2111,24 +2275,55 @@ export function AdminDatasetPage() {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         title="Upload New Training Samples"
+        maxWidth={620}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontSize: '0.875rem' }}>
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            Paste raw text messages or upload a JSON/CSV file containing user-reported smishing payloads to ingest into the BantAI pipeline.
+            Upload a CSV/JSON file or paste raw text messages containing user-reported smishing payloads to ingest into the BantAI pipeline.
           </p>
+
+          {/* Drag & Drop / File Picker Input */}
+          <div style={{ border: '2px dashed rgba(56, 189, 248, 0.3)', padding: 20, textAlign: 'center', borderRadius: 10, background: 'rgba(56, 189, 248, 0.03)' }}>
+            <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <input
+                type="file"
+                accept=".csv,.json,.txt"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <span style={{ fontSize: '2rem' }}>📁</span>
+              {selectedFile ? (
+                <div>
+                  <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>✓ Selected: {selectedFile.name}</strong>
+                  <div style={{ color: 'var(--green-text)', fontSize: '0.8125rem', marginTop: 4, fontWeight: 600 }}>
+                    {parsedSamplesCount} sample record(s) detected and ready for ingestion.
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <strong style={{ color: '#f8fafc', fontSize: '0.9375rem' }}>Click or Drag & Drop .csv or .json files here</strong>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: 4 }}>
+                    Supports CSV datasets or JSON message array files
+                  </div>
+                </div>
+              )}
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>OR PASTE TEXT</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+          </div>
 
           <textarea
             className="form-input"
-            rows={5}
+            rows={4}
             placeholder="Paste suspicious text samples here (one per line)..."
             value={uploadText}
             onChange={(e) => setUploadText(e.target.value)}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
           />
-
-          <div style={{ border: '2px dashed var(--border-default)', padding: 20, textAlign: 'center', borderRadius: 8, color: 'var(--text-muted)' }}>
-            📄 Or drag & drop <strong>.csv</strong> or <strong>.json</strong> files here
-          </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
             <Button variant="ghost" size="md" onClick={() => setShowUploadModal(false)}>
@@ -2372,11 +2567,11 @@ const CLASSIFICATION_LOG_ITEMS: ClassificationLogItem[] = [
 ];
 
 const AVAILABLE_DATES = [
+  'All Dates',
   'May 13, 2026',
   'May 12, 2026',
   'May 11, 2026',
   'May 10, 2026',
-  'All Dates',
 ];
 
 export function AdminClassificationPage() {
@@ -2388,15 +2583,16 @@ export function AdminClassificationPage() {
   const [logsList, setLogsList] = useState<ClassificationLogItem[]>(CLASSIFICATION_LOG_ITEMS);
   const [currentPage, setCurrentPage] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
+  const itemsPerPage = 7;
 
   // Filter logic matching date selector + pill buttons + search query
   const filteredLogs = logsList.filter((item) => {
     // 1. Date Filter
     let matchesDate = true;
     if (selectedDate !== 'All Dates') {
-      // e.g. "May 13, 2026" matches "May 13 09:01"
-      const datePrefix = selectedDate.replace(', 2026', ''); // "May 13"
-      matchesDate = item.timestamp.includes(datePrefix);
+      // e.g. "May 13, 2026" matches "May 13" in timestamp "May 13 09:01"
+      const datePrefix = selectedDate.replace(/, \d{4}$/, '').trim();
+      matchesDate = item.timestamp.toLowerCase().includes(datePrefix.toLowerCase());
     }
 
     // 2. Classification Filter
@@ -2417,12 +2613,65 @@ export function AdminClassificationPage() {
     return matchesDate && matchesFilter && matchesSearch;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage));
+  const validPage = Math.min(currentPage, totalPages);
+  const startIndex = (validPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredLogs.length);
+  const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
+
   const handleExportCSV = () => {
     setIsExporting(true);
     setTimeout(() => {
+      const headers = [
+        'Log ID',
+        'Device',
+        'Sender',
+        'Language',
+        'Preview',
+        'Classification',
+        'Confidence',
+        'Campaign',
+        'Flag',
+        'Reviewer',
+        'Timestamp',
+        'Full Message',
+      ];
+
+      const rows = filteredLogs.map((log) => [
+        log.id,
+        log.device,
+        log.sender,
+        log.lang,
+        log.preview,
+        log.classification,
+        log.confidence,
+        log.campaign,
+        log.flag,
+        log.reviewer,
+        log.timestamp,
+        log.fullMessage || log.preview,
+      ]);
+
+      const csvRows = [
+        headers.join(','),
+        ...rows.map((row) =>
+          row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')
+        ),
+      ];
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      const filenameDate = selectedDate.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      link.setAttribute('download', `classification_logs_${filenameDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       setIsExporting(false);
-      alert(`Successfully exported ${filteredLogs.length} classification logs for date [${selectedDate}] to CSV!`);
-    }, 1200);
+    }, 400);
   };
 
   const handleFlagAsFP = (logId: string) => {
@@ -2478,7 +2727,7 @@ export function AdminClassificationPage() {
                     borderRadius: 10,
                     boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
                     zIndex: 20,
-                    minWidth: 180,
+                    minWidth: 200,
                     padding: 6,
                   }}
                   className="animate-fade-in"
@@ -2511,6 +2760,25 @@ export function AdminClassificationPage() {
                       {selectedDate === d ? `✓ ${d}` : d}
                     </button>
                   ))}
+                  <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border-subtle)', marginTop: 4 }}>
+                    <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>
+                      Select Any Date:
+                    </div>
+                    <input
+                      type="date"
+                      className="form-input"
+                      style={{ fontSize: '0.75rem', padding: '4px 8px', width: '100%', height: 30 }}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const dateObj = new Date(e.target.value + 'T00:00:00');
+                          const formatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                          setSelectedDate(formatted);
+                          setShowDatePicker(false);
+                          setCurrentPage(1);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -2581,87 +2849,77 @@ export function AdminClassificationPage() {
 
         {/* Classification Table */}
         <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-wrap">
-            <table>
+          <div className="table-wrap" style={{ overflowX: 'hidden', width: '100%' }}>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th>LOG ID</th>
-                  <th>DEVICE</th>
-                  <th>SENDER</th>
-                  <th>LANG</th>
-                  <th>PREVIEW</th>
-                  <th>CLASSIFICATION</th>
-                  <th>CONFIDENCE</th>
-                  <th>CAMPAIGN</th>
-                  <th>FLAG</th>
-                  <th>REVIEWER</th>
-                  <th>TIMESTAMP</th>
-                  <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                  <th style={{ width: '8%', padding: '10px 6px', fontSize: '0.75rem' }}>LOG ID</th>
+                  <th style={{ width: '9%', padding: '10px 6px', fontSize: '0.75rem' }}>DEVICE</th>
+                  <th style={{ width: '12%', padding: '10px 6px', fontSize: '0.75rem' }}>SENDER</th>
+                  <th style={{ width: '6%', padding: '10px 6px', fontSize: '0.75rem' }}>LANG</th>
+                  <th style={{ width: '16%', padding: '10px 6px', fontSize: '0.75rem' }}>PREVIEW</th>
+                  <th style={{ width: '9%', padding: '10px 6px', fontSize: '0.75rem' }}>CLASSIFICATION</th>
+                  <th style={{ width: '7%', padding: '10px 6px', fontSize: '0.75rem' }}>CONFIDENCE</th>
+                  <th style={{ width: '11%', padding: '10px 6px', fontSize: '0.75rem' }}>CAMPAIGN</th>
+                  <th style={{ width: '5%', padding: '10px 6px', fontSize: '0.75rem' }}>FLAG</th>
+                  <th style={{ width: '7%', padding: '10px 6px', fontSize: '0.75rem' }}>REVIEWER</th>
+                  <th style={{ width: '10%', padding: '10px 6px', fontSize: '0.75rem' }}>TIMESTAMP</th>
+                  <th style={{ width: '8%', padding: '10px 6px', fontSize: '0.75rem', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.length > 0 ? (
-                  filteredLogs.map((item) => (
+                {paginatedLogs.length > 0 ? (
+                  paginatedLogs.map((item) => (
                     <tr key={item.id}>
-                      <td>
-                        <code style={{ color: 'var(--accent-light)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <code style={{ color: 'var(--accent-light)', fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
                           {item.id}
                         </code>
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{item.device}</span>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{item.device}</span>
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{item.sender}</span>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>{item.sender}</span>
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.lang}</span>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.lang}</span>
                       </td>
-                      <td style={{ maxWidth: 260 }}>
-                        <span
-                          style={{
-                            fontSize: '0.8125rem',
-                            color: 'var(--text-secondary)',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 1,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                          title={item.preview}
-                        >
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.preview}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                           {item.preview}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ padding: '10px 6px' }}>
                         {item.classification === 'Smishing' ? (
-                          <span className="badge badge-red">Smishing</span>
+                          <span className="badge badge-red" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>Smishing</span>
                         ) : item.classification === 'Suspicious' ? (
-                          <span className="badge badge-amber">Suspicious</span>
+                          <span className="badge badge-amber" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>Suspicious</span>
                         ) : item.classification === 'FP' ? (
-                          <span className="badge badge-amber" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid #f59e0b' }}>FP</span>
+                          <span className="badge badge-amber" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid #f59e0b', fontSize: '0.68rem', padding: '2px 6px' }}>FP</span>
                         ) : (
-                          <span className="badge badge-gray">{item.classification}</span>
+                          <span className="badge badge-gray" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>{item.classification}</span>
                         )}
                       </td>
-                      <td>
-                        <strong style={{ fontSize: '0.875rem', color: 'var(--accent-light)', fontFamily: 'var(--font-mono)' }}>
+                      <td style={{ padding: '10px 6px' }}>
+                        <strong style={{ fontSize: '0.78rem', color: 'var(--accent-light)', fontFamily: 'var(--font-mono)' }}>
                           {item.confidence}
                         </strong>
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-primary)' }}>{item.campaign}</span>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>{item.campaign}</span>
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.flag}</span>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.flag}</span>
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{item.reviewer}</span>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.reviewer}</span>
                       </td>
-                      <td>
+                      <td style={{ padding: '10px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.timestamp}</span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedLog(item)}>
+                      <td style={{ padding: '10px 6px', textAlign: 'right' }}>
+                        <Button variant="ghost" size="sm" style={{ padding: '2px 6px', fontSize: '0.75rem' }} onClick={() => setSelectedLog(item)}>
                           Inspect →
                         </Button>
                       </td>
@@ -2691,50 +2949,35 @@ export function AdminClassificationPage() {
               background: 'var(--bg-surface-elevated)',
             }}
           >
-            <span>Showing 1–{filteredLogs.length} of {selectedDate === 'All Dates' ? '14,892' : filteredLogs.length} results for date: <strong style={{ color: 'var(--accent-light)' }}>{selectedDate}</strong></span>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <span>
+              Showing {filteredLogs.length === 0 ? 0 : startIndex + 1}–{endIndex} of {filteredLogs.length} results for date: <strong style={{ color: 'var(--accent-light)' }}>{selectedDate}</strong>
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button
                 className="btn btn-ghost"
-                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem', opacity: validPage <= 1 ? 0.4 : 1 }}
+                disabled={validPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               >
-                ‹
+                ‹ Prev
               </button>
-              <button
-                className={`btn ${currentPage === 1 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(1)}
-              >
-                1
-              </button>
-              <button
-                className={`btn ${currentPage === 2 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(2)}
-              >
-                2
-              </button>
-              <button
-                className={`btn ${currentPage === 3 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(3)}
-              >
-                3
-              </button>
-              <span style={{ padding: '4px 6px' }}>...</span>
-              <button
-                className={`btn ${currentPage === 1490 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(1490)}
-              >
-                1490
-              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  className={`btn ${validPage === pageNum ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              ))}
               <button
                 className="btn btn-ghost"
-                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(currentPage + 1)}
+                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem', opacity: validPage >= totalPages ? 0.4 : 1 }}
+                disabled={validPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               >
-                ›
+                Next ›
               </button>
             </div>
           </div>
@@ -2903,7 +3146,7 @@ const FPFN_CASES: FpFnCaseItem[] = [
 export function AdminFpFnPage() {
   const [activeTab, setActiveTab] = useState<'FP' | 'FN'>('FP');
   const [casesList, setCasesList] = useState<FpFnCaseItem[]>(FPFN_CASES);
-  const [selectedCaseId, setSelectedCaseId] = useState<string>('FP-041');
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [resolutionAction, setResolutionAction] = useState<'Confirm' | 'Override' | 'Escalate'>('Confirm');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -2912,7 +3155,7 @@ export function AdminFpFnPage() {
   const resolvedTodayCount = casesList.filter((c) => c.status === 'Resolved').length + 5; // Total 7
 
   const currentTabCases = casesList.filter((c) => c.type === activeTab);
-  const selectedCase = casesList.find((c) => c.id === selectedCaseId) || currentTabCases[0];
+  const selectedCase = casesList.find((c) => c.id === selectedCaseId);
 
   const handleSubmitResolution = () => {
     if (!selectedCase) return;
@@ -2923,6 +3166,7 @@ export function AdminFpFnPage() {
         prev.map((c) => (c.id === selectedCase.id ? { ...c, status: 'Resolved' } : c))
       );
       setIsSubmitting(false);
+      setSelectedCaseId(null);
       alert(`Resolution submitted for case [${selectedCase.id}]: Action marked as ${resolutionAction}. Case resolved.`);
     }, 1000);
   };
@@ -2966,7 +3210,7 @@ export function AdminFpFnPage() {
             className={`btn ${activeTab === 'FP' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => {
               setActiveTab('FP');
-              setSelectedCaseId('FP-041');
+              setSelectedCaseId(null);
             }}
             style={{ borderRadius: 20, padding: '6px 18px', fontSize: '0.8125rem' }}
           >
@@ -2976,7 +3220,7 @@ export function AdminFpFnPage() {
             className={`btn ${activeTab === 'FN' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => {
               setActiveTab('FN');
-              setSelectedCaseId('FN-014');
+              setSelectedCaseId(null);
             }}
             style={{ borderRadius: 20, padding: '6px 18px', fontSize: '0.8125rem' }}
           >
@@ -3103,211 +3347,206 @@ export function AdminFpFnPage() {
           </div>
         </div>
 
-        {/* MAXIMIZED SPACE WORKBENCH REVIEW PANEL */}
+        {/* POPUP MODAL REVIEW PANEL */}
         {selectedCase && (
-          <div
-            className="panel animate-fade-in"
-            style={{
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--accent-light)',
-              padding: '24px 28px',
-              borderRadius: 12,
-              boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-            }}
+          <Modal
+            isOpen={Boolean(selectedCaseId && selectedCase)}
+            onClose={() => setSelectedCaseId(null)}
+            title={`📋 REVIEW PANEL — ${selectedCase.id}`}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 20,
-                borderBottom: '1px solid var(--border-subtle)',
-                paddingBottom: 12,
-              }}
-            >
-              <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span>📋 REVIEW PANEL —</span>
-                <code style={{ fontSize: '1rem', color: 'var(--accent-light)', fontFamily: 'var(--font-mono)' }}>
-                  {selectedCase.id}
-                </code>
-                <span className={`badge ${selectedCase.status === 'Pending' ? 'badge-amber' : 'badge-green'}`}>
-                  {selectedCase.status}
-                </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  paddingBottom: 12,
+                }}
+              >
+                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className={`badge ${selectedCase.status === 'Pending' ? 'badge-amber' : 'badge-green'}`}>
+                    {selectedCase.status}
+                  </span>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                    Type: <strong style={{ color: 'var(--accent-light)' }}>{selectedCase.type === 'FP' ? 'False Positive' : 'False Negative'}</strong>
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  Reported by <strong style={{ color: 'var(--text-primary)' }}>{selectedCase.reportedBy}</strong> on {selectedCase.date}
+                </div>
               </div>
 
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                Reported by <strong style={{ color: 'var(--text-primary)' }}>{selectedCase.reportedBy}</strong> on {selectedCase.date}
-              </div>
-            </div>
+              {/* TWO-COLUMN GRID INSIDE MODAL */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+                {/* Left Column: Message Payload & Details */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div>
+                    <label style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 700, display: 'block', marginBottom: 8 }}>
+                      Message Text Payload
+                    </label>
+                    <div
+                      style={{
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-default)',
+                        padding: '16px 18px',
+                        borderRadius: 10,
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.875rem',
+                        lineHeight: 1.6,
+                        minHeight: 100,
+                      }}
+                    >
+                      "{selectedCase.fullMessage || selectedCase.preview}"
+                    </div>
+                  </div>
 
-            {/* MAXIMIZED TWO-COLUMN EQUAL GRID (1fr 1fr) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-              {/* Left Column: Message Text & High-Density Stat Strip */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                  <label style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 700, display: 'block', marginBottom: 8 }}>
-                    Message Text Payload
-                  </label>
+                  {/* High-Density Stat Cards Strip */}
                   <div
                     style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: 10,
                       background: 'var(--bg-input)',
-                      border: '1px solid var(--border-default)',
-                      padding: '18px 20px',
+                      padding: 12,
                       borderRadius: 10,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.9375rem',
-                      lineHeight: 1.6,
-                      minHeight: 110,
+                      border: '1px solid var(--border-subtle)',
                     }}
                   >
-                    "{selectedCase.fullMessage || selectedCase.preview}"
+                    <div>
+                      <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.725rem' }}>Sender Header</small>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>{selectedCase.sender}</strong>
+                    </div>
+
+                    <div>
+                      <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.725rem' }}>Model Prediction</small>
+                      <span className={`badge ${selectedCase.classification === 'Smishing' ? 'badge-red' : selectedCase.classification === 'Suspicious' ? 'badge-amber' : 'badge-green'}`} style={{ marginTop: 2, fontSize: '0.7rem' }}>
+                        {selectedCase.classification}
+                      </span>
+                    </div>
+
+                    <div>
+                      <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.725rem' }}>Confidence Score</small>
+                      <strong style={{ color: 'var(--amber-text)', fontFamily: 'var(--font-mono)', fontSize: '0.9375rem' }}>{selectedCase.confidence}</strong>
+                    </div>
                   </div>
                 </div>
 
-                {/* High-Density Stat Cards Strip */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 12,
-                    background: 'var(--bg-input)',
-                    padding: 14,
-                    borderRadius: 10,
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Sender Header</small>
-                    <strong style={{ color: 'var(--text-primary)', fontSize: '0.9375rem' }}>{selectedCase.sender}</strong>
+                {/* Right Column: Resolution Actions & Submit */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 700, display: 'block' }}>
+                    Select Analyst Resolution Action
+                  </label>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                        cursor: 'pointer',
+                        background: resolutionAction === 'Confirm' ? 'rgba(124, 58, 237, 0.18)' : 'var(--bg-input)',
+                        padding: '12px 16px',
+                        borderRadius: 10,
+                        border: resolutionAction === 'Confirm' ? '1px solid var(--accent-light)' : '1px solid var(--border-subtle)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="resolution"
+                        checked={resolutionAction === 'Confirm'}
+                        onChange={() => setResolutionAction('Confirm')}
+                        style={{ marginTop: 4, accentColor: 'var(--accent-light)' }}
+                      />
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          {selectedCase.type === 'FP' ? 'Confirm False Positive' : 'Confirm False Negative'}
+                        </strong>
+                        <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                          {selectedCase.type === 'FP'
+                            ? 'Reclassify as Legitimate, exclude from smishing set'
+                            : 'Reclassify as Smishing, add to training dataset'}
+                        </small>
+                      </div>
+                    </label>
+
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                        cursor: 'pointer',
+                        background: resolutionAction === 'Override' ? 'rgba(124, 58, 237, 0.18)' : 'var(--bg-input)',
+                        padding: '12px 16px',
+                        borderRadius: 10,
+                        border: resolutionAction === 'Override' ? '1px solid var(--accent-light)' : '1px solid var(--border-subtle)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="resolution"
+                        checked={resolutionAction === 'Override'}
+                        onChange={() => setResolutionAction('Override')}
+                        style={{ marginTop: 4, accentColor: 'var(--accent-light)' }}
+                      />
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          Override — System Was Correct
+                        </strong>
+                        <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                          Dismiss report, keep classification as-is
+                        </small>
+                      </div>
+                    </label>
+
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                        cursor: 'pointer',
+                        background: resolutionAction === 'Escalate' ? 'rgba(124, 58, 237, 0.18)' : 'var(--bg-input)',
+                        padding: '12px 16px',
+                        borderRadius: 10,
+                        border: resolutionAction === 'Escalate' ? '1px solid var(--accent-light)' : '1px solid var(--border-subtle)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="resolution"
+                        checked={resolutionAction === 'Escalate'}
+                        onChange={() => setResolutionAction('Escalate')}
+                        style={{ marginTop: 4, accentColor: 'var(--accent-light)' }}
+                      />
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          Escalate for Senior Review
+                        </strong>
+                        <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                          Uncertain — pass to senior reviewer
+                        </small>
+                      </div>
+                    </label>
                   </div>
 
-                  <div>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Model Prediction</small>
-                    <span className={`badge ${selectedCase.classification === 'Smishing' ? 'badge-red' : selectedCase.classification === 'Suspicious' ? 'badge-amber' : 'badge-green'}`} style={{ marginTop: 2 }}>
-                      {selectedCase.classification}
-                    </span>
-                  </div>
-
-                  <div>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Confidence Score</small>
-                    <strong style={{ color: 'var(--amber-text)', fontFamily: 'var(--font-mono)', fontSize: '1rem' }}>{selectedCase.confidence}</strong>
-                  </div>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handleSubmitResolution}
+                    disabled={isSubmitting || selectedCase.status === 'Resolved'}
+                    style={{ width: '100%', height: 42, fontSize: '0.9375rem', fontWeight: 700 }}
+                  >
+                    {isSubmitting ? '⏳ Submitting Resolution...' : selectedCase.status === 'Resolved' ? '✓ Resolution Submitted' : 'Submit Resolution'}
+                  </Button>
                 </div>
-              </div>
-
-              {/* Right Column: Resolution Action Choices & Submit Button */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <label style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 700, display: 'block' }}>
-                  Select Analyst Resolution Action
-                </label>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12,
-                      cursor: 'pointer',
-                      background: resolutionAction === 'Confirm' ? 'rgba(124, 58, 237, 0.18)' : 'var(--bg-input)',
-                      padding: '12px 16px',
-                      borderRadius: 10,
-                      border: resolutionAction === 'Confirm' ? '1px solid var(--accent-light)' : '1px solid var(--border-subtle)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="resolution"
-                      checked={resolutionAction === 'Confirm'}
-                      onChange={() => setResolutionAction('Confirm')}
-                      style={{ marginTop: 4, accentColor: 'var(--accent-light)' }}
-                    />
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                        {activeTab === 'FP' ? 'Confirm False Positive' : 'Confirm False Negative'}
-                      </strong>
-                      <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                        {activeTab === 'FP'
-                          ? 'Reclassify as Legitimate, exclude from smishing set'
-                          : 'Reclassify as Smishing, add to training dataset'}
-                      </small>
-                    </div>
-                  </label>
-
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12,
-                      cursor: 'pointer',
-                      background: resolutionAction === 'Override' ? 'rgba(124, 58, 237, 0.18)' : 'var(--bg-input)',
-                      padding: '12px 16px',
-                      borderRadius: 10,
-                      border: resolutionAction === 'Override' ? '1px solid var(--accent-light)' : '1px solid var(--border-subtle)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="resolution"
-                      checked={resolutionAction === 'Override'}
-                      onChange={() => setResolutionAction('Override')}
-                      style={{ marginTop: 4, accentColor: 'var(--accent-light)' }}
-                    />
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                        Override — System Was Correct
-                      </strong>
-                      <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                        Dismiss report, keep classification as-is
-                      </small>
-                    </div>
-                  </label>
-
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12,
-                      cursor: 'pointer',
-                      background: resolutionAction === 'Escalate' ? 'rgba(124, 58, 237, 0.18)' : 'var(--bg-input)',
-                      padding: '12px 16px',
-                      borderRadius: 10,
-                      border: resolutionAction === 'Escalate' ? '1px solid var(--accent-light)' : '1px solid var(--border-subtle)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="resolution"
-                      checked={resolutionAction === 'Escalate'}
-                      onChange={() => setResolutionAction('Escalate')}
-                      style={{ marginTop: 4, accentColor: 'var(--accent-light)' }}
-                    />
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                        Escalate for Senior Review
-                      </strong>
-                      <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                        Uncertain — pass to senior reviewer
-                      </small>
-                    </div>
-                  </label>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={handleSubmitResolution}
-                  disabled={isSubmitting || selectedCase.status === 'Resolved'}
-                  style={{ width: '100%', height: 42, fontSize: '0.9375rem', fontWeight: 700 }}
-                >
-                  {isSubmitting ? '⏳ Submitting Resolution...' : selectedCase.status === 'Resolved' ? '✓ Resolution Submitted' : 'Submit Resolution'}
-                </Button>
               </div>
             </div>
-          </div>
+          </Modal>
         )}
       </div>
     </AdminShell>
@@ -3486,9 +3725,93 @@ export function AdminCampaignsPage() {
   const handleExportAll = () => {
     setIsExporting(true);
     setTimeout(() => {
+      const headers = [
+        'Campaign ID',
+        'Title',
+        'Status',
+        'Messages Count',
+        'Domains Count',
+        'Tracked Malicious Domains',
+        'Classification Tags',
+        'Active Since',
+        'Representative SMS Payload',
+      ];
+
+      const rows = filteredCampaigns.map((c) => [
+        c.id,
+        c.title,
+        c.status,
+        c.messages,
+        c.domainsCount,
+        c.domainsList.join('; '),
+        c.tags.join('; '),
+        c.since,
+        c.samplePayload || '—',
+      ]);
+
+      const csvRows = [
+        headers.join(','),
+        ...rows.map((row) =>
+          row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')
+        ),
+      ];
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      const filterLabel = activeTab.toLowerCase();
+      link.setAttribute('download', `all_campaign_clusters_${filterLabel}_report.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       setIsExporting(false);
-      alert(`Exported telemetry report for all ${totalClustersCount} campaign clusters (${totalMessagesCount.toLocaleString()} total messages) to CSV/JSON!`);
-    }, 1200);
+    }, 400);
+  };
+
+  const handleExportClusterReport = (cluster: CampaignClusterItem) => {
+    const headers = [
+      'Campaign ID',
+      'Title',
+      'Status',
+      'Messages Count',
+      'Domains Count',
+      'Tracked Malicious Domains',
+      'Classification Tags',
+      'Active Since',
+      'Representative SMS Payload',
+    ];
+
+    const row = [
+      cluster.id,
+      cluster.title,
+      cluster.status,
+      cluster.messages,
+      cluster.domainsCount,
+      cluster.domainsList.join('; '),
+      cluster.tags.join('; '),
+      cluster.since,
+      cluster.samplePayload || '—',
+    ];
+
+    const csvRows = [
+      headers.join(','),
+      row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(','),
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `campaign_cluster_${cluster.id}_report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSelectedCluster(null);
   };
 
   const handleExecuteMerge = () => {
@@ -3935,10 +4258,7 @@ export function AdminCampaignsPage() {
               <Button
                 variant="primary"
                 size="md"
-                onClick={() => {
-                  alert(`Exporting telemetry report for cluster ${selectedCluster.id}...`);
-                  setSelectedCluster(null);
-                }}
+                onClick={() => handleExportClusterReport(selectedCluster)}
               >
                 📥 Export Cluster Report
               </Button>
@@ -4733,6 +5053,12 @@ const REGISTERED_USERS_DATA: RegisteredUserItem[] = [
   { id: 'user_9901', region: 'Quezon City', joined: 'Apr 18, 2026', lastActive: 'May 13', reportsCount: 1, scannedCount: 234, status: 'Active' },
   { id: 'user_2219', region: 'Iloilo', joined: 'Feb 14, 2026', lastActive: 'May 12', reportsCount: 5, scannedCount: 1120, status: 'Active' },
   { id: 'user_6604', region: 'Pampanga', joined: 'Mar 28, 2026', lastActive: 'May 09', reportsCount: 0, scannedCount: 512, status: 'Active' },
+  { id: 'user_8831', region: 'Cavite', joined: 'Jan 22, 2026', lastActive: 'May 08', reportsCount: 4, scannedCount: 1890, status: 'Active' },
+  { id: 'user_4190', region: 'Bacolod', joined: 'Feb 11, 2026', lastActive: 'May 07', reportsCount: 9, scannedCount: 2150, status: 'Active' },
+  { id: 'user_1523', region: 'Zamboanga', joined: 'Mar 01, 2026', lastActive: 'May 06', reportsCount: 2, scannedCount: 670, status: 'Active' },
+  { id: 'user_7749', region: 'Cagayan de Oro', joined: 'Apr 10, 2026', lastActive: 'May 05', reportsCount: 0, scannedCount: 320, status: 'Inactive' },
+  { id: 'user_3012', region: 'Batangas', joined: 'Feb 28, 2026', lastActive: 'May 04', reportsCount: 6, scannedCount: 1430, status: 'Active' },
+  { id: 'user_9088', region: 'Baguio', joined: 'Mar 19, 2026', lastActive: 'May 03', reportsCount: 3, scannedCount: 980, status: 'Active' },
 ];
 
 const CLIENT_ORGS_DATA: ClientOrgItem[] = [
@@ -4764,6 +5090,16 @@ export function AdminUsersPage() {
     o.apiAccess.toLowerCase().includes(search.toLowerCase())
   );
 
+  const itemsPerPage = 7;
+  const currentList = activeTab === 'App Users' ? filteredUsers : filteredOrgs;
+  const totalPages = Math.max(1, Math.ceil(currentList.length / itemsPerPage));
+  const validPage = Math.min(currentPage, totalPages);
+  const startIndex = (validPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, currentList.length);
+
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+  const paginatedOrgs = filteredOrgs.slice(startIndex, endIndex);
+
   const totalRegistered = 8421;
   const active7dCount = 3204;
   const newTodayCount = 214;
@@ -4791,7 +5127,7 @@ export function AdminUsersPage() {
               className="form-input"
               placeholder="Search..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               style={{ width: '100%', height: 38, paddingLeft: 34, fontSize: '0.8125rem' }}
             />
             <span style={{ position: 'absolute', left: 10, top: 9, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
@@ -4876,7 +5212,7 @@ export function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((item) => (
+                  {paginatedUsers.map((item) => (
                     <tr key={item.id}>
                       <td>
                         <code style={{ color: 'var(--text-primary)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
@@ -4932,7 +5268,7 @@ export function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrgs.map((item) => (
+                  {paginatedOrgs.map((item) => (
                     <tr key={item.name}>
                       <td>
                         <strong style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>{item.name}</strong>
@@ -4966,7 +5302,7 @@ export function AdminUsersPage() {
             )}
           </div>
 
-          {/* Table Footer Pagination Bar (Matching Screenshot Footer) */}
+          {/* Table Footer Pagination Bar */}
           <div
             style={{
               padding: '12px 20px',
@@ -4979,50 +5315,35 @@ export function AdminUsersPage() {
               background: 'var(--bg-surface-elevated)',
             }}
           >
-            <span>Showing 1–{activeTab === 'App Users' ? filteredUsers.length : filteredOrgs.length} of 8,421 results</span>
+            <span>
+              Showing {currentList.length === 0 ? 0 : startIndex + 1}–{endIndex} of {currentList.length} results
+            </span>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button
                 className="btn btn-ghost"
-                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem', opacity: validPage <= 1 ? 0.4 : 1 }}
+                disabled={validPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               >
-                ‹
+                ‹ Prev
               </button>
-              <button
-                className={`btn ${currentPage === 1 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(1)}
-              >
-                1
-              </button>
-              <button
-                className={`btn ${currentPage === 2 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(2)}
-              >
-                2
-              </button>
-              <button
-                className={`btn ${currentPage === 3 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(3)}
-              >
-                3
-              </button>
-              <span style={{ padding: '4px 6px' }}>...</span>
-              <button
-                className={`btn ${currentPage === 842 ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(842)}
-              >
-                842
-              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  className={`btn ${validPage === pageNum ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              ))}
               <button
                 className="btn btn-ghost"
-                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem' }}
-                onClick={() => setCurrentPage(currentPage + 1)}
+                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem', opacity: validPage >= totalPages ? 0.4 : 1 }}
+                disabled={validPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               >
-                ›
+                Next ›
               </button>
             </div>
           </div>
@@ -5185,12 +5506,46 @@ export function AdminExportPage() {
   const [hashDeviceId, setHashDeviceId] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const triggerDownload = (filename: string) => {
+  const triggerDownload = (filename: string, customContent?: string) => {
     setDownloadToast(`Starting download: ${filename}...`);
+
+    let fileBody = customContent;
+    let mimeType = 'text/csv;charset=utf-8;';
+
+    if (!fileBody) {
+      if (filename.endsWith('.json')) {
+        mimeType = 'application/json;charset=utf-8;';
+        fileBody = JSON.stringify([
+          { timestamp: '2026-05-14T08:30:00Z', record_id: 'REC-48901', sender: '+639171234567', classification: 'smishing', confidence: 0.985, carrier: selectedOrg || 'Globe Telecom' },
+          { timestamp: '2026-05-14T09:15:00Z', record_id: 'REC-48902', sender: '+639189876543', classification: 'legitimate', confidence: 0.992, carrier: selectedOrg || 'Smart Communications' },
+          { timestamp: '2026-05-14T10:00:00Z', record_id: 'REC-48903', sender: '+639221112233', classification: 'smishing', confidence: 0.941, carrier: selectedOrg || 'DITO Telecommunity' }
+        ], null, 2);
+      } else {
+        fileBody = [
+          'Timestamp,Record_ID,Sender_Number,Classification,Confidence_Score,Carrier,Status',
+          '2026-05-14 08:30:12,REC-48901,+639171234567,smishing,0.985,Globe Telecom,Confirmed',
+          '2026-05-14 08:35:45,REC-48902,+639189876543,legitimate,0.992,Smart Communications,Verified',
+          '2026-05-14 09:10:02,REC-48903,+639221112233,smishing,0.941,DITO Telecommunity,Confirmed',
+          '2026-05-14 09:42:19,REC-48904,+639175558899,smishing,0.978,Globe Telecom,Confirmed',
+          '2026-05-14 10:15:30,REC-48905,+639194443322,legitimate,0.995,Smart Communications,Verified'
+        ].join('\n');
+      }
+    }
+
+    const blob = new Blob([fileBody], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
     setTimeout(() => {
       setDownloadToast(`✓ Downloaded ${filename} successfully!`);
       setTimeout(() => setDownloadToast(null), 3000);
-    }, 800);
+    }, 400);
   };
 
   const handleSystemExport = (title: string, defaultFilename: string, typeName: string, sizeStr: string) => {
@@ -5212,7 +5567,8 @@ export function AdminExportPage() {
       setIsGenerating(false);
       setIsScopedModalOpen(false);
       const cleanOrgName = selectedOrg.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const newFilename = `${cleanOrgName}-scoped-export-${Date.now().toString().slice(-4)}.${scopedFormat.toLowerCase()}`;
+      const ext = scopedFormat.toLowerCase();
+      const newFilename = `${cleanOrgName}-scoped-export-${Date.now().toString().slice(-4)}.${ext}`;
       
       const newEntry: ExportHistoryItem = {
         filename: newFilename,
@@ -5225,7 +5581,7 @@ export function AdminExportPage() {
       
       setHistory((prev) => [newEntry, ...prev]);
       triggerDownload(newFilename);
-    }, 900);
+    }, 600);
   };
 
   return (
@@ -5555,21 +5911,15 @@ export function AdminExportPage() {
                       <span className="badge badge-green">{row.status}</span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => triggerDownload(row.filename)}
                         title={`Download ${row.filename}`}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--accent-light)',
-                          cursor: 'pointer',
-                          fontSize: '1rem',
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                        }}
+                        style={{ borderRadius: 6, fontSize: '0.75rem', padding: '4px 10px' }}
                       >
-                        ⬇
-                      </button>
+                        Download ↓
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -5831,11 +6181,11 @@ export function AdminServerPage({ tab = 'server' }: { tab?: 'server' | 'api' | '
                 background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-default)',
                 borderRadius: 12,
-                padding: '16px 20px',
+                padding: '16px 20px 18px 20px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                height: 120,
+                minHeight: 140,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -6172,12 +6522,27 @@ const RECENT_API_LOGS: ApiLogItem[] = [
   { timestamp: 'May 14 07:45', endpoint: 'POST /api/v1/feedback', status: '200 OK', latency: '95ms', client: 'Mobile App Sync Client' },
   { timestamp: 'May 14 07:30', endpoint: 'GET /api/v1/users/telemetry', status: '200 OK', latency: '88ms', client: 'Globe Telecom' },
   { timestamp: 'May 14 07:15', endpoint: 'POST /api/v1/classify', status: '200 OK', latency: '132ms', client: 'Smart Communications' },
+  { timestamp: 'May 14 07:02', endpoint: 'GET /api/v1/clusters/top', status: '200 OK', latency: '175ms', client: 'CICC (Cybercrime)' },
+  { timestamp: 'May 14 06:48', endpoint: 'POST /api/v1/classify', status: '200 OK', latency: '110ms', client: 'DITO Telecommunity' },
+  { timestamp: 'May 14 06:30', endpoint: 'POST /api/v1/report', status: '200 OK', latency: '128ms', client: 'GCash Risk Team' },
+  { timestamp: 'May 14 06:15', endpoint: 'GET /api/v1/system/health', status: '200 OK', latency: '18ms', client: 'Internal Monitor' },
+  { timestamp: 'May 14 06:00', endpoint: 'POST /api/v1/classify', status: '429 Rate Limit Exceeded', latency: '3ms', client: 'Mobile App Sync Client' },
+  { timestamp: 'May 14 05:45', endpoint: 'GET /api/v1/exports/daily', status: '200 OK', latency: '340ms', client: 'Globe Telecom' },
+  { timestamp: 'May 14 05:30', endpoint: 'POST /api/v1/classify', status: '200 OK', latency: '150ms', client: 'Smart Communications' },
 ];
 
 export function AdminApiLogsPage() {
   const navigate = useNavigate();
   const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
   const [selectedApiLog, setSelectedApiLog] = useState<ApiLogItem | null>(null);
+  const [apiLogsPage, setApiLogsPage] = useState(1);
+
+  const itemsPerPage = 5;
+  const totalPages = Math.max(1, Math.ceil(RECENT_API_LOGS.length / itemsPerPage));
+  const validPage = Math.min(apiLogsPage, totalPages);
+  const startIndex = (validPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, RECENT_API_LOGS.length);
+  const paginatedLogs = RECENT_API_LOGS.slice(startIndex, endIndex);
 
   // Hourly Latency & Request Volume Data for Graph
   const apiGraphData = [
@@ -6236,11 +6601,11 @@ export function AdminApiLogsPage() {
                 background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-default)',
                 borderRadius: 12,
-                padding: '16px 20px',
+                padding: '16px 20px 18px 20px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                height: 120,
+                minHeight: 140,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -6362,13 +6727,15 @@ export function AdminApiLogsPage() {
           </div>
         </div>
 
-        {/* Bottom Panel: Recent API Requests Table (Matching Photo 1) */}
+        {/* Bottom Panel: Recent API Requests Table */}
         <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface-elevated)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 700 }}>
               Recent API Requests
             </h3>
-            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Showing last 8 · updated live</small>
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+              Showing {startIndex + 1}–{endIndex} of {RECENT_API_LOGS.length} · updated live
+            </small>
           </div>
 
           <div className="table-wrap">
@@ -6384,7 +6751,7 @@ export function AdminApiLogsPage() {
                 </tr>
               </thead>
               <tbody>
-                {RECENT_API_LOGS.map((item, idx) => (
+                {paginatedLogs.map((item, idx) => (
                   <tr key={idx}>
                     <td>
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}>
@@ -6420,6 +6787,52 @@ export function AdminApiLogsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Table Footer Pagination Bar */}
+          <div
+            style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--border-subtle)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '0.8125rem',
+              color: 'var(--text-muted)',
+              background: 'var(--bg-surface-elevated)',
+            }}
+          >
+            <span>
+              Showing {startIndex + 1}–{endIndex} of {RECENT_API_LOGS.length} results
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem', opacity: validPage <= 1 ? 0.4 : 1 }}
+                disabled={validPage <= 1}
+                onClick={() => setApiLogsPage((p) => Math.max(1, p - 1))}
+              >
+                ‹ Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  className={`btn ${validPage === pageNum ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ padding: '4px 10px', height: 28, fontSize: '0.75rem' }}
+                  onClick={() => setApiLogsPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              ))}
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '4px 8px', height: 28, fontSize: '0.75rem', opacity: validPage >= totalPages ? 0.4 : 1 }}
+                disabled={validPage >= totalPages}
+                onClick={() => setApiLogsPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next ›
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -6566,11 +6979,11 @@ export function AdminDbStoragePage() {
                 background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-default)',
                 borderRadius: 12,
-                padding: '16px 20px',
+                padding: '16px 20px 18px 20px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                height: 120,
+                minHeight: 140,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -7434,16 +7847,16 @@ export function AdminTipsPage() {
           onClose={() => setPreviewTip(null)}
           title={`Mobile App Preview: ${previewTip.category}`}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, overflow: 'hidden' }}>
             {/* Realistic Smartphone Chassis Frame Mockup */}
             <div
               style={{
-                width: 320,
-                height: 610,
+                width: 350,
+                height: 520,
                 background: '#090a0f',
                 border: '10px solid #1e293b',
-                borderRadius: 44,
-                padding: '12px 14px 20px',
+                borderRadius: 36,
+                padding: '10px 14px 14px',
                 boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 2px #334155',
                 color: '#ffffff',
                 display: 'flex',
@@ -7454,37 +7867,39 @@ export function AdminTipsPage() {
                 userSelect: 'none',
               }}
             >
-              {/* Top Dynamic Island Notch */}
-              <div
-                style={{
-                  width: 90,
-                  height: 22,
-                  background: '#000000',
-                  borderRadius: 12,
-                  margin: '0 auto 8px auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  paddingRight: 8,
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.8)',
-                }}
-              >
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#1e293b' }} />
-              </div>
+              <div>
+                {/* Top Dynamic Island Notch */}
+                <div
+                  style={{
+                    width: 80,
+                    height: 18,
+                    background: '#000000',
+                    borderRadius: 10,
+                    margin: '0 auto 6px auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    paddingRight: 6,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.8)',
+                  }}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1e293b' }} />
+                </div>
 
-              {/* Status Bar (Clock & Icons) */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 8px', fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                <span>9:41 AM</span>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span>📶 5G</span>
-                  <span>🔋 98%</span>
+                {/* Status Bar (Clock & Icons) */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 6px 6px', fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <span>9:41 AM</span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span>📶 5G</span>
+                    <span>🔋 98%</span>
+                  </div>
                 </div>
               </div>
 
               {/* Mobile App View Container */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, overflowY: 'auto' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 10 }}>
                 {/* Mobile App Bar Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(37, 99, 235, 0.12)', padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(37, 99, 235, 0.14)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: '0.9375rem' }}>🛡️</span>
                     <strong style={{ fontSize: '0.8125rem', color: '#ffffff' }}>BantAI Mobile</strong>
@@ -7492,25 +7907,27 @@ export function AdminTipsPage() {
                   <span style={{ fontSize: '0.6875rem', color: '#60a5fa', fontWeight: 600 }}>Settings &gt; Learn</span>
                 </div>
 
-                {/* Tip Card in Mobile Screen */}
-                <div style={{ background: '#131622', borderRadius: 14, padding: 16, border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <h3 style={{ fontSize: '1.05rem', margin: 0, color: '#ffffff', fontWeight: 800, lineHeight: 1.3 }}>
-                    {previewTip.title}
-                  </h3>
+                {/* Tip Card in Mobile Screen (Maximized Fill) */}
+                <div style={{ flex: 1, background: '#131622', borderRadius: 12, padding: 14, border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <h3 style={{ fontSize: '1.125rem', margin: 0, color: '#ffffff', fontWeight: 800, lineHeight: 1.25 }}>
+                      {previewTip.title}
+                    </h3>
 
-                  {/* Badges strip */}
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <span className="badge badge-purple" style={{ fontSize: '0.6875rem' }}>
-                      {previewTip.category}
-                    </span>
-                    <span className="badge badge-gray" style={{ fontSize: '0.6875rem' }}>
-                      🌐 {previewTip.language}
-                    </span>
-                  </div>
+                    {/* Badges strip */}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span className="badge badge-purple" style={{ fontSize: '0.6875rem', padding: '3px 8px' }}>
+                        {previewTip.category}
+                      </span>
+                      <span className="badge badge-gray" style={{ fontSize: '0.6875rem', padding: '3px 8px' }}>
+                        🌐 {previewTip.language}
+                      </span>
+                    </div>
 
-                  {/* Tip Content Body */}
-                  <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: 12, borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-                    {previewTip.content}
+                    {/* Tip Content Body (Maximized Text Display) */}
+                    <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', fontSize: '0.84375rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                      {previewTip.content}
+                    </div>
                   </div>
 
                   {/* Helpful Button inside Mobile App */}
@@ -7521,7 +7938,7 @@ export function AdminTipsPage() {
                       background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
                       color: '#ffffff',
                       border: 'none',
-                      borderRadius: 10,
+                      borderRadius: 8,
                       padding: '10px 0',
                       fontSize: '0.8125rem',
                       fontWeight: 700,
@@ -7535,10 +7952,10 @@ export function AdminTipsPage() {
               </div>
 
               {/* iPhone Home Indicator Bar */}
-              <div style={{ width: 120, height: 4, background: 'rgba(255, 255, 255, 0.35)', borderRadius: 2, margin: '12px auto 0 auto' }} />
+              <div style={{ width: 110, height: 4, background: 'rgba(255, 255, 255, 0.35)', borderRadius: 2, margin: '8px auto 0 auto' }} />
             </div>
 
-            <Button variant="ghost" size="md" onClick={() => setPreviewTip(null)}>
+            <Button variant="ghost" size="sm" onClick={() => setPreviewTip(null)}>
               Close Preview
             </Button>
           </div>

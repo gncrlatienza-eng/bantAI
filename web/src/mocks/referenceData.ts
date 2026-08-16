@@ -156,6 +156,15 @@ export const campaigns: CampaignCard[] = [
     since: "May 8",
     tags: ["Fake Domain", "Shortened URL", "Urgency Tactics"],
   },
+  {
+    title: "PLDT Bill Impersonation #4",
+    status: "Active",
+    tone: "green",
+    messages: "84",
+    domains: "1",
+    since: "May 7",
+    tags: ["Brand Impersonation", "Overdue Notice"],
+  },
 ];
 
 export const clientMessages: TableData = {

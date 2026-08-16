@@ -75,6 +75,166 @@ export const AboutPage: React.FC = () => {
   return (
     <div className="public-shell" style={{ position: 'relative' }}>
       <div className="homepage-light-bg" />
+
+      {/* About Custom Tech Hexagon Background Overlay */}
+      <svg
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '950px',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+        viewBox="0 0 1400 950"
+        preserveAspectRatio="xMidYMin meet"
+      >
+        <defs>
+          <filter id="abGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* TOP-LEFT ACCENT */}
+        <g fill="none" stroke="rgba(96, 165, 250, 0.75)" strokeWidth="2">
+          <polygon points="180,120 145,181 75,181 40,120 75,59 145,59" />
+          <polygon points="265,60 242,99 197,99 175,60 197,21 242,21" stroke="rgba(56, 189, 248, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#abGlow)">
+          <circle cx="180" cy="120" r="4.5" opacity="0.9" />
+          <circle cx="145" cy="181" r="4" opacity="0.85" />
+          <circle cx="75" cy="181" r="4.5" opacity="0.95" />
+          <circle cx="40" cy="120" r="4" opacity="0.8" />
+          <circle cx="265" cy="60" r="3.5" opacity="0.8" />
+        </g>
+
+        {/* MID-RIGHT ACCENT */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.7)" strokeWidth="2">
+          <polygon points="1375,460 1342,516 1277,516 1245,460 1277,404 1342,404" />
+          <polygon points="1260,520 1242,550 1207,550 1190,520 1207,490 1242,490" stroke="rgba(59, 130, 246, 0.55)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#abGlow)">
+          <circle cx="1375" cy="460" r="4" opacity="0.9" />
+          <circle cx="1342" cy="516" r="4.5" opacity="0.95" />
+          <circle cx="1277" cy="516" r="4" opacity="0.8" />
+          <circle cx="1260" cy="520" r="3.5" opacity="0.85" />
+        </g>
+
+        {/* BOTTOM-LEFT ACCENT */}
+        <g fill="none" stroke="rgba(96, 165, 250, 0.7)" strokeWidth="2">
+          <polygon points="130,760 105,803 55,803 30,760 55,717 105,717" />
+          <polygon points="200,810 185,836 155,836 140,810 155,784 185,784" stroke="rgba(56, 189, 248, 0.5)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#abGlow)">
+          <circle cx="130" cy="760" r="4" opacity="0.9" />
+          <circle cx="105" cy="803" r="4.5" opacity="0.95" />
+          <circle cx="55" cy="803" r="3.5" opacity="0.8" />
+          <circle cx="200" cy="810" r="3.5" opacity="0.8" />
+        </g>
+      </svg>
+
+      {/* Mid-Lower Page Hexagon Accents (Fills Middle-Lower Side Margins) */}
+      <svg
+        style={{
+          position: 'absolute',
+          top: '48%',
+          left: 0,
+          width: '100%',
+          height: '500px',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+        viewBox="0 0 1400 500"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <filter id="midLowerAbGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* MID-LOWER LEFT FLANK */}
+        <g fill="none" stroke="rgba(96, 165, 250, 0.75)" strokeWidth="2">
+          <polygon points="140,240 108,295 43,295 11,240 43,185 108,185" />
+          <polygon points="215,300 197,331 162,331 145,300 162,269 197,269" stroke="rgba(56, 189, 248, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#midLowerAbGlow)">
+          <circle cx="140" cy="240" r="4.5" opacity="0.9" />
+          <circle cx="108" cy="295" r="4" opacity="0.85" />
+          <circle cx="43" cy="295" r="4.5" opacity="0.95" />
+          <circle cx="215" cy="300" r="3.5" opacity="0.8" />
+        </g>
+
+        {/* MID-LOWER RIGHT FLANK */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="1350,240 1318,295 1253,295 1221,240 1253,185 1318,185" />
+          <polygon points="1235,300 1217,331 1182,331 1165,300 1182,269 1217,269" stroke="rgba(59, 130, 246, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#midLowerAbGlow)">
+          <circle cx="1350" cy="240" r="4.5" opacity="0.9" />
+          <circle cx="1318" cy="295" r="4" opacity="0.85" />
+          <circle cx="1253" cy="295" r="4.5" opacity="0.95" />
+          <circle cx="1235" cy="300" r="3.5" opacity="0.8" />
+        </g>
+      </svg>
+
+      {/* Bottom Page Hexagon Accents (Above Footer - Framing CTA Section) */}
+      <svg
+        style={{
+          position: 'absolute',
+          bottom: '240px',
+          left: 0,
+          width: '100%',
+          height: '500px',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+        viewBox="0 0 1400 500"
+        preserveAspectRatio="xMidYMax meet"
+      >
+        <defs>
+          <filter id="bottomAbGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* VERY BOTTOM-LEFT CLUSTER ABOVE FOOTER */}
+        <g fill="none" stroke="rgba(96, 165, 250, 0.75)" strokeWidth="2">
+          <polygon points="170,250 135,311 65,311 30,250 65,189 135,189" />
+          <polygon points="255,190 232,229 187,229 165,190 187,151 232,151" stroke="rgba(56, 189, 248, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#bottomAbGlow)">
+          <circle cx="170" cy="250" r="4.5" opacity="0.9" />
+          <circle cx="135" cy="311" r="4" opacity="0.85" />
+          <circle cx="65" cy="311" r="4.5" opacity="0.95" />
+          <circle cx="255" cy="190" r="3.5" opacity="0.8" />
+        </g>
+
+        {/* VERY BOTTOM-RIGHT CLUSTER ABOVE FOOTER */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="1370,250 1335,311 1265,311 1230,250 1265,189 1335,189" />
+          <polygon points="1235,190 1212,229 1167,229 1145,190 1167,151 1212,151" stroke="rgba(59, 130, 246, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#bottomAbGlow)">
+          <circle cx="1370" cy="250" r="4.5" opacity="0.9" />
+          <circle cx="1335" cy="311" r="4" opacity="0.85" />
+          <circle cx="1265" cy="311" r="4.5" opacity="0.95" />
+          <circle cx="1235" cy="190" r="3.5" opacity="0.8" />
+        </g>
+      </svg>
       <PublicHeader />
 
       <main style={{ flex: 1 }}>

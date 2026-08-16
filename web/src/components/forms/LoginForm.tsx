@@ -84,9 +84,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
           />
           <span>Remember this device</span>
         </label>
-        <a href="#forgot" onClick={(e) => { e.preventDefault(); alert("Password reset link sent to your registered work email."); }} style={{ color: 'var(--accent-light)' }}>
+        <Link to={ROUTES.FORGOT_PASSWORD} style={{ color: 'var(--accent-light)', textDecoration: 'none' }}>
           Forgot password?
-        </a>
+        </Link>
       </div>
 
       <Button type="submit" variant="primary" size="lg" fullWidth loading={loading} style={{ marginTop: 12 }}>

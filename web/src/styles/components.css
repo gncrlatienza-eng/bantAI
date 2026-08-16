@@ -249,17 +249,17 @@ textarea.form-input {
 .badge-blue { background: var(--blue-bg); border: 1px solid var(--blue-border); color: var(--blue-text); }
 .badge-gray { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-default); color: var(--text-muted); }
 
-/* Public Shell with Deep Obsidian Base & Light Blue Micro Cyber Grid */
+/* Public Shell with Deep Dark Obsidian Base & Cyber Grid */
 .public-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #060810;
+  background-color: #04060c;
   background-image: 
-    radial-gradient(circle at 4% 20%, rgba(56, 189, 248, 0.07) 0%, transparent 35%),
-    radial-gradient(circle at 96% 20%, rgba(96, 165, 250, 0.07) 0%, transparent 35%),
-    linear-gradient(to right, rgba(56, 189, 248, 0.038) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(56, 189, 248, 0.038) 1px, transparent 1px);
+    radial-gradient(circle at 4% 20%, rgba(37, 99, 235, 0.14) 0%, transparent 35%),
+    radial-gradient(circle at 96% 20%, rgba(124, 58, 237, 0.12) 0%, transparent 35%),
+    linear-gradient(to right, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
   background-attachment: fixed;
   position: relative;
@@ -397,8 +397,8 @@ textarea.form-input {
     radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.22) 0%, transparent 45%),
     radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.20) 0%, transparent 50%),
     radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.12) 0%, transparent 40%),
-    linear-gradient(to right, rgba(96, 165, 250, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(96, 165, 250, 0.045) 1px, transparent 1px);
+    linear-gradient(to right, rgba(96, 165, 250, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(96, 165, 250, 0.08) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
   background-attachment: fixed;
   position: relative;
@@ -497,18 +497,19 @@ textarea.form-input {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-/* Dashboard Shell & Cyber Tech Ambient Background Overlay (Subtle Premium Background for Admin & Client) */
+/* Dashboard Shell (Matching High-Tech Cyber Grid Background from Login Page) */
 .dashboard-shell {
   display: flex;
   min-height: 100vh;
-  background-color: #07080e;
+  position: relative;
+  background-color: #060810;
   background-image: 
-    radial-gradient(circle at 18% 14%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 82% 82%, rgba(124, 58, 237, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 50% 35%, rgba(6, 182, 212, 0.04) 0%, transparent 40%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    radial-gradient(circle at 15% 15%, rgba(37, 99, 235, 0.28) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(124, 58, 237, 0.25) 0%, transparent 50%),
+    radial-gradient(circle at 50% 40%, rgba(6, 182, 212, 0.16) 0%, transparent 40%),
+    linear-gradient(to right, rgba(96, 165, 250, 0.13) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(96, 165, 250, 0.13) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px, 32px 32px;
   background-attachment: fixed;
 }
 
@@ -631,12 +632,14 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-topbar {
   min-height: 76px;
   padding: 12px 36px;
-  background: rgba(10, 11, 16, 0.88);
+  background: rgba(10, 11, 16, 0.82);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
@@ -657,6 +660,8 @@ textarea.form-input {
   max-width: 100%;
   width: 100%;
   margin: 0 auto;
+  position: relative;
+  z-index: 2;
 }
 
 /* Cards & Panels */
@@ -1024,7 +1029,22 @@ tr:hover td {
               inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Ambient Homepage Lighting (High-Contrast Dark Space with Light Blue Spotlights) */
+/* Dashboard Shell (Subtle Premium Background for Admin & Client - No Hexagons) */
+.dashboard-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: #07080e;
+  background-image: 
+    radial-gradient(circle at 18% 14%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 82% 82%, rgba(124, 58, 237, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 35%, rgba(6, 182, 212, 0.04) 0%, transparent 40%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-attachment: fixed;
+}
+
+/* Ambient Homepage Lighting & Side-Only Hexagon Cyber Accents (Home Page Only) */
 .homepage-light-bg {
   position: absolute;
   top: 0;
@@ -1033,14 +1053,27 @@ tr:hover td {
   bottom: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 0;
+  z-index: 1;
   background: 
-    /* Top Hero Light Blue Spotlight */
-    radial-gradient(circle at 50% -5%, rgba(56, 189, 248, 0.16) 0%, rgba(37, 99, 235, 0.10) 35%, transparent 58%),
-    /* Subtle Mid-Section Light Blue Ambient Tint */
-    radial-gradient(circle at 50% 40%, rgba(56, 189, 248, 0.06) 0%, transparent 48%),
-    /* Bottom CTA Light Blue Spotlight */
-    radial-gradient(circle at 50% 88%, rgba(56, 189, 248, 0.15) 0%, rgba(37, 99, 235, 0.08) 38%, transparent 60%);
+    /* Top Hero Darkened Spotlight */
+    radial-gradient(circle at 50% -5%, rgba(37, 99, 235, 0.12) 0%, rgba(15, 23, 42, 0.08) 35%, transparent 60%),
+    /* Mid-Section Subtle Dark Ambient Glow */
+    radial-gradient(circle at 50% 40%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+    /* Bottom CTA Darkened Spotlight */
+    radial-gradient(circle at 50% 88%, rgba(37, 99, 235, 0.10) 0%, rgba(15, 23, 42, 0.05) 38%, transparent 62%);
+}
+
+.homepage-light-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1400 900' width='100%25' height='100%25' preserveAspectRatio='xMidYMin slice'%3E%3C!-- UPPER-LEFT HEXAGON CLUSTER --%3E%3Cg fill='none' stroke='rgba(56, 189, 248, 0.35)' stroke-width='1.8'%3E%3Cpolygon points='235,140 197,205 122,205 85,140 122,75 197,75'/%3E%3Cpolygon points='320,75 295,118 245,118 220,75 245,32 295,32' stroke='rgba(37, 99, 235, 0.25)'/%3E%3Cpolygon points='105,240 87,270 52,270 35,240 52,210 87,210' stroke='rgba(96, 165, 250, 0.18)'/%3E%3C/g%3E%3Cg fill='%2338bdf8'%3E%3Ccircle cx='235' cy='140' r='3.5' opacity='0.85'/%3E%3Ccircle cx='197' cy='205' r='4' opacity='0.95'/%3E%3Ccircle cx='122' cy='205' r='3' opacity='0.7'/%3E%3Ccircle cx='85' cy='140' r='3.5' opacity='0.9'/%3E%3Ccircle cx='122' cy='75' r='3' opacity='0.65'/%3E%3Ccircle cx='197' cy='75' r='4' opacity='0.95'/%3E%3Ccircle cx='320' cy='75' r='3' opacity='0.6'/%3E%3Ccircle cx='245' cy='32' r='3' opacity='0.5'/%3E%3C/g%3E%3C!-- UPPER-RIGHT HEXAGON CLUSTER --%3E%3Cg fill='none' stroke='rgba(56, 189, 248, 0.35)' stroke-width='1.8'%3E%3Cpolygon points='1315,140 1277,205 1202,205 1165,140 1202,75 1277,75'/%3E%3Cpolygon points='1180,75 1155,118 1105,118 1080,75 1105,32 1155,32' stroke='rgba(37, 99, 235, 0.25)'/%3E%3Cpolygon points='1365,240 1347,270 1312,270 1295,240 1312,210 1347,210' stroke='rgba(96, 165, 250, 0.18)'/%3E%3C/g%3E%3Cg fill='%2338bdf8'%3E%3Ccircle cx='1315' cy='140' r='3.5' opacity='0.85'/%3E%3Ccircle cx='1277' cy='205' r='4' opacity='0.95'/%3E%3Ccircle cx='1202' cy='205' r='3' opacity='0.7'/%3E%3Ccircle cx='1165' cy='140' r='3.5' opacity='0.9'/%3E%3Ccircle cx='1202' cy='75' r='3' opacity='0.65'/%3E%3Ccircle cx='1277' cy='75' r='4' opacity='0.95'/%3E%3Ccircle cx='1180' cy='75' r='3' opacity='0.6'/%3E%3Ccircle cx='1105' cy='32' r='3' opacity='0.5'/%3E%3C/g%3E%3C!-- SUBTLE SIDE ACCENTS --%3E%3Cg fill='none' stroke='rgba(56, 189, 248, 0.22)' stroke-width='1.5'%3E%3Cpolygon points='1360,520 1340,555 1300,555 1280,520 1300,485 1340,485'/%3E%3Cpolygon points='118,540 99,573 61,573 42,540 61,507 99,507'/%3E%3C/g%3E%3Cg fill='%2338bdf8'%3E%3Ccircle cx='1360' cy='520' r='2.5' opacity='0.5'/%3E%3Ccircle cx='1280' cy='520' r='2.5' opacity='0.4'/%3E%3Ccircle cx='118' cy='540' r='2.5' opacity='0.5'/%3E%3Ccircle cx='42' cy='540' r='2.5' opacity='0.4'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
 }
 
 /* Dedicated Glowing Stat Card Classes */

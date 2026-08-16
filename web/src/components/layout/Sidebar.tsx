@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/routes';
 import { ShieldLogo } from '../common/ShieldLogo';
 import { useUserAvatar } from '../../context/UserAvatarContext';
 import { UserAvatar } from '../common/UserAvatar';
+
+// Module-level in-memory cache for fast scroll position restoration across component unmount/remount
+const sidebarScrollPositions: Record<string, number> = {};
 
 interface NavItem {
   path: string;
@@ -41,6 +44,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const { adminAvatar, clientAvatar } = useUserAvatar();
   const currentAvatar = role === 'admin' ? adminAvatar : clientAvatar;
+  const navRef = useRef<HTMLElement>(null);
+
+  const scrollKey = `sidebar_scroll_${role}`;
+
+  // Restore scroll position before browser repaint
+  useLayoutEffect(() => {
+    let savedPos = sidebarScrollPositions[scrollKey];
+    if (savedPos === undefined) {
+      const stored = sessionStorage.getItem(scrollKey);
+      if (stored !== null) {
+        savedPos = parseInt(stored, 10);
+      }
+    }
+
+    if (navRef.current) {
+      if (savedPos !== undefined && !isNaN(savedPos)) {
+        navRef.current.scrollTop = savedPos;
+      } else {
+        // Fallback: scroll active item into view if no saved position exists
+        const activeLink = navRef.current.querySelector('.sidebar-link.active') as HTMLElement | null;
+        if (activeLink) {
+          activeLink.scrollIntoView({ block: 'nearest' });
+        }
+      }
+    }
+  }, [location.pathname, role, scrollKey]);
+
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+    const target = e.currentTarget;
+    sidebarScrollPositions[scrollKey] = target.scrollTop;
+    sessionStorage.setItem(scrollKey, String(target.scrollTop));
+  };
+
+  const saveScrollPos = () => {
+    if (navRef.current) {
+      sidebarScrollPositions[scrollKey] = navRef.current.scrollTop;
+      sessionStorage.setItem(scrollKey, String(navRef.current.scrollTop));
+    }
+  };
 
   return (
     <aside
@@ -52,7 +94,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Brand Header */}
       <div className="sidebar-brand" style={{ justifyContent: collapsed ? 'center' : 'space-between' }}>
-        <Link to={role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW} className="brand-lockup">
+        <Link
+          to={role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW}
+          className="brand-lockup"
+          onClick={saveScrollPos}
+        >
           <ShieldLogo size={32} />
           {!collapsed && (
             <div className="brand-text">
@@ -81,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Nav Section Links */}
-      <nav className="sidebar-nav">
+      <nav ref={navRef} className="sidebar-nav" onScroll={handleScroll}>
         {groups.map((group, gIdx) => (
           <div key={group.title || gIdx} className="sidebar-section">
             {group.title && !collapsed && <span className="sidebar-title">{group.title}</span>}
@@ -92,6 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.path}
                   to={item.path}
                   className={`sidebar-link ${isActive ? 'active' : ''}`}
+                  onClick={saveScrollPos}
                   style={{
                     justifyContent: collapsed ? 'center' : 'flex-start',
                     padding: collapsed ? '12px' : '10px 12px',
@@ -110,7 +157,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Footer User Card */}
       <div
         className="sidebar-foot"
-        onClick={() => navigate(role === 'admin' ? ROUTES.ADMIN.SETTINGS : ROUTES.CLIENT.SETTINGS)}
+        onClick={() => {
+          saveScrollPos();
+          navigate(role === 'admin' ? ROUTES.ADMIN.SETTINGS : ROUTES.CLIENT.SETTINGS);
+        }}
         style={{
           cursor: 'pointer',
           borderRadius: 8,

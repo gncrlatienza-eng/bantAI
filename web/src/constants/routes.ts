@@ -6,6 +6,7 @@ export const ROUTES = {
   LICENSING: '/request-access',
   LOGIN: '/login',
   ADMIN_LOGIN: '/admin-login',
+  FORGOT_PASSWORD: '/forgot-password',
   TWO_FACTOR: '/2fa',
   PROFILE: '/profile',
   SETTINGS: '/settings',

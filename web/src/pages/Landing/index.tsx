@@ -9,9 +9,180 @@ export const LandingPage: React.FC = () => {
     <div className="public-shell" style={{ position: 'relative' }}>
       {/* Homepage Light Ambient Background Glow */}
       <div className="homepage-light-bg" />
+
+      {/* Direct Tech Hexagon Background Overlay (Upper-Left, Upper-Right, Sides, Bottom-Left & Bottom-Right) */}
+      <svg
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '950px',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+        viewBox="0 0 1400 950"
+        preserveAspectRatio="xMidYMin meet"
+      >
+        <defs>
+          <filter id="hexGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* UPPER-LEFT CLUSTER (3 Thin Regular Hexagons) */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="190,140 152,205 77,205 40,140 77,75 152,75" />
+          <polygon points="275,75 250,118 200,118 175,75 200,32 250,32" stroke="rgba(59, 130, 246, 0.65)" />
+          <polygon points="90,260 72,290 37,290 20,260 37,230 72,230" stroke="rgba(96, 165, 250, 0.55)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#hexGlow)">
+          <circle cx="190" cy="140" r="4.5" opacity="0.95" />
+          <circle cx="152" cy="205" r="5" opacity="1" />
+          <circle cx="77" cy="205" r="4" opacity="0.85" />
+          <circle cx="40" cy="140" r="4.5" opacity="0.95" />
+          <circle cx="77" cy="75" r="4" opacity="0.8" />
+          <circle cx="152" cy="75" r="5" opacity="1" />
+          <circle cx="275" cy="75" r="4" opacity="0.85" />
+          <circle cx="200" cy="32" r="3.5" opacity="0.75" />
+        </g>
+
+        {/* UPPER-RIGHT CLUSTER (3 Thin Regular Hexagons) */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="1210,140 1172,205 1097,205 1060,140 1097,75 1172,75" />
+          <polygon points="1125,75 1100,118 1050,118 1025,75 1050,32 1100,32" stroke="rgba(59, 130, 246, 0.65)" />
+          <polygon points="1310,260 1292,290 1257,290 1240,260 1257,230 1292,230" stroke="rgba(96, 165, 250, 0.55)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#hexGlow)">
+          <circle cx="1210" cy="140" r="4.5" opacity="0.95" />
+          <circle cx="1172" cy="205" r="5" opacity="1" />
+          <circle cx="1097" cy="205" r="4" opacity="0.85" />
+          <circle cx="1060" cy="140" r="4.5" opacity="0.95" />
+          <circle cx="1097" cy="75" r="4" opacity="0.8" />
+          <circle cx="1172" cy="75" r="5" opacity="1" />
+          <circle cx="1125" cy="75" r="4" opacity="0.85" />
+          <circle cx="1050" cy="32" r="3.5" opacity="0.75" />
+        </g>
+
+        {/* SUBTLE SIDE ACCENTS */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.55)" strokeWidth="1.8">
+          <polygon points="1350,450 1330,485 1290,485 1270,450 1290,415 1330,415" />
+          <polygon points="130,470 111,503 73,503 54,470 73,437 111,437" />
+        </g>
+        <g fill="#00f0ff" filter="url(#hexGlow)">
+          <circle cx="1350" cy="450" r="3.5" opacity="0.8" />
+          <circle cx="1270" cy="450" r="3.5" opacity="0.7" />
+          <circle cx="130" cy="470" r="3.5" opacity="0.8" />
+          <circle cx="54" cy="470" r="3.5" opacity="0.7" />
+        </g>
+      </svg>
+
+      {/* Mid-Lower Page Hexagon Accents (Fills Middle-Lower Side Margins) */}
+      <svg
+        style={{
+          position: 'absolute',
+          top: '48%',
+          left: 0,
+          width: '100%',
+          height: '500px',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+        viewBox="0 0 1400 500"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <filter id="midLowerGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* MID-LOWER LEFT FLANK */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="140,240 108,295 43,295 11,240 43,185 108,185" />
+          <polygon points="215,300 197,331 162,331 145,300 162,269 197,269" stroke="rgba(59, 130, 246, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#midLowerGlow)">
+          <circle cx="140" cy="240" r="4.5" opacity="0.9" />
+          <circle cx="108" cy="295" r="4" opacity="0.85" />
+          <circle cx="43" cy="295" r="4.5" opacity="0.95" />
+          <circle cx="215" cy="300" r="3.5" opacity="0.8" />
+        </g>
+
+        {/* MID-LOWER RIGHT FLANK */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="1350,240 1318,295 1253,295 1221,240 1253,185 1318,185" />
+          <polygon points="1235,300 1217,331 1182,331 1165,300 1182,269 1217,269" stroke="rgba(59, 130, 246, 0.6)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#midLowerGlow)">
+          <circle cx="1350" cy="240" r="4.5" opacity="0.9" />
+          <circle cx="1318" cy="295" r="4" opacity="0.85" />
+          <circle cx="1253" cy="295" r="4.5" opacity="0.95" />
+          <circle cx="1235" cy="300" r="3.5" opacity="0.8" />
+        </g>
+      </svg>
+
+      {/* Bottom Page Hexagon Accents (Above Footer - Framing CTA Section) */}
+      <svg
+        style={{
+          position: 'absolute',
+          bottom: '240px',
+          left: 0,
+          width: '100%',
+          height: '500px',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+        viewBox="0 0 1400 500"
+        preserveAspectRatio="xMidYMax meet"
+      >
+        <defs>
+          <filter id="bottomHexGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* BOTTOM-LEFT ACCENT ABOVE FOOTER (2 Thin Regular Hexagons) */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="170,250 135,311 65,311 30,250 65,189 135,189" />
+          <polygon points="255,190 232,229 187,229 165,190 187,151 232,151" stroke="rgba(59, 130, 246, 0.65)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#bottomHexGlow)">
+          <circle cx="170" cy="250" r="4.5" opacity="0.9" />
+          <circle cx="135" cy="311" r="4" opacity="0.85" />
+          <circle cx="65" cy="311" r="4.5" opacity="0.95" />
+          <circle cx="30" cy="250" r="4" opacity="0.8" />
+          <circle cx="255" cy="190" r="3.5" opacity="0.8" />
+        </g>
+
+        {/* BOTTOM-RIGHT ACCENT ABOVE FOOTER (2 Thin Regular Hexagons) */}
+        <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
+          <polygon points="1370,250 1335,311 1265,311 1230,250 1265,189 1335,189" />
+          <polygon points="1235,190 1212,229 1167,229 1145,190 1167,151 1212,151" stroke="rgba(59, 130, 246, 0.65)" />
+        </g>
+        <g fill="#00f0ff" filter="url(#bottomHexGlow)">
+          <circle cx="1370" cy="250" r="4.5" opacity="0.9" />
+          <circle cx="1335" cy="311" r="4" opacity="0.85" />
+          <circle cx="1265" cy="311" r="4.5" opacity="0.95" />
+          <circle cx="1230" cy="250" r="4" opacity="0.8" />
+          <circle cx="1235" cy="190" r="3.5" opacity="0.8" />
+        </g>
+      </svg>
       <PublicHeader />
       
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
         {/* Hero Section */}
         <section
           className="animate-fade-in"

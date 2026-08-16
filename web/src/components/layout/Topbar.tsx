@@ -22,7 +22,7 @@ interface NotificationItem {
   route: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
+const ADMIN_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n1',
     title: '🚨 Critical Campaign Outbreak',
@@ -30,7 +30,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     time: '2m ago',
     tone: 'red',
     read: false,
-    route: '/client/campaigns',
+    route: '/admin/campaigns',
   },
   {
     id: 'n2',
@@ -48,7 +48,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     time: '2h ago',
     tone: 'blue',
     read: false,
-    route: '/client/export',
+    route: '/admin/export',
   },
   {
     id: 'n4',
@@ -61,6 +61,45 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+const CLIENT_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 'n1',
+    title: '🚨 Critical Campaign Outbreak',
+    body: 'Operation GCash Clone #17 spiked +380% in last hour.',
+    time: '2m ago',
+    tone: 'red',
+    read: false,
+    route: '/client/campaigns',
+  },
+  {
+    id: 'n2',
+    title: '⚠️ System Telemetry Update',
+    body: 'Telemetry sync completed successfully for 1,420 devices.',
+    time: '38m ago',
+    tone: 'amber',
+    read: false,
+    route: '/client/overview',
+  },
+  {
+    id: 'n3',
+    title: '📄 Intelligence Feed Export Ready',
+    body: '312 threat records generated for CSV export download.',
+    time: '2h ago',
+    tone: 'blue',
+    read: false,
+    route: '/client/export',
+  },
+  {
+    id: 'n4',
+    title: '💬 API Consumption Normal',
+    body: '8,241 total API requests processed cleanly today.',
+    time: '4h ago',
+    tone: 'amber',
+    read: true,
+    route: '/client/overview',
+  },
+];
+
 export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,7 +107,10 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
   const currentAvatar = role === 'admin' ? adminAvatar : clientAvatar;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [showTagTooltip, setShowTagTooltip] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    role === 'admin' ? ADMIN_NOTIFICATIONS : CLIENT_NOTIFICATIONS
+  );
   const [searchQuery, setSearchQuery] = useState('');
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -78,7 +120,18 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
       prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
     );
     setShowNotifications(false);
-    navigate(notif.route);
+    
+    let targetRoute = notif.route;
+    if (role === 'admin') {
+      if (targetRoute === '/admin/clusters' || targetRoute === '/client/campaigns') {
+        targetRoute = '/admin/campaigns';
+      } else if (targetRoute === '/admin/exports' || targetRoute === '/client/export') {
+        targetRoute = '/admin/export';
+      } else if (targetRoute.startsWith('/client/')) {
+        targetRoute = '/admin/overview';
+      }
+    }
+    navigate(targetRoute);
   };
 
   const handleMarkAllRead = () => {
@@ -157,10 +210,59 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
           )}
         </button>
 
-        {/* Tag Pill */}
-        <span className={`badge ${role === 'admin' ? 'badge-amber' : 'badge-purple'}`} style={{ padding: '6px 12px', fontSize: '0.8125rem' }}>
-          {tag}
-        </span>
+        {/* Tag Pill with Hover Description Tooltip */}
+        <div
+          style={{ position: 'relative' }}
+          onMouseEnter={() => setShowTagTooltip(true)}
+          onMouseLeave={() => setShowTagTooltip(false)}
+        >
+          <span
+            className={`badge ${role === 'admin' ? 'badge-amber' : 'badge-purple'}`}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.8125rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: role === 'admin' ? '0 0 10px rgba(245, 158, 11, 0.2)' : '0 0 10px rgba(124, 58, 237, 0.2)',
+            }}
+          >
+            <span>{role === 'admin' ? '👑' : '🛡️'}</span>
+            <span>{tag}</span>
+          </span>
+
+          {showTagTooltip && (
+            <div
+              className="animate-fade-in"
+              style={{
+                position: 'absolute',
+                top: '125%',
+                right: 0,
+                width: 290,
+                background: '#12121a',
+                border: '1px solid var(--border-default)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.7), 0 0 16px rgba(245, 158, 11, 0.25)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                zIndex: 100,
+                pointerEvents: 'none',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
+                <span style={{ fontSize: '1.1rem' }}>{role === 'admin' ? '👑' : '🛡️'}</span>
+                <strong style={{ fontSize: '0.875rem', color: role === 'admin' ? 'var(--amber-text)' : 'var(--accent-light)' }}>
+                  {role === 'admin' ? 'Super Administrator Privileges' : 'Client Intelligence Portal'}
+                </strong>
+              </div>
+              <p style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+                {role === 'admin'
+                  ? 'Super Admins hold root privileges to manage AI model retraining, validate FP/FN review queues, audit user accounts, monitor system health, and execute full threat telemetry exports.'
+                  : 'Client Portal users have read access to real-time smishing campaigns, threat analytics, verified classification logs, and intelligence export feeds.'}
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Profile Avatar */}
         <div style={{ cursor: 'pointer' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>

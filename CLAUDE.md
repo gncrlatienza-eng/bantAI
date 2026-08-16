@@ -156,6 +156,21 @@ bugfix/xxx  ← bug fixes (branch from develop, PR back to develop, delete after
 
 **Never** push directly to `develop`. **Never** merge `main` into `develop`.
 
+**Naming convention — prefix with your track:** `feature/<track>-<short-name>` /
+`bugfix/<track>-<short-name>`, e.g. `feature/mobile-blocked-numbers-sync`,
+`feature/backend-report-endpoints`, `feature/ai-retraining-pipeline`,
+`feature/web-admin-reports-page`. This gives the same at-a-glance "whose branch is
+whose" clarity as one long-lived branch per person, without the downside: **branches
+stay short-lived and get merged/deleted per task, not accumulated over weeks.**
+
+This isn't a hypothetical concern — `develop-web-frontend` (a long-lived, non-prefixed
+branch that stayed open across many unrelated commits) is exactly the pattern that
+caused the Sprint 3 merge damage documented in `DEV_LOG.md`: PR #33/#34 silently
+duplicated alerts/campaigns code, and several `DEV_LOG.md` entries were lost and had
+to be manually recovered later. Small, frequent, task-scoped branches avoid that —
+easier to review, easier to bisect if CI catches a regression, easier to revert on
+their own.
+
 ---
 
 ## WBS Tracking (Automated)

@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     # The bar is deliberately highest for "blocked" — hiding a real message is
     # the most costly mistake. Tune these once the model's score distribution is
     # observed on real data.
-    safe_threshold: float = 0.50    # Ham  -> safe    (inbox)
-    spam_threshold: float = 0.60    # Spam -> spam    (dropdown)
-    block_threshold: float = 0.90   # Scam -> blocked (dropdown)
+    safe_threshold: float = 0.50  # Ham  -> safe    (inbox)
+    spam_threshold: float = 0.60  # Spam -> spam    (dropdown)
+    block_threshold: float = 0.90  # Scam -> blocked (dropdown)
 
     # Minimum gap between the top two class probabilities. When the winner
     # leads the runner-up by less than this, the model is treated as "torn"

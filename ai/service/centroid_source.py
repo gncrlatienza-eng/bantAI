@@ -65,9 +65,7 @@ def load_from_file(path: str = DEFAULT_CLUSTER_FILE) -> List[CampaignCentroid]:
     return out
 
 
-def load_from_backend(
-    base_url: str, timeout: float = 5.0
-) -> List[CampaignCentroid]:
+def load_from_backend(base_url: str, timeout: float = 5.0) -> List[CampaignCentroid]:
     """Fetch active campaign centroids from the NestJS backend.
 
     Hits the dedicated ``/campaigns/centroids`` route (not the general

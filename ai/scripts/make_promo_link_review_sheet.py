@@ -22,17 +22,24 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 FIELDS = [
-    "id", "verdict", "correct_label", "notes",
-    "text", "rule_label", "language", "confidence", "reason",
-    "source", "source_label", "sender",
+    "id",
+    "verdict",
+    "correct_label",
+    "notes",
+    "text",
+    "rule_label",
+    "language",
+    "confidence",
+    "reason",
+    "source",
+    "source_label",
+    "sender",
 ]
 
 
@@ -55,21 +62,28 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         for i, r in enumerate(picked, start=1):
-            w.writerow({
-                "id": f"promo-{i:03d}",
-                "verdict": "", "correct_label": "", "notes": "",
-                "text": r["text"], "rule_label": r["label"],
-                "language": r.get("language", ""),
-                "confidence": r.get("confidence", ""),
-                "reason": r.get("reason", ""),
-                "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "sender": r.get("sender", ""),
-            })
+            w.writerow(
+                {
+                    "id": f"promo-{i:03d}",
+                    "verdict": "",
+                    "correct_label": "",
+                    "notes": "",
+                    "text": r["text"],
+                    "rule_label": r["label"],
+                    "language": r.get("language", ""),
+                    "confidence": r.get("confidence", ""),
+                    "reason": r.get("reason", ""),
+                    "source": r.get("source", ""),
+                    "source_label": r.get("source_label", ""),
+                    "sender": r.get("sender", ""),
+                }
+            )
 
     print("=" * 60)
-    print(f"Promo-link review sheet: {len(picked)} rows (ALL of them, no "
-          f"sampling) -> {os.path.relpath(out_path, DATASETS)}")
+    print(
+        f"Promo-link review sheet: {len(picked)} rows (ALL of them, no "
+        f"sampling) -> {os.path.relpath(out_path, DATASETS)}"
+    )
     print("-" * 60)
     print("Every row here is currently labeled Spam by the brand-new rule.")
     print("Checking whether that's right is the point of this sheet.")

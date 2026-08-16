@@ -166,9 +166,7 @@ def test_centroid_of_one_vector_is_itself():
 
 def test_centroid_sits_between_its_members():
     centroid = compute_centroid([unit(1, 0), unit(0, 1)])
-    assert cosine_similarity(centroid, unit(1, 0)) == pytest.approx(
-        cosine_similarity(centroid, unit(0, 1)), abs=1e-6
-    )
+    assert cosine_similarity(centroid, unit(1, 0)) == pytest.approx(cosine_similarity(centroid, unit(0, 1)), abs=1e-6)
 
 
 # --- building a matcher from clustering output ------------------------------
@@ -196,9 +194,7 @@ def test_round_trip_member_matches_its_own_cluster():
     calibrated 0.999 they would (correctly) fail to round-trip.
     """
     close = np.arccos(0.99999)
-    embeddings = np.array(
-        [unit(1, 0, 0), unit(np.cos(close), np.sin(close), 0), unit(0, 1, 0)]
-    )
+    embeddings = np.array([unit(1, 0, 0), unit(np.cos(close), np.sin(close), 0), unit(0, 1, 0)])
     matcher = build_matcher_from_clusters(embeddings, [0, 0, -1])
     assert matcher.match(embeddings[0]).cluster_id == "0"
 

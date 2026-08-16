@@ -25,31 +25,36 @@ import sys
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
-SEED = 20260729          # distinct from rounds 1-3 (20260727 / 20260729-trusted)
-PER_RULE_CAP = 12        # no single rule dominates the sheet
+SEED = 20260729  # distinct from rounds 1-3 (20260727 / 20260729-trusted)
+PER_RULE_CAP = 12  # no single rule dominates the sheet
 TARGET = 140
 
 FIELDS = [
-    "id", "verdict", "correct_label", "notes",
-    "text", "rule_label", "confidence", "reason", "language",
-    "source", "source_label", "sender",
+    "id",
+    "verdict",
+    "correct_label",
+    "notes",
+    "text",
+    "rule_label",
+    "confidence",
+    "reason",
+    "language",
+    "source",
+    "source_label",
+    "sender",
 ]
 
 # Sheets whose rows are already reviewed -- never ask twice.
-PRIOR = ["review_sheet.csv", "review_sheet_trusted.csv",
-         "review_sheet_promo_link.csv"]
+PRIOR = ["review_sheet.csv", "review_sheet_trusted.csv", "review_sheet_promo_link.csv"]
 
 
 def main() -> None:
-    with open(os.path.join(AUDIT, "bantai_labeled_full.csv"),
-              encoding="utf-8", newline="") as f:
+    with open(os.path.join(AUDIT, "bantai_labeled_full.csv"), encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
     already = set()
@@ -69,7 +74,7 @@ def main() -> None:
         seen.add(r["text"])
         if r["confidence"] not in ("high", "medium"):
             continue
-        pool[f'{r["reason"]}|{r["confidence"]}'].append(r)
+        pool[f"{r['reason']}|{r['confidence']}"].append(r)
 
     rng = random.Random(SEED)
     total = sum(len(v) for v in pool.values())
@@ -86,22 +91,28 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         for i, r in enumerate(picked, 1):
-            w.writerow({
-                "id": f"conf-{i:03d}", "verdict": "", "correct_label": "",
-                "notes": "", "text": r["text"], "rule_label": r["label"],
-                "confidence": r["confidence"], "reason": r["reason"],
-                "language": r.get("language", ""), "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "sender": r.get("sender", ""),
-            })
+            w.writerow(
+                {
+                    "id": f"conf-{i:03d}",
+                    "verdict": "",
+                    "correct_label": "",
+                    "notes": "",
+                    "text": r["text"],
+                    "rule_label": r["label"],
+                    "confidence": r["confidence"],
+                    "reason": r["reason"],
+                    "language": r.get("language", ""),
+                    "source": r.get("source", ""),
+                    "source_label": r.get("source_label", ""),
+                    "sender": r.get("sender", ""),
+                }
+            )
 
     print("=" * 68)
-    print(f"Confidence review sheet: {len(picked)} rows -> "
-          f"{os.path.relpath(out, DATASETS)}")
+    print(f"Confidence review sheet: {len(picked)} rows -> {os.path.relpath(out, DATASETS)}")
     print(f"sampled from {total} unreviewed high/medium rows")
     print("-" * 68)
-    for k, n in Counter(f'{r["reason"]} ({r["confidence"]})'
-                        for r in picked).most_common():
+    for k, n in Counter(f"{r['reason']} ({r['confidence']})" for r in picked).most_common():
         print(f"  {k:44} {n:3}")
     print("-" * 68)
     print(f"  labels: {Counter(r['label'] for r in picked)}")

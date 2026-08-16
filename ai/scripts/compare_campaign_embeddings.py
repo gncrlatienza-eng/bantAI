@@ -210,8 +210,11 @@ def hidden_layer_vectors(texts: Sequence[str], layer: int, pooling: str, batch: 
         for start in range(0, len(texts), batch):
             chunk = list(texts[start : start + batch])
             enc = tokenizer(
-                chunk, truncation=True, max_length=settings.max_length,
-                padding=True, return_tensors="pt",
+                chunk,
+                truncation=True,
+                max_length=settings.max_length,
+                padding=True,
+                return_tensors="pt",
             )
             hidden = model(**enc, output_hidden_states=True).hidden_states[layer]
             if pooling == "cls":
@@ -226,13 +229,14 @@ def hidden_layer_vectors(texts: Sequence[str], layer: int, pooling: str, batch: 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--sample", type=int, default=2500,
+        "--sample",
+        type=int,
+        default=2500,
         help="Messages to evaluate (default: %(default)s). The full set needs "
-             "a long CPU pass per layer; a sample is enough for a similarity "
-             "distribution.",
+        "a long CPU pass per layer; a sample is enough for a similarity "
+        "distribution.",
     )
-    parser.add_argument("--skip-layers", action="store_true",
-                        help="Only evaluate the cached [CLS] and TF-IDF options.")
+    parser.add_argument("--skip-layers", action="store_true", help="Only evaluate the cached [CLS] and TF-IDF options.")
     args = parser.parse_args(argv)
 
     from preprocessing import preprocess
@@ -253,12 +257,10 @@ def main(argv=None) -> int:
 
     print("=" * 78)
     print("Campaign representation comparison (WBS 5.3.6)")
-    print(f"Messages: {len(masked)}   positive pairs: {len(positives)}   "
-          f"negative pairs: {len(negatives)}")
+    print(f"Messages: {len(masked)}   positive pairs: {len(positives)}   negative pairs: {len(negatives)}")
     print("Lower false-match rate is better (equal 90% recall of true variants)")
     print("=" * 78)
-    print(f"{'representation':<34} {'thresh':>8} {'false-match':>12} "
-          f"{'pos':>7} {'neg':>7} {'sep':>7}")
+    print(f"{'representation':<34} {'thresh':>8} {'false-match':>12} {'pos':>7} {'neg':>7} {'sep':>7}")
 
     results = []
 
@@ -268,10 +270,12 @@ def main(argv=None) -> int:
         if "error" in row:
             print(f"{name:<34} {row['error']}")
             return
-        print(f"{name:<34} {row['threshold_at_90pct_recall']:>8.4f} "
-              f"{100*row['false_match_rate']:>11.1f}% "
-              f"{row['positive_mean']:>7.3f} {row['negative_mean']:>7.3f} "
-              f"{row['separation']:>7.3f}")
+        print(
+            f"{name:<34} {row['threshold_at_90pct_recall']:>8.4f} "
+            f"{100 * row['false_match_rate']:>11.1f}% "
+            f"{row['positive_mean']:>7.3f} {row['negative_mean']:>7.3f} "
+            f"{row['separation']:>7.3f}"
+        )
 
     report("classifier [CLS] L12 (CURRENT)", cls_vectors)
     report("tfidf char_wb 3-5", tfidf_vectors(masked, "char_wb", (3, 5)))
@@ -279,8 +283,7 @@ def main(argv=None) -> int:
 
     if not args.skip_layers:
         for layer in (4, 6, 8, 12):
-            report(f"xlm-r mean-pool L{layer}",
-                   hidden_layer_vectors(masked, layer, "mean"))
+            report(f"xlm-r mean-pool L{layer}", hidden_layer_vectors(masked, layer, "mean"))
 
     os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
     with open(REPORT_PATH, "w", encoding="utf-8") as handle:

@@ -125,6 +125,7 @@ JWT_EXPIRES_IN="7d"
 ## Current Features
 
 ### Backend Foundation
+
 - ✅ NestJS project setup
 - ✅ PostgreSQL with Docker
 - ✅ Prisma ORM integration
@@ -133,6 +134,7 @@ JWT_EXPIRES_IN="7d"
 - ✅ CORS configuration
 
 ### Authentication (phone OTP — no passwords)
+
 - ✅ OTP request + verification (`OtpCode` model, 6 digits, 5-minute expiry)
 - ✅ JWT issued on successful verification (Passport JWT strategy + guard)
 - ✅ Auto-creates a user on first OTP verification for unknown numbers
@@ -140,6 +142,7 @@ JWT_EXPIRES_IN="7d"
 - ⚠️ Dev-only OTP delivery: codes are printed to the backend console (`OTP for <phone>: <code>`), not sent by SMS yet
 
 ### Users
+
 - ✅ JWT-guarded `PUT /users/me` profile update (firstName / lastName / email) — used by the Android onboarding Profile screen
 
 ---
@@ -188,5 +191,6 @@ bugfix/<bug-name>
 ---
 
 ## Authors
+
 BS Computer Science Thesis Project
 De La Salle Lipa

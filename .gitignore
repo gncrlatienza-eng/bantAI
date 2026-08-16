@@ -18,6 +18,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Generated Prisma client -- schema.prisma uses the default output location
+# (node_modules/@prisma/client), never a custom one; this stale copy got
+# accidentally committed early on and broke CI's Prettier check once it drifted
+# out of sync with the schema (DEV_LOG 2026-08-16).
+backend/database/prisma/generated/
+
 # ─── Android / Mobile ──────────────────────────────────────────────────────────
 mobile/.gradle/
 mobile/build/

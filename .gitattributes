@@ -1,0 +1,8 @@
+# Gradle wrapper: developed on Windows, built on Linux CI. Without this,
+# core.autocrlf can convert gradlew's LF line endings to CRLF on commit,
+# breaking its #!/bin/sh shebang on the CI runner, and the wrapper jar is
+# binary -- neither should ever go through line-ending conversion.
+mobile/gradlew text eol=lf
+mobile/gradlew.bat text eol=crlf
+mobile/gradle/wrapper/gradle-wrapper.jar binary
+*.jar binary

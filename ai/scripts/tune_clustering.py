@@ -53,9 +53,16 @@ REPORT_PATH = os.path.join(AI, "evaluation", "clustering_tuning.json")
 #: min_cluster_size" -- the Sprint 3 behaviour, kept in the sweep so the
 #: comparison always includes what is actually deployed.
 DEFAULT_GRID: List[Tuple[int, Optional[int]]] = [
-    (5, None), (5, 3), (5, 2), (5, 1),
-    (4, 2), (3, 2), (3, 1),
-    (10, None), (10, 3), (15, 3),
+    (5, None),
+    (5, 3),
+    (5, 2),
+    (5, 1),
+    (4, 2),
+    (3, 2),
+    (3, 1),
+    (10, None),
+    (10, 3),
+    (15, 3),
 ]
 
 
@@ -131,9 +138,7 @@ def load_population(labels_wanted: Sequence[str], dedupe: bool):
     recommendation would not transfer.
     """
     if not os.path.isfile(EMBEDDINGS):
-        raise SystemExit(
-            f"No embeddings at {EMBEDDINGS}. Run scripts/embed_dataset.py first."
-        )
+        raise SystemExit(f"No embeddings at {EMBEDDINGS}. Run scripts/embed_dataset.py first.")
 
     data = np.load(EMBEDDINGS, allow_pickle=True)
     embeddings, labels, texts = data["embeddings"], data["labels"], data["texts"]
@@ -156,22 +161,25 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--labels", default="Spam,Scam")
     parser.add_argument(
-        "--no-dedup", action="store_true",
+        "--no-dedup",
+        action="store_true",
         help="Sweep against the raw population, duplicates included.",
     )
     args = parser.parse_args(argv)
 
-    embeddings, labels, n_before = load_population(
-        args.labels.split(","), dedupe=not args.no_dedup
-    )
+    embeddings, labels, n_before = load_population(args.labels.split(","), dedupe=not args.no_dedup)
 
     print("=" * 78)
     print("HDBSCAN parameter sweep (WBS 5.3.6)")
-    print(f"Population: {args.labels}  ->  {len(embeddings)} of {n_before} rows"
-          f"{'' if args.no_dedup else ' after masked-text de-duplication'}")
+    print(
+        f"Population: {args.labels}  ->  {len(embeddings)} of {n_before} rows"
+        f"{'' if args.no_dedup else ' after masked-text de-duplication'}"
+    )
     print("=" * 78)
-    print(f"{'mcs':>4} {'min_s':>6} {'clusters':>9} {'noise%':>8} "
-          f"{'purity%':>8} {'cohesion':>9} {'median':>7} {'largest':>8}")
+    print(
+        f"{'mcs':>4} {'min_s':>6} {'clusters':>9} {'noise%':>8} "
+        f"{'purity%':>8} {'cohesion':>9} {'median':>7} {'largest':>8}"
+    )
 
     results = []
     for min_cluster_size, min_samples in DEFAULT_GRID:

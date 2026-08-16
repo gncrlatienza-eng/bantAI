@@ -188,9 +188,7 @@ def build_profile(
     member_sets = [shingles(t) for t in texts]
     member_sets = [s for s in member_sets if s]
     if not member_sets:
-        return LexicalProfile(
-            domains={d.lower() for d in domains or ()}, member_count=0
-        )
+        return LexicalProfile(domains={d.lower() for d in domains or ()}, member_count=0)
 
     counts: Dict[str, int] = {}
     for s in member_sets:

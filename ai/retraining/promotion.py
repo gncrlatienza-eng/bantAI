@@ -63,8 +63,8 @@ class PromotionDecision:
     reason: str
     baseline_macro_f1: float
     candidate_macro_f1: float
-    n_fixes: int          # baseline wrong -> candidate right
-    n_regressions: int    # baseline right -> candidate wrong
+    n_fixes: int  # baseline wrong -> candidate right
+    n_regressions: int  # baseline right -> candidate wrong
     p_value: float
 
     def __bool__(self) -> bool:
@@ -138,17 +138,14 @@ def evaluate_promotion(
             p_value=1.0,
         )
 
-    p_value = float(
-        binomtest(fixes, n_discordant, 0.5).pvalue
-    )
+    p_value = float(binomtest(fixes, n_discordant, 0.5).pvalue)
 
     # --- Check 1: absolute floor ---
     if candidate_f1 < baseline_f1 - f1_floor_tolerance:
         return PromotionDecision(
             promote=False,
             reason=(
-                f"macro-F1 {candidate_f1:.4f} is more than "
-                f"{f1_floor_tolerance:.4f} below baseline {baseline_f1:.4f}"
+                f"macro-F1 {candidate_f1:.4f} is more than {f1_floor_tolerance:.4f} below baseline {baseline_f1:.4f}"
             ),
             baseline_macro_f1=baseline_f1,
             candidate_macro_f1=candidate_f1,
@@ -178,10 +175,7 @@ def evaluate_promotion(
     if regressions > fixes:
         return PromotionDecision(
             promote=False,
-            reason=(
-                f"significantly worse: {regressions} regressions vs "
-                f"{fixes} fixes (p={p_value:.4f})"
-            ),
+            reason=(f"significantly worse: {regressions} regressions vs {fixes} fixes (p={p_value:.4f})"),
             baseline_macro_f1=baseline_f1,
             candidate_macro_f1=candidate_f1,
             n_fixes=fixes,

@@ -106,9 +106,7 @@ class NullReportSource:
     wrong is *pretending* reports were consulted, which ``describe`` prevents.
     """
 
-    def fetch(
-        self, since: Optional[datetime] = None
-    ) -> Iterable[ValidatedReport]:
+    def fetch(self, since: Optional[datetime] = None) -> Iterable[ValidatedReport]:
         return ()
 
     def describe(self) -> str:
@@ -130,17 +128,14 @@ def _coerce_label(value) -> str:
             value = int(key)
         except ValueError:
             raise ReportFormatError(
-                f"Unrecognised label {value!r}; expected one of "
-                f"{sorted(LABEL2ID)} or an id in {sorted(_ID_TO_NAME)}"
+                f"Unrecognised label {value!r}; expected one of {sorted(LABEL2ID)} or an id in {sorted(_ID_TO_NAME)}"
             ) from None
     try:
         idx = int(value)
     except (TypeError, ValueError):
         raise ReportFormatError(f"Unrecognised label {value!r}") from None
     if idx not in _ID_TO_NAME:
-        raise ReportFormatError(
-            f"Label id {idx} out of range; expected one of {sorted(_ID_TO_NAME)}"
-        )
+        raise ReportFormatError(f"Label id {idx} out of range; expected one of {sorted(_ID_TO_NAME)}")
     return _ID_TO_NAME[idx]
 
 
@@ -238,27 +233,20 @@ class FileReportSource:
                 payload = payload.get("reports", [])
             yield from payload
 
-    def fetch(
-        self, since: Optional[datetime] = None
-    ) -> Iterable[ValidatedReport]:
+    def fetch(self, since: Optional[datetime] = None) -> Iterable[ValidatedReport]:
         for path in self._files():
             for lineno, row in enumerate(self._read_file(path), start=1):
                 if "text" not in row or "label" not in row:
                     raise ReportFormatError(
-                        f"{os.path.basename(path)} row {lineno}: expected "
-                        f"'text' and 'label' columns, got {sorted(row)}"
+                        f"{os.path.basename(path)} row {lineno}: expected 'text' and 'label' columns, got {sorted(row)}"
                     )
                 text = str(row["text"]).strip()
                 if not text:
-                    raise ReportFormatError(
-                        f"{os.path.basename(path)} row {lineno}: empty text"
-                    )
+                    raise ReportFormatError(f"{os.path.basename(path)} row {lineno}: empty text")
                 report = ValidatedReport(
                     text=text,
                     label=_coerce_label(row["label"]),
-                    report_id=(
-                        str(row["report_id"]) if row.get("report_id") else None
-                    ),
+                    report_id=(str(row["report_id"]) if row.get("report_id") else None),
                     validated_at=_parse_timestamp(row.get("validated_at")),
                 )
                 if _after(report, since):

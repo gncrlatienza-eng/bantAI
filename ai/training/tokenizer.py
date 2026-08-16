@@ -25,10 +25,7 @@ def assert_vocab_size(tokenizer) -> None:
     """Sanity-check that the multilingual 250K vocab is loaded."""
     actual = tokenizer.vocab_size
     if actual != EXPECTED_VOCAB_SIZE:
-        raise ValueError(
-            f"Unexpected tokenizer vocab size {actual}; "
-            f"expected {EXPECTED_VOCAB_SIZE} for XLM-RoBERTa."
-        )
+        raise ValueError(f"Unexpected tokenizer vocab size {actual}; expected {EXPECTED_VOCAB_SIZE} for XLM-RoBERTa.")
 
 
 def tokenize(tokenizer, texts, max_length: int = 128):

@@ -19,6 +19,7 @@ label in {Ham, Spam, Scam}.
 
 Run:  cd ai && python scripts/evaluate_dataset.py datasets/labeled/dummy_test.csv
 """
+
 from __future__ import annotations
 
 import argparse
@@ -96,8 +97,10 @@ def main() -> None:
     buckets = [r["bucket"] for r in results]
 
     label_correct = sum(1 for t, p in zip(true_labels, predicted_labels) if t == p)
-    print(f"\nRaw label accuracy (predicted label == true label): "
-          f"{label_correct}/{len(rows)} ({100 * label_correct / len(rows):.2f}%)")
+    print(
+        f"\nRaw label accuracy (predicted label == true label): "
+        f"{label_correct}/{len(rows)} ({100 * label_correct / len(rows):.2f}%)"
+    )
 
     print("\nOverall bucket distribution:")
     overall = Counter(buckets)
@@ -119,22 +122,28 @@ def main() -> None:
         correct = cross.get((true_label, EXPECTED[true_label]), 0)
         unknown = cross.get((true_label, "unknown"), 0)
         wrong = total - correct - unknown
-        print(f"  {true_label:6} correct={correct:5} ({100 * correct / total:.2f}%)  "
-              f"unknown={unknown:5} ({100 * unknown / total:.2f}%)  "
-              f"wrong-bucket={wrong:5} ({100 * wrong / total:.2f}%)")
+        print(
+            f"  {true_label:6} correct={correct:5} ({100 * correct / total:.2f}%)  "
+            f"unknown={unknown:5} ({100 * unknown / total:.2f}%)  "
+            f"wrong-bucket={wrong:5} ({100 * wrong / total:.2f}%)"
+        )
 
     # The critical safety number: real scams a user would NOT be protected from.
     scam_idx = [i for i, t in enumerate(true_labels) if t == "Scam"]
     if scam_idx:
         scam_to_safe = sum(1 for i in scam_idx if buckets[i] == "safe")
-        print(f"\nScam messages routed to 'safe' (worst-case miss): "
-              f"{scam_to_safe}/{len(scam_idx)} ({100 * scam_to_safe / len(scam_idx):.2f}%)")
+        print(
+            f"\nScam messages routed to 'safe' (worst-case miss): "
+            f"{scam_to_safe}/{len(scam_idx)} ({100 * scam_to_safe / len(scam_idx):.2f}%)"
+        )
 
     ham_idx = [i for i, t in enumerate(true_labels) if t == "Ham"]
     if ham_idx:
         ham_to_blocked = sum(1 for i in ham_idx if buckets[i] == "blocked")
-        print(f"Ham messages routed to 'blocked' (worst-case false alarm): "
-              f"{ham_to_blocked}/{len(ham_idx)} ({100 * ham_to_blocked / len(ham_idx):.2f}%)")
+        print(
+            f"Ham messages routed to 'blocked' (worst-case false alarm): "
+            f"{ham_to_blocked}/{len(ham_idx)} ({100 * ham_to_blocked / len(ham_idx):.2f}%)"
+        )
 
 
 if __name__ == "__main__":

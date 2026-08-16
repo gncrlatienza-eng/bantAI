@@ -36,15 +36,44 @@ from urllib.parse import urlparse
 # but keep a small local copy -- this module must stay importable (and cheap)
 # without pulling in the full rule-cascade module.
 _OFFICIAL_DOMAINS = {
-    "gcash.com", "go.gcash.com", "globe.com.ph", "glbe.co", "dito.ph",
-    "app.dito.ph", "smart.com.ph", "smrt.ph", "bpi.com.ph", "bdo.com.ph",
-    "landbank.com", "unionbankph.com", "maya.ph", "paymaya.com", "mayaph.co",
-    "lazada.com.ph", "lzd.co", "shopee.ph", "shp.ee", "lbcexpress.com",
-    "jtexpress.ph", "grab.com", "foodpanda.ph",
+    "gcash.com",
+    "go.gcash.com",
+    "globe.com.ph",
+    "glbe.co",
+    "dito.ph",
+    "app.dito.ph",
+    "smart.com.ph",
+    "smrt.ph",
+    "bpi.com.ph",
+    "bdo.com.ph",
+    "landbank.com",
+    "unionbankph.com",
+    "maya.ph",
+    "paymaya.com",
+    "mayaph.co",
+    "lazada.com.ph",
+    "lzd.co",
+    "shopee.ph",
+    "shp.ee",
+    "lbcexpress.com",
+    "jtexpress.ph",
+    "grab.com",
+    "foodpanda.ph",
 }
 _SHORTENER_HOSTS = {
-    "bit.ly", "tinyurl.com", "cutt.ly", "rb.gy", "bl.ink", "is.gd", "t.co",
-    "ln.run", "goo.gl", "ow.ly", "buff.ly", "short.io", "v.gd",
+    "bit.ly",
+    "tinyurl.com",
+    "cutt.ly",
+    "rb.gy",
+    "bl.ink",
+    "is.gd",
+    "t.co",
+    "ln.run",
+    "goo.gl",
+    "ow.ly",
+    "buff.ly",
+    "short.io",
+    "v.gd",
 }
 
 _URL_RE = re.compile(r"(?:https?://\S+|\bwww\.\S+)", re.I)
@@ -59,65 +88,139 @@ class IndicatorTag:
 # --- Manuscript-named tags (must exist verbatim) --------------------------- #
 
 _PRIZE_LURE = [
-    "you won", "you have won", "you've won", "you are a winner",
-    "lucky winner", "lucky winners", "congratulations", "claim your prize",
-    "cash prize", "gcash prize", "you have been selected",
-    "napanalunan", "premyo", "kolektahin", "spin to win", "lucky roulette",
+    "you won",
+    "you have won",
+    "you've won",
+    "you are a winner",
+    "lucky winner",
+    "lucky winners",
+    "congratulations",
+    "claim your prize",
+    "cash prize",
+    "gcash prize",
+    "you have been selected",
+    "napanalunan",
+    "premyo",
+    "kolektahin",
+    "spin to win",
+    "lucky roulette",
     "maswerteng nanalo",
 ]
 
 _URGENCY_CUE = [
-    "act now", "expires today", "expires in", "24 hours only",
-    "last chance", "hurry", "limited time", "before it's too late",
-    "ngayon lang", "kailangan agad", "mag-ingat", "huwag palampasin",
-    "one time only", "only today", "24 hrs", "within 24 hours",
+    "act now",
+    "expires today",
+    "expires in",
+    "24 hours only",
+    "last chance",
+    "hurry",
+    "limited time",
+    "before it's too late",
+    "ngayon lang",
+    "kailangan agad",
+    "mag-ingat",
+    "huwag palampasin",
+    "one time only",
+    "only today",
+    "24 hrs",
+    "within 24 hours",
 ]
 
 # --- Additional tags grounded in the dataset's own rule vocabulary --------- #
 
 _GAMBLING_BAIT = [
-    "jili", "okbet", "betfil", "pagcor", "slots", "jackpot", "cash out",
-    "deposit bonus", "free spin", "play or cash out", "gambling",
+    "jili",
+    "okbet",
+    "betfil",
+    "pagcor",
+    "slots",
+    "jackpot",
+    "cash out",
+    "deposit bonus",
+    "free spin",
+    "play or cash out",
+    "gambling",
     # Tagalog gambling vocabulary. Found 2026-07-30 when SHAP explained a real
     # gambling blast ("Magparehistro para sa libreng 7777, tumaya: ...") and
     # produced no tag at all, because every term above is English. This is the
     # same language-coverage gap PROMO_TL and JOB_SCAM already fixed on the
     # dataset side -- worth checking for in every lexicon added here.
-    "tumaya", "magparehistro", "parehistro", "deposito", "pusta", "magtaya",
+    "tumaya",
+    "magparehistro",
+    "parehistro",
+    "deposito",
+    "pusta",
+    "magtaya",
 ]
 
 _FAKE_JOB_OFFER = [
-    "earn while at home", "work from home", "homebased", "home-based",
-    "appointment setter", "copy-paste system", "be an onliner",
-    "part-time job", "no experience needed", "kumita ng malaki",
+    "earn while at home",
+    "work from home",
+    "homebased",
+    "home-based",
+    "appointment setter",
+    "copy-paste system",
+    "be an onliner",
+    "part-time job",
+    "no experience needed",
+    "kumita ng malaki",
     "raket sa bahay",
 ]
 
 _UNSOLICITED_CREDIT_OFFER = [
-    "you are qualified", "you are granted", "granted credit",
-    "pre-approved", "preapproved", "no collateral", "cash loan",
-    "cash loans", "personal loan", "no guarantee", "qualified to avail",
+    "you are qualified",
+    "you are granted",
+    "granted credit",
+    "pre-approved",
+    "preapproved",
+    "no collateral",
+    "cash loan",
+    "cash loans",
+    "personal loan",
+    "no guarantee",
+    "qualified to avail",
     # Tagalog/Taglish loan-offer vocabulary. Added 2026-08-04 during the
     # 3.1.2 confirmation pass -- this tag had zero non-English coverage,
     # the same recurring gap already fixed for PROMO_TL, JOB_SCAM, and
     # Gambling Bait (see the note on that tag below).
-    "walang collateral", "kwalipikado ka", "confirmed loan", "pautang",
+    "walang collateral",
+    "kwalipikado ka",
+    "confirmed loan",
+    "pautang",
 ]
 
 _PERSONAL_INFO_REQUEST = [
-    "government id", "frontface of", "front face of", "send your name",
-    "email your requirements", "provide your", "share your otp",
-    "confirm your identity", "verify your account",
+    "government id",
+    "frontface of",
+    "front face of",
+    "send your name",
+    "email your requirements",
+    "provide your",
+    "share your otp",
+    "confirm your identity",
+    "verify your account",
     # Tagalog/Taglish. Added 2026-08-04, see note on _UNSOLICITED_CREDIT_OFFER.
-    "ipadala ang", "i-share mo", "kailangan ng id",
+    "ipadala ang",
+    "i-share mo",
+    "kailangan ng id",
 ]
 
 _OTP_PHISHING = [
-    "account will be blocked", "will be suspended", "will be deactivated",
-    "temporarily disabled", "click the link", "click this link",
-    "verify now", "reactivate", "otp", "one time pin", "one-time pin",
+    "account will be blocked",
+    "will be suspended",
+    "will be deactivated",
+    "temporarily disabled",
+    "click the link",
+    "click this link",
+    "verify now",
+    "reactivate",
+    "otp",
+    "one time pin",
+    "one-time pin",
     # Tagalog/Taglish. Added 2026-08-04, see note on _UNSOLICITED_CREDIT_OFFER.
-    "ma-block ang account", "i-verify ang account", "i-click ang link",
+    "ma-block ang account",
+    "i-verify ang account",
+    "i-click ang link",
 ]
 
 TAG_KEYWORDS: dict[str, List[str]] = {
@@ -166,8 +269,20 @@ def _domain_tags(raw_text: str) -> List[IndicatorTag]:
         out.append(IndicatorTag(tag="Suspicious URL", weight=0.7))
 
     low = raw_text.lower()
-    brands = ("gcash", "bpi", "bdo", "globe", "smart", "dito", "lazada",
-              "shopee", "unionbank", "landbank", "maya", "paymaya")
+    brands = (
+        "gcash",
+        "bpi",
+        "bdo",
+        "globe",
+        "smart",
+        "dito",
+        "lazada",
+        "shopee",
+        "unionbank",
+        "landbank",
+        "maya",
+        "paymaya",
+    )
     named_brand = next((b for b in brands if b in low), None)
     if named_brand and suspicious:
         out.append(IndicatorTag(tag="Brand Impersonation", weight=0.75))

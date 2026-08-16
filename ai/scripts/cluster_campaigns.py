@@ -166,32 +166,36 @@ def dedupe_by_masked_text(texts):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--min-cluster-size", type=int, default=DEFAULT_MIN_CLUSTER_SIZE,
+        "--min-cluster-size",
+        type=int,
+        default=DEFAULT_MIN_CLUSTER_SIZE,
         help=f"HDBSCAN min_cluster_size (manuscript default: {DEFAULT_MIN_CLUSTER_SIZE})",
     )
     parser.add_argument(
-        "--min-samples", type=int, default=DEFAULT_MIN_SAMPLES,
+        "--min-samples",
+        type=int,
+        default=DEFAULT_MIN_SAMPLES,
         help=f"HDBSCAN min_samples (default: {DEFAULT_MIN_SAMPLES}). Not "
-             "manuscript-specified; sklearn otherwise defaults it to "
-             "min_cluster_size, which leaves ~60%% of messages as noise.",
+        "manuscript-specified; sklearn otherwise defaults it to "
+        "min_cluster_size, which leaves ~60%% of messages as noise.",
     )
     parser.add_argument(
-        "--labels", default="Spam,Scam",
+        "--labels",
+        default="Spam,Scam",
         help="Comma-separated labels to cluster, or 'all'. Campaigns are "
-             "coordinated blasts, so Ham is excluded by default.",
+        "coordinated blasts, so Ham is excluded by default.",
     )
     parser.add_argument(
-        "--no-dedup", action="store_true",
+        "--no-dedup",
+        action="store_true",
         help="Keep masked-text duplicates. Off by default: 59%% of duplicate "
-             "groups span multiple source corpora, so they manufacture "
-             "campaigns out of corpus overlap.",
+        "groups span multiple source corpora, so they manufacture "
+        "campaigns out of corpus overlap.",
     )
     args = parser.parse_args()
 
     if not os.path.isfile(EMBEDDINGS):
-        raise SystemExit(
-            f"No embeddings at {EMBEDDINGS}. Run scripts/embed_dataset.py first."
-        )
+        raise SystemExit(f"No embeddings at {EMBEDDINGS}. Run scripts/embed_dataset.py first.")
 
     data = np.load(EMBEDDINGS, allow_pickle=True)
     embeddings = data["embeddings"]
@@ -227,16 +231,15 @@ def main() -> None:
     senders_available = any(str(s).strip() for s in sub_senders)
 
     print("=" * 72)
-    print(f"HDBSCAN campaign clustering  "
-          f"(min_cluster_size={args.min_cluster_size}, "
-          f"min_samples={args.min_samples})")
+    print(f"HDBSCAN campaign clustering  (min_cluster_size={args.min_cluster_size}, min_samples={args.min_samples})")
     print(f"Population: {args.labels}  ->  {n_before} of {len(labels)} messages")
     if n_duplicates:
-        print(f"De-duplicated: -{n_duplicates} masked-text duplicates "
-              f"({100*n_duplicates/n_before:.1f}%)  ->  {len(emb)} distinct variants")
+        print(
+            f"De-duplicated: -{n_duplicates} masked-text duplicates "
+            f"({100 * n_duplicates / n_before:.1f}%)  ->  {len(emb)} distinct variants"
+        )
     if not senders_available:
-        print("Sender data  : none in this population "
-              "(unique_senders reported as null)")
+        print("Sender data  : none in this population (unique_senders reported as null)")
     print("=" * 72)
 
     cluster_ids = cluster_embeddings(emb, args.min_cluster_size, args.min_samples)
@@ -246,14 +249,13 @@ def main() -> None:
     clustered = len(cluster_ids) - n_noise
 
     print(f"\nClusters found : {n_clusters}")
-    print(f"Messages grouped: {clustered} ({100*clustered/len(emb):.1f}%)")
-    print(f"Noise (one-offs): {n_noise} ({100*n_noise/len(emb):.1f}%)")
+    print(f"Messages grouped: {clustered} ({100 * clustered / len(emb):.1f}%)")
+    print(f"Noise (one-offs): {n_noise} ({100 * n_noise / len(emb):.1f}%)")
 
     sizes = Counter(int(c) for c in cluster_ids if c != -1)
     if sizes:
         biggest = sizes.most_common(1)[0][1]
-        print(f"Largest cluster : {biggest} messages "
-              f"({100*biggest/len(emb):.1f}% of population)")
+        print(f"Largest cluster : {biggest} messages ({100 * biggest / len(emb):.1f}% of population)")
         print(f"Median size     : {int(np.median(list(sizes.values())))}")
 
     # --- health checks against the two failure modes worth catching early ---
@@ -268,15 +270,18 @@ def main() -> None:
         # No real SMS campaign is a quarter of all Spam+Scam traffic, so
         # anything at this scale is the embedding's "generic scam" region
         # collapsing into one mass, not a discovered campaign.
-        print(f"  WARN  One cluster holds {100*biggest/len(emb):.0f}% of messages "
-              f"-- clustering is collapsing distinct campaigns together. "
-              f"Try a smaller --min-cluster-size (see WBS 5.3.6 in PIPELINE.md).")
+        print(
+            f"  WARN  One cluster holds {100 * biggest / len(emb):.0f}% of messages "
+            f"-- clustering is collapsing distinct campaigns together. "
+            f"Try a smaller --min-cluster-size (see WBS 5.3.6 in PIPELINE.md)."
+        )
     elif n_clusters > len(emb) / 10:
-        print(f"  WARN  {n_clusters} clusters for {len(emb)} messages -- "
-              f"very fragmented, campaigns may be splitting apart.")
+        print(
+            f"  WARN  {n_clusters} clusters for {len(emb)} messages -- "
+            f"very fragmented, campaigns may be splitting apart."
+        )
     else:
-        print("  OK    Cluster count and sizes look reasonable "
-              "(no giant blob, not fragmented).")
+        print("  OK    Cluster count and sizes look reasonable (no giant blob, not fragmented).")
 
     # --- per-cluster detail ------------------------------------------------
     print("\n" + "-" * 72)
@@ -291,20 +296,14 @@ def main() -> None:
             domains.update(_extract_domains(str(t)))
         # None, not 0 -- "we have no sender data" and "this campaign came from
         # zero senders" are different statements, and the second one is absurd.
-        uniq_senders = (
-            len({str(s).strip() for s in sub_senders[idxs] if str(s).strip()})
-            if senders_available
-            else None
-        )
+        uniq_senders = len({str(s).strip() for s in sub_senders[idxs] if str(s).strip()}) if senders_available else None
         centroid = compute_centroid(emb[idxs])
 
         # Lexical fingerprint for the hybrid match tiers (WBS 5.3.6). Built
         # from *all* this cluster's domains, not just the top 8 shown in the
         # report: the report is truncated for human reading, but a rare domain
         # is still conclusive evidence when it turns up in a new message.
-        profile = build_profile(
-            [str(t) for t in sub_texts[idxs]], domains=list(domains)
-        )
+        profile = build_profile([str(t) for t in sub_texts[idxs]], domains=list(domains))
 
         entry = {
             "cluster_id": int(cid),
@@ -358,20 +357,14 @@ def main() -> None:
         )
 
     for entry in report[:15]:
-        senders = (
-            f"{entry['unique_senders']} senders"
-            if entry["unique_senders"] is not None
-            else "senders n/a"
-        )
-        print(f"\n  Cluster {entry['cluster_id']}  ({entry['size']} variants, "
-              f"{senders})  {_safe(entry['labels'])}")
+        senders = f"{entry['unique_senders']} senders" if entry["unique_senders"] is not None else "senders n/a"
+        print(f"\n  Cluster {entry['cluster_id']}  ({entry['size']} variants, {senders})  {_safe(entry['labels'])}")
         if entry["top_domains"]:
             print(f"    domains: {_safe(', '.join(entry['top_domains'][:5]))}")
         sample = entry["sample"].replace("\n", " ").replace("\r", "")
         print(f"    sample : {_safe(sample[:120])}")
 
-    print(f"\nWrote {os.path.relpath(out_path, AI)} "
-          f"({n_clusters} clusters with centroids)")
+    print(f"\nWrote {os.path.relpath(out_path, AI)} ({n_clusters} clusters with centroids)")
     print("=" * 72)
 
 

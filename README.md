@@ -66,8 +66,12 @@ No CI workflow enforces any of this automatically yet — that's the next step.
 
 - `main` — stable production
 - `develop` — integration branch
-- `feature/xxx` — new features
-- `bugfix/xxx` — bug fixes
+- `feature/<track>-<short-name>` — new features, e.g. `feature/mobile-blocked-numbers-sync`
+- `bugfix/<track>-<short-name>` — bug fixes
+
+Branch from `develop`, PR back into `develop`, delete after merge — keep branches
+short-lived and scoped to one task rather than accumulating commits over weeks. See
+`CLAUDE.md` for the full reasoning.
 
 ## Team
 

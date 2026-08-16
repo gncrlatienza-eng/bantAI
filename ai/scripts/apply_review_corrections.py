@@ -25,9 +25,7 @@ import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 LABELED = os.path.join(DATASETS, "labeled", "bantai_labeled.csv")
 
@@ -97,7 +95,7 @@ def main() -> None:
             if row["label"] == want:
                 already += 1
             else:
-                moves[f'{row["label"]} -> {want}'] += 1
+                moves[f"{row['label']} -> {want}"] += 1
                 row["label"] = want
                 applied += 1
                 per_sheet[sheet] += 1

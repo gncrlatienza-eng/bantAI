@@ -87,17 +87,14 @@ class SmishingClassifier:
         self._lock = Lock()
 
     def _has_weights(self) -> bool:
-        return os.path.isdir(self.model_dir) and os.path.isfile(
-            os.path.join(self.model_dir, "config.json")
-        )
+        return os.path.isdir(self.model_dir) and os.path.isfile(os.path.join(self.model_dir, "config.json"))
 
     def _ensure_loaded(self) -> None:
         if self._model is not None:
             return
         if not self._has_weights():
             raise ModelNotReadyError(
-                f"No fine-tuned model at '{self.model_dir}'. "
-                "Run ai/training/train.py first (Sprint 2)."
+                f"No fine-tuned model at '{self.model_dir}'. Run ai/training/train.py first (Sprint 2)."
             )
         with self._lock:
             if self._model is not None:  # re-check inside the lock
@@ -110,9 +107,7 @@ class SmishingClassifier:
             )
 
             self._tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
-            self._model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_dir
-            )
+            self._model = AutoModelForSequenceClassification.from_pretrained(self.model_dir)
             self._model.eval()
 
     def is_ready(self) -> bool:

@@ -84,4 +84,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
-      - run: ./gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin --console=plain
+      # Invoked via `bash` explicitly rather than `./gradlew` -- removes any
+      # dependency on the execute bit or shebang line resolving correctly on
+      # the runner, on top of the chmod above.
+      - run: bash gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin --console=plain

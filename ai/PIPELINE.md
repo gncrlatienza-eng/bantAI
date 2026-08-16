@@ -291,6 +291,7 @@ four should be inspected after every rebuild.
 
 ```python
 from preprocessing import preprocess
+
 preprocess("Claim ₱5,000 at http://scam.ph code 483920")
 # -> "Claim <AMOUNT> at <URL> code <OTP>"
 ```

@@ -85,6 +85,28 @@ http://localhost:3000/api
 
 ---
 
+## Code Quality & Security
+
+```bash
+npm run lint            # ESLint (typescript-eslint + Prettier plugin), auto-fixes what it can
+npm run format           # Prettier --write
+npx prettier --check .   # Prettier, check-only (what CI runs)
+npm audit                # dependency vulnerability scan
+```
+
+Config: `eslint.config.mjs`, `.prettierrc`. Type-checked rules (`no-unsafe-*`, `unbound-method`)
+are relaxed for `*.spec.ts`/`test/**` — mocked objects are inherently loosely-typed, so those
+rules fire on the mock, not on a real bug. Two spots keep a scoped, commented
+`eslint-disable` rather than a workaround: `ai.service.ts`'s `res.json()` (the Fetch API itself
+types this `Promise<any>`) and `auth.module.ts`'s JWT `expiresIn` cast (works around
+`jsonwebtoken`'s branded `StringValue` type).
+
+Run `npx prisma generate --schema database/prisma/schema.prisma` before linting after pulling
+schema changes — a stale generated client produces a wall of false "unsafe access" errors that
+have nothing to do with your code.
+
+---
+
 ## Environment Variables
 
 Copy `backend/.env.example` to `backend/.env` (Prisma also reads `backend/database/.env` for the schema CLI):

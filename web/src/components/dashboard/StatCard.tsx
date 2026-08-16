@@ -21,7 +21,13 @@ export const StatCard: React.FC<StatCardProps> = ({
 }) => {
   return (
     <div className="stat-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
         <small>{title}</small>
         <div
           style={{
@@ -57,7 +63,11 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
 
-      {subtext && <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{subtext}</span>}
+      {subtext && (
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+          {subtext}
+        </span>
+      )}
     </div>
   );
 };

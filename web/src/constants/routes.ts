@@ -10,7 +10,7 @@ export const ROUTES = {
   TWO_FACTOR: '/2fa',
   PROFILE: '/profile',
   SETTINGS: '/settings',
-  
+
   CLIENT: {
     OVERVIEW: '/client/overview',
     MESSAGES: '/client/messages',
@@ -21,7 +21,7 @@ export const ROUTES = {
     SETTINGS: '/client/settings',
     NOTIFICATIONS: '/client/notifications',
   },
-  
+
   ADMIN: {
     OVERVIEW: '/admin/overview',
     REPORTS: '/admin/reports',
@@ -40,5 +40,5 @@ export const ROUTES = {
     TIPS: '/admin/tips',
     SETTINGS: '/admin/settings',
     NOTIFICATIONS: '/admin/notifications',
-  }
+  },
 } as const;

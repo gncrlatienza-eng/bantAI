@@ -1,4 +1,4 @@
-export type Tone = "green" | "amber" | "red" | "blue" | "gray";
+export type Tone = 'green' | 'amber' | 'red' | 'blue' | 'gray';
 
 export interface MetricItem {
   label: string;

@@ -55,19 +55,21 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center)
-                .graphicsLayer {
-                    alpha = splashAlpha
-                    scaleX = splashScale
-                    scaleY = splashScale
-                },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.Center)
+                    .graphicsLayer {
+                        alpha = splashAlpha
+                        scaleX = splashScale
+                        scaleY = splashScale
+                    },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -88,10 +90,11 @@ fun SplashScreen(onFinished: () -> Unit) {
 
         Text(
             text = "Powered by AI · Built for the Philippines",
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 24.dp),
             fontSize = 12.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center,

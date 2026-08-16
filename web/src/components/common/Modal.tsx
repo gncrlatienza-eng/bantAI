@@ -65,7 +65,8 @@ export const Modal: React.FC<ModalProps> = ({
           backgroundColor: '#0c101d',
           border: '1px solid rgba(56, 189, 248, 0.25)',
           borderRadius: 16,
-          boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.9), 0 0 30px rgba(56, 189, 248, 0.12)',
+          boxShadow:
+            '0 25px 60px -10px rgba(0, 0, 0, 0.9), 0 0 30px rgba(56, 189, 248, 0.12)',
           animation: 'scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           padding: 24,
           margin: '0 auto',
@@ -84,7 +85,11 @@ export const Modal: React.FC<ModalProps> = ({
             justifyContent: 'space-between',
           }}
         >
-          <strong style={{ fontSize: '1.25rem', color: '#f8fafc', fontWeight: 700 }}>{title}</strong>
+          <strong
+            style={{ fontSize: '1.25rem', color: '#f8fafc', fontWeight: 700 }}
+          >
+            {title}
+          </strong>
           <button
             onClick={onClose}
             style={{
@@ -102,12 +107,16 @@ export const Modal: React.FC<ModalProps> = ({
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = 'var(--text-muted)')
+            }
           >
             ✕
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>{children}</div>
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
+          {children}
+        </div>
         {footer && (
           <div
             style={{

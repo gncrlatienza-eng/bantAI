@@ -66,6 +66,10 @@ export class AiService {
         return null;
       }
 
+      // fetch()'s Response.json() is typed Promise<any> by the DOM lib itself --
+      // there's no runtime schema check on the AI service's response, so this
+      // annotation is trusted, not verified.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const data: AiClassifyResponse = await res.json();
 
       return {
@@ -113,6 +117,7 @@ export class AiService {
         );
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- see classify() above
       const data: AiSummarizeResponse = await res.json();
       return {
         summary: data.summary,

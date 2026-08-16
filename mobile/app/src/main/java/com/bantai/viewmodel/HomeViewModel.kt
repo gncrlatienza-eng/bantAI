@@ -18,8 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class HomeViewModel(application: Application) : AndroidViewModel(application) {
-
+class HomeViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val smsRepository = SmsRepository(application)
     private val userPreferences = UserPreferences(application)
 
@@ -49,17 +50,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // The SMS provider gives no push signal on its own — without this, the home
     // preview would only pick up a new message after leaving and re-entering the screen.
-    private val contentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            loadMessages()
+    private val contentObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                loadMessages()
+            }
         }
-    }
 
     init {
         loadUserData()
         loadMessages()
         application.contentResolver.registerContentObserver(
-            Telephony.Sms.CONTENT_URI, true, contentObserver,
+            Telephony.Sms.CONTENT_URI,
+            true,
+            contentObserver,
         )
     }
 
@@ -104,20 +108,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun getPeriodLabel(): String = when (_scanPeriod.value) {
-        "weekly" -> "This week"
-        "monthly" -> "This month"
-        else -> "Today"
-    }
+    fun getPeriodLabel(): String =
+        when (_scanPeriod.value) {
+            "weekly" -> "This week"
+            "monthly" -> "This month"
+            else -> "Today"
+        }
 
     fun getInitials(): String {
-        val first = _userData.value.firstName.firstOrNull()?.uppercase() ?: ""
-        val last = _userData.value.lastName.firstOrNull()?.uppercase() ?: ""
+        val first =
+            _userData.value.firstName
+                .firstOrNull()
+                ?.uppercase() ?: ""
+        val last =
+            _userData.value.lastName
+                .firstOrNull()
+                ?.uppercase() ?: ""
         return "$first$last".ifEmpty { "?" }
     }
 
     fun getGreeting(): String {
-        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val hour =
+            java.util.Calendar
+                .getInstance()
+                .get(java.util.Calendar.HOUR_OF_DAY)
         return when {
             hour < 12 -> "Good morning,"
             hour < 18 -> "Good afternoon,"

@@ -14,7 +14,6 @@ import java.net.URL
  * style rather than adding Retrofit.
  */
 object SummarizeApi {
-
     data class SummarizeResult(
         val summary: String,
         val sentenceCount: Int,
@@ -22,7 +21,9 @@ object SummarizeApi {
         val truncated: Boolean,
     )
 
-    class ApiException(message: String) : Exception(message)
+    class ApiException(
+        message: String,
+    ) : Exception(message)
 
     /**
      * @param messages thread bodies, oldest first, non-empty.
@@ -33,14 +34,15 @@ object SummarizeApi {
         messages: List<String>,
         maxSentences: Int? = null,
         timeoutMs: Int = ApiConfig.SUMMARIZE_TIMEOUT_MS,
-    ): Result<SummarizeResult> = withContext(Dispatchers.IO) {
-        runCatching {
-            val payload = JSONObject().put("messages", JSONArray(messages))
-            if (maxSentences != null) payload.put("maxSentences", maxSentences)
+    ): Result<SummarizeResult> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val payload = JSONObject().put("messages", JSONArray(messages))
+                if (maxSentences != null) payload.put("maxSentences", maxSentences)
 
-            parseResponse(post("/ai/summarize", payload, token, timeoutMs))
+                parseResponse(post("/ai/summarize", payload, token, timeoutMs))
+            }
         }
-    }
 
     private fun parseResponse(raw: String): SummarizeResult {
         val json = JSONObject(raw)
@@ -52,7 +54,12 @@ object SummarizeApi {
         )
     }
 
-    private fun post(path: String, body: JSONObject, token: String, timeoutMs: Int): String {
+    private fun post(
+        path: String,
+        body: JSONObject,
+        token: String,
+        timeoutMs: Int,
+    ): String {
         val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
@@ -64,9 +71,11 @@ object SummarizeApi {
             connection.outputStream.use { it.write(body.toString().toByteArray()) }
 
             val status = connection.responseCode
-            val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                ?.bufferedReader()?.use { it.readText() }
-                .orEmpty()
+            val text =
+                (if (status in 200..299) connection.inputStream else connection.errorStream)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
             if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
             return text
         } finally {
@@ -74,12 +83,16 @@ object SummarizeApi {
         }
     }
 
-    private fun parseErrorMessage(body: String, status: Int): String = try {
-        when (val message = JSONObject(body).get("message")) {
-            is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
-            else -> message.toString()
+    private fun parseErrorMessage(
+        body: String,
+        status: Int,
+    ): String =
+        try {
+            when (val message = JSONObject(body).get("message")) {
+                is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
+                else -> message.toString()
+            }
+        } catch (_: Exception) {
+            "Request failed (HTTP $status)"
         }
-    } catch (_: Exception) {
-        "Request failed (HTTP $status)"
-    }
 }

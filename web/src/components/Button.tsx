@@ -1,16 +1,16 @@
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
-type Variant = "primary" | "ghost" | "outline";
+type Variant = 'primary' | 'ghost' | 'outline';
 
 export function Button({
   children,
   to,
   href,
   onClick,
-  variant = "primary",
-  className = "",
-  type = "button",
+  variant = 'primary',
+  className = '',
+  type = 'button',
 }: {
   children: ReactNode;
   to?: string;
@@ -18,7 +18,7 @@ export function Button({
   onClick?: () => void;
   variant?: Variant;
   className?: string;
-  type?: "button" | "submit";
+  type?: 'button' | 'submit';
 }) {
   const classes = `btn btn-${variant} ${className}`.trim();
 

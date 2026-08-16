@@ -35,7 +35,7 @@ than the chi-square approximation because ``b + c`` here is often small
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Sequence
+from typing import Sequence
 
 from scipy.stats import binomtest
 from sklearn.metrics import f1_score

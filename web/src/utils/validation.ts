@@ -11,8 +11,12 @@ export const isNotEmpty = (val: string): boolean => {
   return val.trim().length > 0;
 };
 
-export const validateLoginForm = (data: { email: string; password: string; organization?: string }, isClient = true) => {
-  const errors: { email?: string; password?: string; organization?: string } = {};
+export const validateLoginForm = (
+  data: { email: string; password: string; organization?: string },
+  isClient = true,
+) => {
+  const errors: { email?: string; password?: string; organization?: string } =
+    {};
 
   if (isClient && (!data.organization || !isNotEmpty(data.organization))) {
     errors.organization = 'Organization name is required';
@@ -44,9 +48,10 @@ export const validateLicensingForm = (data: {
 }) => {
   const errors: Record<string, string> = {};
 
-  if (!isNotEmpty(data.organizationName)) errors.organizationName = 'Organization name is required';
+  if (!isNotEmpty(data.organizationName))
+    errors.organizationName = 'Organization name is required';
   if (!isNotEmpty(data.fullName)) errors.fullName = 'Full name is required';
-  
+
   if (!isNotEmpty(data.workEmail)) {
     errors.workEmail = 'Work email is required';
   } else if (!isValidEmail(data.workEmail)) {
@@ -56,7 +61,8 @@ export const validateLicensingForm = (data: {
   if (!isNotEmpty(data.intendedUse)) {
     errors.intendedUse = 'Intended use description is required';
   } else if (data.intendedUse.length < 15) {
-    errors.intendedUse = 'Please provide a more detailed description (min 15 chars)';
+    errors.intendedUse =
+      'Please provide a more detailed description (min 15 chars)';
   }
 
   return {

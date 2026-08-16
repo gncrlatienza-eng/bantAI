@@ -37,11 +37,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,7 +56,6 @@ import com.bantai.ui.components.StatusBadge
 import com.bantai.ui.components.getAvatarColor
 import com.bantai.ui.components.getInitialsFromSender
 import com.bantai.ui.components.getRelativeTime
-import androidx.compose.ui.graphics.graphicsLayer
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.DarkIndigo
@@ -70,12 +67,16 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.HomeViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
-private fun Int.formatCount(): String = when {
-    this >= 1000 -> "${this / 1000}k+"
-    this >= 100  -> "99+"
-    else         -> toString()
-}
+private fun Int.formatCount(): String =
+    when {
+        this >= 1000 -> "${this / 1000}k+"
+        this >= 100 -> "99+"
+        else -> toString()
+    }
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -86,9 +87,12 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
 ) {
     val readSmsPermission = rememberPermissionState(android.Manifest.permission.READ_SMS)
-    val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS)
-    } else null
+    val notificationPermission =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            null
+        }
 
     LaunchedEffect(Unit) {
         if (!readSmsPermission.status.isGranted) {
@@ -120,21 +124,27 @@ fun HomeScreen(
         label = "content_fade",
     )
 
-    val avatarColor = remember(userData.avatarColor) {
-        try { Color(android.graphics.Color.parseColor(userData.avatarColor)) }
-        catch (e: Exception) { Color(0xFFFF6B35) }
-    }
+    val avatarColor =
+        remember(userData.avatarColor) {
+            try {
+                Color(android.graphics.Color.parseColor(userData.avatarColor))
+            } catch (e: Exception) {
+                Color(0xFFFF6B35)
+            }
+        }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .padding(innerPadding),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .padding(innerPadding),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -143,9 +153,10 @@ fun HomeScreen(
                 Text(userData.firstName.ifEmpty { "..." }, color = White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
             }
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(avatarColor, CircleShape),
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .background(avatarColor, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(viewModel.getInitials(), color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -153,19 +164,21 @@ fun HomeScreen(
         }
 
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = contentAlpha },
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = contentAlpha },
             contentPadding = PaddingValues(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(ProtectionSurface, RoundedCornerShape(16.dp))
-                        .border(1.dp, Safe.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(ProtectionSurface, RoundedCornerShape(16.dp))
+                            .border(1.dp, Safe.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                            .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -183,25 +196,28 @@ fun HomeScreen(
                         Text("Monitoring active", color = TextSecondary, fontSize = 11.sp)
                         Spacer(Modifier.height(6.dp))
                         Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Safe, CircleShape)
-                                .align(Alignment.End),
+                            modifier =
+                                Modifier
+                                    .size(8.dp)
+                                    .background(Safe, CircleShape)
+                                    .align(Alignment.End),
                         )
                     }
                 }
             }
 
             item {
-                val periodLabel = when (scanPeriod) {
-                    "weekly" -> "This week"
-                    "monthly" -> "This month"
-                    else -> "Today"
-                }
+                val periodLabel =
+                    when (scanPeriod) {
+                        "weekly" -> "This week"
+                        "monthly" -> "This month"
+                        else -> "Today"
+                    }
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -221,11 +237,12 @@ fun HomeScreen(
             }
 
             item {
-                val periodLabel = when (scanPeriod) {
-                    "weekly" -> "This week"
-                    "monthly" -> "This month"
-                    else -> "Today"
-                }
+                val periodLabel =
+                    when (scanPeriod) {
+                        "weekly" -> "This week"
+                        "monthly" -> "This month"
+                        else -> "Today"
+                    }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -301,19 +318,21 @@ fun HomeScreen(
     }
 }
 
-private fun SmsMessage.toDisplayItem() = MessageItem(
-    sender = sender,
-    initials = getInitialsFromSender(sender),
-    avatarColor = getAvatarColor(sender),
-    preview = body,
-    timestamp = getRelativeTime(timestamp),
-    badge = when (classification) {
-        "suspicious" -> BadgeType.SUSPICIOUS
-        "safe" -> BadgeType.SAFE
-        else -> BadgeType.UNKNOWN
-    },
-    isRead = isRead,
-)
+private fun SmsMessage.toDisplayItem() =
+    MessageItem(
+        sender = sender,
+        initials = getInitialsFromSender(sender),
+        avatarColor = getAvatarColor(sender),
+        preview = body,
+        timestamp = getRelativeTime(timestamp),
+        badge =
+            when (classification) {
+                "suspicious" -> BadgeType.SUSPICIOUS
+                "safe" -> BadgeType.SAFE
+                else -> BadgeType.UNKNOWN
+            },
+        isRead = isRead,
+    )
 
 @Composable
 private fun StatCard(
@@ -326,9 +345,10 @@ private fun StatCard(
     subtitle: String? = null,
 ) {
     Column(
-        modifier = modifier
-            .background(Surface, RoundedCornerShape(16.dp))
-            .padding(12.dp),
+        modifier =
+            modifier
+                .background(Surface, RoundedCornerShape(16.dp))
+                .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -342,24 +362,29 @@ private fun StatCard(
 }
 
 @Composable
-private fun HomeMessageRow(item: MessageItem, onClick: () -> Unit) {
+private fun HomeMessageRow(
+    item: MessageItem,
+    onClick: () -> Unit,
+) {
     val rowBackground = if (!item.isRead) DarkIndigo else Color.Transparent
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(rowBackground)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(rowBackground)
+                .clickable(onClick = onClick)
+                .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.size(48.dp)) {
             SenderAvatar(sender = item.sender, size = 48.dp)
             if (!item.isRead) {
                 Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(Indigo, CircleShape)
-                        .align(Alignment.TopStart),
+                    modifier =
+                        Modifier
+                            .size(10.dp)
+                            .background(Indigo, CircleShape)
+                            .align(Alignment.TopStart),
                 )
             }
         }

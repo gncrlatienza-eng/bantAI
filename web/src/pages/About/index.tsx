@@ -103,7 +103,10 @@ export const AboutPage: React.FC = () => {
         {/* TOP-LEFT ACCENT */}
         <g fill="none" stroke="rgba(96, 165, 250, 0.75)" strokeWidth="2">
           <polygon points="180,120 145,181 75,181 40,120 75,59 145,59" />
-          <polygon points="265,60 242,99 197,99 175,60 197,21 242,21" stroke="rgba(56, 189, 248, 0.6)" />
+          <polygon
+            points="265,60 242,99 197,99 175,60 197,21 242,21"
+            stroke="rgba(56, 189, 248, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#abGlow)">
           <circle cx="180" cy="120" r="4.5" opacity="0.9" />
@@ -116,7 +119,10 @@ export const AboutPage: React.FC = () => {
         {/* MID-RIGHT ACCENT */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.7)" strokeWidth="2">
           <polygon points="1375,460 1342,516 1277,516 1245,460 1277,404 1342,404" />
-          <polygon points="1260,520 1242,550 1207,550 1190,520 1207,490 1242,490" stroke="rgba(59, 130, 246, 0.55)" />
+          <polygon
+            points="1260,520 1242,550 1207,550 1190,520 1207,490 1242,490"
+            stroke="rgba(59, 130, 246, 0.55)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#abGlow)">
           <circle cx="1375" cy="460" r="4" opacity="0.9" />
@@ -128,7 +134,10 @@ export const AboutPage: React.FC = () => {
         {/* BOTTOM-LEFT ACCENT */}
         <g fill="none" stroke="rgba(96, 165, 250, 0.7)" strokeWidth="2">
           <polygon points="130,760 105,803 55,803 30,760 55,717 105,717" />
-          <polygon points="200,810 185,836 155,836 140,810 155,784 185,784" stroke="rgba(56, 189, 248, 0.5)" />
+          <polygon
+            points="200,810 185,836 155,836 140,810 155,784 185,784"
+            stroke="rgba(56, 189, 248, 0.5)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#abGlow)">
           <circle cx="130" cy="760" r="4" opacity="0.9" />
@@ -153,7 +162,13 @@ export const AboutPage: React.FC = () => {
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          <filter id="midLowerAbGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <filter
+            id="midLowerAbGlow"
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="160%"
+          >
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -165,7 +180,10 @@ export const AboutPage: React.FC = () => {
         {/* MID-LOWER LEFT FLANK */}
         <g fill="none" stroke="rgba(96, 165, 250, 0.75)" strokeWidth="2">
           <polygon points="140,240 108,295 43,295 11,240 43,185 108,185" />
-          <polygon points="215,300 197,331 162,331 145,300 162,269 197,269" stroke="rgba(56, 189, 248, 0.6)" />
+          <polygon
+            points="215,300 197,331 162,331 145,300 162,269 197,269"
+            stroke="rgba(56, 189, 248, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#midLowerAbGlow)">
           <circle cx="140" cy="240" r="4.5" opacity="0.9" />
@@ -177,7 +195,10 @@ export const AboutPage: React.FC = () => {
         {/* MID-LOWER RIGHT FLANK */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="1350,240 1318,295 1253,295 1221,240 1253,185 1318,185" />
-          <polygon points="1235,300 1217,331 1182,331 1165,300 1182,269 1217,269" stroke="rgba(59, 130, 246, 0.6)" />
+          <polygon
+            points="1235,300 1217,331 1182,331 1165,300 1182,269 1217,269"
+            stroke="rgba(59, 130, 246, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#midLowerAbGlow)">
           <circle cx="1350" cy="240" r="4.5" opacity="0.9" />
@@ -202,7 +223,13 @@ export const AboutPage: React.FC = () => {
         preserveAspectRatio="xMidYMax meet"
       >
         <defs>
-          <filter id="bottomAbGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <filter
+            id="bottomAbGlow"
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="160%"
+          >
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -214,7 +241,10 @@ export const AboutPage: React.FC = () => {
         {/* VERY BOTTOM-LEFT CLUSTER ABOVE FOOTER */}
         <g fill="none" stroke="rgba(96, 165, 250, 0.75)" strokeWidth="2">
           <polygon points="170,250 135,311 65,311 30,250 65,189 135,189" />
-          <polygon points="255,190 232,229 187,229 165,190 187,151 232,151" stroke="rgba(56, 189, 248, 0.6)" />
+          <polygon
+            points="255,190 232,229 187,229 165,190 187,151 232,151"
+            stroke="rgba(56, 189, 248, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#bottomAbGlow)">
           <circle cx="170" cy="250" r="4.5" opacity="0.9" />
@@ -226,7 +256,10 @@ export const AboutPage: React.FC = () => {
         {/* VERY BOTTOM-RIGHT CLUSTER ABOVE FOOTER */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="1370,250 1335,311 1265,311 1230,250 1265,189 1335,189" />
-          <polygon points="1235,190 1212,229 1167,229 1145,190 1167,151 1212,151" stroke="rgba(59, 130, 246, 0.6)" />
+          <polygon
+            points="1235,190 1212,229 1167,229 1145,190 1167,151 1212,151"
+            stroke="rgba(59, 130, 246, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#bottomAbGlow)">
           <circle cx="1370" cy="250" r="4.5" opacity="0.9" />
@@ -264,7 +297,15 @@ export const AboutPage: React.FC = () => {
               textTransform: 'uppercase',
             }}
           >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', animation: 'pulseDot 1.5s infinite' }} />
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: '#3b82f6',
+                animation: 'pulseDot 1.5s infinite',
+              }}
+            />
             About BantAI Platform
           </div>
 
@@ -279,7 +320,13 @@ export const AboutPage: React.FC = () => {
             }}
           >
             Built for the Philippine <br />
-            <span style={{ background: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
               Smishing Threat Landscape
             </span>
           </h1>
@@ -293,39 +340,83 @@ export const AboutPage: React.FC = () => {
               lineHeight: 1.7,
             }}
           >
-            BantAI is a thesis-driven threat intelligence platform focused on multilingual SMS fraud
-            detection, explainable AI, and campaign clustering for Philippine defenders.
+            BantAI is a thesis-driven threat intelligence platform focused on
+            multilingual SMS fraud detection, explainable AI, and campaign
+            clustering for Philippine defenders.
           </p>
         </section>
 
-        <section style={{ padding: '0 24px 56px', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
+        <section
+          style={{
+            padding: '0 24px 56px',
+            maxWidth: 1120,
+            margin: '0 auto',
+            width: '100%',
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: 16,
+            }}
+          >
             {TECH_STACK.map((item) => (
               <div
                 key={item.label}
                 className="panel"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
+                  background:
+                    'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
                   border: `1px solid ${item.color}30`,
                   borderRadius: 14,
                   padding: '20px 18px',
                   textAlign: 'center',
                 }}
               >
-                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                <div
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    marginBottom: 8,
+                  }}
+                >
                   {item.label}
                 </div>
-                <div style={{ fontSize: '0.94rem', fontWeight: 700, color: item.color }}>{item.value}</div>
+                <div
+                  style={{
+                    fontSize: '0.94rem',
+                    fontWeight: 700,
+                    color: item.color,
+                  }}
+                >
+                  {item.value}
+                </div>
               </div>
             ))}
           </div>
         </section>
 
-        <section style={{ padding: '0 24px 56px', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
+        <section
+          style={{
+            padding: '0 24px 56px',
+            maxWidth: 1120,
+            margin: '0 auto',
+            width: '100%',
+          }}
+        >
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{ fontSize: '1.9rem', color: '#ffffff', marginBottom: 8 }}>Purpose and Foundation</h2>
+            <h2
+              style={{ fontSize: '1.9rem', color: '#ffffff', marginBottom: 8 }}
+            >
+              Purpose and Foundation
+            </h2>
             <p style={{ color: 'var(--text-secondary)' }}>
-              The research priorities that shaped BantAI from problem framing to implementation.
+              The research priorities that shaped BantAI from problem framing to
+              implementation.
             </p>
           </div>
 
@@ -341,7 +432,8 @@ export const AboutPage: React.FC = () => {
                 key={point.title}
                 className="panel"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
+                  background:
+                    'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
                   border: `1px solid ${point.color}28`,
                   borderRadius: 16,
                   padding: '24px',
@@ -368,17 +460,44 @@ export const AboutPage: React.FC = () => {
                   {point.icon}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.08rem', color: '#ffffff', marginBottom: 8 }}>{point.title}</h3>
-                  <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, fontSize: '0.92rem' }}>{point.desc}</p>
+                  <h3
+                    style={{
+                      fontSize: '1.08rem',
+                      color: '#ffffff',
+                      marginBottom: 8,
+                    }}
+                  >
+                    {point.title}
+                  </h3>
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.7,
+                      fontSize: '0.92rem',
+                    }}
+                  >
+                    {point.desc}
+                  </p>
                 </div>
               </article>
             ))}
           </div>
         </section>
 
-        <section style={{ padding: '0 24px 80px', maxWidth: 1120, margin: '0 auto', width: '100%' }}>
+        <section
+          style={{
+            padding: '0 24px 80px',
+            maxWidth: 1120,
+            margin: '0 auto',
+            width: '100%',
+          }}
+        >
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{ fontSize: '1.9rem', color: '#ffffff', marginBottom: 8 }}>Research Team</h2>
+            <h2
+              style={{ fontSize: '1.9rem', color: '#ffffff', marginBottom: 8 }}
+            >
+              Research Team
+            </h2>
             <p style={{ color: 'var(--text-secondary)' }}>Group 7, DLSL CITE</p>
           </div>
 
@@ -394,7 +513,8 @@ export const AboutPage: React.FC = () => {
                 key={member.name}
                 className="panel"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
+                  background:
+                    'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.78) 100%)',
                   border: `1px solid ${member.color}28`,
                   borderRadius: 16,
                   padding: '24px',
@@ -422,9 +542,34 @@ export const AboutPage: React.FC = () => {
                   {member.initials}
                 </div>
                 <div>
-                  <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '1rem' }}>{member.name}</div>
-                  <div style={{ color: member.color, fontWeight: 700, fontSize: '0.82rem', marginTop: 2 }}>{member.role}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', marginTop: 4 }}>{member.dept}</div>
+                  <div
+                    style={{
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '1rem',
+                    }}
+                  >
+                    {member.name}
+                  </div>
+                  <div
+                    style={{
+                      color: member.color,
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      marginTop: 2,
+                    }}
+                  >
+                    {member.role}
+                  </div>
+                  <div
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '0.76rem',
+                      marginTop: 4,
+                    }}
+                  >
+                    {member.dept}
+                  </div>
                 </div>
               </article>
             ))}
@@ -435,16 +580,34 @@ export const AboutPage: React.FC = () => {
               marginTop: 56,
               padding: '40px 32px',
               borderRadius: 18,
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 15, 24, 0.9) 100%)',
+              background:
+                'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 15, 24, 0.9) 100%)',
               border: '1px solid rgba(16, 185, 129, 0.28)',
               textAlign: 'center',
             }}
           >
-            <h2 style={{ fontSize: '1.9rem', marginBottom: 10 }}>Explore the Full System</h2>
-            <p style={{ color: 'var(--text-secondary)', maxWidth: 620, margin: '0 auto 24px', lineHeight: 1.7 }}>
-              Review the detection pipeline and the supporting research that grounds the platform.
+            <h2 style={{ fontSize: '1.9rem', marginBottom: 10 }}>
+              Explore the Full System
+            </h2>
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                maxWidth: 620,
+                margin: '0 auto 24px',
+                lineHeight: 1.7,
+              }}
+            >
+              Review the detection pipeline and the supporting research that
+              grounds the platform.
             </p>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
               <Button to={ROUTES.HOW_IT_WORKS} variant="primary" size="lg">
                 See How It Works
               </Button>

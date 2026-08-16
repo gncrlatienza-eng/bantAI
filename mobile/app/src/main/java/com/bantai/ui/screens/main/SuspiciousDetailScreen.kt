@@ -19,13 +19,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -34,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.bantai.ui.components.AISummaryBottomSheet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
@@ -57,7 +57,10 @@ import com.bantai.ui.theme.White
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuspiciousDetailScreen(sender: String, navController: NavController) {
+fun SuspiciousDetailScreen(
+    sender: String,
+    navController: NavController,
+) {
     var showAISummary by remember { mutableStateOf(false) }
 
     if (showAISummary) {
@@ -71,15 +74,17 @@ fun SuspiciousDetailScreen(sender: String, navController: NavController) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -103,20 +108,22 @@ fun SuspiciousDetailScreen(sender: String, navController: NavController) {
         }
 
         Box(
-            modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 4.dp)
-                .background(Suspicious.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
-                .padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .padding(horizontal = 20.dp, vertical = 4.dp)
+                    .background(Suspicious.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
         ) {
             Text("Suspicious", color = Suspicious, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF2A1A00))
-                .clickable { navController.navigate(Screen.ThreatAnalysis.createRoute()) }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2A1A00))
+                    .clickable { navController.navigate(Screen.ThreatAnalysis.createRoute()) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -131,10 +138,11 @@ fun SuspiciousDetailScreen(sender: String, navController: NavController) {
         }
 
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(Black),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(Black),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -156,30 +164,38 @@ fun SuspiciousDetailScreen(sender: String, navController: NavController) {
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .background(Surface, RoundedCornerShape(22.dp))
-                    .padding(horizontal = 16.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .background(Surface, RoundedCornerShape(22.dp))
+                        .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Text("Message", color = TextSecondary, fontSize = 14.sp)
             }
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Surface, CircleShape),
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .background(Surface, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Send", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Send",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
@@ -193,15 +209,18 @@ private fun DateSeparator(text: String) {
 }
 
 @Composable
-private fun ChatBubble(text: String, time: String) {
+private fun ChatBubble(
+    text: String,
+    time: String,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .background(
-                Surface,
-                RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
-            )
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth(0.85f)
+                .background(
+                    Surface,
+                    RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
+                ).padding(12.dp),
     ) {
         Text(text, color = White, fontSize = 14.sp)
         Spacer(Modifier.height(4.dp))
@@ -212,13 +231,13 @@ private fun ChatBubble(text: String, time: String) {
 @Composable
 private fun FlaggedChatBubble(navController: NavController) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .background(
-                Surface,
-                RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
-            )
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth(0.85f)
+                .background(
+                    Surface,
+                    RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
+                ).padding(12.dp),
     ) {
         Text(
             buildAnnotatedString {
@@ -233,11 +252,12 @@ private fun FlaggedChatBubble(navController: NavController) {
         )
         Spacer(Modifier.height(8.dp))
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF2A0000), RoundedCornerShape(8.dp))
-                .clickable { navController.navigate(Screen.UnsafeLink.route) }
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2A0000), RoundedCornerShape(8.dp))
+                    .clickable { navController.navigate(Screen.UnsafeLink.route) }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {

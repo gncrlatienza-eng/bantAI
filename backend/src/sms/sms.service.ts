@@ -277,7 +277,7 @@ export class SmsService {
 
   private maskLocally(normalizedBody: string): string {
     return normalizedBody
-      .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
+      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
       .replace(/https?:\/\/\S+/gi, '[URL]')
       .replace(/\b(09\d{9}|\+639\d{9}|\d{7,8})\b/g, '[PHONE]')
       .replace(

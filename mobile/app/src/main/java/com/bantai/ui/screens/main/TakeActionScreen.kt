@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
+import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
@@ -57,7 +58,6 @@ import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
-import com.bantai.ui.theme.Black
 
 private val reportTypes = listOf("Smishing / Phishing", "Spam", "Wrong classification", "Other")
 
@@ -69,12 +69,13 @@ fun TakeActionScreen(navController: NavController) {
     var notes by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
 
-    val dialogType = when {
-        reportSelected && blockSelected -> "both"
-        reportSelected -> "report_only"
-        blockSelected -> "block_only"
-        else -> "none"
-    }
+    val dialogType =
+        when {
+            reportSelected && blockSelected -> "both"
+            reportSelected -> "report_only"
+            blockSelected -> "block_only"
+            else -> "none"
+        }
 
     if (showDialog && dialogType != "none") {
         ConfirmationDialog(
@@ -88,15 +89,17 @@ fun TakeActionScreen(navController: NavController) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -115,10 +118,11 @@ fun TakeActionScreen(navController: NavController) {
         HorizontalDivider(color = Surface)
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
@@ -189,24 +193,25 @@ private fun ActionToggleCard(
     onClick: () -> Unit,
 ) {
     Box(
-        modifier = modifier
-            .background(if (selected) selectedBg else Surface, RoundedCornerShape(16.dp))
-            .border(
-                if (selected) 2.dp else 1.dp,
-                if (selected) selectedBorder else BorderColor,
-                RoundedCornerShape(16.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+        modifier =
+            modifier
+                .background(if (selected) selectedBg else Surface, RoundedCornerShape(16.dp))
+                .border(
+                    if (selected) 2.dp else 1.dp,
+                    if (selected) selectedBorder else BorderColor,
+                    RoundedCornerShape(16.dp),
+                ).clickable(onClick = onClick)
+                .padding(16.dp),
     ) {
         if (selected) {
             Icon(
                 Icons.Default.CheckCircle,
                 contentDescription = null,
                 tint = checkColor,
-                modifier = Modifier
-                    .size(16.dp)
-                    .align(Alignment.TopEnd),
+                modifier =
+                    Modifier
+                        .size(16.dp)
+                        .align(Alignment.TopEnd),
             )
         }
         Column(
@@ -223,7 +228,10 @@ private fun ActionToggleCard(
 }
 
 @Composable
-private fun ReportTypeSection(selectedType: Int, onSelect: (Int) -> Unit) {
+private fun ReportTypeSection(
+    selectedType: Int,
+    onSelect: (Int) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("add details (optional)", color = TextSecondary, fontSize = 12.sp)
         Text("Report type", color = TextSecondary, fontSize = 12.sp)
@@ -231,23 +239,24 @@ private fun ReportTypeSection(selectedType: Int, onSelect: (Int) -> Unit) {
             reportTypes.forEachIndexed { index, type ->
                 val isSelected = selectedType == index
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (isSelected) Color(0xFF16163A) else Surface,
-                            RoundedCornerShape(12.dp),
-                        )
-                        .clickable { onSelect(index) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (isSelected) Color(0xFF16163A) else Surface,
+                                RoundedCornerShape(12.dp),
+                            ).clickable { onSelect(index) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(
                         selected = isSelected,
                         onClick = { onSelect(index) },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = Indigo,
-                            unselectedColor = TextSecondary,
-                        ),
+                        colors =
+                            RadioButtonDefaults.colors(
+                                selectedColor = Indigo,
+                                unselectedColor = TextSecondary,
+                            ),
                     )
                     Text(type, color = White, fontSize = 14.sp)
                 }
@@ -257,24 +266,29 @@ private fun ReportTypeSection(selectedType: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun NotesSection(notes: String, onNotesChange: (String) -> Unit) {
+private fun NotesSection(
+    notes: String,
+    onNotesChange: (String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Additional notes (optional)", color = TextSecondary, fontSize = 12.sp)
         OutlinedTextField(
             value = notes,
             onValueChange = onNotesChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 80.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 80.dp),
             placeholder = { Text("Scammer", color = TextSecondary) },
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Indigo,
-                unfocusedBorderColor = Color.Transparent,
-                focusedContainerColor = Surface,
-                unfocusedContainerColor = Surface,
-                cursorColor = Indigo,
-            ),
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Indigo,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedContainerColor = Surface,
+                    unfocusedContainerColor = Surface,
+                    cursorColor = Indigo,
+                ),
         )
     }
 }
@@ -282,10 +296,11 @@ private fun NotesSection(notes: String, onNotesChange: (String) -> Unit) {
 @Composable
 private fun BlockInfoRow() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0A2A0A), RoundedCornerShape(12.dp))
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A2A0A), RoundedCornerShape(12.dp))
+                .padding(12.dp),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -300,20 +315,26 @@ private fun BlockInfoRow() {
 }
 
 @Composable
-private fun ActionButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+private fun ActionButton(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(52.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Indigo,
-            disabledContainerColor = Color(0xFF3A3A5C),
-            contentColor = White,
-            disabledContentColor = TextSecondary,
-        ),
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = Indigo,
+                disabledContainerColor = Color(0xFF3A3A5C),
+                contentColor = White,
+                disabledContentColor = TextSecondary,
+            ),
     ) {
         Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
@@ -327,27 +348,35 @@ private data class DialogData(
 )
 
 @Composable
-private fun ConfirmationDialog(type: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    val data = when (type) {
-        "report_only" -> DialogData(
-            Icons.Default.Flag,
-            "Submit this report?",
-            "Your report will be sent to the PhishNet team to help improve threat detection for all users.",
-            "Yes, report",
-        )
-        "block_only" -> DialogData(
-            Icons.Default.Block,
-            "Block this number?",
-            "BDO Online will be added to your blocked list and can no longer send you messages. You can unblock it anytime in Settings.",
-            "Yes, block",
-        )
-        else -> DialogData(
-            Icons.Default.Flag,
-            "Submit report & block?",
-            "Your report will be sent to the PhishNet team and the number will be blocked from sending you messages.",
-            "Yes, submit & block",
-        )
-    }
+private fun ConfirmationDialog(
+    type: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val data =
+        when (type) {
+            "report_only" ->
+                DialogData(
+                    Icons.Default.Flag,
+                    "Submit this report?",
+                    "Your report will be sent to the PhishNet team to help improve threat detection for all users.",
+                    "Yes, report",
+                )
+            "block_only" ->
+                DialogData(
+                    Icons.Default.Block,
+                    "Block this number?",
+                    "BDO Online will be added to your blocked list and can no longer send you messages. You can unblock it anytime in Settings.",
+                    "Yes, block",
+                )
+            else ->
+                DialogData(
+                    Icons.Default.Flag,
+                    "Submit report & block?",
+                    "Your report will be sent to the PhishNet team and the number will be blocked from sending you messages.",
+                    "Yes, submit & block",
+                )
+        }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,

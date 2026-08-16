@@ -260,7 +260,6 @@ class CampaignMatcher:
         # negative best similarity is reported honestly instead of being
         # rounded up to 0.0 -- the reported number is used for threshold
         # tuning, so it has to be the real one.
-        best_id: Optional[str] = None
         best_sim = -2.0
 
         # Best candidate found per tier. Every tier is evaluated for every
@@ -276,7 +275,7 @@ class CampaignMatcher:
         for centroid in self._centroids:
             sim = cosine_similarity(embedding, centroid.centroid)
             if sim > best_sim:
-                best_sim, best_id = sim, centroid.cluster_id
+                best_sim = sim
 
             profile = centroid.lexical
             lex = 0.0

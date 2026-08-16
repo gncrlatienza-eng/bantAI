@@ -28,7 +28,7 @@ describe('BlockedNumbersService', () => {
   });
 
   describe('list', () => {
-    it('lists a user\'s blocked numbers newest-first', async () => {
+    it("lists a user's blocked numbers newest-first", async () => {
       mockPrisma.blockedNumber.findMany.mockResolvedValue([]);
 
       await service.list('u1');

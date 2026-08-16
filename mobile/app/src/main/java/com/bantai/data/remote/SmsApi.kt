@@ -17,7 +17,6 @@ import java.time.Instant
  * the on-device heuristic in SmsRepository — see SmsReceiver.
  */
 object SmsApi {
-
     /** Routing decision returned by the backend, mapped from its `action` field. */
     enum class Action { BLOCKED, ALERT, INBOX }
 
@@ -32,7 +31,9 @@ object SmsApi {
         val suppressedLinks: List<String> = emptyList(),
     )
 
-    class ApiException(message: String) : Exception(message)
+    class ApiException(
+        message: String,
+    ) : Exception(message)
 
     data class AlertSummary(
         val id: String,
@@ -47,7 +48,10 @@ object SmsApi {
         val bucket: String?,
     )
 
-    data class IndicatorTag(val tag: String, val weight: Double)
+    data class IndicatorTag(
+        val tag: String,
+        val weight: Double,
+    )
 
     /**
      * @param receivedAtMillis epoch millis from the SMS intent; converted to the
@@ -59,31 +63,34 @@ object SmsApi {
         body: String,
         receivedAtMillis: Long,
         timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
-    ): Result<IngestResult> = withContext(Dispatchers.IO) {
-        runCatching {
-            val payload = JSONObject()
-                .put("sender", sender)
-                .put("body", body)
-                .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
+    ): Result<IngestResult> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val payload =
+                    JSONObject()
+                        .put("sender", sender)
+                        .put("body", body)
+                        .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
 
-            parseIngestResponse(post("/sms/ingest", payload, token, timeoutMs))
+                parseIngestResponse(post("/sms/ingest", payload, token, timeoutMs))
+            }
         }
-    }
 
     /** GET /sms/alerts — all alerts for the signed-in user, newest first. */
-    suspend fun getAlerts(token: String): Result<List<AlertSummary>> =
-        get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
+    suspend fun getAlerts(token: String): Result<List<AlertSummary>> = get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
 
     /**
      * GET /sms/:messageId/indicators — SHAP-derived tags for one message.
      * An empty list is valid (SHAP may still be computing), not an error.
      */
-    suspend fun getIndicators(token: String, messageId: String): Result<List<IndicatorTag>> =
+    suspend fun getIndicators(
+        token: String,
+        messageId: String,
+    ): Result<List<IndicatorTag>> =
         get("/sms/${java.net.URLEncoder.encode(messageId, "UTF-8")}/indicators", token)
             .mapCatching { body -> parseIndicators(JSONObject(body)) }
 
-    private fun parseAlerts(json: JSONArray): List<AlertSummary> =
-        List(json.length()) { i -> parseAlert(json.getJSONObject(i)) }
+    private fun parseAlerts(json: JSONArray): List<AlertSummary> = List(json.length()) { i -> parseAlert(json.getJSONObject(i)) }
 
     private fun parseAlert(json: JSONObject): AlertSummary {
         val message = json.getJSONObject("message")
@@ -110,26 +117,32 @@ object SmsApi {
         }
     }
 
-    private suspend fun get(path: String, token: String): Result<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
-            try {
-                connection.requestMethod = "GET"
-                connection.setRequestProperty("Authorization", "Bearer $token")
-                connection.connectTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
-                connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+    private suspend fun get(
+        path: String,
+        token: String,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
+                try {
+                    connection.requestMethod = "GET"
+                    connection.setRequestProperty("Authorization", "Bearer $token")
+                    connection.connectTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
+                    connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
 
-                val status = connection.responseCode
-                val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                    ?.bufferedReader()?.use { it.readText() }
-                    .orEmpty()
-                if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
-                text
-            } finally {
-                connection.disconnect()
+                    val status = connection.responseCode
+                    val text =
+                        (if (status in 200..299) connection.inputStream else connection.errorStream)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
+                            .orEmpty()
+                    if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
+                    text
+                } finally {
+                    connection.disconnect()
+                }
             }
         }
-    }
 
     private fun parseIngestResponse(raw: String): IngestResult {
         val json = JSONObject(raw)
@@ -159,13 +172,19 @@ object SmsApi {
 
     // An unrecognised action must never silently hide a message, so anything
     // unexpected routes to the inbox.
-    private fun toAction(value: String): Action = when (value) {
-        "blocked" -> Action.BLOCKED
-        "alert" -> Action.ALERT
-        else -> Action.INBOX
-    }
+    private fun toAction(value: String): Action =
+        when (value) {
+            "blocked" -> Action.BLOCKED
+            "alert" -> Action.ALERT
+            else -> Action.INBOX
+        }
 
-    private fun post(path: String, body: JSONObject, token: String, timeoutMs: Int): String {
+    private fun post(
+        path: String,
+        body: JSONObject,
+        token: String,
+        timeoutMs: Int,
+    ): String {
         val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
@@ -177,9 +196,11 @@ object SmsApi {
             connection.outputStream.use { it.write(body.toString().toByteArray()) }
 
             val status = connection.responseCode
-            val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                ?.bufferedReader()?.use { it.readText() }
-                .orEmpty()
+            val text =
+                (if (status in 200..299) connection.inputStream else connection.errorStream)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
             if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
             return text
         } finally {
@@ -187,12 +208,16 @@ object SmsApi {
         }
     }
 
-    private fun parseErrorMessage(body: String, status: Int): String = try {
-        when (val message = JSONObject(body).get("message")) {
-            is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
-            else -> message.toString()
+    private fun parseErrorMessage(
+        body: String,
+        status: Int,
+    ): String =
+        try {
+            when (val message = JSONObject(body).get("message")) {
+                is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
+                else -> message.toString()
+            }
+        } catch (_: Exception) {
+            "Request failed (HTTP $status)"
         }
-    } catch (_: Exception) {
-        "Request failed (HTTP $status)"
-    }
 }

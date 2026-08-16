@@ -13,7 +13,7 @@ describe('AiService', () => {
 
     service = module.get<AiService>(AiService);
     fetchMock = jest.fn();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
   });
 
   it('should be defined', () => {
@@ -24,7 +24,7 @@ describe('AiService', () => {
     it('maps a successful AI-service response to camelCase', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => ({
+        json: () => ({
           summary: 'Your order has shipped.',
           sentence_count: 1,
           source_message_count: 3,
@@ -51,7 +51,7 @@ describe('AiService', () => {
     it('omits max_sentences when not provided', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => ({
+        json: () => ({
           summary: '',
           sentence_count: 0,
           source_message_count: 1,

@@ -171,9 +171,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     from preprocessing import preprocess
-    from service.campaign import DEFAULT_SIMILARITY_THRESHOLD
     from scripts.calibrate_match_threshold import MIN_GROUP, find_campaign_groups
     from scripts.cluster_campaigns import dedupe_by_masked_text
+    from service.campaign import DEFAULT_SIMILARITY_THRESHOLD
 
     data = np.load(EMBEDDINGS, allow_pickle=True)
     mask = np.array([lab in {"Spam", "Scam"} for lab in data["labels"]])

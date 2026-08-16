@@ -181,7 +181,6 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     from preprocessing import preprocess
-
     from scripts.cluster_campaigns import dedupe_by_masked_text
 
     data = np.load(EMBEDDINGS, allow_pickle=True)

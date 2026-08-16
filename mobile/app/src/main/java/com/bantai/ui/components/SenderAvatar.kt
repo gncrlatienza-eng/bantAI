@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextTertiary
@@ -38,36 +37,48 @@ import java.util.concurrent.ConcurrentHashMap
 // Null value = looked up, no photo.
 private val contactPhotoCache = ConcurrentHashMap<String, Optional<ImageBitmap>>()
 
-private class Optional<T>(val value: T?)
+private class Optional<T>(
+    val value: T?,
+)
 
-private suspend fun loadContactPhoto(context: Context, sender: String): ImageBitmap? {
+private suspend fun loadContactPhoto(
+    context: Context,
+    sender: String,
+): ImageBitmap? {
     contactPhotoCache[sender]?.let { return it.value }
-    val result = withContext(Dispatchers.IO) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
-            != PackageManager.PERMISSION_GRANTED
-        ) return@withContext null
-        try {
-            val lookupUri = Uri.withAppendedPath(
-                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                Uri.encode(sender),
-            )
-            var photoUri: String? = null
-            context.contentResolver.query(
-                lookupUri,
-                arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
-                null, null, null,
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) photoUri = cursor.getString(0)
+    val result =
+        withContext(Dispatchers.IO) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                return@withContext null
             }
-            photoUri?.let { uriString ->
-                context.contentResolver.openInputStream(Uri.parse(uriString))?.use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+            try {
+                val lookupUri =
+                    Uri.withAppendedPath(
+                        ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                        Uri.encode(sender),
+                    )
+                var photoUri: String? = null
+                context.contentResolver
+                    .query(
+                        lookupUri,
+                        arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
+                        null,
+                        null,
+                        null,
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) photoUri = cursor.getString(0)
+                    }
+                photoUri?.let { uriString ->
+                    context.contentResolver.openInputStream(Uri.parse(uriString))?.use { stream ->
+                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                    }
                 }
+            } catch (e: Exception) {
+                null
             }
-        } catch (e: Exception) {
-            null
         }
-    }
     contactPhotoCache[sender] = Optional(result)
     return result
 }
@@ -79,17 +90,22 @@ private suspend fun loadContactPhoto(context: Context, sender: String): ImageBit
  * the silhouette.
  */
 @Composable
-fun SenderAvatar(sender: String, size: Dp, modifier: Modifier = Modifier) {
+fun SenderAvatar(
+    sender: String,
+    size: Dp,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val photo by produceState<ImageBitmap?>(initialValue = contactPhotoCache[sender]?.value, sender) {
         value = loadContactPhoto(context, sender)
     }
 
     Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(SurfaceElevated),
+        modifier =
+            modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(SurfaceElevated),
         contentAlignment = Alignment.Center,
     ) {
         val bitmap = photo

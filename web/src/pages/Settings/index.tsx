@@ -89,128 +89,300 @@ export const SettingsPage: React.FC = () => {
       userMeta="Threat Intelligence Analyst"
       org="Globe Telecom"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 24,
+          width: '100%',
+        }}
+      >
         {savedNotice && (
-          <div className="animate-scale-in" style={{ padding: '14px 20px', borderRadius: 10, background: 'var(--green-bg)', border: '1px solid var(--green-border)', color: 'var(--green-text)', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            className="animate-scale-in"
+            style={{
+              padding: '14px 20px',
+              borderRadius: 10,
+              background: 'var(--green-bg)',
+              border: '1px solid var(--green-border)',
+              color: 'var(--green-text)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
             <span>✓</span>
-            <span>All account settings and security preferences saved successfully.</span>
+            <span>
+              All account settings and security preferences saved successfully.
+            </span>
           </div>
         )}
 
         {/* 2-Column Responsive Settings Layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: 24, width: '100%' }}>
-          
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+            gap: 24,
+            width: '100%',
+          }}
+        >
           {/* SECTION 1: PROFILE INFORMATION */}
           <div className="panel" style={{ gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-              <strong style={{ fontSize: '1.125rem' }}>👤 Profile Information</strong>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 12,
+              }}
+            >
+              <strong style={{ fontSize: '1.125rem' }}>
+                👤 Profile Information
+              </strong>
               <span className="badge badge-purple">Verified Analyst</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-              <div className="avatar client" style={{ width: 64, height: 64, fontSize: '1.5rem' }}>
+              <div
+                className="avatar client"
+                style={{ width: 64, height: 64, fontSize: '1.5rem' }}
+              >
                 MS
               </div>
               <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: '1rem', display: 'block' }}>{profile.fullName}</strong>
-                <small style={{ color: 'var(--text-muted)', display: 'block' }}>{profile.jobTitle}</small>
-                <small style={{ color: 'var(--accent-light)', fontWeight: 600 }}>{profile.organization}</small>
+                <strong style={{ fontSize: '1rem', display: 'block' }}>
+                  {profile.fullName}
+                </strong>
+                <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                  {profile.jobTitle}
+                </small>
+                <small
+                  style={{ color: 'var(--accent-light)', fontWeight: 600 }}
+                >
+                  {profile.organization}
+                </small>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => alert("Avatar upload simulation")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => alert('Avatar upload simulation')}
+              >
                 Upload Photo
               </Button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 16,
+              }}
+            >
               <Input
                 label="Full Name"
                 value={profile.fullName}
-                onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                onChange={(e) =>
+                  setProfile({ ...profile, fullName: e.target.value })
+                }
               />
               <Input
                 label="Work Email Address"
                 value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                onChange={(e) =>
+                  setProfile({ ...profile, email: e.target.value })
+                }
               />
             </div>
 
             <Input
               label="Job Title / Role"
               value={profile.jobTitle}
-              onChange={(e) => setProfile({ ...profile, jobTitle: e.target.value })}
+              onChange={(e) =>
+                setProfile({ ...profile, jobTitle: e.target.value })
+              }
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 16,
+              }}
+            >
               <Input
                 label="Organization"
                 value={profile.organization}
-                onChange={(e) => setProfile({ ...profile, organization: e.target.value })}
+                onChange={(e) =>
+                  setProfile({ ...profile, organization: e.target.value })
+                }
               />
               <Input
                 label="Department / Team"
                 value={profile.department}
-                onChange={(e) => setProfile({ ...profile, department: e.target.value })}
+                onChange={(e) =>
+                  setProfile({ ...profile, department: e.target.value })
+                }
               />
             </div>
           </div>
 
           {/* SECTION 2: NOTIFICATION PREFERENCES */}
           <div className="panel" style={{ gap: 16 }}>
-            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-              <strong style={{ fontSize: '1.125rem' }}>🔔 Notification Preferences</strong>
-              <small style={{ color: 'var(--text-secondary)', display: 'block' }}>Configure real-time alerts and report delivery options.</small>
+            <div
+              style={{
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 12,
+              }}
+            >
+              <strong style={{ fontSize: '1.125rem' }}>
+                🔔 Notification Preferences
+              </strong>
+              <small
+                style={{ color: 'var(--text-secondary)', display: 'block' }}
+              >
+                Configure real-time alerts and report delivery options.
+              </small>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: 8, borderRadius: 8, background: 'var(--bg-surface-elevated)' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  padding: 8,
+                  borderRadius: 8,
+                  background: 'var(--bg-surface-elevated)',
+                }}
+              >
                 <div>
-                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>Real-Time Threat Alerts</strong>
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Instant notification when a campaign targets your subscribers.</small>
+                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>
+                    Real-Time Threat Alerts
+                  </strong>
+                  <small
+                    style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                  >
+                    Instant notification when a campaign targets your
+                    subscribers.
+                  </small>
                 </div>
                 <input
                   type="checkbox"
                   checked={notifications.realtimeAlerts}
                   onChange={() => toggleNotif('realtimeAlerts')}
-                  style={{ accentColor: 'var(--accent-primary)', width: 20, height: 20, cursor: 'pointer' }}
+                  style={{
+                    accentColor: 'var(--accent-primary)',
+                    width: 20,
+                    height: 20,
+                    cursor: 'pointer',
+                  }}
                 />
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: 8, borderRadius: 8, background: 'var(--bg-surface-elevated)' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  padding: 8,
+                  borderRadius: 8,
+                  background: 'var(--bg-surface-elevated)',
+                }}
+              >
                 <div>
-                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>Daily Executive Digest</strong>
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Automated daily email at 07:00 AM PST with campaign stats.</small>
+                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>
+                    Daily Executive Digest
+                  </strong>
+                  <small
+                    style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                  >
+                    Automated daily email at 07:00 AM PST with campaign stats.
+                  </small>
                 </div>
                 <input
                   type="checkbox"
                   checked={notifications.dailyDigest}
                   onChange={() => toggleNotif('dailyDigest')}
-                  style={{ accentColor: 'var(--accent-primary)', width: 20, height: 20, cursor: 'pointer' }}
+                  style={{
+                    accentColor: 'var(--accent-primary)',
+                    width: 20,
+                    height: 20,
+                    cursor: 'pointer',
+                  }}
                 />
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: 8, borderRadius: 8, background: 'var(--bg-surface-elevated)' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  padding: 8,
+                  borderRadius: 8,
+                  background: 'var(--bg-surface-elevated)',
+                }}
+              >
                 <div>
-                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>Weekly Trend Summary</strong>
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Weekly intelligence dossier delivered every Monday morning.</small>
+                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>
+                    Weekly Trend Summary
+                  </strong>
+                  <small
+                    style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                  >
+                    Weekly intelligence dossier delivered every Monday morning.
+                  </small>
                 </div>
                 <input
                   type="checkbox"
                   checked={notifications.weeklyReport}
                   onChange={() => toggleNotif('weeklyReport')}
-                  style={{ accentColor: 'var(--accent-primary)', width: 20, height: 20, cursor: 'pointer' }}
+                  style={{
+                    accentColor: 'var(--accent-primary)',
+                    width: 20,
+                    height: 20,
+                    cursor: 'pointer',
+                  }}
                 />
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: 8, borderRadius: 8, background: 'var(--bg-surface-elevated)' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  padding: 8,
+                  borderRadius: 8,
+                  background: 'var(--bg-surface-elevated)',
+                }}
+              >
                 <div>
-                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>Browser Push Notifications</strong>
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Show popups when logged into the dashboard.</small>
+                  <strong style={{ fontSize: '0.875rem', display: 'block' }}>
+                    Browser Push Notifications
+                  </strong>
+                  <small
+                    style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                  >
+                    Show popups when logged into the dashboard.
+                  </small>
                 </div>
                 <input
                   type="checkbox"
                   checked={notifications.browserPush}
                   onChange={() => toggleNotif('browserPush')}
-                  style={{ accentColor: 'var(--accent-primary)', width: 20, height: 20, cursor: 'pointer' }}
+                  style={{
+                    accentColor: 'var(--accent-primary)',
+                    width: 20,
+                    height: 20,
+                    cursor: 'pointer',
+                  }}
                 />
               </label>
             </div>
@@ -218,9 +390,20 @@ export const SettingsPage: React.FC = () => {
 
           {/* SECTION 3: SECURITY & PASSWORD */}
           <div className="panel" style={{ gap: 16 }}>
-            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-              <strong style={{ fontSize: '1.125rem' }}>🔐 Security & Authentication</strong>
-              <small style={{ color: 'var(--text-secondary)', display: 'block' }}>Manage password, 2FA credentials, and active sessions.</small>
+            <div
+              style={{
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 12,
+              }}
+            >
+              <strong style={{ fontSize: '1.125rem' }}>
+                🔐 Security & Authentication
+              </strong>
+              <small
+                style={{ color: 'var(--text-secondary)', display: 'block' }}
+              >
+                Manage password, 2FA credentials, and active sessions.
+              </small>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -229,30 +412,60 @@ export const SettingsPage: React.FC = () => {
                 isPassword
                 placeholder="••••••••"
                 value={security.currentPassword}
-                onChange={(e) => setSecurity({ ...security, currentPassword: e.target.value })}
+                onChange={(e) =>
+                  setSecurity({ ...security, currentPassword: e.target.value })
+                }
               />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 16,
+                }}
+              >
                 <Input
                   label="New Password"
                   isPassword
                   placeholder="••••••••"
                   value={security.newPassword}
-                  onChange={(e) => setSecurity({ ...security, newPassword: e.target.value })}
+                  onChange={(e) =>
+                    setSecurity({ ...security, newPassword: e.target.value })
+                  }
                 />
                 <Input
                   label="Confirm New Password"
                   isPassword
                   placeholder="••••••••"
                   value={security.confirmPassword}
-                  onChange={(e) => setSecurity({ ...security, confirmPassword: e.target.value })}
+                  onChange={(e) =>
+                    setSecurity({
+                      ...security,
+                      confirmPassword: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface-elevated)', padding: 12, borderRadius: 8 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'var(--bg-surface-elevated)',
+                padding: 12,
+                borderRadius: 8,
+              }}
+            >
               <div>
-                <strong style={{ fontSize: '0.875rem', display: 'block' }}>Two-Factor Authentication (2FA)</strong>
-                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Enforced for corporate analyst accounts.</small>
+                <strong style={{ fontSize: '0.875rem', display: 'block' }}>
+                  Two-Factor Authentication (2FA)
+                </strong>
+                <small
+                  style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                >
+                  Enforced for corporate analyst accounts.
+                </small>
               </div>
               <span className="badge badge-green">🟢 Enabled</span>
             </div>
@@ -262,7 +475,9 @@ export const SettingsPage: React.FC = () => {
               <select
                 className="form-input"
                 value={security.sessionTimeout}
-                onChange={(e) => setSecurity({ ...security, sessionTimeout: e.target.value })}
+                onChange={(e) =>
+                  setSecurity({ ...security, sessionTimeout: e.target.value })
+                }
               >
                 <option value="15m">15 Minutes</option>
                 <option value="30m">30 Minutes (Recommended)</option>
@@ -274,18 +489,37 @@ export const SettingsPage: React.FC = () => {
 
           {/* SECTION 4: PREFERENCES & LOCALIZATION */}
           <div className="panel" style={{ gap: 16 }}>
-            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-              <strong style={{ fontSize: '1.125rem' }}>⚙️ Preferences & Localization</strong>
-              <small style={{ color: 'var(--text-secondary)', display: 'block' }}>Customize dashboard view, time zones, and formats.</small>
+            <div
+              style={{
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 12,
+              }}
+            >
+              <strong style={{ fontSize: '1.125rem' }}>
+                ⚙️ Preferences & Localization
+              </strong>
+              <small
+                style={{ color: 'var(--text-secondary)', display: 'block' }}
+              >
+                Customize dashboard view, time zones, and formats.
+              </small>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 16,
+              }}
+            >
               <div className="form-group">
                 <label className="form-label">Time Zone</label>
                 <select
                   className="form-input"
                   value={preferences.timeZone}
-                  onChange={(e) => setPreferences({ ...preferences, timeZone: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({ ...preferences, timeZone: e.target.value })
+                  }
                 >
                   <option>Asia/Manila (GMT+8)</option>
                   <option>UTC (Coordinated Universal Time)</option>
@@ -298,7 +532,12 @@ export const SettingsPage: React.FC = () => {
                 <select
                   className="form-input"
                   value={preferences.dateFormat}
-                  onChange={(e) => setPreferences({ ...preferences, dateFormat: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      dateFormat: e.target.value,
+                    })
+                  }
                 >
                   <option>YYYY-MM-DD (ISO 8601)</option>
                   <option>MMM DD, YYYY</option>
@@ -307,13 +546,21 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 16,
+              }}
+            >
               <div className="form-group">
                 <label className="form-label">Display Language</label>
                 <select
                   className="form-input"
                   value={preferences.language}
-                  onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({ ...preferences, language: e.target.value })
+                  }
                 >
                   <option>English (US)</option>
                   <option>Filipino / Tagalog</option>
@@ -325,7 +572,12 @@ export const SettingsPage: React.FC = () => {
                 <select
                   className="form-input"
                   value={preferences.defaultView}
-                  onChange={(e) => setPreferences({ ...preferences, defaultView: e.target.value })}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      defaultView: e.target.value,
+                    })
+                  }
                 >
                   <option>Executive Overview</option>
                   <option>Flagged Messages Log</option>
@@ -334,10 +586,25 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ background: 'var(--bg-surface-elevated)', padding: 12, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                padding: 12,
+                borderRadius: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
               <div>
-                <strong style={{ fontSize: '0.875rem', display: 'block' }}>Theme Selection</strong>
-                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Enterprise Dark Mode is enforced for high-density SOC screens.</small>
+                <strong style={{ fontSize: '0.875rem', display: 'block' }}>
+                  Theme Selection
+                </strong>
+                <small
+                  style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                >
+                  Enterprise Dark Mode is enforced for high-density SOC screens.
+                </small>
               </div>
               <span className="badge badge-purple">Dark Obsidian</span>
             </div>
@@ -345,18 +612,37 @@ export const SettingsPage: React.FC = () => {
 
           {/* SECTION 5: REPORT PREFERENCES */}
           <div className="panel" style={{ gap: 16 }}>
-            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-              <strong style={{ fontSize: '1.125rem' }}>📄 Automated Report Settings</strong>
-              <small style={{ color: 'var(--text-secondary)', display: 'block' }}>Configure scheduled intelligence exports.</small>
+            <div
+              style={{
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 12,
+              }}
+            >
+              <strong style={{ fontSize: '1.125rem' }}>
+                📄 Automated Report Settings
+              </strong>
+              <small
+                style={{ color: 'var(--text-secondary)', display: 'block' }}
+              >
+                Configure scheduled intelligence exports.
+              </small>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 16,
+              }}
+            >
               <div className="form-group">
                 <label className="form-label">Default Export Format</label>
                 <select
                   className="form-input"
                   value={reports.exportFormat}
-                  onChange={(e) => setReports({ ...reports, exportFormat: e.target.value })}
+                  onChange={(e) =>
+                    setReports({ ...reports, exportFormat: e.target.value })
+                  }
                 >
                   <option>CSV (Comma Separated)</option>
                   <option>JSON Dataset</option>
@@ -370,7 +656,9 @@ export const SettingsPage: React.FC = () => {
                 <select
                   className="form-input"
                   value={reports.compression}
-                  onChange={(e) => setReports({ ...reports, compression: e.target.value })}
+                  onChange={(e) =>
+                    setReports({ ...reports, compression: e.target.value })
+                  }
                 >
                   <option>GZIP (.gz)</option>
                   <option>ZIP (.zip)</option>
@@ -382,9 +670,20 @@ export const SettingsPage: React.FC = () => {
 
           {/* SECTION 6: API ACCESS & TOKENS */}
           <div className="panel" style={{ gap: 16 }}>
-            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-              <strong style={{ fontSize: '1.125rem' }}>🔑 Threat Intelligence API Token</strong>
-              <small style={{ color: 'var(--text-secondary)', display: 'block' }}>Use bearer token to query REST API endpoints.</small>
+            <div
+              style={{
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 12,
+              }}
+            >
+              <strong style={{ fontSize: '1.125rem' }}>
+                🔑 Threat Intelligence API Token
+              </strong>
+              <small
+                style={{ color: 'var(--text-secondary)', display: 'block' }}
+              >
+                Use bearer token to query REST API endpoints.
+              </small>
             </div>
 
             <Input
@@ -400,7 +699,7 @@ export const SettingsPage: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   navigator.clipboard.writeText(apiKey);
-                  alert("API Key copied to clipboard!");
+                  alert('API Key copied to clipboard!');
                 }}
               >
                 📋 Copy Token
@@ -418,12 +717,23 @@ export const SettingsPage: React.FC = () => {
               </Button>
             </div>
           </div>
-
         </div>
 
         {/* Global Save Actions Footer */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 20 }}>
-          <Button variant="ghost" size="lg" onClick={() => window.location.reload()}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 12,
+            borderTop: '1px solid var(--border-subtle)',
+            paddingTop: 20,
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={() => window.location.reload()}
+          >
             Cancel Changes
           </Button>
           <Button variant="primary" size="lg" onClick={handleSaveAll}>

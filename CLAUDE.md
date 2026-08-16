@@ -7,10 +7,27 @@ bantAI is a thesis project: an SMS smishing/scam detection system for Filipino m
 **GitHub:** https://github.com/gncrlatienza-eng/bantAI
 
 **Team:**
-- Gio (`gncrlatienza-eng`) — Mobile
+- Gio (`gncrlatienza-eng`) — Mobile, PR merges, docs/WBS ownership
 - Maxene — AI/ML
-- Reymark De Castro — Backend, git management
+- Reymark De Castro — Backend
 - Daryl De Castro — Web
+
+---
+
+## Ownership & Responsibility
+
+First draft — written 2026-08-16, confirm/correct the boundaries below rather than treat them as final. This section exists so that **any teammate's own Claude session** in this repo (not just Gio's) follows the same rules, since `CLAUDE.md` is checked into the repo and read by whoever's working in it.
+
+| Area | Owner | Notes |
+|---|---|---|
+| `docs/development/WBS.md`, `DEV_LOG.md`, both `.xlsx` trackers | **Gio only** | Don't edit these on someone else's say-so alone — even a completed task should be reported to Gio for him (or his Claude session) to mark, not flipped directly by another track's session. |
+| Git merges into `develop`/`main` | **Gio only** | Teammates open PRs from feature branches; Gio reviews and merges. Never push directly to `develop`. |
+| `backend/` | Reymark | Track A |
+| `ai/` | Maxene | Track B |
+| `mobile/` | Gio | Track C |
+| `web/` | Daryl | Track D |
+
+**Cross-track edits are fine when unblocking your own track** — e.g. Gio added two small backend endpoints (`/ai/summarize` proxy, `BlockedNumbersModule`) to unblock Sprint 4 mobile work rather than waiting on Reymark. When this happens: keep the change small and scoped to exactly what's needed, and say so plainly in the `DEV_LOG.md` entry (who touched what, and why it wasn't the track owner) rather than blending it in silently.
 
 ---
 

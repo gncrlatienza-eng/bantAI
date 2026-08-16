@@ -41,26 +41,30 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 
-private data class TermsCard(val title: String, val body: String)
-
-private val termsCards = listOf(
-    TermsCard(
-        "Data collected",
-        "BantAI collects anonymized SMS metadata (sender hash, message hash, timestamp) to improve its detection model. No message body is stored on our servers.",
-    ),
-    TermsCard(
-        "How it works",
-        "Messages are classified locally on your device using an on-device AI model. Only aggregate, non-identifiable statistics are used for model retraining.",
-    ),
-    TermsCard(
-        "Your rights",
-        "You can delete your account and all associated data at any time from Settings > Account. Deletion is permanent and irreversible.",
-    ),
-    TermsCard(
-        "Third parties",
-        "BantAI does not sell your data to third parties. We may share aggregate threat intelligence with authorized research partners.",
-    ),
+private data class TermsCard(
+    val title: String,
+    val body: String,
 )
+
+private val termsCards =
+    listOf(
+        TermsCard(
+            "Data collected",
+            "BantAI collects anonymized SMS metadata (sender hash, message hash, timestamp) to improve its detection model. No message body is stored on our servers.",
+        ),
+        TermsCard(
+            "How it works",
+            "Messages are classified locally on your device using an on-device AI model. Only aggregate, non-identifiable statistics are used for model retraining.",
+        ),
+        TermsCard(
+            "Your rights",
+            "You can delete your account and all associated data at any time from Settings > Account. Deletion is permanent and irreversible.",
+        ),
+        TermsCard(
+            "Third parties",
+            "BantAI does not sell your data to third parties. We may share aggregate threat intelligence with authorized research partners.",
+        ),
+    )
 
 @Composable
 fun OnboardingTermsScreen(
@@ -71,11 +75,12 @@ fun OnboardingTermsScreen(
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
     ) {
         // Top bar
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -92,18 +97,20 @@ fun OnboardingTermsScreen(
 
         // Scrollable content
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             termsCards.forEach { card ->
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(12.dp))
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(12.dp))
+                            .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(card.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
@@ -122,11 +129,12 @@ fun OnboardingTermsScreen(
                 Checkbox(
                     checked = state.termsAccepted,
                     onCheckedChange = { viewModel.updateTermsAccepted(it) },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Indigo,
-                        uncheckedColor = TextSecondary,
-                        checkmarkColor = White,
-                    ),
+                    colors =
+                        CheckboxDefaults.colors(
+                            checkedColor = Indigo,
+                            uncheckedColor = TextSecondary,
+                            checkmarkColor = White,
+                        ),
                 )
                 Text(
                     "I have read and agree to the Terms of Service and Privacy Policy.",
@@ -141,11 +149,12 @@ fun OnboardingTermsScreen(
                 enabled = state.termsAccepted,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Indigo,
-                    disabledContainerColor = Color(0xFF2A2A2A),
-                    disabledContentColor = TextSecondary,
-                ),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Indigo,
+                        disabledContainerColor = Color(0xFF2A2A2A),
+                        disabledContentColor = TextSecondary,
+                    ),
             ) {
                 Text("Get started", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }

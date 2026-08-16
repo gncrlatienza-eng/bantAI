@@ -38,8 +38,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,11 +54,12 @@ import com.bantai.ui.theme.White
 
 @Composable
 fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        onNext()
-    }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions(),
+        ) {
+            onNext()
+        }
 
     var visible by remember { mutableStateOf(false) }
     val slideAlpha by animateFloatAsState(
@@ -74,23 +75,25 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
     LaunchedEffect(Unit) { visible = true }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp)
-            .graphicsLayer {
-                alpha = slideAlpha
-                translationY = slideOffsetY
-            },
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .graphicsLayer {
+                    alpha = slideAlpha
+                    translationY = slideOffsetY
+                },
     ) {
         Spacer(Modifier.height(40.dp))
 
         Box(
-            modifier = Modifier
-                .size(48.dp)
-                .background(DarkIndigo, RoundedCornerShape(12.dp)),
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .background(DarkIndigo, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Filled.Sms, contentDescription = null, tint = Indigo, modifier = Modifier.size(28.dp))
@@ -129,7 +132,7 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
         Button(
             onClick = {
                 permissionLauncher.launch(
-                    arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS)
+                    arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS),
                 )
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -150,12 +153,17 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
 }
 
 @Composable
-private fun PermissionCheckRow(icon: ImageVector, title: String, subtitle: String) {
+private fun PermissionCheckRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(12.dp))
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(12.dp))
+                .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

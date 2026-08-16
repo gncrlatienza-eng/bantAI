@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from 'react-router-dom';
 
 export function Footer() {
   return (
@@ -14,7 +14,9 @@ export function Footer() {
           <Link to="/research">Research</Link>
           <Link to="/request-access">Licensing</Link>
         </nav>
-        <small className="site-footer-copy">© 2026 BantAI Research Group — DLSU Lipa CITE</small>
+        <small className="site-footer-copy">
+          © 2026 BantAI Research Group — DLSU Lipa CITE
+        </small>
       </div>
     </footer>
   );

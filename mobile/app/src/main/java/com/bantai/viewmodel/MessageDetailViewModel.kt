@@ -19,8 +19,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class MessageDetailViewModel(application: Application) : AndroidViewModel(application) {
-
+class MessageDetailViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val smsRepository = SmsRepository(application)
     private val deletedMessagesStore = DeletedMessagesStore(application)
     private val draftsStore = DraftsStore(application)
@@ -48,15 +49,18 @@ class MessageDetailViewModel(application: Application) : AndroidViewModel(applic
 
     // The SMS provider gives no push signal on its own — without this, a thread
     // left open would never show a message that arrives while you're looking at it.
-    private val contentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            currentSender?.let { loadConversation(it) }
+    private val contentObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                currentSender?.let { loadConversation(it) }
+            }
         }
-    }
 
     init {
         getApplication<Application>().contentResolver.registerContentObserver(
-            Telephony.Sms.CONTENT_URI, true, contentObserver,
+            Telephony.Sms.CONTENT_URI,
+            true,
+            contentObserver,
         )
     }
 
@@ -64,11 +68,18 @@ class MessageDetailViewModel(application: Application) : AndroidViewModel(applic
         currentSender = sender
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            val deletedIds = deletedMessagesStore.deletedEntries.first().map { it.id }.toSet()
-            _conversation.value = smsRepository.getConversationBySender(sender)
-                .filterNot { it.id in deletedIds }
+            val deletedIds =
+                deletedMessagesStore.deletedEntries
+                    .first()
+                    .map { it.id }
+                    .toSet()
+            _conversation.value =
+                smsRepository
+                    .getConversationBySender(sender)
+                    .filterNot { it.id in deletedIds }
             val senderKey = normalizeSenderKey(sender)
-            _draftBody.value = draftsStore.drafts.first()
+            _draftBody.value = draftsStore.drafts
+                .first()
                 .firstOrNull { normalizeSenderKey(it.address) == senderKey }
                 ?.body ?: ""
             _isLoading.value = false
@@ -111,11 +122,12 @@ class MessageDetailViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun toggleSelected(id: Long) {
-        _selectedIds.value = if (id in _selectedIds.value) {
-            _selectedIds.value - id
-        } else {
-            _selectedIds.value + id
-        }
+        _selectedIds.value =
+            if (id in _selectedIds.value) {
+                _selectedIds.value - id
+            } else {
+                _selectedIds.value + id
+            }
     }
 
     fun selectAll() {

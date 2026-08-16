@@ -44,6 +44,24 @@ See the per-folder READMEs and `docs/` for details on each piece.
 - **Backend:** NestJS, Prisma, PostgreSQL, JWT (phone-OTP auth)
 - **Dashboard:** React, Vite, React Router
 
+## Code Quality & Security
+
+Every stack has its own linter, formatter, and dependency-vulnerability scan. Full detail is in
+each folder's README; quick reference:
+
+| Folder | Lint / format | Security |
+|---|---|---|
+| `backend/` | `npm run lint`, `npm run format` (ESLint + Prettier) | `npm audit` |
+| `web/` | `npm run lint`, `npm run format` (ESLint + Prettier) | `npm audit` |
+| `ai/` | `ruff check .`, `ruff format .` | `pip-audit -r requirements.txt` |
+| `mobile/` | `./gradlew.bat :app:ktlintFormat`, `:app:detekt` | not yet wired up — see `mobile/README.md` |
+
+Each stack started with a deliberately narrow rule set against the existing codebase (get CI
+green first, tighten incrementally) rather than a strict set applied all at once — see the
+per-folder README or the relevant lint config's comments for what's deferred and why.
+
+No CI workflow enforces any of this automatically yet — that's the next step.
+
 ## Branching Strategy
 
 - `main` — stable production

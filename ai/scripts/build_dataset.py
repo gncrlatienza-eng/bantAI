@@ -1024,7 +1024,7 @@ def main():
                                         100 * conf.get(k, 0) / total))
     print("-" * 72)
     print("Label x language:")
-    print("  %-6s" % "" + "".join("%12s" % l for l in
+    print("  %-6s" % "" + "".join("%12s" % lang for lang in
                                   ("english", "tagalog", "taglish", "undet.")) +
           "%12s" % "TOTAL")
     for lab in ("Ham", "Spam", "Scam"):

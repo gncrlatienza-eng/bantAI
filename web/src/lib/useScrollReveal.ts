@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 /**
  * Observes every [data-reveal] element currently in the DOM and adds
@@ -8,19 +8,21 @@ import { useEffect } from "react";
  */
 export function useScrollReveal() {
   useEffect(() => {
-    const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+    const nodes = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-reveal]'),
+    );
     if (nodes.length === 0) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            entry.target.classList.add("reveal-visible");
+            entry.target.classList.add('reveal-visible');
             observer.unobserve(entry.target);
           }
         }
       },
-      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" },
+      { threshold: 0.15, rootMargin: '0px 0px -60px 0px' },
     );
 
     nodes.forEach((node) => observer.observe(node));

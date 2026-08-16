@@ -22,19 +22,22 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun SmsPermissionWrapper(onPermissionGranted: @Composable () -> Unit) {
-    val permissionState = rememberMultiplePermissionsState(
-        permissions = listOf(
-            Manifest.permission.READ_SMS,
-            Manifest.permission.RECEIVE_SMS,
+    val permissionState =
+        rememberMultiplePermissionsState(
+            permissions =
+                listOf(
+                    Manifest.permission.READ_SMS,
+                    Manifest.permission.RECEIVE_SMS,
+                ),
         )
-    )
 
     when {
         permissionState.allPermissionsGranted -> onPermissionGranted()
 
-        permissionState.shouldShowRationale -> PermissionRationaleScreen(
-            onRequest = { permissionState.launchMultiplePermissionRequest() }
-        )
+        permissionState.shouldShowRationale ->
+            PermissionRationaleScreen(
+                onRequest = { permissionState.launchMultiplePermissionRequest() },
+            )
 
         else -> {
             LaunchedEffect(Unit) { permissionState.launchMultiplePermissionRequest() }
@@ -46,9 +49,10 @@ fun SmsPermissionWrapper(onPermissionGranted: @Composable () -> Unit) {
 @Composable
 private fun PermissionRationaleScreen(onRequest: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -59,8 +63,9 @@ private fun PermissionRationaleScreen(onRequest: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "BantAI needs access to your SMS messages to detect smishing threats. " +
-                "Messages are analyzed locally on your device and never uploaded.",
+            text =
+                "BantAI needs access to your SMS messages to detect smishing threats. " +
+                    "Messages are analyzed locally on your device and never uploaded.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
@@ -72,9 +77,10 @@ private fun PermissionRationaleScreen(onRequest: () -> Unit) {
 @Composable
 private fun PermissionDeniedScreen() {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -85,8 +91,9 @@ private fun PermissionDeniedScreen() {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "SMS access is required for BantAI to function. " +
-                "Please enable it in your device Settings > Apps > BantAI > Permissions.",
+            text =
+                "SMS access is required for BantAI to function. " +
+                    "Please enable it in your device Settings > Apps > BantAI > Permissions.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )

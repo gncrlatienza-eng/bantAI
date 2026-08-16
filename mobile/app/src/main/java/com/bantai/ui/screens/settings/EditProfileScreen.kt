@@ -34,30 +34,37 @@ fun EditProfileScreen(
     var firstNameError by remember { mutableStateOf("") }
     var showSaved by remember { mutableStateOf(false) }
 
-    val parsedColor = remember(avatarColor) {
-        try { Color(android.graphics.Color.parseColor(avatarColor)) }
-        catch (e: Exception) { Color(0xFFFF6B35) }
-    }
+    val parsedColor =
+        remember(avatarColor) {
+            try {
+                Color(android.graphics.Color.parseColor(avatarColor))
+            } catch (e: Exception) {
+                Color(0xFFFF6B35)
+            }
+        }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .padding(horizontal = 20.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .padding(horizontal = 20.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 24.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.Default.ArrowBack,
                 contentDescription = "Back",
                 tint = White,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { navController.popBackStack() },
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .clickable { navController.popBackStack() },
             )
             Spacer(Modifier.width(16.dp))
             Text("Edit Profile", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -66,10 +73,11 @@ fun EditProfileScreen(
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(parsedColor, CircleShape)
-                        .clickable { viewModel.cycleAvatarColor() },
+                    modifier =
+                        Modifier
+                            .size(80.dp)
+                            .background(parsedColor, CircleShape)
+                            .clickable { viewModel.cycleAvatarColor() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(viewModel.getInitials(), color = White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
@@ -95,14 +103,15 @@ fun EditProfileScreen(
             singleLine = true,
             isError = firstNameError.isNotEmpty(),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF5B4FE8),
-                unfocusedBorderColor = Color(0xFF2A2A2A),
-                focusedTextColor = White,
-                unfocusedTextColor = White,
-                errorBorderColor = Color(0xFFFF3B30),
-                cursorColor = Color(0xFF5B4FE8),
-            ),
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF5B4FE8),
+                    unfocusedBorderColor = Color(0xFF2A2A2A),
+                    focusedTextColor = White,
+                    unfocusedTextColor = White,
+                    errorBorderColor = Color(0xFFFF3B30),
+                    cursorColor = Color(0xFF5B4FE8),
+                ),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -126,13 +135,14 @@ fun EditProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF5B4FE8),
-                unfocusedBorderColor = Color(0xFF2A2A2A),
-                focusedTextColor = White,
-                unfocusedTextColor = White,
-                cursorColor = Color(0xFF5B4FE8),
-            ),
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF5B4FE8),
+                    unfocusedBorderColor = Color(0xFF2A2A2A),
+                    focusedTextColor = White,
+                    unfocusedTextColor = White,
+                    cursorColor = Color(0xFF5B4FE8),
+                ),
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text("${lastName.length}/30", color = TextSecondary, fontSize = 11.sp)
@@ -145,9 +155,10 @@ fun EditProfileScreen(
                 "Profile saved!",
                 color = Color(0xFF34C759),
                 fontSize = 13.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                 textAlign = TextAlign.Center,
             )
         }
@@ -167,10 +178,11 @@ fun EditProfileScreen(
                     showSaved = true
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-                .height(52.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+                    .height(52.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B4FE8)),
             shape = RoundedCornerShape(12.dp),
         ) {

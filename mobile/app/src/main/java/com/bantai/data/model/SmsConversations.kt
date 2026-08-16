@@ -21,5 +21,4 @@ fun List<SmsMessage>.groupedBySenderLatest(): List<SmsMessage> {
 // Strips whitespace, hyphens, and parentheses so "+63 917-123-4567" and
 // "+639171234567" collapse into the same conversation, matching the
 // normalization SmsReceiver already applies when storing incoming messages.
-fun normalizeSenderKey(address: String): String =
-    address.replace(Regex("[\\s\\-()]"), "")
+fun normalizeSenderKey(address: String): String = address.replace(Regex("[\\s\\-()]"), "")

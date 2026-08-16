@@ -12,14 +12,14 @@ import glob
 import os
 from typing import List, Tuple
 
+import pandas as pd
+
 from preprocessing import preprocess
 
 from .config import LABEL2ID, TrainingConfig
 
 
-def _read_files(path: str) -> "pd.DataFrame":
-    import pandas as pd
-
+def _read_files(path: str) -> pd.DataFrame:
     files = sorted(
         glob.glob(os.path.join(path, "*.csv"))
         + glob.glob(os.path.join(path, "*.jsonl"))

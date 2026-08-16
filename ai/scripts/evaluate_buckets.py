@@ -18,9 +18,9 @@ sys.path.insert(0, ".")
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from service.classifier import route
 from training.config import TrainingConfig
 from training.dataset import load_split
-from service.classifier import route
 
 cfg = TrainingConfig()
 train_texts, val_texts, train_labels, val_labels = load_split(cfg)
@@ -46,7 +46,7 @@ with torch.no_grad():
             all_scores.append(scores)
             buckets.append(route(scores))
 
-true_label_names = [id2label[l] for l in val_labels]
+true_label_names = [id2label[lab] for lab in val_labels]
 
 # Expected bucket per true label under a PERFECT router.
 EXPECTED = {"Ham": "safe", "Spam": "spam", "Scam": "blocked"}

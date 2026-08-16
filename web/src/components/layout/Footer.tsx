@@ -16,20 +16,29 @@ export const Footer: React.FC = () => {
             </div>
           </div>
           <p style={{ maxWidth: 400, color: 'var(--text-muted)' }}>
-            Empowering Philippine telecommunications providers, cybersecurity agencies, and law
-            enforcement with real-time smishing campaign intelligence.
+            Empowering Philippine telecommunications providers, cybersecurity
+            agencies, and law enforcement with real-time smishing campaign
+            intelligence.
           </p>
         </div>
 
         <div className="footer-links">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <strong style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>Platform</strong>
+            <strong
+              style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}
+            >
+              Platform
+            </strong>
             <Link to={ROUTES.HOW_IT_WORKS}>How It Works</Link>
             <Link to={ROUTES.RESEARCH}>Research and Methodology</Link>
             <Link to={ROUTES.LOGIN}>Client Intelligence Portal</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <strong style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>Organization</strong>
+            <strong
+              style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}
+            >
+              Organization
+            </strong>
             <Link to={ROUTES.ABOUT}>About BantAI</Link>
             <Link to={ROUTES.LOGIN}>Client Portal</Link>
             <Link to={ROUTES.ADMIN_LOGIN}>Admin Access</Link>
@@ -50,7 +59,10 @@ export const Footer: React.FC = () => {
           fontSize: '0.75rem',
         }}
       >
-        <span>&copy; {new Date().getFullYear()} BantAI Research Group. All rights reserved.</span>
+        <span>
+          &copy; {new Date().getFullYear()} BantAI Research Group. All rights
+          reserved.
+        </span>
         <span>Philippine Smishing Threat Intelligence Thesis Project</span>
       </div>
     </footer>

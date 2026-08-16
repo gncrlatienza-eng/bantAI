@@ -43,7 +43,9 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         justifyContent: 'center',
         fontWeight: 800,
         fontSize: `${size * 0.42}px`,
-        boxShadow: isClient ? '0 0 16px rgba(37, 99, 235, 0.35)' : '0 0 16px rgba(217, 119, 6, 0.35)',
+        boxShadow: isClient
+          ? '0 0 16px rgba(37, 99, 235, 0.35)'
+          : '0 0 16px rgba(217, 119, 6, 0.35)',
         border: '2px solid rgba(255, 255, 255, 0.25)',
         overflow: 'hidden',
         lineHeight: 1,
@@ -53,7 +55,13 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       }}
     >
       {activeType === 'preset' && (
-        <span style={{ fontSize: `${size * 0.52}px`, display: 'inline-block', transform: 'translateY(-1px)' }}>
+        <span
+          style={{
+            fontSize: `${size * 0.52}px`,
+            display: 'inline-block',
+            transform: 'translateY(-1px)',
+          }}
+        >
           {avatar?.presetIcon || '👤'}
         </span>
       )}

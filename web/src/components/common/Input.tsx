@@ -57,7 +57,11 @@ export const Input: React.FC<InputProps> = ({
         )}
       </div>
       {error && <span className="error-text">{error}</span>}
-      {helpText && !error && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{helpText}</span>}
+      {helpText && !error && (
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          {helpText}
+        </span>
+      )}
     </div>
   );
 };

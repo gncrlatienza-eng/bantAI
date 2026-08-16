@@ -14,8 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class BlockedNumbersViewModel(application: Application) : AndroidViewModel(application) {
-
+class BlockedNumbersViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _blockedNumbers = MutableStateFlow<List<BlockHelper.BlockedEntry>>(emptyList())
@@ -49,7 +50,10 @@ class BlockedNumbersViewModel(application: Application) : AndroidViewModel(appli
     // never calls the backend at all) the backend doesn't know about yet.
     // Best-effort both ways — a sync failure here must never block the screen
     // from showing whatever the device already has.
-    private suspend fun reconcileWithBackend(context: Context, token: String) {
+    private suspend fun reconcileWithBackend(
+        context: Context,
+        token: String,
+    ) {
         val backendEntries = BlockedNumbersApi.list(token).getOrNull() ?: return
         val deviceNumbers = BlockHelper.getBlockedNumbers(context).map { it.number }.toSet()
 

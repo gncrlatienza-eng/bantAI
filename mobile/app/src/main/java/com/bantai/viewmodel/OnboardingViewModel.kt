@@ -18,11 +18,12 @@ data class OnboardingUiState(
     val termsAccepted: Boolean = false,
     val otpCode: String = "",
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )
 
-class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
-
+class OnboardingViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _userData = MutableStateFlow(UserData())
@@ -77,8 +78,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         _lastNameErrorMessage.value = ""
     }
 
-    fun isValidName(name: String): Boolean =
-        name.trim().all { it.isLetter() || it.isWhitespace() }
+    fun isValidName(name: String): Boolean = name.trim().all { it.isLetter() || it.isWhitespace() }
 
     fun cycleAvatarColor() {
         val colors = listOf("#FF6B35", "#5B4FE8", "#00C896", "#0A84FF", "#E91E8C")
@@ -87,8 +87,16 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun getInitials(): String {
-        val first = _firstName.value.trim().firstOrNull()?.uppercase() ?: ""
-        val last = _lastName.value.trim().firstOrNull()?.uppercase() ?: ""
+        val first =
+            _firstName.value
+                .trim()
+                .firstOrNull()
+                ?.uppercase() ?: ""
+        val last =
+            _lastName.value
+                .trim()
+                .firstOrNull()
+                ?.uppercase() ?: ""
         return "$first$last".ifEmpty { "?" }
     }
 
@@ -115,7 +123,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             userPreferences.saveProfile(
                 firstName = trimmedFirst,
                 lastName = trimmedLast,
-                avatarColor = _avatarColor.value
+                avatarColor = _avatarColor.value,
             )
             // Sync the profile to the backend so the User row isn't left with null names.
             val token = userPreferences.userData.first().authToken
@@ -124,12 +132,12 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 onSuccess()
                 return@launch
             }
-            AuthApi.updateProfile(token, trimmedFirst, trimmedLast)
+            AuthApi
+                .updateProfile(token, trimmedFirst, trimmedLast)
                 .onSuccess {
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not sync your profile")
                     }
@@ -148,7 +156,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         _state.update { it.copy(otpCode = code, errorMessage = null) }
     }
 
-    fun requestOtp(rawPhone: String, onSuccess: () -> Unit) {
+    fun requestOtp(
+        rawPhone: String,
+        onSuccess: () -> Unit,
+    ) {
         val phone = rawPhone.replace(" ", "")
         if (phone.isEmpty()) {
             _state.update { it.copy(errorMessage = "Enter your phone number") }
@@ -156,12 +167,12 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         }
         _state.update { it.copy(phoneNumber = phone, isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            AuthApi.requestOtp(phone)
+            AuthApi
+                .requestOtp(phone)
                 .onSuccess {
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
                     }
@@ -183,13 +194,13 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         }
         _state.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            AuthApi.verifyOtp(current.phoneNumber, current.otpCode)
+            AuthApi
+                .verifyOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
                     userPreferences.saveAuth(auth.accessToken, current.phoneNumber)
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
                     }

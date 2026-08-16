@@ -18,9 +18,7 @@ describe('BlockedNumbersController', () => {
       providers: [{ provide: BlockedNumbersService, useValue: mockService }],
     }).compile();
 
-    controller = module.get<BlockedNumbersController>(
-      BlockedNumbersController,
-    );
+    controller = module.get<BlockedNumbersController>(BlockedNumbersController);
     jest.clearAllMocks();
   });
 

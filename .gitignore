@@ -106,6 +106,12 @@ desktop.ini
 *.swp
 *.swo
 
+# Stray tsc-compiled output of vite.config.ts, accidentally committed alongside
+# the real source -- Vite reads the .ts directly and never needs these; having
+# both tracked risks the stale .js silently shadowing edits to the .ts.
+web/vite.config.js
+web/vite.config.d.ts
+
 # --- Manuscript ----------------------------------------------------------------
 # 15 MB binary; git stores each version whole. Shared outside the
   repo.

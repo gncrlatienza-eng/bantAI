@@ -3,10 +3,16 @@ import { useLocation } from 'react-router-dom';
 import { ShieldLogo } from '../../components/common/ShieldLogo';
 import { TwoFactorForm } from '../../components/forms/TwoFactorForm';
 
+interface TwoFactorLocationState {
+  admin?: boolean;
+  email?: string;
+}
+
 export const TwoFactorPage: React.FC = () => {
   const location = useLocation();
-  const admin = Boolean(location.state?.admin);
-  const email = location.state?.email;
+  const state = location.state as TwoFactorLocationState | null;
+  const admin = Boolean(state?.admin);
+  const email = state?.email;
 
   return (
     <div className="auth-shell">

@@ -16,7 +16,6 @@ import com.bantai.BuildConfig
  * res/xml/network_security_config.xml before pointing this at a LAN address.
  */
 object ApiConfig {
-
     val BASE_URL: String = BuildConfig.BACKEND_BASE_URL
 
     /** Interactive calls made from a screen, where the user is waiting. */

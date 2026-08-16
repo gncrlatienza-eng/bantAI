@@ -14,7 +14,6 @@ embeddings rather than a trained model:
 """
 
 import numpy as np
-import pytest
 
 from scripts.cluster_campaigns import (
     DEFAULT_MIN_CLUSTER_SIZE,

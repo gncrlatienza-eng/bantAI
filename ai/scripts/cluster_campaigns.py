@@ -203,7 +203,7 @@ def main() -> None:
         mask = np.ones(len(labels), dtype=bool)
     else:
         wanted = {s.strip() for s in args.labels.split(",")}
-        mask = np.array([l in wanted for l in labels])
+        mask = np.array([lab in wanted for lab in labels])
 
     emb = embeddings[mask]
     sub_labels = labels[mask]

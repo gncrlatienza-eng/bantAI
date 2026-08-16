@@ -266,7 +266,7 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
         else:
             with open(file_path, encoding="utf-8") as handle:
                 if file_path.endswith(".jsonl"):
-                    records = [json.loads(l) for l in handle if l.strip()]
+                    records = [json.loads(line) for line in handle if line.strip()]
                 else:
                     records = json.load(handle)
             for row in records:

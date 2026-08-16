@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -31,7 +33,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -49,6 +51,23 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+ktlint {
+    // Android-specific import-order/idiom handling (differs from plain
+    // Kotlin) -- without this ktlint flags conventional Android code style.
+    android.set(true)
+    version.set("1.5.0")
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("$projectDir/detekt.yml"))
+    // Baseline the first pass rather than fixing 80+ pre-existing files blind:
+    // everything already in the codebase is grandfathered in here, so only
+    // *new* issues in future PRs actually fail the build. Same "start
+    // lenient, tighten later" approach used for ai/, backend/, and web/.
+    baseline = file("$projectDir/detekt-baseline.xml")
 }
 
 dependencies {

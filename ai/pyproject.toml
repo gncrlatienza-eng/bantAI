@@ -5,5 +5,21 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 88
+# 88 (Black's default) was too tight for this codebase's long narrative
+# docstrings/comments -- 120 matches the convention already used in the
+# other services (see backend's .prettierrc / bantai's sibling projects).
+line-length = 120
 target-version = "py311"
+# Colab notebooks legitimately run %cd/sys.path setup before imports (Colab's
+# own convention for pointing at the cloned repo) -- not a style violation.
+extend-exclude = ["colab"]
+
+[tool.ruff.lint]
+# Deliberately narrow for this first pass: E/W/F (real correctness + style
+# issues, ruff's own baseline) plus I (import sorting). Bugbear (B) and
+# pyupgrade (UP) both flagged 300+ pre-existing findings across this codebase
+# when trialed -- almost entirely cosmetic (old-style `Optional[X]`/`Dict`
+# typing, %-string formatting) rather than bugs, and dumping that many
+# auto-fixed lines into one commit right after Sprint 4 closed would bury the
+# real diff. Left as a deliberate, separate follow-up rather than skipped.
+select = ["E", "W", "F", "I"]

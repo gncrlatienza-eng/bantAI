@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         navRef.current.scrollTop = savedPos;
       } else {
         // Fallback: scroll active item into view if no saved position exists
-        const activeLink = navRef.current.querySelector('.sidebar-link.active') as HTMLElement | null;
+        const activeLink = navRef.current.querySelector('.sidebar-link.active');
         if (activeLink) {
           activeLink.scrollIntoView({ block: 'nearest' });
         }
@@ -93,7 +93,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       {/* Brand Header */}
-      <div className="sidebar-brand" style={{ justifyContent: collapsed ? 'center' : 'space-between' }}>
+      <div
+        className="sidebar-brand"
+        style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
+      >
         <Link
           to={role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW}
           className="brand-lockup"
@@ -103,7 +106,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!collapsed && (
             <div className="brand-text">
               <strong>BantAI</strong>
-              <small>{role === 'admin' ? 'System Administration' : 'Client Intelligence Portal'}</small>
+              <small>
+                {role === 'admin'
+                  ? 'System Administration'
+                  : 'Client Intelligence Portal'}
+              </small>
             </div>
           )}
         </Link>
@@ -130,7 +137,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav ref={navRef} className="sidebar-nav" onScroll={handleScroll}>
         {groups.map((group, gIdx) => (
           <div key={group.title || gIdx} className="sidebar-section">
-            {group.title && !collapsed && <span className="sidebar-title">{group.title}</span>}
+            {group.title && !collapsed && (
+              <span className="sidebar-title">{group.title}</span>
+            )}
             {group.items.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -159,7 +168,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className="sidebar-foot"
         onClick={() => {
           saveScrollPos();
-          navigate(role === 'admin' ? ROUTES.ADMIN.SETTINGS : ROUTES.CLIENT.SETTINGS);
+          navigate(
+            role === 'admin' ? ROUTES.ADMIN.SETTINGS : ROUTES.CLIENT.SETTINGS,
+          );
         }}
         style={{
           cursor: 'pointer',
@@ -170,18 +181,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title="View Profile & Contact Settings"
       >
         {!collapsed && (
-          <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase' }}>
+          <small
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+            }}
+          >
             {org}
           </small>
         )}
-        <div className="account-row" style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          <UserAvatar avatar={currentAvatar} role={role} size={36} fallbackInitials={userInitials} />
+        <div
+          className="account-row"
+          style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
+        >
+          <UserAvatar
+            avatar={currentAvatar}
+            role={role}
+            size={36}
+            fallbackInitials={userInitials}
+          />
           {!collapsed && (
             <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ display: 'block', fontSize: '0.8125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-primary)' }}>
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '0.8125rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: 'var(--text-primary)',
+                }}
+              >
                 {userName}
               </strong>
-              <small style={{ display: 'block', color: 'var(--accent-light)', fontSize: '0.6875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <small
+                style={{
+                  display: 'block',
+                  color: 'var(--accent-light)',
+                  fontSize: '0.6875rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {userMeta}
               </small>
             </div>

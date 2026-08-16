@@ -12,7 +12,6 @@ import java.net.URL
  * GET /api/campaigns/inactive).
  */
 object CampaignsApi {
-
     private val BASE_URL get() = ApiConfig.BASE_URL
 
     data class CampaignSummary(
@@ -46,30 +45,33 @@ object CampaignsApi {
         val messages: List<CampaignMessagePreview>,
     )
 
-    class ApiException(message: String) : Exception(message)
+    class ApiException(
+        message: String,
+    ) : Exception(message)
 
-    suspend fun list(token: String): Result<List<CampaignSummary>> =
-        get("/campaigns", token).mapCatching { body -> parseCampaignList(JSONArray(body)) }
+    suspend fun list(token: String): Result<List<CampaignSummary>> = get("/campaigns", token).mapCatching { body -> parseCampaignList(JSONArray(body)) }
 
-    suspend fun listInactive(token: String): Result<List<CampaignSummary>> =
-        get("/campaigns/inactive", token).mapCatching { body -> parseCampaignList(JSONArray(body)) }
+    suspend fun listInactive(token: String): Result<List<CampaignSummary>> = get("/campaigns/inactive", token).mapCatching { body -> parseCampaignList(JSONArray(body)) }
 
-    suspend fun getById(token: String, id: String): Result<CampaignDetail> =
+    suspend fun getById(
+        token: String,
+        id: String,
+    ): Result<CampaignDetail> =
         get("/campaigns/${java.net.URLEncoder.encode(id, "UTF-8")}", token)
             .mapCatching { body -> parseCampaignDetail(JSONObject(body)) }
 
-    private fun parseCampaignList(json: JSONArray): List<CampaignSummary> =
-        List(json.length()) { i -> parseCampaignSummary(json.getJSONObject(i)) }
+    private fun parseCampaignList(json: JSONArray): List<CampaignSummary> = List(json.length()) { i -> parseCampaignSummary(json.getJSONObject(i)) }
 
-    private fun parseCampaignSummary(json: JSONObject): CampaignSummary = CampaignSummary(
-        id = json.getString("id"),
-        label = json.optString("label").takeIf { it.isNotEmpty() },
-        urlDomains = json.optJSONArray("urlDomains").toStringList(),
-        isActive = json.optBoolean("isActive", true),
-        messageCount = json.optInt("messageCount", 0),
-        createdAt = json.optString("createdAt"),
-        updatedAt = json.optString("updatedAt"),
-    )
+    private fun parseCampaignSummary(json: JSONObject): CampaignSummary =
+        CampaignSummary(
+            id = json.getString("id"),
+            label = json.optString("label").takeIf { it.isNotEmpty() },
+            urlDomains = json.optJSONArray("urlDomains").toStringList(),
+            isActive = json.optBoolean("isActive", true),
+            messageCount = json.optInt("messageCount", 0),
+            createdAt = json.optString("createdAt"),
+            updatedAt = json.optString("updatedAt"),
+        )
 
     private fun parseCampaignDetail(json: JSONObject): CampaignDetail {
         val messages = json.optJSONArray("messages")
@@ -98,10 +100,12 @@ object CampaignsApi {
         )
     }
 
-    private fun JSONArray?.toStringList(): List<String> =
-        List(this?.length() ?: 0) { i -> this!!.getString(i) }
+    private fun JSONArray?.toStringList(): List<String> = List(this?.length() ?: 0) { i -> this!!.getString(i) }
 
-    private suspend fun get(path: String, token: String): Result<String> =
+    private suspend fun get(
+        path: String,
+        token: String,
+    ): Result<String> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val connection = URL(BASE_URL + path).openConnection() as HttpURLConnection
@@ -112,9 +116,11 @@ object CampaignsApi {
                     connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
 
                     val status = connection.responseCode
-                    val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                        ?.bufferedReader()?.use { it.readText() }
-                        .orEmpty()
+                    val text =
+                        (if (status in 200..299) connection.inputStream else connection.errorStream)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
+                            .orEmpty()
                     if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
                     text
                 } finally {
@@ -123,12 +129,16 @@ object CampaignsApi {
             }
         }
 
-    private fun parseErrorMessage(body: String, status: Int): String = try {
-        when (val message = JSONObject(body).get("message")) {
-            is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
-            else -> message.toString()
+    private fun parseErrorMessage(
+        body: String,
+        status: Int,
+    ): String =
+        try {
+            when (val message = JSONObject(body).get("message")) {
+                is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
+                else -> message.toString()
+            }
+        } catch (_: Exception) {
+            "Request failed (HTTP $status)"
         }
-    } catch (_: Exception) {
-        "Request failed (HTTP $status)"
-    }
 }

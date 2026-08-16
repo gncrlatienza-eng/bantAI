@@ -21,19 +21,23 @@ private val Context.classificationsDataStore by preferencesDataStore(name = "ban
  * can silently disagree with the real decision that drove blocking/notifications.
  * The Android SMS provider has no custom column to store this, hence app-local.
  */
-class ClassificationStore(private val context: Context) {
-
+class ClassificationStore(
+    private val context: Context,
+) {
     private object Keys {
         val ENTRIES = stringPreferencesKey("entries")
     }
 
-    val classifications: Flow<Map<Long, String>> = context.classificationsDataStore.data
-        .catch { exception ->
-            if (exception is IOException) emit(emptyPreferences()) else throw exception
-        }
-        .map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "{}") }
+    val classifications: Flow<Map<Long, String>> =
+        context.classificationsDataStore.data
+            .catch { exception ->
+                if (exception is IOException) emit(emptyPreferences()) else throw exception
+            }.map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "{}") }
 
-    suspend fun setClassification(messageId: Long, classification: String) {
+    suspend fun setClassification(
+        messageId: Long,
+        classification: String,
+    ) {
         context.classificationsDataStore.edit { prefs ->
             val current = parseEntries(prefs[Keys.ENTRIES] ?: "{}").toMutableMap()
             current[messageId] = classification
@@ -41,12 +45,13 @@ class ClassificationStore(private val context: Context) {
         }
     }
 
-    private fun parseEntries(json: String): Map<Long, String> = try {
-        val obj = JSONObject(json)
-        obj.keys().asSequence().associate { key -> key.toLong() to obj.getString(key) }
-    } catch (_: Exception) {
-        emptyMap()
-    }
+    private fun parseEntries(json: String): Map<Long, String> =
+        try {
+            val obj = JSONObject(json)
+            obj.keys().asSequence().associate { key -> key.toLong() to obj.getString(key) }
+        } catch (_: Exception) {
+            emptyMap()
+        }
 
     private fun serializeEntries(entries: Map<Long, String>): String {
         val obj = JSONObject()

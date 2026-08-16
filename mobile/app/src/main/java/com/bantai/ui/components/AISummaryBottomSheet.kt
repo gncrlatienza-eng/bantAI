@@ -64,11 +64,12 @@ fun AISummaryBottomSheet(
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
@@ -95,9 +96,10 @@ fun AISummaryBottomSheet(
             ) {
                 val verdictColor = if (isSuspicious) Suspicious else Safe
                 Box(
-                    modifier = Modifier
-                        .background(verdictColor.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier =
+                        Modifier
+                            .background(verdictColor.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
                         if (isSuspicious) "Suspicious" else "Looks safe",
@@ -132,12 +134,13 @@ fun AISummaryBottomSheet(
             }
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF16163A), RoundedCornerShape(16.dp))
-                    .border(1.dp, Indigo, RoundedCornerShape(16.dp))
-                    .clickable(onClick = onViewFullAnalysis)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF16163A), RoundedCornerShape(16.dp))
+                        .border(1.dp, Indigo, RoundedCornerShape(16.dp))
+                        .clickable(onClick = onViewFullAnalysis)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

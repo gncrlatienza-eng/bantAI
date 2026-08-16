@@ -21,7 +21,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-enum class MessageFilter(val label: String) {
+enum class MessageFilter(
+    val label: String,
+) {
     MESSAGES("Messages"),
     SPAM("Spam"),
     BLOCKED("Blocked"),
@@ -31,25 +33,26 @@ enum class MessageFilter(val label: String) {
     DRAFTS("Drafts"),
 }
 
-class MessagesViewModel(application: Application) : AndroidViewModel(application) {
-
+class MessagesViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val smsRepository = SmsRepository(application)
     private val userPreferences = UserPreferences(application)
     private val deletedMessagesStore = DeletedMessagesStore(application)
     private val draftsStore = DraftsStore(application)
 
-    private val _allMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
+    private val allMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
 
     // All currently soft-deleted messages, flat/ungrouped — the source of truth
     // used both to build the grouped Recently Deleted view and, in
     // restoreSelected()/permanentlyDeleteSelected(), to resolve a selected
     // conversation row back out to every deleted id for that sender.
-    private val _recentlyDeleted = MutableStateFlow<List<SmsMessage>>(emptyList())
+    private val recentlyDeleted = MutableStateFlow<List<SmsMessage>>(emptyList())
 
     // Synthesized from DraftsStore (drafts have no real SMS provider row, so no
     // real id) — id is a stable hash of the recipient address, which is safe since
     // drafts and real messages are never shown in the same filter's visible list.
-    private val _draftRows = MutableStateFlow<List<SmsMessage>>(emptyList())
+    private val draftRows = MutableStateFlow<List<SmsMessage>>(emptyList())
 
     private val _inboxMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
     val inboxMessages: StateFlow<List<SmsMessage>> = _inboxMessages.asStateFlow()
@@ -91,44 +94,48 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
     private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
 
-    private var _scanPeriod = "daily"
+    private var scanPeriod = "daily"
 
     // The SMS provider gives no push signal on its own — without this, the thread
     // list would only pick up a new message after leaving and re-entering the screen.
-    private val contentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            loadMessages()
+    private val contentObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                loadMessages()
+            }
         }
-    }
 
     init {
         loadMessages()
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
-                if (_scanPeriod != data.scanPeriod) {
-                    _scanPeriod = data.scanPeriod
+                if (scanPeriod != data.scanPeriod) {
+                    scanPeriod = data.scanPeriod
                     loadMessages()
                 }
             }
         }
         application.contentResolver.registerContentObserver(
-            Telephony.Sms.CONTENT_URI, true, contentObserver,
+            Telephony.Sms.CONTENT_URI,
+            true,
+            contentObserver,
         )
         // DataStore's Flow already emits on every write, so this stays live without
         // needing a ContentObserver-style poke — a saved/cleared draft shows up
         // immediately rather than waiting for the next unrelated SMS-provider change.
         viewModelScope.launch {
             draftsStore.drafts.collect { entries ->
-                _draftRows.value = entries.sortedByDescending { it.updatedAt }.map { entry ->
-                    SmsMessage(
-                        id = entry.address.hashCode().toLong(),
-                        sender = entry.address,
-                        body = entry.body,
-                        timestamp = entry.updatedAt,
-                        classification = "safe",
-                        isRead = true,
-                    )
-                }
+                draftRows.value =
+                    entries.sortedByDescending { it.updatedAt }.map { entry ->
+                        SmsMessage(
+                            id = entry.address.hashCode().toLong(),
+                            sender = entry.address,
+                            body = entry.body,
+                            timestamp = entry.updatedAt,
+                            classification = "safe",
+                            isRead = true,
+                        )
+                    }
                 filterMessages(_searchQuery.value)
             }
         }
@@ -147,12 +154,18 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
     fun loadMessages() {
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            val deletedIds = deletedMessagesStore.deletedEntries.first().map { it.id }.toSet()
+            val deletedIds =
+                deletedMessagesStore.deletedEntries
+                    .first()
+                    .map { it.id }
+                    .toSet()
             // The inbox always shows the full message history like a normal SMS
             // app; the scan period setting only governs scanning/stat windows.
-            _allMessages.value = smsRepository.getInboxMessages(limit = 500)
-                .filterNot { it.id in deletedIds }
-            _recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
+            allMessages.value =
+                smsRepository
+                    .getInboxMessages(limit = 500)
+                    .filterNot { it.id in deletedIds }
+            recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
             filterMessages(_searchQuery.value)
             _isLoading.value = false
         }
@@ -171,22 +184,28 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
 
     private fun isToday(timestamp: Long): Boolean {
         val cal = java.util.Calendar.getInstance()
-        val todayStart = cal.apply {
-            set(java.util.Calendar.HOUR_OF_DAY, 0)
-            set(java.util.Calendar.MINUTE, 0)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }.timeInMillis
+        val todayStart =
+            cal
+                .apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
         return timestamp >= todayStart
     }
 
     private fun filterMessages(query: String) {
-        val all = _allMessages.value
-        val filtered = if (query.isEmpty()) all
-        else all.filter {
-            it.sender.contains(query, ignoreCase = true) ||
-                it.body.contains(query, ignoreCase = true)
-        }
+        val all = allMessages.value
+        val filtered =
+            if (query.isEmpty()) {
+                all
+            } else {
+                all.filter {
+                    it.sender.contains(query, ignoreCase = true) ||
+                        it.body.contains(query, ignoreCase = true)
+                }
+            }
 
         _inboxMessages.value = filtered
 
@@ -200,17 +219,26 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
 
         // Team rule: scams are auto-blocked, promotional goes to Spam,
         // the main Messages list keeps only legitimate/unclassified mail.
-        val legitimate = filtered.filter {
-            it.classification != "suspicious" && it.classification != "blocked"
-        }
-        val deletedFiltered = if (query.isEmpty()) _recentlyDeleted.value
-        else _recentlyDeleted.value.filter {
-            it.sender.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true)
-        }
-        val draftsFiltered = if (query.isEmpty()) _draftRows.value
-        else _draftRows.value.filter {
-            it.sender.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true)
-        }
+        val legitimate =
+            filtered.filter {
+                it.classification != "suspicious" && it.classification != "blocked"
+            }
+        val deletedFiltered =
+            if (query.isEmpty()) {
+                recentlyDeleted.value
+            } else {
+                recentlyDeleted.value.filter {
+                    it.sender.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true)
+                }
+            }
+        val draftsFiltered =
+            if (query.isEmpty()) {
+                draftRows.value
+            } else {
+                draftRows.value.filter {
+                    it.sender.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true)
+                }
+            }
         // Grouped to one row per sender — see groupedBySenderLatest() — so a sender
         // with several messages shows as one conversation, not one row per text.
         // Recently Deleted groups the same way for consistency with every other
@@ -218,15 +246,16 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
         // row back out to every deleted id for that sender, same pattern as delete.
         // Drafts is already one row per recipient (DraftsStore itself is keyed that
         // way), so no grouping needed there.
-        _visibleMessages.value = when (_selectedFilter.value) {
-            MessageFilter.MESSAGES         -> legitimate.groupedBySenderLatest()
-            MessageFilter.SPAM             -> suspicious.groupedBySenderLatest()
-            MessageFilter.BLOCKED          -> filtered.filter { it.classification == "blocked" }.groupedBySenderLatest()
-            MessageFilter.UNKNOWN          -> unknown.groupedBySenderLatest()
-            MessageFilter.RECENTLY_DELETED -> deletedFiltered.groupedBySenderLatest()
-            MessageFilter.UNREAD           -> legitimate.filter { !it.isRead }.groupedBySenderLatest()
-            MessageFilter.DRAFTS           -> draftsFiltered
-        }
+        _visibleMessages.value =
+            when (_selectedFilter.value) {
+                MessageFilter.MESSAGES -> legitimate.groupedBySenderLatest()
+                MessageFilter.SPAM -> suspicious.groupedBySenderLatest()
+                MessageFilter.BLOCKED -> filtered.filter { it.classification == "blocked" }.groupedBySenderLatest()
+                MessageFilter.UNKNOWN -> unknown.groupedBySenderLatest()
+                MessageFilter.RECENTLY_DELETED -> deletedFiltered.groupedBySenderLatest()
+                MessageFilter.UNREAD -> legitimate.filter { !it.isRead }.groupedBySenderLatest()
+                MessageFilter.DRAFTS -> draftsFiltered
+            }
     }
 
     // --- Selection mode -----------------------------------------------------
@@ -237,11 +266,12 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleSelected(id: Long) {
-        _selectedIds.value = if (id in _selectedIds.value) {
-            _selectedIds.value - id
-        } else {
-            _selectedIds.value + id
-        }
+        _selectedIds.value =
+            if (id in _selectedIds.value) {
+                _selectedIds.value - id
+            } else {
+                _selectedIds.value + id
+            }
     }
 
     fun selectAll() {
@@ -279,7 +309,7 @@ class MessagesViewModel(application: Application) : AndroidViewModel(application
         val ids = mutableSetOf<Long>()
         for (row in selectedRows) {
             val key = normalizeSenderKey(row.sender)
-            ids += _recentlyDeleted.value.filter { normalizeSenderKey(it.sender) == key }.map { it.id }
+            ids += recentlyDeleted.value.filter { normalizeSenderKey(it.sender) == key }.map { it.id }
             ids += row.id
         }
         return ids

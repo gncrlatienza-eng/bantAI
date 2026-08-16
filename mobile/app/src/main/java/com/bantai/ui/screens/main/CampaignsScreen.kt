@@ -68,16 +68,18 @@ fun CampaignsScreen(
     val inactiveErrorMessage by viewModel.inactiveErrorMessage.collectAsState()
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(
-            start = 20.dp,
-            top = 16.dp,
-            end = 20.dp,
-            bottom = innerPadding.calculateBottomPadding() + 24.dp,
-        ),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding(),
+        contentPadding =
+            PaddingValues(
+                start = 20.dp,
+                top = 16.dp,
+                end = 20.dp,
+                bottom = innerPadding.calculateBottomPadding() + 24.dp,
+            ),
     ) {
         item {
             Text("Campaigns", color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
@@ -92,10 +94,11 @@ fun CampaignsScreen(
                 isLoading -> LoadingRow()
                 errorMessage != null -> InfoRow(errorMessage ?: "Could not load campaigns", isError = true)
                 activeCampaigns.isEmpty() -> InfoRow("No active campaigns right now")
-                else -> GroupedList(
-                    items = activeCampaigns,
-                    onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
-                )
+                else ->
+                    GroupedList(
+                        items = activeCampaigns,
+                        onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
+                    )
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -106,10 +109,11 @@ fun CampaignsScreen(
                 isLoadingInactive -> LoadingRow()
                 inactiveErrorMessage != null -> InfoRow(inactiveErrorMessage ?: "Could not load past campaigns", isError = true)
                 inactiveCampaigns.isEmpty() -> InfoRow("No past campaigns yet")
-                else -> GroupedList(
-                    items = inactiveCampaigns,
-                    onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
-                )
+                else ->
+                    GroupedList(
+                        items = inactiveCampaigns,
+                        onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
+                    )
             }
         }
     }
@@ -130,11 +134,12 @@ private fun SectionHeader(label: String) {
 @Composable
 private fun LoadingRow() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceElevated)
-            .padding(20.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(SurfaceElevated)
+                .padding(20.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
         CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
@@ -148,11 +153,12 @@ private fun InfoRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.HourglassEmpty,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceElevated)
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(SurfaceElevated)
+                .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -167,10 +173,11 @@ private fun GroupedList(
     onClick: (CampaignsApi.CampaignSummary) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceElevated),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(SurfaceElevated),
     ) {
         items.forEachIndexed { index, campaign ->
             CampaignRow(campaign = campaign, onClick = { onClick(campaign) })
@@ -186,20 +193,25 @@ private fun GroupedList(
 }
 
 @Composable
-private fun CampaignRow(campaign: CampaignsApi.CampaignSummary, onClick: () -> Unit) {
+private fun CampaignRow(
+    campaign: CampaignsApi.CampaignSummary,
+    onClick: () -> Unit,
+) {
     val accent = if (campaign.isActive) Suspicious else TextTertiary
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(accent.copy(alpha = 0.15f), CircleShape),
+            modifier =
+                Modifier
+                    .size(36.dp)
+                    .background(accent.copy(alpha = 0.15f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -222,9 +234,10 @@ private fun CampaignRow(campaign: CampaignsApi.CampaignSummary, onClick: () -> U
             Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .background(if (campaign.isActive) Safe else TextTertiary, CircleShape),
+                    modifier =
+                        Modifier
+                            .size(6.dp)
+                            .background(if (campaign.isActive) Safe else TextTertiary, CircleShape),
                 )
                 Spacer(Modifier.width(5.dp))
                 Text(
@@ -250,8 +263,9 @@ private fun CampaignRow(campaign: CampaignsApi.CampaignSummary, onClick: () -> U
     }
 }
 
-private fun formatShortDate(iso: String): String = try {
-    Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d"))
-} catch (_: Exception) {
-    ""
-}
+private fun formatShortDate(iso: String): String =
+    try {
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d"))
+    } catch (_: Exception) {
+        ""
+    }

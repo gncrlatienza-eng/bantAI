@@ -84,7 +84,7 @@ def main() -> None:
 
     rows = load_rows(args.dataset)
     texts = [t for t, _ in rows]
-    true_labels = [l for _, l in rows]
+    true_labels = [lab for _, lab in rows]
 
     print("=" * 70)
     print(f"HTTP classifier evaluation -- {len(rows)} messages from {args.dataset}")

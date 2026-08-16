@@ -183,10 +183,7 @@ def build_snapshot(
 
     manifest.n_history_after_sampling = len(sampled)
 
-    rows = [
-        SnapshotRow(text=r.text, label=r.label, origin="report")
-        for r in by_masked.values()
-    ] + sampled
+    rows = [SnapshotRow(text=r.text, label=r.label, origin="report") for r in by_masked.values()] + sampled
 
     manifest.n_total = len(rows)
     counts: Dict[str, int] = {}
@@ -226,9 +223,7 @@ def write_snapshot(
         for row in rows:
             writer.writerow([row.text, row.label, row.origin])
 
-    with open(
-        os.path.join(run_dir, MANIFEST_JSON), "w", encoding="utf-8"
-    ) as handle:
+    with open(os.path.join(run_dir, MANIFEST_JSON), "w", encoding="utf-8") as handle:
         handle.write(manifest.to_json())
 
     return data_dir
@@ -253,8 +248,7 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
     files = [f for f in files if not os.path.basename(f).startswith("sample")]
     if not files:
         raise FileNotFoundError(
-            f"No .csv/.json/.jsonl files found in '{path}'. "
-            "Add labeled data before retraining (see ai/README.md)."
+            f"No .csv/.json/.jsonl files found in '{path}'. Add labeled data before retraining (see ai/README.md)."
         )
 
     for file_path in files:
@@ -266,7 +260,7 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
         else:
             with open(file_path, encoding="utf-8") as handle:
                 if file_path.endswith(".jsonl"):
-                    records = [json.loads(l) for l in handle if l.strip()]
+                    records = [json.loads(line) for line in handle if line.strip()]
                 else:
                     records = json.load(handle)
             for row in records:

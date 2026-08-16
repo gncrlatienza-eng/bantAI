@@ -23,7 +23,6 @@ private const val TAG = "SmsIngestPipeline"
  * behavior.
  */
 object SmsIngestPipeline {
-
     /**
      * Convenience entry point for the debug "Simulate incoming SMS" tool. Unlike
      * SmsReceiver's real broadcast path, this has no goAsync() deadline, so it
@@ -31,15 +30,28 @@ object SmsIngestPipeline {
      * slow classification instead of racing it and silently falling back to the
      * local heuristic before the backend (and any real Alert row) responds.
      */
-    suspend fun ingest(context: Context, sender: String, body: String, receivedAt: Long, sentAt: Long) {
+    suspend fun ingest(
+        context: Context,
+        sender: String,
+        body: String,
+        receivedAt: Long,
+        sentAt: Long,
+    ) {
         val repository = SmsRepository(context)
         val isDefaultSmsApp = Telephony.Sms.getDefaultSmsPackage(context) == context.packageName
         val messageId = if (isDefaultSmsApp) storeMessage(context, sender, body, receivedAt, sentAt) else null
-        val token = runCatching {
-            UserPreferences(context).userData.first().authToken
-        }.getOrDefault("")
+        val token =
+            runCatching {
+                UserPreferences(context).userData.first().authToken
+            }.getOrDefault("")
         classifyAndNotify(
-            context, repository, token, sender, body, receivedAt, messageId,
+            context,
+            repository,
+            token,
+            sender,
+            body,
+            receivedAt,
+            messageId,
             timeoutMs = ApiConfig.SIMULATE_TIMEOUT_MS,
         )
     }
@@ -51,16 +63,17 @@ object SmsIngestPipeline {
         receivedAt: Long,
         sentAt: Long,
     ): Long? {
-        val values = ContentValues().apply {
-            put(Telephony.Sms.ADDRESS, sender)
-            put(Telephony.Sms.BODY, body)
-            put(Telephony.Sms.DATE, receivedAt)
-            put(Telephony.Sms.DATE_SENT, sentAt)
-            put(Telephony.Sms.READ, 0)
-            put(Telephony.Sms.SEEN, 0)
-            put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_NONE)
-            put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_INBOX)
-        }
+        val values =
+            ContentValues().apply {
+                put(Telephony.Sms.ADDRESS, sender)
+                put(Telephony.Sms.BODY, body)
+                put(Telephony.Sms.DATE, receivedAt)
+                put(Telephony.Sms.DATE_SENT, sentAt)
+                put(Telephony.Sms.READ, 0)
+                put(Telephony.Sms.SEEN, 0)
+                put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_NONE)
+                put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_INBOX)
+            }
         return try {
             val uri = context.contentResolver.insert(Telephony.Sms.Inbox.CONTENT_URI, values)
             uri?.let { ContentUris.parseId(it) }
@@ -90,14 +103,16 @@ object SmsIngestPipeline {
         // the collision caused by System.currentTimeMillis().toInt() overflow.
         val notifId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
 
-        val result = if (token.isEmpty()) {
-            Log.w(TAG, "No auth token stored — classifying $sender locally")
-            null
-        } else {
-            SmsApi.ingest(token, sender, body, receivedAt, timeoutMs)
-                .onFailure { Log.w(TAG, "Backend ingest failed for $sender — classifying locally", it) }
-                .getOrNull()
-        }
+        val result =
+            if (token.isEmpty()) {
+                Log.w(TAG, "No auth token stored — classifying $sender locally")
+                null
+            } else {
+                SmsApi
+                    .ingest(token, sender, body, receivedAt, timeoutMs)
+                    .onFailure { Log.w(TAG, "Backend ingest failed for $sender — classifying locally", it) }
+                    .getOrNull()
+            }
 
         if (result != null) {
             applyBackendAction(context, result, sender, body, notifId, messageId)
@@ -110,7 +125,11 @@ object SmsIngestPipeline {
     // heuristic on every read — including for messages the real backend model
     // already classified — so what's displayed could silently disagree with the
     // decision that actually drove blocking/notifications for this message.
-    private suspend fun persistClassification(context: Context, messageId: Long?, classification: String) {
+    private suspend fun persistClassification(
+        context: Context,
+        messageId: Long?,
+        classification: String,
+    ) {
         if (messageId == null) return
         try {
             ClassificationStore(context).setClassification(messageId, classification)

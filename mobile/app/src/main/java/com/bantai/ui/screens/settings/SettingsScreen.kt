@@ -23,11 +23,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
@@ -77,16 +77,21 @@ fun SettingsScreen(
     val userData by viewModel.userData.collectAsState()
     val scanPeriod by viewModel.scanPeriod.collectAsState()
 
-    val avatarColorParsed = remember(userData.avatarColor) {
-        try { Color(android.graphics.Color.parseColor(userData.avatarColor)) }
-        catch (e: Exception) { Color(0xFF00BCD4) }
-    }
-    val initials = remember(userData.firstName, userData.lastName) {
-        buildString {
-            userData.firstName.firstOrNull()?.let { append(it.uppercaseChar()) }
-            userData.lastName.firstOrNull()?.let { append(it.uppercaseChar()) }
-        }.ifEmpty { "?" }
-    }
+    val avatarColorParsed =
+        remember(userData.avatarColor) {
+            try {
+                Color(android.graphics.Color.parseColor(userData.avatarColor))
+            } catch (e: Exception) {
+                Color(0xFF00BCD4)
+            }
+        }
+    val initials =
+        remember(userData.firstName, userData.lastName) {
+            buildString {
+                userData.firstName.firstOrNull()?.let { append(it.uppercaseChar()) }
+                userData.lastName.firstOrNull()?.let { append(it.uppercaseChar()) }
+            }.ifEmpty { "?" }
+        }
     val fullName = "${userData.firstName} ${userData.lastName}".trim().ifEmpty { "Your Name" }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -211,13 +216,13 @@ fun SettingsScreen(
                         "monthly" to "Last 30 days",
                     ).forEach { (value, label) ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setScanPeriod(value)
-                                    showScanPeriodDialog = false
-                                }
-                                .padding(vertical = 12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setScanPeriod(value)
+                                        showScanPeriodDialog = false
+                                    }.padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
@@ -268,15 +273,16 @@ fun SettingsScreen(
                         label = { Text("Sender") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF5B4FE8),
-                            unfocusedBorderColor = Color(0xFF2A2A2A),
-                            focusedTextColor = White,
-                            unfocusedTextColor = White,
-                            focusedLabelColor = Color(0xFF5B4FE8),
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = Color(0xFF5B4FE8),
-                        ),
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF5B4FE8),
+                                unfocusedBorderColor = Color(0xFF2A2A2A),
+                                focusedTextColor = White,
+                                unfocusedTextColor = White,
+                                focusedLabelColor = Color(0xFF5B4FE8),
+                                unfocusedLabelColor = TextSecondary,
+                                cursorColor = Color(0xFF5B4FE8),
+                            ),
                     )
                     OutlinedTextField(
                         value = simBody,
@@ -284,15 +290,16 @@ fun SettingsScreen(
                         label = { Text("Message body") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF5B4FE8),
-                            unfocusedBorderColor = Color(0xFF2A2A2A),
-                            focusedTextColor = White,
-                            unfocusedTextColor = White,
-                            focusedLabelColor = Color(0xFF5B4FE8),
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = Color(0xFF5B4FE8),
-                        ),
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF5B4FE8),
+                                unfocusedBorderColor = Color(0xFF2A2A2A),
+                                focusedTextColor = White,
+                                unfocusedTextColor = White,
+                                focusedLabelColor = Color(0xFF5B4FE8),
+                                unfocusedLabelColor = TextSecondary,
+                                cursorColor = Color(0xFF5B4FE8),
+                            ),
                     )
                     if (simulateStatus != null) {
                         Text(simulateStatus!!, color = Color(0xFF5B4FE8), fontSize = 12.sp)
@@ -318,12 +325,13 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Black).statusBarsPadding(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = innerPadding.calculateTopPadding() + 24.dp,
-            bottom = innerPadding.calculateBottomPadding() + 24.dp,
-        ),
+        contentPadding =
+            PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = innerPadding.calculateTopPadding() + 24.dp,
+                bottom = innerPadding.calculateBottomPadding() + 24.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
@@ -339,18 +347,20 @@ fun SettingsScreen(
         // Profile card
         item {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .clickable { navController.navigate(Screen.SettingsEditProfile.route) }
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .clickable { navController.navigate(Screen.SettingsEditProfile.route) }
+                        .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(avatarColorParsed),
+                    modifier =
+                        Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(avatarColorParsed),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(initials, color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -373,9 +383,10 @@ fun SettingsScreen(
         item { SectionLabel("PROTECTION") }
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp)),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp)),
             ) {
                 SettingsRow(
                     icon = Icons.Filled.Shield,
@@ -394,11 +405,12 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.Filled.Schedule,
                     title = "Scan period",
-                    subtitle = when (scanPeriod) {
-                        "weekly" -> "Scanning last 7 days"
-                        "monthly" -> "Scanning last 30 days"
-                        else -> "Scanning today only"
-                    },
+                    subtitle =
+                        when (scanPeriod) {
+                            "weekly" -> "Scanning last 7 days"
+                            "monthly" -> "Scanning last 30 days"
+                            else -> "Scanning today only"
+                        },
                     onClick = { showScanPeriodDialog = true },
                 )
                 HorizontalDivider(color = BorderColor, thickness = 1.dp)
@@ -415,9 +427,10 @@ fun SettingsScreen(
         item { SectionLabel("LEARN") }
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp)),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp)),
             ) {
                 SettingsRow(
                     icon = Icons.AutoMirrored.Filled.Article,
@@ -438,9 +451,10 @@ fun SettingsScreen(
             item { SectionLabel("DEVELOPER") }
             item {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp)),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp)),
                 ) {
                     SettingsRow(
                         icon = Icons.Filled.BugReport,
@@ -456,9 +470,10 @@ fun SettingsScreen(
         item { SectionLabel("ACCOUNT") }
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp)),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp)),
             ) {
                 SettingsRow(
                     icon = Icons.Filled.Phone,
@@ -483,11 +498,12 @@ fun SettingsScreen(
         // Delete account — separate card
         item {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .clickable { showDeleteDialog = true }
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .clickable { showDeleteDialog = true }
+                        .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Filled.Delete, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
@@ -515,9 +531,10 @@ fun SettingsScreen(
                 color = TextSecondary,
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 8.dp),
             )
         }
     }
@@ -531,10 +548,11 @@ private fun SettingsRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, contentDescription = null, tint = Color(0xFF8A8A8A), modifier = Modifier.size(20.dp))

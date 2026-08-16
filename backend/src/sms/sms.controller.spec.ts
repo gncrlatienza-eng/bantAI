@@ -68,11 +68,11 @@ describe('SmsController', () => {
     expect(result).toEqual(expected);
   });
 
-  it('delegates storeIndicators to SmsService (guarded by ApiKeyGuard)', () => {
+  it('delegates storeIndicators to SmsService (guarded by ApiKeyGuard)', async () => {
     const dto = { indicators: [{ tag: 'Prize Lure', weight: 1.0 }] };
     mockSmsService.storeIndicators.mockResolvedValue({});
 
-    controller.storeIndicators('msg-1', dto);
+    await controller.storeIndicators('msg-1', dto);
 
     expect(mockSmsService.storeIndicators).toHaveBeenCalledWith(
       'msg-1',

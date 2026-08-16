@@ -18,6 +18,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Generated Prisma client -- schema.prisma uses the default output location
+# (node_modules/@prisma/client), never a custom one; this stale copy got
+# accidentally committed early on and broke CI's Prettier check once it drifted
+# out of sync with the schema (DEV_LOG 2026-08-16).
+backend/database/prisma/generated/
+
 # ─── Android / Mobile ──────────────────────────────────────────────────────────
 mobile/.gradle/
 mobile/build/
@@ -105,3 +111,14 @@ desktop.ini
 *.tmp
 *.swp
 *.swo
+
+# Stray tsc-compiled output of vite.config.ts, accidentally committed alongside
+# the real source -- Vite reads the .ts directly and never needs these; having
+# both tracked risks the stale .js silently shadowing edits to the .ts.
+web/vite.config.js
+web/vite.config.d.ts
+
+# --- Manuscript ----------------------------------------------------------------
+# 15 MB binary; git stores each version whole. Shared outside the
+  repo.
+docs/manuscript/

@@ -38,9 +38,7 @@ def load_campaign_centroids() -> None:
         cluster_file=settings.cluster_file,
         backend_url=settings.backend_url,
     )
-    classify.matcher = CampaignMatcher(
-        centroids, threshold=settings.campaign_threshold
-    )
+    classify.matcher = CampaignMatcher(centroids, threshold=settings.campaign_threshold)
 
     if centroids:
         logger.info(

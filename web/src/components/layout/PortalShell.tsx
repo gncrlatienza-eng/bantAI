@@ -58,7 +58,12 @@ export const PortalShell: React.FC<PortalShellProps> = ({
           transition: 'margin-left 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        <Topbar role={role} title={title} tag={tag} userInitials={userInitials} />
+        <Topbar
+          role={role}
+          title={title}
+          tag={tag}
+          userInitials={userInitials}
+        />
         <div className="dashboard-content animate-fade-in">{children}</div>
       </main>
     </div>

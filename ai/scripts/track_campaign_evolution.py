@@ -63,12 +63,13 @@ def _load_snapshot(path: str) -> tuple:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--previous", default=None,
-        help="Path to a previous campaign_clusters.json-shaped file. "
-             "Defaults to the most recently archived snapshot.",
+        "--previous",
+        default=None,
+        help="Path to a previous campaign_clusters.json-shaped file. Defaults to the most recently archived snapshot.",
     )
     parser.add_argument(
-        "--current", default=CURRENT_PATH,
+        "--current",
+        default=CURRENT_PATH,
         help="Path to the current campaign_clusters.json.",
     )
     args = parser.parse_args()
@@ -89,15 +90,15 @@ def main() -> None:
 
     print("=" * 72)
     print("Campaign evolution report")
-    print(f"  previous: {os.path.relpath(previous_path, AI)} "
-          f"({len(previous)} clusters, {prev_population} messages)")
-    print(f"  current : {os.path.relpath(args.current, AI)} "
-          f"({len(current)} clusters, {cur_population} messages)")
+    print(f"  previous: {os.path.relpath(previous_path, AI)} ({len(previous)} clusters, {prev_population} messages)")
+    print(f"  current : {os.path.relpath(args.current, AI)} ({len(current)} clusters, {cur_population} messages)")
     print("=" * 72)
 
     if prev_population is None or cur_population is None:
-        print("\n  WARN  A snapshot is missing n_messages -- growth falls back to raw\n"
-              "        counts, which inflate whenever the dataset itself grows.")
+        print(
+            "\n  WARN  A snapshot is missing n_messages -- growth falls back to raw\n"
+            "        counts, which inflate whenever the dataset itself grows."
+        )
 
     print(f"\nNew campaigns       : {len(report.new_campaigns)}")
     print(f"Dissolved campaigns : {len(report.dissolved_campaigns)}")
@@ -111,10 +112,8 @@ def main() -> None:
         print(f"\nSurging ({len(surging)}) -- by share of traffic, not raw count:")
         for c in surging:
             share = c.share_growth_ratio
-            measure = (f"{share:.1f}x share" if share is not None
-                       else f"{c.growth_ratio:.1f}x raw")
-            print(f"  cluster {c.current_id}: {c.size_before} -> {c.size_after} msgs "
-                  f"({measure})")
+            measure = f"{share:.1f}x share" if share is not None else f"{c.growth_ratio:.1f}x raw"
+            print(f"  cluster {c.current_id}: {c.size_before} -> {c.size_after} msgs ({measure})")
 
     new_domains = [c for c in report.continuing if c.new_domains]
     if new_domains:
@@ -125,14 +124,14 @@ def main() -> None:
     if report.merges:
         print(f"\nMerges ({len(report.merges)}):")
         for m in report.merges:
-            print(f"  {m.previous_ids} -> {m.current_id} "
-                  f"({m.size_before_total} -> {m.size_after} msgs)")
+            print(f"  {m.previous_ids} -> {m.current_id} ({m.size_before_total} -> {m.size_after} msgs)")
 
     if report.splits:
         print(f"\nSplits ({len(report.splits)}) -- campaign fragmented into variants:")
         for s in report.splits:
-            print(f"  {s.previous_id} -> {s.primary_id} + {s.offshoot_ids} "
-                  f"({s.size_before} -> {s.size_after_total} msgs)")
+            print(
+                f"  {s.previous_id} -> {s.primary_id} + {s.offshoot_ids} ({s.size_before} -> {s.size_after_total} msgs)"
+            )
 
     if report.merge_candidates:
         print(f"\nMerge candidates ({len(report.merge_candidates)}) -- review for manual merge:")

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../constants/routes';
 import { ProfileDropdown } from '../navigation/ProfileDropdown';
 import { useUserAvatar } from '../../context/UserAvatarContext';
 import { UserAvatar } from '../common/UserAvatar';
@@ -22,7 +21,7 @@ interface NotificationItem {
   route: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
+const ADMIN_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n1',
     title: '🚨 Critical Campaign Outbreak',
@@ -30,7 +29,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     time: '2m ago',
     tone: 'red',
     read: false,
-    route: '/client/campaigns',
+    route: '/admin/campaigns',
   },
   {
     id: 'n2',
@@ -48,7 +47,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     time: '2h ago',
     tone: 'blue',
     read: false,
-    route: '/client/export',
+    route: '/admin/export',
   },
   {
     id: 'n4',
@@ -61,24 +60,88 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
-export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }) => {
+const CLIENT_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 'n1',
+    title: '🚨 Critical Campaign Outbreak',
+    body: 'Operation GCash Clone #17 spiked +380% in last hour.',
+    time: '2m ago',
+    tone: 'red',
+    read: false,
+    route: '/client/campaigns',
+  },
+  {
+    id: 'n2',
+    title: '⚠️ System Telemetry Update',
+    body: 'Telemetry sync completed successfully for 1,420 devices.',
+    time: '38m ago',
+    tone: 'amber',
+    read: false,
+    route: '/client/overview',
+  },
+  {
+    id: 'n3',
+    title: '📄 Intelligence Feed Export Ready',
+    body: '312 threat records generated for CSV export download.',
+    time: '2h ago',
+    tone: 'blue',
+    read: false,
+    route: '/client/export',
+  },
+  {
+    id: 'n4',
+    title: '💬 API Consumption Normal',
+    body: '8,241 total API requests processed cleanly today.',
+    time: '4h ago',
+    tone: 'amber',
+    read: true,
+    route: '/client/overview',
+  },
+];
+
+export const Topbar: React.FC<TopbarProps> = ({
+  role,
+  title,
+  tag,
+  userInitials,
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { adminAvatar, clientAvatar } = useUserAvatar();
   const currentAvatar = role === 'admin' ? adminAvatar : clientAvatar;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [showTagTooltip, setShowTagTooltip] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    role === 'admin' ? ADMIN_NOTIFICATIONS : CLIENT_NOTIFICATIONS,
+  );
   const [searchQuery, setSearchQuery] = useState('');
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleNotificationClick = (notif: NotificationItem) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
     );
     setShowNotifications(false);
-    navigate(notif.route);
+
+    let targetRoute = notif.route;
+    if (role === 'admin') {
+      if (
+        targetRoute === '/admin/clusters' ||
+        targetRoute === '/client/campaigns'
+      ) {
+        targetRoute = '/admin/campaigns';
+      } else if (
+        targetRoute === '/admin/exports' ||
+        targetRoute === '/client/export'
+      ) {
+        targetRoute = '/admin/export';
+      } else if (targetRoute.startsWith('/client/')) {
+        targetRoute = '/admin/overview';
+      }
+    }
+    navigate(targetRoute);
   };
 
   const handleMarkAllRead = () => {
@@ -86,15 +149,32 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
   };
 
   const pathParts = location.pathname.split('/').filter(Boolean);
-  const breadcrumbs = pathParts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' / ');
+  const breadcrumbs = pathParts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' / ');
 
   return (
     <header className="dashboard-topbar">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
+        <div
+          style={{
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: 'var(--text-muted)',
+            letterSpacing: '0.02em',
+          }}
+        >
           {breadcrumbs || 'Dashboard'}
         </div>
-        <strong style={{ fontSize: '2.125rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+        <strong
+          style={{
+            fontSize: '2.125rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.15,
+          }}
+        >
           {title}
         </strong>
       </div>
@@ -110,7 +190,15 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ height: 36, fontSize: '0.8125rem', paddingLeft: 32 }}
           />
-          <span style={{ position: 'absolute', left: 10, top: 8, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+          <span
+            style={{
+              position: 'absolute',
+              left: 10,
+              top: 8,
+              color: 'var(--text-muted)',
+              fontSize: '0.875rem',
+            }}
+          >
             🔍
           </span>
         </div>
@@ -157,19 +245,111 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
           )}
         </button>
 
-        {/* Tag Pill */}
-        <span className={`badge ${role === 'admin' ? 'badge-amber' : 'badge-purple'}`} style={{ padding: '6px 12px', fontSize: '0.8125rem' }}>
-          {tag}
-        </span>
+        {/* Tag Pill with Hover Description Tooltip */}
+        <div
+          style={{ position: 'relative' }}
+          onMouseEnter={() => setShowTagTooltip(true)}
+          onMouseLeave={() => setShowTagTooltip(false)}
+        >
+          <span
+            className={`badge ${role === 'admin' ? 'badge-amber' : 'badge-purple'}`}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.8125rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow:
+                role === 'admin'
+                  ? '0 0 10px rgba(245, 158, 11, 0.2)'
+                  : '0 0 10px rgba(124, 58, 237, 0.2)',
+            }}
+          >
+            <span>{role === 'admin' ? '👑' : '🛡️'}</span>
+            <span>{tag}</span>
+          </span>
+
+          {showTagTooltip && (
+            <div
+              className="animate-fade-in"
+              style={{
+                position: 'absolute',
+                top: '125%',
+                right: 0,
+                width: 290,
+                background: '#12121a',
+                border: '1px solid var(--border-default)',
+                boxShadow:
+                  '0 12px 32px rgba(0,0,0,0.7), 0 0 16px rgba(245, 158, 11, 0.25)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                zIndex: 100,
+                pointerEvents: 'none',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 6,
+                  borderBottom: '1px solid var(--border-subtle)',
+                  paddingBottom: 6,
+                }}
+              >
+                <span style={{ fontSize: '1.1rem' }}>
+                  {role === 'admin' ? '👑' : '🛡️'}
+                </span>
+                <strong
+                  style={{
+                    fontSize: '0.875rem',
+                    color:
+                      role === 'admin'
+                        ? 'var(--amber-text)'
+                        : 'var(--accent-light)',
+                  }}
+                >
+                  {role === 'admin'
+                    ? 'Super Administrator Privileges'
+                    : 'Client Intelligence Portal'}
+                </strong>
+              </div>
+              <p
+                style={{
+                  fontSize: '0.78125rem',
+                  color: 'var(--text-secondary)',
+                  margin: 0,
+                  lineHeight: 1.45,
+                }}
+              >
+                {role === 'admin'
+                  ? 'Super Admins hold root privileges to manage AI model retraining, validate FP/FN review queues, audit user accounts, monitor system health, and execute full threat telemetry exports.'
+                  : 'Client Portal users have read access to real-time smishing campaigns, threat analytics, verified classification logs, and intelligence export feeds.'}
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Profile Avatar */}
-        <div style={{ cursor: 'pointer' }} onClick={() => setShowProfileMenu(!showProfileMenu)}>
-          <UserAvatar avatar={currentAvatar} role={role} size={36} fallbackInitials={userInitials} />
+        <div
+          style={{ cursor: 'pointer' }}
+          onClick={() => setShowProfileMenu(!showProfileMenu)}
+        >
+          <UserAvatar
+            avatar={currentAvatar}
+            role={role}
+            size={36}
+            fallbackInitials={userInitials}
+          />
         </div>
 
         {/* Profile Dropdown */}
         {showProfileMenu && (
-          <ProfileDropdown role={role} onClose={() => setShowProfileMenu(false)} />
+          <ProfileDropdown
+            role={role}
+            onClose={() => setShowProfileMenu(false)}
+          />
         )}
 
         {/* Interactive Notification Panel */}
@@ -189,25 +369,62 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
               zIndex: 90,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+                borderBottom: '1px solid var(--border-subtle)',
+                paddingBottom: 8,
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <strong>Notification Center</strong>
-                {unreadCount > 0 && <span className="badge badge-purple">{unreadCount} new</span>}
+                {unreadCount > 0 && (
+                  <span className="badge badge-purple">{unreadCount} new</span>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllRead}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent-light)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-light)',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
                   >
                     Mark all read
                   </button>
                 )}
-                <button onClick={() => setShowNotifications(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.8125rem', maxHeight: 320, overflowY: 'auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                fontSize: '0.8125rem',
+                maxHeight: 320,
+                overflowY: 'auto',
+              }}
+            >
               {notifications.map((n) => (
                 <div
                   key={n.id}
@@ -215,7 +432,9 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
                   style={{
                     padding: 10,
                     borderRadius: 8,
-                    background: n.read ? 'rgba(255,255,255,0.02)' : 'var(--bg-surface-elevated)',
+                    background: n.read
+                      ? 'rgba(255,255,255,0.02)'
+                      : 'var(--bg-surface-elevated)',
                     border: `1px solid ${n.read ? 'var(--border-subtle)' : 'var(--border-active)'}`,
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -223,13 +442,40 @@ export const Topbar: React.FC<TopbarProps> = ({ role, title, tag, userInitials }
                   }}
                   className="panel-hover"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                    <strong style={{ color: n.read ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '0.875rem' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: 4,
+                    }}
+                  >
+                    <strong
+                      style={{
+                        color: n.read
+                          ? 'var(--text-secondary)'
+                          : 'var(--text-primary)',
+                        fontSize: '0.875rem',
+                      }}
+                    >
                       {n.title}
                     </strong>
-                    <small style={{ color: 'var(--text-muted)', fontSize: '0.6875rem' }}>{n.time}</small>
+                    <small
+                      style={{
+                        color: 'var(--text-muted)',
+                        fontSize: '0.6875rem',
+                      }}
+                    >
+                      {n.time}
+                    </small>
                   </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', margin: 0 }}>
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: '0.8125rem',
+                      margin: 0,
+                    }}
+                  >
                     {n.body}
                   </p>
                 </div>

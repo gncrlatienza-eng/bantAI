@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -68,15 +67,17 @@ fun CampaignDetailScreen(
     LaunchedEffect(campaignId) { viewModel.loadCampaign(campaignId) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -95,12 +96,14 @@ fun CampaignDetailScreen(
         HorizontalDivider(color = Surface)
 
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = TextSecondary)
-            }
-            errorMessage != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(errorMessage ?: "Could not load this campaign", color = Danger, fontSize = 14.sp)
-            }
+            isLoading ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = TextSecondary)
+                }
+            errorMessage != null ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(errorMessage ?: "Could not load this campaign", color = Danger, fontSize = 14.sp)
+                }
             campaign != null -> CampaignDetailContent(campaign!!)
         }
     }
@@ -108,7 +111,11 @@ fun CampaignDetailScreen(
 
 @Composable
 private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
-    val uniqueSenders = campaign.messages.map { it.sender }.distinct().size
+    val uniqueSenders =
+        campaign.messages
+            .map { it.sender }
+            .distinct()
+            .size
     val blockedCount = campaign.messages.count { it.bucket == "blocked" }
 
     LazyColumn(
@@ -119,24 +126,28 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
         // Header card
         item {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(
-                            if (campaign.isActive) Color(0xFF2A1A00) else Color.Transparent,
-                            RoundedCornerShape(12.dp),
-                        )
-                        .then(
-                            if (!campaign.isActive) Modifier.border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                            else Modifier
-                        ),
+                    modifier =
+                        Modifier
+                            .size(44.dp)
+                            .background(
+                                if (campaign.isActive) Color(0xFF2A1A00) else Color.Transparent,
+                                RoundedCornerShape(12.dp),
+                            ).then(
+                                if (!campaign.isActive) {
+                                    Modifier.border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                                } else {
+                                    Modifier
+                                },
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -161,18 +172,20 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                             modifier = Modifier.padding(top = 4.dp),
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Safe, RoundedCornerShape(100.dp)),
+                                modifier =
+                                    Modifier
+                                        .size(8.dp)
+                                        .background(Safe, RoundedCornerShape(100.dp)),
                             )
                             Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = 12.sp)
                         }
                     } else {
                         Box(
-                            modifier = Modifier
-                                .padding(top = 4.dp)
-                                .background(BorderColor, RoundedCornerShape(100.dp))
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier =
+                                Modifier
+                                    .padding(top = 4.dp)
+                                    .background(BorderColor, RoundedCornerShape(100.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
                         ) {
                             Text("Inactive", color = Color(0xFF666666), fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
@@ -188,15 +201,35 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    StatCard(icon = Icons.AutoMirrored.Filled.Message, value = campaign.messageCount.toString(), label = "Messages", modifier = Modifier.weight(1f))
-                    StatCard(icon = Icons.Default.Link, value = campaign.urlDomains.size.toString(), label = "Domains", modifier = Modifier.weight(1f))
+                    StatCard(
+                        icon = Icons.AutoMirrored.Filled.Message,
+                        value = campaign.messageCount.toString(),
+                        label = "Messages",
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatCard(
+                        icon = Icons.Default.Link,
+                        value = campaign.urlDomains.size.toString(),
+                        label = "Domains",
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    StatCard(icon = Icons.Default.People, value = uniqueSenders.toString(), label = "Senders (recent)", modifier = Modifier.weight(1f))
-                    StatCard(icon = Icons.Default.Block, value = blockedCount.toString(), label = "Blocked (recent)", modifier = Modifier.weight(1f))
+                    StatCard(
+                        icon = Icons.Default.People,
+                        value = uniqueSenders.toString(),
+                        label = "Senders (recent)",
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatCard(
+                        icon = Icons.Default.Block,
+                        value = blockedCount.toString(),
+                        label = "Blocked (recent)",
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -210,10 +243,11 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     campaign.urlDomains.forEach { domain ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Surface, RoundedCornerShape(12.dp))
-                                .padding(12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(Surface, RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
@@ -232,10 +266,11 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 EmptySectionRow("No messages recorded for this campaign yet")
             } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     campaign.messages.take(10).forEach { message ->
@@ -282,21 +317,28 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun EmptySectionRow(message: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(12.dp))
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(12.dp))
+                .padding(12.dp),
     ) {
         Text(message, color = TextSecondary, fontSize = 13.sp)
     }
 }
 
 @Composable
-private fun StatCard(icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
+private fun StatCard(
+    icon: ImageVector,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = modifier
-            .background(Surface, RoundedCornerShape(12.dp))
-            .padding(16.dp),
+        modifier =
+            modifier
+                .background(Surface, RoundedCornerShape(12.dp))
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(icon, contentDescription = null, tint = Color(0xFF666666), modifier = Modifier.size(16.dp))
@@ -305,8 +347,9 @@ private fun StatCard(icon: ImageVector, value: String, label: String, modifier: 
     }
 }
 
-private fun formatShortDate(iso: String): String = try {
-    Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d"))
-} catch (_: Exception) {
-    "an unknown date"
-}
+private fun formatShortDate(iso: String): String =
+    try {
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d"))
+    } catch (_: Exception) {
+        "an unknown date"
+    }

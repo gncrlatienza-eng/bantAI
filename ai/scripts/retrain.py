@@ -120,11 +120,7 @@ def main(argv=None) -> int:
         )
         return 2
 
-    source = (
-        FileReportSource(args.reports_dir)
-        if args.reports_dir
-        else NullReportSource()
-    )
+    source = FileReportSource(args.reports_dir) if args.reports_dir else NullReportSource()
 
     # ``datetime.min`` rather than None: None means "fall back to the previous
     # run's watermark", which is the opposite of what --since all asks for.
@@ -136,8 +132,7 @@ def main(argv=None) -> int:
             since = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
         except ValueError:
             print(
-                f"error: --since '{args.since}' is not an ISO-8601 timestamp "
-                "(or 'all').",
+                f"error: --since '{args.since}' is not an ISO-8601 timestamp (or 'all').",
                 file=sys.stderr,
             )
             return 2
@@ -157,8 +152,7 @@ def main(argv=None) -> int:
 
     if run.dry_run:
         print(
-            f"\nSnapshot written to {run.snapshot_dir}\n"
-            "Re-run without --dry-run (on a GPU machine) to fine-tune on it."
+            f"\nSnapshot written to {run.snapshot_dir}\nRe-run without --dry-run (on a GPU machine) to fine-tune on it."
         )
     elif run.decision and run.decision.promote:
         print(

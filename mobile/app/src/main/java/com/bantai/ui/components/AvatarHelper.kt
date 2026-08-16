@@ -3,21 +3,22 @@ package com.bantai.ui.components
 import androidx.compose.ui.graphics.Color
 
 fun getAvatarColor(sender: String): Color {
-    val colors = listOf(
-        Color(0xFFFF4444),
-        Color(0xFF00BCD4),
-        Color(0xFFE91E8C),
-        Color(0xFF4CAF50),
-        Color(0xFFFF9500),
-        Color(0xFF9C27B0),
-        Color(0xFF5B4FE8),
-        Color(0xFFFF6B35),
-    )
+    val colors =
+        listOf(
+            Color(0xFFFF4444),
+            Color(0xFF00BCD4),
+            Color(0xFFE91E8C),
+            Color(0xFF4CAF50),
+            Color(0xFFFF9500),
+            Color(0xFF9C27B0),
+            Color(0xFF5B4FE8),
+            Color(0xFFFF6B35),
+        )
     return colors[kotlin.math.abs(sender.hashCode()) % colors.size]
 }
 
-fun getInitialsFromSender(sender: String): String {
-    return if (sender.startsWith("+")) {
+fun getInitialsFromSender(sender: String): String =
+    if (sender.startsWith("+")) {
         "+9"
     } else {
         val words = sender.trim().split(" ")
@@ -27,7 +28,6 @@ fun getInitialsFromSender(sender: String): String {
             else -> "?"
         }
     }
-}
 
 fun getRelativeTime(timestamp: Long): String {
     val diff = System.currentTimeMillis() - timestamp

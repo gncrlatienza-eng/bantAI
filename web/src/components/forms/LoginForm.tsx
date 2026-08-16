@@ -18,7 +18,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
     rememberMe: true,
   });
 
-  const [errors, setErrors] = useState<{ organization?: string; email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{
+    organization?: string;
+    email?: string;
+    password?: string;
+  }>({});
   const [loading, setLoading] = useState(false);
 
   const handleChange = (field: string, value: string | boolean) => {
@@ -74,37 +78,80 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
         error={errors.password}
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem', marginTop: 4 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.8125rem',
+          marginTop: 4,
+        }}
+      >
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            color: 'var(--text-secondary)',
+          }}
+        >
           <input
             type="checkbox"
             checked={formData.rememberMe}
             onChange={(e) => handleChange('rememberMe', e.target.checked)}
-            style={{ accentColor: 'var(--accent-primary)', width: 16, height: 16 }}
+            style={{
+              accentColor: 'var(--accent-primary)',
+              width: 16,
+              height: 16,
+            }}
           />
           <span>Remember this device</span>
         </label>
-        <a href="#forgot" onClick={(e) => { e.preventDefault(); alert("Password reset link sent to your registered work email."); }} style={{ color: 'var(--accent-light)' }}>
+        <Link
+          to={ROUTES.FORGOT_PASSWORD}
+          style={{ color: 'var(--accent-light)', textDecoration: 'none' }}
+        >
           Forgot password?
-        </a>
+        </Link>
       </div>
 
-      <Button type="submit" variant="primary" size="lg" fullWidth loading={loading} style={{ marginTop: 12 }}>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        fullWidth
+        loading={loading}
+        style={{ marginTop: 12 }}
+      >
         {admin ? 'Sign In as Administrator' : 'Sign In to Client Portal'}
       </Button>
 
-      <div style={{ textAlign: 'center', marginTop: 16, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+      <div
+        style={{
+          textAlign: 'center',
+          marginTop: 16,
+          fontSize: '0.8125rem',
+          color: 'var(--text-secondary)',
+        }}
+      >
         {admin ? (
           <>
             Client organization?{' '}
-            <Link to={ROUTES.LOGIN} style={{ color: 'var(--accent-light)', fontWeight: 600 }}>
+            <Link
+              to={ROUTES.LOGIN}
+              style={{ color: 'var(--accent-light)', fontWeight: 600 }}
+            >
               Client Portal →
             </Link>
           </>
         ) : (
           <>
             BantAI administrator?{' '}
-            <Link to={ROUTES.ADMIN_LOGIN} style={{ color: 'var(--accent-light)', fontWeight: 600 }}>
+            <Link
+              to={ROUTES.ADMIN_LOGIN}
+              style={{ color: 'var(--accent-light)', fontWeight: 600 }}
+            >
               Admin Portal →
             </Link>
           </>

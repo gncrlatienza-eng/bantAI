@@ -11,18 +11,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,7 +57,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,9 +64,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
 import com.bantai.data.model.SmsMessage
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.BadgeType
@@ -90,6 +85,9 @@ import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.MessageFilter
 import com.bantai.viewmodel.MessagesViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -132,15 +130,19 @@ fun MessagesScreen(
     // cancels the selection; while on a non-default filter (Spam, Blocked, Recently
     // Deleted, Unread), back returns to Messages instead of leaving the tab entirely.
     BackHandler(enabled = selectionMode || selectedFilter != MessageFilter.MESSAGES) {
-        if (selectionMode) viewModel.exitSelectionMode()
-        else viewModel.setFilter(MessageFilter.MESSAGES)
+        if (selectionMode) {
+            viewModel.exitSelectionMode()
+        } else {
+            viewModel.setFilter(MessageFilter.MESSAGES)
+        }
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding(),
     ) {
         Spacer(Modifier.height(16.dp))
 
@@ -157,9 +159,10 @@ fun MessagesScreen(
         } else {
             // iOS-style large title with the filter bubble on the right
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -180,9 +183,10 @@ fun MessagesScreen(
             Spacer(Modifier.height(12.dp))
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SearchPill(
@@ -228,14 +232,16 @@ fun MessagesScreen(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            val emptyLabel = when (selectedFilter) {
-                                MessageFilter.SPAM             -> "No Spam"
-                                MessageFilter.BLOCKED          -> "No Blocked Messages"
-                                MessageFilter.RECENTLY_DELETED -> "No Recently Deleted"
-                                MessageFilter.UNREAD           -> "No Unread Messages"
-                                MessageFilter.DRAFTS           -> "No Drafts"
-                                else                           -> "No Messages"
-                            }
+                            val emptyLabel =
+                                when (selectedFilter) {
+                                    MessageFilter.SPAM -> "No Spam"
+                                    MessageFilter.BLOCKED -> "No Blocked Messages"
+                                    MessageFilter.UNKNOWN -> "No Unknown Messages"
+                                    MessageFilter.RECENTLY_DELETED -> "No Recently Deleted"
+                                    MessageFilter.UNREAD -> "No Unread Messages"
+                                    MessageFilter.DRAFTS -> "No Drafts"
+                                    else -> "No Messages"
+                                }
                             Text(emptyLabel, color = TextTertiary, fontSize = 15.sp)
                         }
                     }
@@ -251,9 +257,10 @@ fun MessagesScreen(
                                     selectionMode -> viewModel.toggleSelected(msg.id)
                                     // Resume editing instead of opening a conversation —
                                     // a draft may not even have any real messages yet.
-                                    isDraftsFilter -> navController.navigate(
-                                        Screen.Compose.createRoute(recipient = msg.sender, body = msg.body)
-                                    )
+                                    isDraftsFilter ->
+                                        navController.navigate(
+                                            Screen.Compose.createRoute(recipient = msg.sender, body = msg.body),
+                                        )
                                     else -> navController.navigate(Screen.Detail.createRoute(msg.sender))
                                 }
                             },
@@ -325,9 +332,10 @@ private fun SelectionTopBar(
     onPermanentDelete: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onCancel) {
@@ -370,20 +378,22 @@ private fun SelectionTopBar(
     }
 }
 
-private fun SmsMessage.toDisplayItem(isDraft: Boolean = false) = MessageItem(
-    sender = sender,
-    initials = getInitialsFromSender(sender),
-    avatarColor = getAvatarColor(sender),
-    preview = if (isDraft) "Draft: $body" else body,
-    timestamp = getRelativeTime(timestamp),
-    badge = when (classification) {
-        "suspicious" -> BadgeType.SUSPICIOUS
-        "blocked"    -> BadgeType.BLOCKED
-        "safe"       -> BadgeType.SAFE
-        else         -> BadgeType.UNKNOWN
-    },
-    isRead = isRead,
-)
+private fun SmsMessage.toDisplayItem(isDraft: Boolean = false) =
+    MessageItem(
+        sender = sender,
+        initials = getInitialsFromSender(sender),
+        avatarColor = getAvatarColor(sender),
+        preview = if (isDraft) "Draft: $body" else body,
+        timestamp = getRelativeTime(timestamp),
+        badge =
+            when (classification) {
+                "suspicious" -> BadgeType.SUSPICIOUS
+                "blocked" -> BadgeType.BLOCKED
+                "safe" -> BadgeType.SAFE
+                else -> BadgeType.UNKNOWN
+            },
+        isRead = isRead,
+    )
 
 @Composable
 private fun SearchPill(
@@ -392,10 +402,11 @@ private fun SearchPill(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .height(38.dp)
-            .background(SurfaceElevated, RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp),
+        modifier =
+            modifier
+                .height(38.dp)
+                .background(SurfaceElevated, RoundedCornerShape(12.dp))
+                .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -427,14 +438,15 @@ private fun GlassIconButton(
     onClick: () -> Unit,
 ) {
     Box(
-        modifier = Modifier
-            .size(38.dp)
-            .background(White.copy(alpha = 0.08f), CircleShape)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
+        modifier =
+            Modifier
+                .size(38.dp)
+                .background(White.copy(alpha = 0.08f), CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -465,12 +477,14 @@ private fun FilterBubble(
             containerColor = SurfaceElevated,
             shape = RoundedCornerShape(14.dp),
         ) {
-            val mainFilters = listOf(
-                MessageFilter.MESSAGES,
-                MessageFilter.SPAM,
-                MessageFilter.BLOCKED,
-                MessageFilter.RECENTLY_DELETED,
-            )
+            val mainFilters =
+                listOf(
+                    MessageFilter.MESSAGES,
+                    MessageFilter.SPAM,
+                    MessageFilter.UNKNOWN,
+                    MessageFilter.BLOCKED,
+                    MessageFilter.RECENTLY_DELETED,
+                )
             mainFilters.forEach { filter ->
                 FilterMenuItem(
                     label = filter.label,
@@ -488,8 +502,11 @@ private fun FilterBubble(
                 onClick = {
                     expanded = false
                     onSelect(
-                        if (selected == MessageFilter.UNREAD) MessageFilter.MESSAGES
-                        else MessageFilter.UNREAD,
+                        if (selected == MessageFilter.UNREAD) {
+                            MessageFilter.MESSAGES
+                        } else {
+                            MessageFilter.UNREAD
+                        },
                     )
                 },
             )
@@ -544,19 +561,21 @@ private fun MessageListRow(
     onLongClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(start = 8.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(start = 8.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Unread indicator — iMessage-style blue dot in the gutter
         Box(modifier = Modifier.width(16.dp), contentAlignment = Alignment.Center) {
             if (!item.isRead) {
                 Box(
-                    modifier = Modifier
-                        .size(9.dp)
-                        .background(IosBlue, CircleShape),
+                    modifier =
+                        Modifier
+                            .size(9.dp)
+                            .background(IosBlue, CircleShape),
                 )
             }
         }
@@ -615,17 +634,19 @@ private fun MessageListRow(
 
 @Composable
 private fun VerdictLabel(badge: BadgeType) {
-    val (label, color) = when (badge) {
-        BadgeType.SAFE       -> "Safe" to Safe
-        BadgeType.SUSPICIOUS -> "Suspicious" to Suspicious
-        BadgeType.BLOCKED    -> "Blocked" to Danger
-        else                 -> "Unknown" to TextTertiary
-    }
+    val (label, color) =
+        when (badge) {
+            BadgeType.SAFE -> "Safe" to Safe
+            BadgeType.SUSPICIOUS -> "Suspicious" to Suspicious
+            BadgeType.BLOCKED -> "Blocked" to Danger
+            else -> "Unknown" to TextTertiary
+        }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            modifier = Modifier
-                .size(6.dp)
-                .background(color, CircleShape),
+            modifier =
+                Modifier
+                    .size(6.dp)
+                    .background(color, CircleShape),
         )
         Spacer(Modifier.width(5.dp))
         Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)

@@ -152,9 +152,7 @@ def test_source_message_count_is_reported_for_honest_display():
 
 # --- /summarize endpoint ----------------------------------------------------
 def test_endpoint_returns_a_summary():
-    resp = client.post(
-        "/summarize", json={"messages": _long_thread(), "max_sentences": 2}
-    )
+    resp = client.post("/summarize", json={"messages": _long_thread(), "max_sentences": 2})
     assert resp.status_code == 200
     body = resp.json()
     assert body["sentence_count"] == 2

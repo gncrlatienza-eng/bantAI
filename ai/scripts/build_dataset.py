@@ -48,9 +48,7 @@ import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 SRC = os.path.join(DATASETS, "bantAI-datasets")
 # Only the training CSV goes in labeled/ -- the loader globs labeled/*.csv, so
 # audit/review files must live elsewhere or they'd be concatenated in and
@@ -71,8 +69,9 @@ csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 # that legitimately contain digits ('177bet', 'buy 1', '% off') keep matching.
 # --------------------------------------------------------------------------- #
 
-_LEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s",
-                       "7": "t", "@": "a", "$": "s", "|": "l", "!": "i"})
+_LEET = str.maketrans(
+    {"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "|": "l", "!": "i"}
+)
 
 _SPACED = re.compile(r"\b(?:[A-Za-z]\s+){2,}[A-Za-z]\b")
 
@@ -88,22 +87,58 @@ def deleet(text: str) -> str:
 
 # Legit PH senders + official domains -> a link/brand here is NOT a scam signal.
 OFFICIAL_DOMAINS = {
-    "globe.com.ph", "new.globe.com.ph", "glbe.co", "globeone.onelink.me",
-    "gcash.com", "go.gcash.com", "dito.ph", "app.dito.ph", "digital.dito.ph",
-    "smart.com.ph", "smrt.ph", "suncellular.com.ph", "my.suncellular.com.ph",
-    "watsons.com.ph", "gogoxpress.com", "krispykreme.com.ph",
-    "now.krispykreme.com.ph", "unionbankph.com", "bpi.com.ph", "shp.ee",
-    "laco.st", "grab.com", "foodpanda.ph", "zalora.com.ph",
-    "accounts-business.globe.com.ph", "phlpost.gov.ph", "metrobank.com.ph",
-    "maya.ph", "paymaya.com", "mayaph.co", "jtexpress.ph", "lbcexpress.com", "shopee.ph", "lazada.com.ph",
+    "globe.com.ph",
+    "new.globe.com.ph",
+    "glbe.co",
+    "globeone.onelink.me",
+    "gcash.com",
+    "go.gcash.com",
+    "dito.ph",
+    "app.dito.ph",
+    "digital.dito.ph",
+    "smart.com.ph",
+    "smrt.ph",
+    "suncellular.com.ph",
+    "my.suncellular.com.ph",
+    "watsons.com.ph",
+    "gogoxpress.com",
+    "krispykreme.com.ph",
+    "now.krispykreme.com.ph",
+    "unionbankph.com",
+    "bpi.com.ph",
+    "shp.ee",
+    "laco.st",
+    "grab.com",
+    "foodpanda.ph",
+    "zalora.com.ph",
+    "accounts-business.globe.com.ph",
+    "phlpost.gov.ph",
+    "metrobank.com.ph",
+    "maya.ph",
+    "paymaya.com",
+    "mayaph.co",
+    "jtexpress.ph",
+    "lbcexpress.com",
+    "shopee.ph",
+    "lazada.com.ph",
     "lzd.co",
-    "bdo.com.ph", "online.bdo.com.ph", "landbank.com",
+    "bdo.com.ph",
+    "online.bdo.com.ph",
+    "landbank.com",
     # Service/utility domains that appear in genuine transactional and
     # service-notice SMS (human review round 3: these were being treated as
     # "unverified links" and pushing legitimate notices into Spam).
-    "pldthome.com", "pldt.com.ph", "smart.com.ph", "nnj.vn", "ninjavan.co",
-    "smsupermalls.com", "palawanpawnshop.com", "cebuanalhuillier.com",
-    "meralco.com.ph", "converge.com.ph", "skycable.com",
+    "pldthome.com",
+    "pldt.com.ph",
+    "smart.com.ph",
+    "nnj.vn",
+    "ninjavan.co",
+    "smsupermalls.com",
+    "palawanpawnshop.com",
+    "cebuanalhuillier.com",
+    "meralco.com.ph",
+    "converge.com.ph",
+    "skycable.com",
 }
 
 # Registrar-restricted Philippine TLDs. Unlike .com/.ph, these cannot be
@@ -121,46 +156,106 @@ TRUSTED_TLD_SUFFIXES = ("gov.ph", "edu.ph", "gov", "mil")
 # stop "brand named + link isn't on the brand's domain" from firing on real
 # marketing (human review round 4; see Bug History §10).
 SHORTENERS = {
-    "bit.ly", "bitly.com", "tinyurl.com", "goo.gl", "ow.ly", "t.co",
-    "buff.ly", "rebrand.ly", "cutt.ly", "s.id", "linktr.ee", "lnk.to",
-    "onelink.me", "page.link", "app.link", "smart.link", "eej.at",
+    "bit.ly",
+    "bitly.com",
+    "tinyurl.com",
+    "goo.gl",
+    "ow.ly",
+    "t.co",
+    "buff.ly",
+    "rebrand.ly",
+    "cutt.ly",
+    "s.id",
+    "linktr.ee",
+    "lnk.to",
+    "onelink.me",
+    "page.link",
+    "app.link",
+    "smart.link",
+    "eej.at",
 }
 
 # Throwaway / abuse-heavy TLDs. A brand name beside a link on one of these is
 # impersonation regardless of how the message is phrased -- no legitimate
 # Philippine brand runs a campaign on .tk or .icu.
 SCAMMY_TLDS = {
-    "tk", "ml", "ga", "cf", "gq", "xyz", "icu", "bid", "top", "win", "vip",
-    "sbs", "cfd", "quest", "monster", "click", "rest", "bar", "beauty",
-    "cyou", "makeup", "mom", "lol", "boats", "autos", "tw", "ru", "su",
+    "tk",
+    "ml",
+    "ga",
+    "cf",
+    "gq",
+    "xyz",
+    "icu",
+    "bid",
+    "top",
+    "win",
+    "vip",
+    "sbs",
+    "cfd",
+    "quest",
+    "monster",
+    "click",
+    "rest",
+    "bar",
+    "beauty",
+    "cyou",
+    "makeup",
+    "mom",
+    "lol",
+    "boats",
+    "autos",
+    "tw",
+    "ru",
+    "su",
 }
 
 # Brand -> the domains that brand is actually allowed to link to. A message that
 # invokes the brand but links somewhere else is impersonation (see below).
 BRAND_DOMAINS = {
-    "gcash":     {"gcash.com", "go.gcash.com"},
-    "globe":     {"globe.com.ph", "new.globe.com.ph", "glbe.co",
-                  "globeone.onelink.me", "accounts-business.globe.com.ph"},
-    "smart":     {"smart.com.ph", "smrt.ph"},
-    "bdo":       {"bdo.com.ph", "online.bdo.com.ph"},
-    "bpi":       {"bpi.com.ph"},
-    "maya":      {"maya.ph", "mayaph.co", "paymaya.com"},
-    "paymaya":   {"maya.ph", "mayaph.co", "paymaya.com"},
+    "gcash": {"gcash.com", "go.gcash.com"},
+    "globe": {"globe.com.ph", "new.globe.com.ph", "glbe.co", "globeone.onelink.me", "accounts-business.globe.com.ph"},
+    "smart": {"smart.com.ph", "smrt.ph"},
+    "bdo": {"bdo.com.ph", "online.bdo.com.ph"},
+    "bpi": {"bpi.com.ph"},
+    "maya": {"maya.ph", "mayaph.co", "paymaya.com"},
+    "paymaya": {"maya.ph", "mayaph.co", "paymaya.com"},
     "unionbank": {"unionbankph.com"},
     "metrobank": {"metrobank.com.ph"},
-    "landbank":  {"landbank.com"},
-    "dito":      {"dito.ph", "app.dito.ph", "digital.dito.ph"},
-    "shopee":    {"shopee.ph", "shp.ee"},
-    "lazada":    {"lazada.com.ph"},
-    "lbc":       {"lbcexpress.com"},
-    "phlpost":   {"phlpost.gov.ph"},
+    "landbank": {"landbank.com"},
+    "dito": {"dito.ph", "app.dito.ph", "digital.dito.ph"},
+    "shopee": {"shopee.ph", "shp.ee"},
+    "lazada": {"lazada.com.ph"},
+    "lbc": {"lbcexpress.com"},
+    "phlpost": {"phlpost.gov.ph"},
 }
 
 BRAND_SENDERS = {
-    "globe", "smart", "dito", "tm", "tnt", "sun", "8080", "3733", "4438",
-    "globereward", "globerewards", "ditoreward", "ditorewards", "autoloadmax",
-    "lazada", "shopee", "watsons", "jollibee", "grab", "foodpanda",
-    "krispykreme", "zalora", "gcash", "maya", "gogoxpress", "look list",
+    "globe",
+    "smart",
+    "dito",
+    "tm",
+    "tnt",
+    "sun",
+    "8080",
+    "3733",
+    "4438",
+    "globereward",
+    "globerewards",
+    "ditoreward",
+    "ditorewards",
+    "autoloadmax",
+    "lazada",
+    "shopee",
+    "watsons",
+    "jollibee",
+    "grab",
+    "foodpanda",
+    "krispykreme",
+    "zalora",
+    "gcash",
+    "maya",
+    "gogoxpress",
+    "look list",
 }
 
 # Anti-scam public-service advisories. Telcos and banks send these constantly
@@ -168,70 +263,172 @@ BRAND_SENDERS = {
 # be matched before any scam rule or they get labeled as the thing they warn
 # about -- which would teach the model that safety education is an attack.
 PSA = [
-    "stopscam", "stop scam", "beware of sms scam", "beware of scam",
-    "beware of sms scams", "mag-ingat sa scam", "mag ingat sa scam",
-    "these are scams", "will never ask for your otp", "will not ask for your otp",
-    "never ask for your otp", "hindi hihingin", "hindi magpapadala",
-    "wag ibigay ang otp", "huwag ibigay ang otp", "do not share your otp",
-    "never share your otp", "don't click links", "dont click links",
-    "wag i-click ang link", "huwag i-click", "will not send links",
-    "hindi nagpapadala ng link", "aim to steal your money",
-    "never log into your", "always use the official",
+    "stopscam",
+    "stop scam",
+    "beware of sms scam",
+    "beware of scam",
+    "beware of sms scams",
+    "mag-ingat sa scam",
+    "mag ingat sa scam",
+    "these are scams",
+    "will never ask for your otp",
+    "will not ask for your otp",
+    "never ask for your otp",
+    "hindi hihingin",
+    "hindi magpapadala",
+    "wag ibigay ang otp",
+    "huwag ibigay ang otp",
+    "do not share your otp",
+    "never share your otp",
+    "don't click links",
+    "dont click links",
+    "wag i-click ang link",
+    "huwag i-click",
+    "will not send links",
+    "hindi nagpapadala ng link",
+    "aim to steal your money",
+    "never log into your",
+    "always use the official",
     # Warning-style PSAs. The list above is phrased around OTPs and links, so
     # telco fraud warnings on other topics ("New SCAM Alert! Watch out for
     # unauthorized SIM card dealers...") had no match and were being labeled
     # Spam on the strength of the brand link they carry. Found 2026-07-29 while
     # spot-checking medium-confidence rows.
-    "scam alert", "fraud alert", "watch out for unauthorized",
-    "watch out for fake", "report it to", "verify only through",
-    "official channels only", "huwag maniwala", "iwasan ang scam",
+    "scam alert",
+    "fraud alert",
+    "watch out for unauthorized",
+    "watch out for fake",
+    "report it to",
+    "verify only through",
+    "official channels only",
+    "huwag maniwala",
+    "iwasan ang scam",
     # Security *education* -- messages explaining what smishing is, or warning
     # subscribers about it in Taglish. Round 4 caught two of these labeled
     # Scam/Spam: the rule set could recognise a warning about OTPs but not a
     # warning about phishing in general, so the very messages teaching users to
     # spot scams were being trained on as scams.
-    "scam yan", "scam iyan", "sms phishing is", "smishing is",
-    "legit sources will never", "legitimate sources will never",
-    "pretends to be from", "trick you into", "giving away personal information",
-    "nanghihingi ng personal info", "hindi kami humihingi",
-    "never ask you to click", "will never ask you",
+    "scam yan",
+    "scam iyan",
+    "sms phishing is",
+    "smishing is",
+    "legit sources will never",
+    "legitimate sources will never",
+    "pretends to be from",
+    "trick you into",
+    "giving away personal information",
+    "nanghihingi ng personal info",
+    "hindi kami humihingi",
+    "never ask you to click",
+    "will never ask you",
     # "SCAM 'YAN!" -- the apostrophe before "yan" made this miss the plain
     # "scam yan" entry above (substring match, so "scam 'yan" != "scam yan").
     # Found 2026-07-30: a DSWD/SSS ayuda anti-scam advisory was falling through
     # to the phishing+action rule ("i-verify" + "otp" both appear in the body,
     # ironically as safety advice) instead of being caught here first.
-    "scam 'yan", "scam 'iyan",
+    "scam 'yan",
+    "scam 'iyan",
 ]
 
 # Promotional intent -> Spam (honest selling).
 PROMO_TERMS = [
-    "promo", "sale", "% off", "discount", "voucher", "register to", "unli",
-    "for all sites", "new arrival", "download the app", "reward points",
-    "subscribe", "libreng subscription", "avail", "exclusive offer",
-    "flash sale", "vouchers up to", "buy 1", "buy one", "free shipping",
-    "cashback", "big sale", "limited offer", "shop now",
+    "promo",
+    "sale",
+    "% off",
+    "discount",
+    "voucher",
+    "register to",
+    "unli",
+    "for all sites",
+    "new arrival",
+    "download the app",
+    "reward points",
+    "subscribe",
+    "libreng subscription",
+    "avail",
+    "exclusive offer",
+    "flash sale",
+    "vouchers up to",
+    "buy 1",
+    "buy one",
+    "free shipping",
+    "cashback",
+    "big sale",
+    "limited offer",
+    "shop now",
     # Real-estate / product / service advertising (the pre-2022 Kaggle rows).
-    "for sale", "pre-selling", "preselling", "for inquiries", "inquiries are welcome",
-    "reply with your name", "pls reply w", "please reply w", "text your email",
-    "send name", "now available", "units available", "lease to own",
-    "for details pls reply", "open house", "showroom", "staycation",
-    "book now", "reserve now", "sqm", "0% interest", "no dp", "installment",
-    "if interested to buy", "sms for inquiries",
-    "pls. reply", "please reply", "name & email", "name and email",
-    "per person", "for details", "inquiries", "for more details",
+    "for sale",
+    "pre-selling",
+    "preselling",
+    "for inquiries",
+    "inquiries are welcome",
+    "reply with your name",
+    "pls reply w",
+    "please reply w",
+    "text your email",
+    "send name",
+    "now available",
+    "units available",
+    "lease to own",
+    "for details pls reply",
+    "open house",
+    "showroom",
+    "staycation",
+    "book now",
+    "reserve now",
+    "sqm",
+    "0% interest",
+    "no dp",
+    "installment",
+    "if interested to buy",
+    "sms for inquiries",
+    "pls. reply",
+    "please reply",
+    "name & email",
+    "name and email",
+    "per person",
+    "for details",
+    "inquiries",
+    "for more details",
     # Telco/bank offer phrasing. Human review round 4 found these falling all
     # the way through to the Ham default because the list above is written
     # around retail and real-estate wording -- an SMS selling a data bundle or
     # a loan says none of it. These are the highest-volume Spam shape in the
     # corpus, so the gap mattered (Bug History §11).
-    "for only p", "only for p", "for p99", "valid for", "get free", "free data",
-    "and other offers", "other offers", "as low as", "interest rate",
-    "apply now", "apply using", "apply thru", "apply through",
-    "enjoy free", "enjoy unli", "enjoy up to", "get up to", "grab your",
-    "load and get", "top up and get", "subscribe to", "register now",
-    "switch to", "upgrade to", "upgrade your account", "claim your free",
-    "personal loan", "credit card", "cash loan offer", "loan offer",
-    "data promo", "surf promo", "call and text promo",
+    "for only p",
+    "only for p",
+    "for p99",
+    "valid for",
+    "get free",
+    "free data",
+    "and other offers",
+    "other offers",
+    "as low as",
+    "interest rate",
+    "apply now",
+    "apply using",
+    "apply thru",
+    "apply through",
+    "enjoy free",
+    "enjoy unli",
+    "enjoy up to",
+    "get up to",
+    "grab your",
+    "load and get",
+    "top up and get",
+    "subscribe to",
+    "register now",
+    "switch to",
+    "upgrade to",
+    "upgrade your account",
+    "claim your free",
+    "personal loan",
+    "credit card",
+    "cash loan offer",
+    "loan offer",
+    "data promo",
+    "surf promo",
+    "call and text promo",
     # Regulatory citation + honest-marketing opt-out boilerplate. Round 7
     # backlog review: 289 Globe/DITO/GCash loyalty-program messages (raffle
     # entries, rewards points, VoLTE/VoWiFi education) were defaulting to Ham
@@ -242,10 +439,22 @@ PROMO_TERMS = [
     # doesn't chase every specific brand/app name -- ~57% of that backlog is
     # covered by this, and the rest is low-stakes (mislabeling an honest promo
     # as Ham instead of Spam doesn't affect scam-catching).
-    "dti fair trade permit", "dti permit no", "per dti", "no advisories?",
-    "to unsubscribe", "text stop to", "stop txt", "reply stop", "text off to",
-    "rewards points", "reward points", "raffle entries", "redeem rewards",
-    "globe rewards", "volte", "vowifi",
+    "dti fair trade permit",
+    "dti permit no",
+    "per dti",
+    "no advisories?",
+    "to unsubscribe",
+    "text stop to",
+    "stop txt",
+    "reply stop",
+    "text off to",
+    "rewards points",
+    "reward points",
+    "raffle entries",
+    "redeem rewards",
+    "globe rewards",
+    "volte",
+    "vowifi",
 ]
 
 # Tagalog / Taglish selling vocabulary. PROMO_TERMS above is almost entirely
@@ -255,29 +464,69 @@ PROMO_TERMS = [
 # every scam rule (see ``label_raw``), so gambling and phishing still win.
 PROMO_TL = [
     # Savings / wallet / cash-in pitches.
-    "mag-ipon", "mag ipon", "mag-cash in", "mag cash in", "nag-cash in",
-    "cash in ng", "mag-load", "magpa-load", "sulit",
+    "mag-ipon",
+    "mag ipon",
+    "mag-cash in",
+    "mag cash in",
+    "nag-cash in",
+    "cash in ng",
+    "mag-load",
+    "magpa-load",
+    "sulit",
     # Earning / apply-now pitches from legitimate lenders and services.
-    "mag-apply", "mag apply", "pwede ka mag", "puwede ka mag", "kumita ng",
-    "makakuha ng", "makuha ito", "makatanggap ng",
+    "mag-apply",
+    "mag apply",
+    "pwede ka mag",
+    "puwede ka mag",
+    "kumita ng",
+    "makakuha ng",
+    "makuha ito",
+    "makatanggap ng",
     # Price / discount language.
-    "diskwento", "abot-kaya", "abot kaya", "murang", "bumili ng", "bilhin",
-    "tipid", "piso deal", "halagang", "worth p", "simula sa p",
+    "diskwento",
+    "abot-kaya",
+    "abot kaya",
+    "murang",
+    "bumili ng",
+    "bilhin",
+    "tipid",
+    "piso deal",
+    "halagang",
+    "worth p",
+    "simula sa p",
     # Free-with-purchase offers (distinct from "libreng pera" gambling bait,
     # which GAMBLING_SOFT already owns).
-    "libreng load", "libreng data", "libreng gb", "libreng regalo",
-    "libreng delivery", "libre ang delivery",
+    "libreng load",
+    "libreng data",
+    "libreng gb",
+    "libreng regalo",
+    "libreng delivery",
+    "libre ang delivery",
     # Retail / availability.
-    "suking tindahan", "mga tindahan", "available na", "bagong labas",
-    "i-download ang app", "i-check ang app", "bisitahin ang",
+    "suking tindahan",
+    "mga tindahan",
+    "available na",
+    "bagong labas",
+    "i-download ang app",
+    "i-check ang app",
+    "bisitahin ang",
 ]
 
 # Legitimate recruitment ads. Unsolicited promotion of a service -> Spam.
 # (Distinct from JOB_SCAM below, which is "earn 5000/day from home" bait.)
 JOB_AD = [
-    "can start asap", "bachelors degree", "bachelor's degree", "with related exp",
-    "knowledgeable in", "we are hiring", "hiring for", "job opening", "now hiring",
-    "written & spoken proficiency", "midshift", "shifting schedule",
+    "can start asap",
+    "bachelors degree",
+    "bachelor's degree",
+    "with related exp",
+    "knowledgeable in",
+    "we are hiring",
+    "hiring for",
+    "job opening",
+    "now hiring",
+    "written & spoken proficiency",
+    "midshift",
+    "shifting schedule",
     "w/ related exp",
 ]
 
@@ -288,116 +537,254 @@ JOB_AD = [
 # offshore, unlicensed, and reach users through the same blasting infrastructure
 # as smishing, so they fire on their own.
 GAMBLING_HARD = [
-    "casino", "jackpot", "jili", "epicwin", "177bet", "1xbet", "geniepot",
-    "epic member", "sports betting", "online casino", "bet now",
-    "free spin", "spin now",
+    "casino",
+    "jackpot",
+    "jili",
+    "epicwin",
+    "177bet",
+    "1xbet",
+    "geniepot",
+    "epic member",
+    "sports betting",
+    "online casino",
+    "bet now",
+    "free spin",
+    "spin now",
     # Operator brands actually present in the corpus.
-    "lawinplay", "panaloka", "pwin", "sbet", "gjp", "w19 games", "ph365",
-    "epwin", "jilivip", "winningplus", "gojackpot", "winxtra", "coin33",
-    "pin77", "pin 77",
+    "lawinplay",
+    "panaloka",
+    "pwin",
+    "sbet",
+    "gjp",
+    "w19 games",
+    "ph365",
+    "epwin",
+    "jilivip",
+    "winningplus",
+    "gojackpot",
+    "winxtra",
+    "coin33",
+    "pin77",
+    "pin 77",
     # Age-gate + "keep it fun" responsible-gambling boilerplate. Offshore
     # betting blasts wear it to look licensed; nothing else in an SMS says it.
-    "21+ only", "18+ only", "keep it fun", "play responsibly",
+    "21+ only",
+    "18+ only",
+    "keep it fun",
+    "play responsibly",
     # Deposit/top-up reward mechanics. Surfaced by human review as a recurring
     # blast template the earlier list missed ("100% cash bonus for depositing
     # every day", "Top up and get 100% top up discount", "Magdeposito sa BW777
     # at makakuha ng 5% na bonus"). Legitimate PH retail does not pay you a
     # percentage for funding a balance.
-    "cash bonus", "daily bonus", "bonus upto", "bonus up to",
-    "top up discount", "top-up discount", "for depositing", "magdeposito",
-    "mag-deposito", "i-deposito", "bw777", "cc6 member",
+    "cash bonus",
+    "daily bonus",
+    "bonus upto",
+    "bonus up to",
+    "top up discount",
+    "top-up discount",
+    "for depositing",
+    "magdeposito",
+    "mag-deposito",
+    "i-deposito",
+    "bw777",
+    "cc6 member",
     # Illegal e-sabong.
-    "e-sabong", "esabong", "sabong",
+    "e-sabong",
+    "esabong",
+    "sabong",
     # Deposit/slot mechanics -- no legitimate PH brand uses these.
-    "slot bonus", "deposit bonus", "first deposit", "no deposit", "top-up bonus",
-    "free chips", "lucky wheel", "welcome bonus", "rebate",
+    "slot bonus",
+    "deposit bonus",
+    "first deposit",
+    "no deposit",
+    "top-up bonus",
+    "free chips",
+    "lucky wheel",
+    "welcome bonus",
+    "rebate",
 ]
 
 # GAMBLING_SOFT = vocabulary that legitimate telco promos DO use ("panalo ka!",
 # "maglaro"). Needs a suspicious link or a second soft hit before it counts.
 GAMBLING_SOFT = [
-    "tumaya", "maglaro", "magparehistro", "magrehistro", "libreng pera",
-    "panalo", "bigcash", "cash out", "withdraw", "red envelope", "daily login",
-    "free bonus", "manalo",
+    "tumaya",
+    "maglaro",
+    "magparehistro",
+    "magrehistro",
+    "libreng pera",
+    "panalo",
+    "bigcash",
+    "cash out",
+    "withdraw",
+    "red envelope",
+    "daily login",
+    "free bonus",
+    "manalo",
 ]
 
 # WIN_SCAM = lottery/prize-win phrasing that legit telco promos essentially
 # never use -> Scam even without a link.
 WIN_SCAM = [
-    "you won", "you have won", "you've won", "you are a winner",
-    "lucky winner", "lucky winners", "gcash prize", "cash prize",
-    "claim your prize", "you have been selected", "congratulations you",
-    "winners list", "maswerteng nanalo", "waiting in your account",
+    "you won",
+    "you have won",
+    "you've won",
+    "you are a winner",
+    "lucky winner",
+    "lucky winners",
+    "gcash prize",
+    "cash prize",
+    "claim your prize",
+    "you have been selected",
+    "congratulations you",
+    "winners list",
+    "maswerteng nanalo",
+    "waiting in your account",
     # Prize-collection urgency and spin/roulette bait -- from human review of
     # the low-confidence sample (see review_sheet.csv), these were falling
     # through to the Ham default because they don't use the English phrasing
     # above.
-    "napanalunan", "kolektahin ito", "spin to win", "lucky roulette",
+    "napanalunan",
+    "kolektahin ito",
+    "spin to win",
+    "lucky roulette",
     "premyo ngayon",
 ]
 # PROMO_BAIT = "claim/redeem/freebie/bonus" language that legit brands DO use.
 # Promotional on its own (-> Spam); only Scam when paired with a suspicious link
 # or a brand-domain mismatch.
 PROMO_BAIT = [
-    "claim now", "redeem your", "welcome bonus", "deposit bonus",
-    "free bonus", "first bonus", "free gift", "reward will expire",
-    "win big", "freebie", "selected as",
+    "claim now",
+    "redeem your",
+    "welcome bonus",
+    "deposit bonus",
+    "free bonus",
+    "first bonus",
+    "free gift",
+    "reward will expire",
+    "win big",
+    "freebie",
+    "selected as",
     # Points-expiry phishing template (the Globe/Smart/Metrobank fakes).
-    "points will expire", "points expire", "will expire today", "expiring today",
-    "expire today", "permanently forfeited", "redeem within", "redeem now",
+    "points will expire",
+    "points expire",
+    "will expire today",
+    "expiring today",
+    "expire today",
+    "permanently forfeited",
+    "redeem within",
+    "redeem now",
 ]
 PHISH = [
-    "account will be blocked", "account has been", "will be suspended",
-    "will be deactivated", "temporarily disabled", "verify your account",
-    "update your info", "update your details", "confirm your identity",
-    "confirm your account", "click the link", "click this link",
-    "i-verify", "i-update ang iyong", "kailangan mong i-update",
-    "avoid deactivation", "verify now", "verify here", "kyc", "reactivate",
-    "verify the recipient", "verify the identity", "unable to deliver",
-    "cannot be re-delivered", "incorrect address", "wrong address",
-    "needs to be verified", "needs to be updated",
+    "account will be blocked",
+    "account has been",
+    "will be suspended",
+    "will be deactivated",
+    "temporarily disabled",
+    "verify your account",
+    "update your info",
+    "update your details",
+    "confirm your identity",
+    "confirm your account",
+    "click the link",
+    "click this link",
+    "i-verify",
+    "i-update ang iyong",
+    "kailangan mong i-update",
+    "avoid deactivation",
+    "verify now",
+    "verify here",
+    "kyc",
+    "reactivate",
+    "verify the recipient",
+    "verify the identity",
+    "unable to deliver",
+    "cannot be re-delivered",
+    "incorrect address",
+    "wrong address",
+    "needs to be verified",
+    "needs to be updated",
     # Account-security and failed-delivery pretexts. Round 4 showed these
     # reaching the Ham default once the impersonation rule was narrowed --
     # they carry no bait wording, so they need to be recognised positively
     # rather than by the absence of marketing language.
-    "password has been changed", "password was changed",
-    "your password has been", "has been changed successfully",
-    "unsuccessfully delivered", "was not delivered", "delivery failed",
-    "failed delivery", "undelivered parcel", "reschedule your delivery",
+    "password has been changed",
+    "password was changed",
+    "your password has been",
+    "has been changed successfully",
+    "unsuccessfully delivered",
+    "was not delivered",
+    "delivery failed",
+    "failed delivery",
+    "undelivered parcel",
+    "reschedule your delivery",
     # NB: "if you did not request this" is deliberately NOT here. It reads like
     # a phishing hook but is standard boilerplate on genuine OTP and security
     # notices ("...OTP: 167267. If you DID NOT request this, ignore this
     # message"), and adding it flipped real OTP deliveries to Scam.
 ]
 JOB_SCAM = [
-    "earn money from home", "part-time job", "part time job", "daily income",
-    "online job", "work from home", "hiring", "no experience needed",
-    "earn up to", "extra income", "easy income", "per day",
+    "earn money from home",
+    "part-time job",
+    "part time job",
+    "daily income",
+    "online job",
+    "work from home",
+    "hiring",
+    "no experience needed",
+    "earn up to",
+    "extra income",
+    "easy income",
+    "per day",
     "no need to go out work",
     # Tagalog/Taglish work-from-home bait. JOB_SCAM was English-only, so the
     # Filipino-language version of the same scam ("KUMITA NG MALAKI HABANG
     # NASA BAHAY LANG... CLICK LINK") had no rule to catch it -- the same
     # coverage gap that PROMO_TL fixed for Spam.
-    "kumita ng malaki", "kumita habang", "nasa bahay lang", "sa bahay lang",
-    "walang puhunan", "libreng trabaho", "trabaho sa bahay",
-    "kikita ka", "dagdag kita", "raket sa bahay",
+    "kumita ng malaki",
+    "kumita habang",
+    "nasa bahay lang",
+    "sa bahay lang",
+    "walang puhunan",
+    "libreng trabaho",
+    "trabaho sa bahay",
+    "kikita ka",
+    "dagdag kita",
+    "raket sa bahay",
     # "Be an appointment setter, click our Messenger link" job blasts. Round 7
     # backlog review: these already trip suspicious_link() (m.me isn't an
     # official domain), but needed susp+JOB_SCAM and this vocabulary wasn't
     # here, so they fell through to the Ham default anyway.
-    "earn while at home", "appointment setter", "homebased", "home-based",
-    "copy-paste system", "be an onliner",
+    "earn while at home",
+    "appointment setter",
+    "homebased",
+    "home-based",
+    "copy-paste system",
+    "be an onliner",
 ]
 
 # Unsolicited "you already qualify" credit offers. Legitimate lenders do not
 # pre-grant money to strangers by SMS; paired with evasion capitalisation or a
 # suspicious link this is the classic PH loan-scam blast.
 LOAN_BAIT = [
-    "you are qualified", "you are granted", "granted credit", "no collateral",
-    "no hidden charges", "pre-approved", "preapproved", "cash loan",
-    "cash loans", "personal loan", "unsecured", "no guarantee", "no meetup",
-    "no meet up", "waiting for you to apply", "complete your profile",
-    "apply and get cash", "qualified to avail",
+    "you are qualified",
+    "you are granted",
+    "granted credit",
+    "no collateral",
+    "no hidden charges",
+    "pre-approved",
+    "preapproved",
+    "cash loan",
+    "cash loans",
+    "personal loan",
+    "unsecured",
+    "no guarantee",
+    "no meetup",
+    "no meet up",
+    "waiting for you to apply",
+    "complete your profile",
+    "apply and get cash",
+    "qualified to avail",
 ]
 
 # Ham anchors (strong, positive signals).
@@ -410,15 +797,27 @@ GOV_SENDERS = {"ndrrmc", "ntc", "pagasa", "phivolcs", "namria", "dilg", "doh"}
 
 # Telco/bank informational notices -> Ham (when no suspicious link).
 TELCO_INFO = [
-    "bill summary", "estatement", "e-statement", "gigalife", "myaccount",
-    "welcome to cmhk", "details of your charges", "your bill is ready",
+    "bill summary",
+    "estatement",
+    "e-statement",
+    "gigalife",
+    "myaccount",
+    "welcome to cmhk",
+    "details of your charges",
+    "your bill is ready",
     # Regulator-mandated service notices (the 2019 NTC 8-digit landline
     # migration, service-interruption and grace-period advisories). These are
     # obligations being communicated, not offers being made.
-    "in compliance with the directive", "in compliance with the bayanihan",
-    "scheduled maintenance", "service interruption", "grace period",
-    "we are experiencing some issues", "will become eight digits",
-    "add 8 before", "system upgrade", "temporary service",
+    "in compliance with the directive",
+    "in compliance with the bayanihan",
+    "scheduled maintenance",
+    "service interruption",
+    "grace period",
+    "we are experiencing some issues",
+    "will become eight digits",
+    "add 8 before",
+    "system upgrade",
+    "temporary service",
 ]
 
 # Official public advisories and institutional announcements. Explicit
@@ -428,28 +827,49 @@ TELCO_INFO = [
 # framing is a genuine public notice: DOH health bulletins, mall safety
 # advisories, university announcements to parents.
 ADVISORY = [
-    "public service advisory", "covid19 advisory", "covid-19 advisory",
-    "health advisory", "public advisory", "service advisory",
-    "we would like to inform you", "we'd like to inform", "we wish to inform",
-    "please be informed that", "advisory:", "announcement:",
+    "public service advisory",
+    "covid19 advisory",
+    "covid-19 advisory",
+    "health advisory",
+    "public advisory",
+    "service advisory",
+    "we would like to inform you",
+    "we'd like to inform",
+    "we wish to inform",
+    "please be informed that",
+    "advisory:",
+    "announcement:",
     # Service-availability notices ("checking and redemption of Globe Rewards
     # points will be unavailable"). Informing about downtime, not selling.
-    "will be unavailable", "temporarily unavailable", "will be down",
-    "para sa covid-19 information", "alamin ang inyong karapatan",
+    "will be unavailable",
+    "temporarily unavailable",
+    "will be down",
+    "para sa covid-19 information",
+    "alamin ang inyong karapatan",
     # Statutory-compliance notices. A company announcing an obligation it is
     # subject to (the Bayanihan Act payment grace period, NTC directives) is
     # informing, not selling -- but these carry a link to the full terms, so
     # they need the advisory path rather than the link-clean TELCO_INFO path.
-    "in compliance with the", "as mandated by", "pursuant to",
+    "in compliance with the",
+    "as mandated by",
+    "pursuant to",
 ]
 
 # Transaction receipts / delivery notices -- confirming something that already
 # happened. Not a pitch, even when a loyalty raffle is mentioned at the end.
 RECEIPT = [
-    "thank you for paying", "thank you for your payment", "payment received",
-    "we received your payment", "your payment of", "successfully paid",
-    "is delivering your order", "out for delivery", "has been delivered",
-    "your parcel", "to track a parcel", "salamat sa iyong bayad",
+    "thank you for paying",
+    "thank you for your payment",
+    "payment received",
+    "we received your payment",
+    "your payment of",
+    "successfully paid",
+    "is delivering your order",
+    "out for delivery",
+    "has been delivered",
+    "your parcel",
+    "to track a parcel",
+    "salamat sa iyong bayad",
 ]
 
 # Broadened TLD list. The previous 21-entry list silently ignored every link on
@@ -468,9 +888,7 @@ _TLD = (
     r"cx|ht|gl|lc|ty|fo|sh|ch|ink|yt|ac|ms|ai|im|za|us|si|be|nu|gs|cd|ci|"
     r"vegas|guru|ltd|school|center|market|loan|vin|is"
 )
-URL_RE = re.compile(
-    r"(?:https?://|www\.|hxxp)\S+|\b[a-z0-9-]+\.(?:" + _TLD + r")\b(?:/\S*)?", re.I
-)
+URL_RE = re.compile(r"(?:https?://|www\.|hxxp)\S+|\b[a-z0-9-]+\.(?:" + _TLD + r")\b(?:/\S*)?", re.I)
 DOMAIN_RE = re.compile(r"(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)", re.I)
 
 # Punycode or a domain-looking token carrying non-Latin characters:
@@ -579,8 +997,7 @@ def suspicious_link(text: str) -> bool:
     return False
 
 
-def impersonation_is_deceptive(text: str, deleeted: str, brand: str,
-                               t: str, td: str) -> bool:
+def impersonation_is_deceptive(text: str, deleeted: str, brand: str, t: str, td: str) -> bool:
     """Does a brand-name + off-domain-link pairing actually show deception?
 
     ``brand_impersonation`` alone is too blunt: it fires whenever a message
@@ -624,15 +1041,10 @@ def institutional_link(text: str) -> bool:
     "doh.gov.ph" alongside its own payload domain must not launder itself into
     Ham on the strength of the decoy.
     """
-    ds = [d for d in _domains(text)
-          if not re.match(r"^\d+\.\d+$", d)
-          and re.search(r"\.(?:" + _TLD + r")(\b|/)", d)]
+    ds = [d for d in _domains(text) if not re.match(r"^\d+\.\d+$", d) and re.search(r"\.(?:" + _TLD + r")(\b|/)", d)]
     if not ds:
         return False
-    return all(
-        any(d == suf or d.endswith("." + suf) for suf in TRUSTED_TLD_SUFFIXES)
-        for d in ds
-    )
+    return all(any(d == suf or d.endswith("." + suf) for suf in TRUSTED_TLD_SUFFIXES) for d in ds)
 
 
 def brand_impersonation(text: str, deleeted: str) -> str:
@@ -675,8 +1087,7 @@ def label_raw(sender: str, body: str):
     # the word "OTP" alone, which also silenced genuine warnings that merely
     # mention OTPs ("...nanghihingi ng personal info, password, o OTP? Scam
     # yan!"). A delivery carries an actual code, so require one.
-    otp_delivery = bool(OTP_RE.search(body or "")
-                        and re.search(r"\b\d{4,8}\b", body or ""))
+    otp_delivery = bool(OTP_RE.search(body or "") and re.search(r"\b\d{4,8}\b", body or ""))
     if has_any(t, td, _PSA) and not susp and not otp_delivery:
         return "Ham", "high", "anti-scam-advisory"
 
@@ -699,8 +1110,7 @@ def label_raw(sender: str, body: str):
         return "Scam", "high", "id-harvest-via-email"
     # Invokes a brand but links somewhere that isn't the brand's own domain.
     imp = brand_impersonation(body or "", deleet(body or ""))
-    if imp and impersonation_is_deceptive(body or "", deleet(body or ""),
-                                          imp, t, td):
+    if imp and impersonation_is_deceptive(body or "", deleet(body or ""), imp, t, td):
         return "Scam", "high", "brand-impersonation:" + imp
     # Filter-evasion capitalisation plus a money pitch. Catches the bank-officer
     # impersonations and pre-granted-credit blasts that carry no link at all
@@ -716,8 +1126,7 @@ def label_raw(sender: str, body: str):
     if has_any(t, td, _PHISH) and ("otp" in td or "code" in td):
         return "Scam", "high", "phishing+action"
     # Soft gambling vocabulary: needs corroboration (a link, or a second hit).
-    soft = len(set(m.lower() for m in _GAMBLING_SOFT.findall(t))
-               | set(m.lower() for m in _GAMBLING_SOFT.findall(td)))
+    soft = len(set(m.lower() for m in _GAMBLING_SOFT.findall(t)) | set(m.lower() for m in _GAMBLING_SOFT.findall(td)))
     if soft >= 2 or (soft and susp):
         return "Scam", "high", "gambling-soft"
     # Lottery/prize-win phrasing that legit promos don't use -> Scam even
@@ -805,31 +1214,191 @@ def label_raw(sender: str, body: str):
 # --------------------------------------------------------------------------- #
 
 TL_MARKERS = {
-    "ang", "ng", "mga", "sa", "ay", "ako", "ikaw", "siya", "kami", "kayo",
-    "sila", "namin", "natin", "ninyo", "nila", "niya", "ito", "iyan", "iyon",
-    "dito", "diyan", "doon", "kung", "dahil", "hindi", "wala", "meron",
-    "opo", "yung", "kasi", "lamang", "lang", "naman", "nga", "pala", "sana",
-    "dapat", "pwede", "puwede", "gusto", "ayaw", "upang", "nang", "mula",
-    "hanggang", "tungkol", "maging", "mo", "ko", "niyo", "po",
-    "huwag", "wag", "iyong", "kanilang", "aming", "ating", "ngayon",
-    "pera", "libre", "libreng", "halika", "sumali", "kunin", "bigyan",
-    "makatanggap", "magkaroon", "kumita", "salamat", "kumusta",
-    "muna", "pagkakataon", "paraan", "tulong", "bawat", "lahat",
-    "isang", "dalawang", "walang", "para", "ni", "si", "nasa", "may",
-    "maswerte", "masaya", "araw-araw", "bilang", "ginawa", "gagawin",
+    "ang",
+    "ng",
+    "mga",
+    "sa",
+    "ay",
+    "ako",
+    "ikaw",
+    "siya",
+    "kami",
+    "kayo",
+    "sila",
+    "namin",
+    "natin",
+    "ninyo",
+    "nila",
+    "niya",
+    "ito",
+    "iyan",
+    "iyon",
+    "dito",
+    "diyan",
+    "doon",
+    "kung",
+    "dahil",
+    "hindi",
+    "wala",
+    "meron",
+    "opo",
+    "yung",
+    "kasi",
+    "lamang",
+    "lang",
+    "naman",
+    "nga",
+    "pala",
+    "sana",
+    "dapat",
+    "pwede",
+    "puwede",
+    "gusto",
+    "ayaw",
+    "upang",
+    "nang",
+    "mula",
+    "hanggang",
+    "tungkol",
+    "maging",
+    "mo",
+    "ko",
+    "niyo",
+    "po",
+    "huwag",
+    "wag",
+    "iyong",
+    "kanilang",
+    "aming",
+    "ating",
+    "ngayon",
+    "pera",
+    "libre",
+    "libreng",
+    "halika",
+    "sumali",
+    "kunin",
+    "bigyan",
+    "makatanggap",
+    "magkaroon",
+    "kumita",
+    "salamat",
+    "kumusta",
+    "muna",
+    "pagkakataon",
+    "paraan",
+    "tulong",
+    "bawat",
+    "lahat",
+    "isang",
+    "dalawang",
+    "walang",
+    "para",
+    "ni",
+    "si",
+    "nasa",
+    "may",
+    "maswerte",
+    "masaya",
+    "araw-araw",
+    "bilang",
+    "ginawa",
+    "gagawin",
 }
 
 EN_MARKERS = {
-    "the", "and", "is", "are", "was", "were", "you", "your", "yours", "to",
-    "for", "of", "with", "this", "that", "these", "those", "have", "has",
-    "had", "will", "would", "can", "could", "should", "now", "get", "free",
-    "click", "please", "account", "verify", "from", "not", "but", "all",
-    "any", "our", "their", "his", "her", "its", "been", "being", "more",
-    "than", "then", "when", "where", "what", "who", "how", "why", "here",
-    "there", "just", "only", "also", "very", "new", "today", "day", "time",
-    "we", "they", "it", "he", "she", "on", "in", "at", "by", "as",
-    "if", "or", "so", "up", "out", "off", "do", "does", "did", "be", "am",
-    "about", "into", "over", "after", "before", "again", "still", "may",
+    "the",
+    "and",
+    "is",
+    "are",
+    "was",
+    "were",
+    "you",
+    "your",
+    "yours",
+    "to",
+    "for",
+    "of",
+    "with",
+    "this",
+    "that",
+    "these",
+    "those",
+    "have",
+    "has",
+    "had",
+    "will",
+    "would",
+    "can",
+    "could",
+    "should",
+    "now",
+    "get",
+    "free",
+    "click",
+    "please",
+    "account",
+    "verify",
+    "from",
+    "not",
+    "but",
+    "all",
+    "any",
+    "our",
+    "their",
+    "his",
+    "her",
+    "its",
+    "been",
+    "being",
+    "more",
+    "than",
+    "then",
+    "when",
+    "where",
+    "what",
+    "who",
+    "how",
+    "why",
+    "here",
+    "there",
+    "just",
+    "only",
+    "also",
+    "very",
+    "new",
+    "today",
+    "day",
+    "time",
+    "we",
+    "they",
+    "it",
+    "he",
+    "she",
+    "on",
+    "in",
+    "at",
+    "by",
+    "as",
+    "if",
+    "or",
+    "so",
+    "up",
+    "out",
+    "off",
+    "do",
+    "does",
+    "did",
+    "be",
+    "am",
+    "about",
+    "into",
+    "over",
+    "after",
+    "before",
+    "again",
+    "still",
+    "may",
 }
 
 _WORD_RE = re.compile(r"[a-zA-ZÀ-ɏ']+")
@@ -913,11 +1482,8 @@ def load_prelabeled():
             corpus = (row.get("source") or "").strip()
             sender = (row.get("sender") or "").strip()
             rule = label_raw(sender, body)
-            label, conf, reason = reconcile(
-                "Scam", rule, trusted=corpus not in UNVERIFIED_CORPORA
-            )
-            out.append((body, label, "kaggle:" + corpus, conf, reason, sender,
-                        (row.get("date") or "").strip(), "Scam"))
+            label, conf, reason = reconcile("Scam", rule, trusted=corpus not in UNVERIFIED_CORPORA)
+            out.append((body, label, "kaggle:" + corpus, conf, reason, sender, (row.get("date") or "").strip(), "Scam"))
     ntc = os.path.join(SRC, "NTC", "FOI-TEST-DATASET.csv")
     with open(ntc, encoding="utf-8-sig", newline="") as f:
         for row in csv.DictReader(f):
@@ -944,9 +1510,9 @@ def load_raw():
                 # Phone exports use date_iso/date_epoch_ms; the Kaggle files use
                 # "date". HDBSCAN campaign clustering needs these (manuscript
                 # p177), so take whichever the export actually provides.
-                stamp = (row.get("date_iso") or row.get("date")
-                         or row.get("timestamp") or row.get("date_epoch_ms")
-                         or "").strip()
+                stamp = (
+                    row.get("date_iso") or row.get("date") or row.get("timestamp") or row.get("date_epoch_ms") or ""
+                ).strip()
                 seen[(sender.lower(), body)] = (sender, body, stamp)
     out = []
     for sender, body, stamp in seen.values():
@@ -955,8 +1521,7 @@ def load_raw():
     return out
 
 
-HEADER = ["text", "label", "source", "confidence", "reason", "sender",
-          "timestamp", "source_label", "language"]
+HEADER = ["text", "label", "source", "confidence", "reason", "sender", "timestamp", "source_label", "language"]
 
 
 def main():
@@ -989,8 +1554,7 @@ def main():
     for path, data in (
         (os.path.join(AUDIT, "bantai_labeled_full.csv"), audit_rows),
         (os.path.join(AUDIT, "needs_review.csv"), [r for r in final if r[3] == "low"]),
-        (os.path.join(AUDIT, "label_changes.csv"),
-         [r for r in audit_rows if r[7] and r[1] != r[7]]),
+        (os.path.join(AUDIT, "label_changes.csv"), [r for r in audit_rows if r[7] and r[1] != r[7]]),
     ):
         with open(path, "w", encoding="utf-8", newline="") as f:
             w = csv.writer(f)
@@ -1007,40 +1571,35 @@ def main():
     total = len(final)
     LANGS = ("english", "tagalog", "taglish", "undetermined")
     print("=" * 72)
-    print("Consolidated dataset: %d unique messages (%d rows before de-dupe)"
-          % (total, len(audit_rows)))
+    print("Consolidated dataset: %d unique messages (%d rows before de-dupe)" % (total, len(audit_rows)))
     print("-" * 72)
     print("By label:")
     for k in ("Ham", "Spam", "Scam"):
-        print("  %-5s %6d  (%.1f%%)" % (k, labels.get(k, 0),
-                                        100 * labels.get(k, 0) / total))
+        print("  %-5s %6d  (%.1f%%)" % (k, labels.get(k, 0), 100 * labels.get(k, 0) / total))
     print("By language:")
     for k in LANGS:
-        print("  %-13s %6d  (%.1f%%)" % (k, langs.get(k, 0),
-                                         100 * langs.get(k, 0) / total))
+        print("  %-13s %6d  (%.1f%%)" % (k, langs.get(k, 0), 100 * langs.get(k, 0) / total))
     print("By confidence:")
     for k in ("high", "medium", "low"):
-        print("  %-6s %6d  (%.1f%%)" % (k, conf.get(k, 0),
-                                        100 * conf.get(k, 0) / total))
+        print("  %-6s %6d  (%.1f%%)" % (k, conf.get(k, 0), 100 * conf.get(k, 0) / total))
     print("-" * 72)
     print("Label x language:")
-    print("  %-6s" % "" + "".join("%12s" % l for l in
-                                  ("english", "tagalog", "taglish", "undet.")) +
-          "%12s" % "TOTAL")
+    print(
+        "  %-6s" % ""
+        + "".join("%12s" % lang for lang in ("english", "tagalog", "taglish", "undet."))
+        + "%12s" % "TOTAL"
+    )
     for lab in ("Ham", "Spam", "Scam"):
         cells = [sum(1 for r in final if r[1] == lab and r[8] == lg) for lg in LANGS]
-        print("  %-6s" % lab + "".join("%12d" % c for c in cells) +
-              "%12d" % sum(cells))
+        print("  %-6s" % lab + "".join("%12d" % c for c in cells) + "%12d" % sum(cells))
     cells = [sum(1 for r in final if r[8] == lg) for lg in LANGS]
-    print("  %-6s" % "TOTAL" + "".join("%12d" % c for c in cells) +
-          "%12d" % sum(cells))
+    print("  %-6s" % "TOTAL" + "".join("%12d" % c for c in cells) + "%12d" % sum(cells))
     print("-" * 72)
     print("By source x label:")
     srcs = sorted({r[2] for r in final})
     for s in srcs:
         c = Counter(r[1] for r in final if r[2] == s)
-        print("  %-22s Ham %5d  Spam %5d  Scam %5d" %
-              (s, c.get("Ham", 0), c.get("Spam", 0), c.get("Scam", 0)))
+        print("  %-22s Ham %5d  Spam %5d  Scam %5d" % (s, c.get("Ham", 0), c.get("Spam", 0), c.get("Scam", 0)))
     print("-" * 72)
     print("Top reasons:")
     for k, v in Counter(r[4] for r in final).most_common(18):
@@ -1048,10 +1607,8 @@ def main():
     print("-" * 72)
     print("training CSV  -> %s" % train_path)
     print("audit CSV     -> %s" % os.path.join(AUDIT, "bantai_labeled_full.csv"))
-    print("needs review  -> %s  (%d rows)" %
-          (os.path.join(AUDIT, "needs_review.csv"), len(review)))
-    print("label changes -> %s  (%d rows)" %
-          (os.path.join(AUDIT, "label_changes.csv"), len(changed)))
+    print("needs review  -> %s  (%d rows)" % (os.path.join(AUDIT, "needs_review.csv"), len(review)))
+    print("label changes -> %s  (%d rows)" % (os.path.join(AUDIT, "label_changes.csv"), len(changed)))
     print("=" * 72)
 
 

@@ -1,11 +1,11 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 export function StepCard({
   number,
   title,
   description,
   icon,
-  reveal = "reveal-up",
+  reveal = 'reveal-up',
   timeline,
 }: {
   number: string;
@@ -16,7 +16,10 @@ export function StepCard({
   timeline?: boolean;
 }) {
   return (
-    <article className={`step-card ${timeline ? "step-card-timeline" : ""} ${reveal} reveal`.trim()} data-reveal>
+    <article
+      className={`step-card ${timeline ? 'step-card-timeline' : ''} ${reveal} reveal`.trim()}
+      data-reveal
+    >
       <div className="step-card-icon">{icon}</div>
       <span className="step-card-number">{number}</span>
       <strong>{title}</strong>

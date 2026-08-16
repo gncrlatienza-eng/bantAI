@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 /** Parses "10,000+" -> { target: 10000, prefix: "", suffix: "+" } etc. Returns null for non-numeric values like "Filipino-trained". */
 function parseValue(raw: string) {
@@ -6,19 +6,25 @@ function parseValue(raw: string) {
   const match = raw.match(/^([^\d]*)([\d,.]+)(.*)$/);
   if (!match) return null;
   const [, prefix, numeric, suffix] = match;
-  const decimals = numeric.includes(".") ? numeric.split(".")[1].length : 0;
-  const target = Number(numeric.replace(/,/g, ""));
+  const decimals = numeric.includes('.') ? numeric.split('.')[1].length : 0;
+  const target = Number(numeric.replace(/,/g, ''));
   return { prefix, target, suffix, decimals };
 }
 
 function formatValue(value: number, decimals: number) {
-  return value.toLocaleString("en-US", {
+  return value.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
 }
 
-export function StatCounter({ value, durationMs = 1400 }: { value: string; durationMs?: number }) {
+export function StatCounter({
+  value,
+  durationMs = 1400,
+}: {
+  value: string;
+  durationMs?: number;
+}) {
   const parsed = parseValue(value);
   const [display, setDisplay] = useState(0);
   const ref = useRef<HTMLSpanElement | null>(null);

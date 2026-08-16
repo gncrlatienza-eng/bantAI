@@ -56,6 +56,7 @@ inference time:
 
 ```python
 from preprocessing import preprocess
+
 preprocess("Claim ₱5,000 at http://scam.ph code 483920")
 # -> "Claim <AMOUNT> at <URL> code <OTP>"
 ```
@@ -109,6 +110,23 @@ pytest            # preprocessing/service tests run with the base deps;
                   # training-config tests need scikit-learn/pandas
 ```
 
+## Code Quality & Security
+
+```bash
+cd ai
+ruff check .              # lint
+ruff check . --fix        # auto-fix what's safe to auto-fix
+ruff format .             # format
+pip-audit -r requirements.txt   # dependency vulnerability scan
+```
+
+Config: `pyproject.toml` `[tool.ruff]`. Deliberately narrow rule set for now —
+`select = ["E", "W", "F", "I"]` (correctness + import hygiene). Bugbear (`B`) and pyupgrade
+(`UP`) both surfaced 300+ pre-existing findings when trialed, almost entirely cosmetic
+(old-style `Optional[X]` typing, `%`-string formatting) — left as a documented follow-up
+rather than one large auto-fixed commit. `colab/` is excluded (its `%cd`-before-imports
+pattern is a legitimate Colab convention, not a violation).
+
 ## Roadmap (per sprint backlog)
 
 - **Sprint 1 (done):** service scaffold, masking + NFKC draft, fine-tuning environment.
@@ -133,8 +151,10 @@ pytest            # preprocessing/service tests run with the base deps;
   - ✅ TF-IDF thread summarization, `POST /summarize` (`service/summarize.py`).
   - ✅ Campaign evolution tracking — new/dissolved/growing/merged/split
     campaigns between clustering snapshots (`campaign_evolution.py`).
-  - ⛔ **Automated retraining pipeline** — blocked on Track A's `UserReports`
-    table + intake endpoint (WBS 4.3.1); nothing to retrain from until that
-    exists. Design is done (see [`RETRAINING.md`](RETRAINING.md)); the fine-tune
-    step itself reuses `training/train.py` unchanged once a snapshot can be
-    assembled.
+  - 🟡 **Automated retraining pipeline** — built and dry-run verified end-to-end
+    (`retraining/snapshot.py`, `retraining/reports.py`, `retraining/pipeline.py`,
+    `scripts/retrain.py`). Track A's `UserReports` table + intake endpoint
+    (WBS 4.3.1) has since landed, but `reports.py` doesn't read from it yet —
+    only `NullReportSource`/`FileReportSource` exist, `DatabaseReportSource` is
+    the remaining piece. See [`RETRAINING.md`](RETRAINING.md). Also outstanding:
+    a real GPU fine-tune (no local GPU; see `ai/colab/`).

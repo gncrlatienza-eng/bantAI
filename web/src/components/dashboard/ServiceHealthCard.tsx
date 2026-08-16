@@ -18,7 +18,11 @@ export const ServiceHealthCard: React.FC<ServiceHealthCardProps> = ({
   const isOk = status === 'Operational';
   const isWarn = status === 'Warning';
 
-  const badgeClass = isOk ? 'badge-green' : isWarn ? 'badge-amber' : 'badge-red';
+  const badgeClass = isOk
+    ? 'badge-green'
+    : isWarn
+      ? 'badge-amber'
+      : 'badge-red';
   const statusIcon = isOk ? '🟢' : isWarn ? '🟡' : '🔴';
 
   return (
@@ -38,8 +42,23 @@ export const ServiceHealthCard: React.FC<ServiceHealthCardProps> = ({
       className="panel-hover"
     >
       {/* Top Header Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
           <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{icon}</span>
           <strong
             style={{
@@ -68,22 +87,46 @@ export const ServiceHealthCard: React.FC<ServiceHealthCardProps> = ({
       </div>
 
       {/* Metrics Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', color: 'var(--text-muted)', paddingTop: 4 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '0.8125rem',
+          color: 'var(--text-muted)',
+          paddingTop: 4,
+        }}
+      >
         <span>
-          Latency: <strong style={{ color: 'var(--text-secondary)' }}>{latency}ms</strong>
+          Latency:{' '}
+          <strong style={{ color: 'var(--text-secondary)' }}>
+            {latency}ms
+          </strong>
         </span>
         <span>
-          Uptime: <strong style={{ color: 'var(--green-text)' }}>{uptime}</strong>
+          Uptime:{' '}
+          <strong style={{ color: 'var(--green-text)' }}>{uptime}</strong>
         </span>
       </div>
 
       {/* Progress Bar */}
-      <div style={{ height: 4, width: '100%', background: 'var(--bg-input)', borderRadius: 2, overflow: 'hidden' }}>
+      <div
+        style={{
+          height: 4,
+          width: '100%',
+          background: 'var(--bg-input)',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
         <div
           style={{
             height: '100%',
             width: uptime,
-            background: isOk ? 'var(--green-text)' : isWarn ? 'var(--amber-text)' : 'var(--red-text)',
+            background: isOk
+              ? 'var(--green-text)'
+              : isWarn
+                ? 'var(--amber-text)'
+                : 'var(--red-text)',
             borderRadius: 2,
           }}
         />

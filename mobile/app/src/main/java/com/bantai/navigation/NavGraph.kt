@@ -48,57 +48,88 @@ import com.bantai.viewmodel.SettingsViewModel
 import kotlinx.coroutines.flow.first
 
 // Sealed class kept for main-app screens referenced throughout the codebase
-sealed class Screen(val route: String) {
+sealed class Screen(
+    val route: String,
+) {
     data object Main : Screen("main")
+
     data object SuspiciousDetail : Screen("suspicious_detail/{sender}") {
         fun createRoute(sender: String) = "suspicious_detail/${Uri.encode(sender)}"
     }
+
     data object UnsafeLink : Screen("unsafe_link")
+
     // messageId is an optional query arg, not a required path segment: the AI-summary
     // shortcut and suspicious-thread banner in MessageDetailScreen/SuspiciousDetailScreen
     // navigate here with no specific message tracked, alongside AlertsScreen's real one.
     data object ThreatAnalysis : Screen("threat_analysis?messageId={messageId}") {
         fun createRoute(messageId: String = "") = "threat_analysis?messageId=${Uri.encode(messageId)}"
     }
+
     data object TakeAction : Screen("take_action")
+
     data object ReportSent : Screen("report_sent/{type}") {
         fun createRoute(type: String) = "report_sent/$type"
     }
+
     data object BlockedNumbers : Screen("blocked_numbers")
+
     data object CampaignDetail : Screen("campaign_detail/{campaignId}") {
         fun createRoute(campaignId: String) = "campaign_detail/${Uri.encode(campaignId)}"
     }
+
     data object SmishingAlert : Screen("smishing_alert/{messageId}") {
         fun createRoute(messageId: String) = "smishing_alert/${Uri.encode(messageId)}"
     }
+
     data object Compose : Screen("compose?recipient={recipient}&body={body}") {
-        fun createRoute(recipient: String = "", body: String = "") =
-            "compose?recipient=${Uri.encode(recipient)}&body=${Uri.encode(body)}"
+        fun createRoute(
+            recipient: String = "",
+            body: String = "",
+        ) = "compose?recipient=${Uri.encode(recipient)}&body=${Uri.encode(body)}"
     }
+
     data object SettingsNotifications : Screen("settings/notifications")
+
     data object SettingsScamAwareness : Screen("settings/scam_awareness")
+
     data object SettingsTipDetail : Screen("settings/tip/{tip}") {
         fun createRoute(tip: String) = "settings/tip/$tip"
     }
+
     data object SettingsPrivacy : Screen("settings/privacy")
+
     data object SettingsEditProfile : Screen("settings/edit_profile")
+
     data object SettingsHowItWorks : Screen("settings/how_it_works")
+
     data object Splash : Screen("splash")
+
     data object OnboardingDefaultSms : Screen("onboarding_default_sms")
+
     data object OnboardingConfirmNumber : Screen("onboarding_confirm_number")
+
     data object OnboardingEnterCode : Screen("onboarding_enter_code")
+
     data object OnboardingProfile : Screen("onboarding_profile")
+
     data object OnboardingProtected : Screen("onboarding_protected")
+
     // Stubs retained so orphaned screen files compile — not registered as routes
     data object OnboardingAllowAccess : Screen("onboarding_allow_access")
+
     data object OnboardingTerms : Screen("onboarding_terms")
+
     data object Detail : Screen("detail/{sender}") {
         fun createRoute(sender: String) = "detail/${Uri.encode(sender)}"
     }
 }
 
 @Composable
-fun NavGraph(requestedTab: Int? = null, requestedConversationSender: String? = null) {
+fun NavGraph(
+    requestedTab: Int? = null,
+    requestedConversationSender: String? = null,
+) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val viewModel: OnboardingViewModel = viewModel()
@@ -182,7 +213,13 @@ fun NavGraph(requestedTab: Int? = null, requestedConversationSender: String? = n
         composable(Screen.UnsafeLink.route) { UnsafeLinkScreen(navController) }
         composable(
             route = Screen.ThreatAnalysis.route,
-            arguments = listOf(navArgument("messageId") { type = NavType.StringType; defaultValue = "" }),
+            arguments =
+                listOf(
+                    navArgument("messageId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
         ) { backStackEntry ->
             val messageId = backStackEntry.arguments?.getString("messageId") ?: ""
             ThreatAnalysisScreen(messageId = messageId, navController = navController)
@@ -212,10 +249,17 @@ fun NavGraph(requestedTab: Int? = null, requestedConversationSender: String? = n
         }
         composable(
             route = Screen.Compose.route,
-            arguments = listOf(
-                navArgument("recipient") { type = NavType.StringType; defaultValue = "" },
-                navArgument("body") { type = NavType.StringType; defaultValue = "" },
-            ),
+            arguments =
+                listOf(
+                    navArgument("recipient") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("body") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
         ) { backStackEntry ->
             ComposeScreen(
                 navController = navController,

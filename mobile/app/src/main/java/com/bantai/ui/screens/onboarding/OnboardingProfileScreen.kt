@@ -64,9 +64,10 @@ fun OnboardingProfileScreen(
     val lastNameErrorMessage by viewModel.lastNameErrorMessage.collectAsState()
     val state by viewModel.state.collectAsState()
 
-    val avatarColor = remember(avatarColorHex) {
-        Color(android.graphics.Color.parseColor(avatarColorHex))
-    }
+    val avatarColor =
+        remember(avatarColorHex) {
+            Color(android.graphics.Color.parseColor(avatarColorHex))
+        }
 
     var avatarTapped by remember { mutableStateOf(false) }
     var firstNameFocused by remember { mutableStateOf(false) }
@@ -86,16 +87,17 @@ fun OnboardingProfileScreen(
     LaunchedEffect(Unit) { visible = true }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
-            .graphicsLayer {
-                alpha = slideAlpha
-                translationY = slideOffsetY
-            },
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .graphicsLayer {
+                    alpha = slideAlpha
+                    translationY = slideOffsetY
+                },
     ) {
         Spacer(Modifier.height(8.dp))
         IconButton(onClick = {}) {
@@ -116,13 +118,14 @@ fun OnboardingProfileScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(avatarColor, CircleShape)
-                    .clickable {
-                        viewModel.cycleAvatarColor()
-                        avatarTapped = true
-                    },
+                modifier =
+                    Modifier
+                        .size(80.dp)
+                        .background(avatarColor, CircleShape)
+                        .clickable {
+                            viewModel.cycleAvatarColor()
+                            avatarTapped = true
+                        },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(viewModel.getInitials(), color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)

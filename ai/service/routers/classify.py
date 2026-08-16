@@ -32,9 +32,7 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     try:
         result = classifier.classify_full(req.message)
     except ModelNotReadyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     # Campaign matching is only meaningful for messages that could belong to a
     # campaign. Clusters are built from the Spam+Scam population (personal
@@ -46,7 +44,10 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     # class of false positive.
     campaign = None
     if matcher.centroids and result.label != "Ham":
-        match = matcher.match(result.embedding)
+        # The raw body (not ``masked_text``) goes in: the matcher masks
+        # internally for its wording comparison, but ``shares_domain`` needs
+        # the link identity that masking is specifically designed to destroy.
+        match = matcher.match(result.embedding, req.message)
         campaign = CampaignMatch(**match.to_dict())
 
     return ClassifyResponse(

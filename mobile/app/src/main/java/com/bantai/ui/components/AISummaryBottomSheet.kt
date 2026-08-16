@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,12 +38,21 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
+/**
+ * @param summary Real TF-IDF extractive summary of the thread (WBS 4.3.9/4.3.11,
+ *   `POST /ai/summarize`), oldest-sentence-first. Null while loading; blank is a
+ *   legitimate "nothing worth extracting" result, not an error — falls back to
+ *   generic verdict-based guidance rather than an empty sheet.
+ * @param isLoadingSummary True while the summarize call is in flight.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AISummaryBottomSheet(
     onDismiss: () -> Unit,
     onViewFullAnalysis: () -> Unit,
     isSuspicious: Boolean = true,
+    summary: String? = null,
+    isLoadingSummary: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -54,11 +64,12 @@ fun AISummaryBottomSheet(
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
@@ -85,9 +96,10 @@ fun AISummaryBottomSheet(
             ) {
                 val verdictColor = if (isSuspicious) Suspicious else Safe
                 Box(
-                    modifier = Modifier
-                        .background(verdictColor.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier =
+                        Modifier
+                            .background(verdictColor.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
                         if (isSuspicious) "Suspicious" else "Looks safe",
@@ -96,31 +108,39 @@ fun AISummaryBottomSheet(
                         fontWeight = FontWeight.Medium,
                     )
                 }
+            }
+
+            if (isLoadingSummary) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(color = Indigo, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                    Text("Summarizing conversation…", color = TextSecondary, fontSize = 13.sp)
+                }
+            } else {
                 Text(
-                    if (isSuspicious) "68% confidence" else "92% confidence",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
+                    if (!summary.isNullOrBlank()) {
+                        summary
+                    } else if (isSuspicious) {
+                        "This conversation contains suspicious patterns. It may be legitimate but proceed with caution. Do not share personal information."
+                    } else {
+                        "No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."
+                    },
+                    color = White,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
                 )
             }
 
-            Text(
-                if (isSuspicious) {
-                    "This message contains suspicious patterns — an unverified external link and urgency language. It may be legitimate but proceed with caution. Do not share personal information."
-                } else {
-                    "No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."
-                },
-                color = White,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-            )
-
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF16163A), RoundedCornerShape(16.dp))
-                    .border(1.dp, Indigo, RoundedCornerShape(16.dp))
-                    .clickable(onClick = onViewFullAnalysis)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF16163A), RoundedCornerShape(16.dp))
+                        .border(1.dp, Indigo, RoundedCornerShape(16.dp))
+                        .clickable(onClick = onViewFullAnalysis)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

@@ -51,12 +51,12 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertsViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 private const val ALERTS_POLL_INTERVAL_MS = 5_000L
 
@@ -83,16 +83,18 @@ fun AlertsScreen(
     }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(
-            start = 20.dp,
-            top = 16.dp,
-            end = 20.dp,
-            bottom = innerPadding.calculateBottomPadding() + 24.dp,
-        ),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding(),
+        contentPadding =
+            PaddingValues(
+                start = 20.dp,
+                top = 16.dp,
+                end = 20.dp,
+                bottom = innerPadding.calculateBottomPadding() + 24.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -100,9 +102,10 @@ fun AlertsScreen(
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
+                    modifier =
+                        Modifier
+                            .size(7.dp)
+                            .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
@@ -115,61 +118,74 @@ fun AlertsScreen(
         }
 
         when {
-            isLoading -> item {
-                Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
-                }
-            }
-            errorMessage != null -> item {
-                Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)
-            }
-            alerts.isEmpty() -> item {
-                Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "No alerts yet — you'll see flagged messages here.",
-                        color = TextSecondary,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-            else -> alerts.forEach { alert ->
-                val blocked = alert.status.equals("Blocked", ignoreCase = true)
+            isLoading ->
                 item {
-                    AlertCard(
-                        alert = alert,
-                        blocked = blocked,
-                        onClick = {
-                            navController.navigate(
-                                if (blocked) Screen.SmishingAlert.createRoute(alert.messageId)
-                                else Screen.ThreatAnalysis.createRoute(alert.messageId),
-                            )
-                        },
-                    )
+                    Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
+                    }
                 }
-            }
+            errorMessage != null ->
+                item {
+                    Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)
+                }
+            alerts.isEmpty() ->
+                item {
+                    Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No alerts yet — you'll see flagged messages here.",
+                            color = TextSecondary,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            else ->
+                alerts.forEach { alert ->
+                    val blocked = alert.status.equals("Blocked", ignoreCase = true)
+                    item {
+                        AlertCard(
+                            alert = alert,
+                            blocked = blocked,
+                            onClick = {
+                                navController.navigate(
+                                    if (blocked) {
+                                        Screen.SmishingAlert.createRoute(alert.messageId)
+                                    } else {
+                                        Screen.ThreatAnalysis.createRoute(alert.messageId)
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
         }
     }
 }
 
 @Composable
-private fun AlertCard(alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () -> Unit) {
+private fun AlertCard(
+    alert: SmsApi.AlertSummary,
+    blocked: Boolean,
+    onClick: () -> Unit,
+) {
     val accent = if (blocked) Danger else Suspicious
     val icon: ImageVector = if (blocked) Icons.Default.Block else Icons.Default.Warning
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceElevated, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceElevated, RoundedCornerShape(16.dp))
+                .clickable(onClick = onClick)
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(accent.copy(alpha = 0.15f), CircleShape),
+                modifier =
+                    Modifier
+                        .size(38.dp)
+                        .background(accent.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
@@ -211,23 +227,28 @@ private fun AlertCard(alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () 
     }
 }
 
-private fun formatAlertTime(iso: String): String = try {
-    val zoned = Instant.parse(iso).atZone(ZoneId.systemDefault())
-    if (zoned.toLocalDate() == ZonedDateTime.now().toLocalDate()) {
-        zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
-    } else {
-        zoned.format(DateTimeFormatter.ofPattern("MMM d"))
+private fun formatAlertTime(iso: String): String =
+    try {
+        val zoned = Instant.parse(iso).atZone(ZoneId.systemDefault())
+        if (zoned.toLocalDate() == ZonedDateTime.now().toLocalDate()) {
+            zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
+        } else {
+            zoned.format(DateTimeFormatter.ofPattern("MMM d"))
+        }
+    } catch (_: Exception) {
+        ""
     }
-} catch (_: Exception) {
-    ""
-}
 
 @Composable
-private fun StatusPill(label: String, color: Color) {
+private fun StatusPill(
+    label: String,
+    color: Color,
+) {
     Box(
-        modifier = Modifier
-            .background(color.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-            .padding(horizontal = 9.dp, vertical = 3.dp),
+        modifier =
+            Modifier
+                .background(color.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                .padding(horizontal = 9.dp, vertical = 3.dp),
     ) {
         Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }

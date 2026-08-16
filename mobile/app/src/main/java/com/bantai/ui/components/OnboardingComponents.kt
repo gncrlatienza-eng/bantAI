@@ -52,10 +52,11 @@ fun PrimaryButton(
         enabled = enabled,
         modifier = modifier.fillMaxWidth().height(52.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Indigo,
-            disabledContainerColor = Indigo.copy(alpha = 0.4f),
-        ),
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = Indigo,
+                disabledContainerColor = Indigo.copy(alpha = 0.4f),
+            ),
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -78,11 +79,12 @@ fun PillTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .background(SurfaceElevated, RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .background(SurfaceElevated, RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.weight(1f)) {
@@ -139,9 +141,10 @@ fun GroupedCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(SurfaceElevated, RoundedCornerShape(16.dp)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(SurfaceElevated, RoundedCornerShape(16.dp)),
         content = content,
     )
 }
@@ -162,9 +165,10 @@ fun AccentIconTile(
     size: Dp = 36.dp,
 ) {
     Box(
-        modifier = Modifier
-            .size(size)
-            .background(accent.copy(alpha = 0.15f), CircleShape),
+        modifier =
+            Modifier
+                .size(size)
+                .background(accent.copy(alpha = 0.15f), CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(size / 2))
@@ -179,9 +183,10 @@ fun FeatureListRow(
     accent: Color = Indigo,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AccentIconTile(icon = icon, accent = accent)

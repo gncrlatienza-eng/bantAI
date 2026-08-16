@@ -39,7 +39,7 @@ describe('ModelsController', () => {
   it('register delegates dto to service', async () => {
     const dto = { versionTag: 'v1.0.0', f1Score: 0.94 };
     mockService.register.mockResolvedValue({ id: 'v1', ...dto });
-    const result = await controller.register(dto as any);
+    const result = await controller.register(dto);
     expect(mockService.register).toHaveBeenCalledWith(dto);
     expect(result).toEqual({ id: 'v1', ...dto });
   });

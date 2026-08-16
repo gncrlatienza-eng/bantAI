@@ -19,17 +19,20 @@ export function PhoneMockup() {
               <strong>Smishing Detected</strong>
               <span className="badge red">97%</span>
             </div>
-            <p>"Your GCash account has been temporarily suspended. Verify now: gcash-verify.ph/..."</p>
+            <p>
+              &quot;Your GCash account has been temporarily suspended. Verify
+              now: gcash-verify.ph/...&quot;
+            </p>
           </div>
           <div className="phone-mockup-msg safe">
-            <span className="dot" style={{ background: "var(--green)" }} />
+            <span className="dot" style={{ background: 'var(--green)' }} />
             <div>
               <strong>Globe Telecom</strong>
               <small>Your monthly bill is now available.</small>
             </div>
           </div>
           <div className="phone-mockup-msg safe">
-            <span className="dot" style={{ background: "var(--green)" }} />
+            <span className="dot" style={{ background: 'var(--green)' }} />
             <div>
               <strong>BDO Alert</strong>
               <small>Your OTP is 482913. Valid for 5 mins.</small>

@@ -16,7 +16,6 @@ import com.bantai.BuildConfig
  * res/xml/network_security_config.xml before pointing this at a LAN address.
  */
 object ApiConfig {
-
     val BASE_URL: String = BuildConfig.BACKEND_BASE_URL
 
     /** Interactive calls made from a screen, where the user is waiting. */
@@ -39,4 +38,10 @@ object ApiConfig {
      * its heuristic-fallback and DB-write overhead.
      */
     const val SIMULATE_TIMEOUT_MS = 15_000
+
+    /**
+     * AI Summary sheet (WBS 4.3.11). Needs to comfortably exceed the backend's
+     * own 8s timeout on the AI service's /summarize call (ai.service.ts).
+     */
+    const val SUMMARIZE_TIMEOUT_MS = 12_000
 }

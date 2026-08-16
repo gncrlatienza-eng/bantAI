@@ -108,10 +108,7 @@ class RetrainingRun:
         elif self.decision:
             verdict = "PROMOTE" if self.decision.promote else "REJECT"
             lines.append(f"result:    {verdict} -- {self.decision.reason}")
-            lines.append(
-                f"macro-F1:  {self.decision.baseline_macro_f1:.4f} -> "
-                f"{self.decision.candidate_macro_f1:.4f}"
-            )
+            lines.append(f"macro-F1:  {self.decision.baseline_macro_f1:.4f} -> {self.decision.candidate_macro_f1:.4f}")
         return "\n".join(lines)
 
 
@@ -250,9 +247,7 @@ def run_retraining(
     if since is None:
         since = last_run_time(runs_root)
 
-    run_dir = os.path.join(
-        runs_root, datetime.now(timezone.utc).strftime(_RUN_STAMP)
-    )
+    run_dir = os.path.join(runs_root, datetime.now(timezone.utc).strftime(_RUN_STAMP))
     os.makedirs(run_dir, exist_ok=True)
 
     rows, manifest = build_snapshot(
@@ -307,9 +302,7 @@ def run_retraining(
         return run
 
     _, val_texts, _, val_labels = load_split(run_config)
-    run.decision = evaluate_candidate(
-        baseline_dir, candidate_dir, val_texts, val_labels
-    )
+    run.decision = evaluate_candidate(baseline_dir, candidate_dir, val_texts, val_labels)
     _write_decision(run)
     return run
 
@@ -341,7 +334,5 @@ def _write_decision(run: RetrainingRun) -> None:
             else None
         ),
     }
-    with open(
-        os.path.join(run.run_dir, DECISION_JSON), "w", encoding="utf-8"
-    ) as handle:
+    with open(os.path.join(run.run_dir, DECISION_JSON), "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)

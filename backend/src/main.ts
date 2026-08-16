@@ -1,4 +1,4 @@
-import { NestFactory, HttpAdapterHost } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -33,4 +33,4 @@ async function bootstrap() {
   logger.log('Server running at http://localhost:3000/api');
 }
 
-bootstrap();
+void bootstrap();

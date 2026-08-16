@@ -8,6 +8,12 @@ Implements the manuscript's Stage 5b (campaign-level branch):
     not, the embedding is buffered for an offline HDBSCAN re-clustering pass
     with min_cluster_size = 5."
 
+The mechanism is implemented as specified. The **threshold** is not: 0.85 was
+measured to attach 54.5% of unrelated messages on this embedding space and has
+been re-calibrated to 0.999 (Sprint 5, WBS 5.3.6 -- "re-evaluate thresholds
+against real campaign data"). See ``DEFAULT_SIMILARITY_THRESHOLD`` below for
+the measurement and why the gap is structural.
+
 This module is the **fast path** -- it runs per message, in-process, during
 /classify. The slow path (offline HDBSCAN over the buffer) is
 ``scripts/cluster_campaigns.py`` (WBS 3.3.5).
@@ -25,9 +31,121 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
-# Manuscript-specified threshold (Stage 5b). Configurable so it can be tuned
-# against real traffic later, but this is the documented default.
-DEFAULT_SIMILARITY_THRESHOLD = 0.85
+from .lexical import (
+    LexicalProfile,
+    build_profile,
+    extract_domains,
+    lexical_similarity,
+    shares_domain,
+)
+
+# Campaign match threshold, re-calibrated against real data (Sprint 5, WBS
+# 5.3.6). The manuscript specifies 0.85; that value does not discriminate on
+# this embedding space, and the reason is structural rather than a tuning miss.
+#
+# Stage 5b reuses the classifier's final-layer [CLS] vector for campaign
+# matching. A classifier is trained to collapse each class toward a single
+# prototype, so *within* the Scam class the vectors are nearly parallel: two
+# entirely unrelated Scam messages average 0.90 cosine, and random Spam/Scam
+# pairs average 0.84. The 0.85 bar therefore sits inside the distribution of
+# unrelated messages rather than above it.
+#
+# Measured against centroids under the real operating condition
+# (scripts/calibrate_match_threshold.py -- held-out members of a campaign vs.
+# random strangers, both scored against that campaign's centroid):
+#
+#     threshold   members attached   strangers attached
+#     0.85               100.0%            54.5%   <- manuscript
+#     0.99               100.0%            30.5%
+#     0.999               93.8%             2.6%   <- selected
+#     0.9995              87.9%             0.5%
+#
+# 0.999 is the knee: stricter costs 6pp of real campaign members to save 2pp of
+# false attachments. At 0.85 the feature was attaching a majority of unrelated
+# messages to campaigns, which is worse than not grouping at all -- a user told
+# "this is part of a known campaign" learns nothing if it is a coin flip.
+#
+# ⚠️ The margin is narrow by construction: members sit at ~0.9998 and the
+# threshold at 0.999. That is a property of reusing a classifier embedding for
+# similarity, not of this particular number, and it is the strongest argument
+# for giving campaign matching its own representation. See PIPELINE.md
+# "Stage 5b -- measured limits" and scripts/compare_campaign_embeddings.py.
+#
+# That narrowness is what the hybrid tiers below address: rather than resting
+# the whole decision on 0.0008 of headroom, a second, independent signal
+# (service/lexical.py) can corroborate a *relaxed* embedding score. This
+# threshold remains the embedding-only bar, so behaviour never degrades below
+# what was calibrated here.
+DEFAULT_SIMILARITY_THRESHOLD = 0.999
+
+# --- hybrid corroboration gates (Sprint 5, WBS 5.3.6) ------------------------
+# The embedding alone has ~0.16 of separation between members and strangers,
+# and the usable part of that is ~0.0008 wide. Lexical overlap has ~0.79. The
+# two signals fail for unrelated reasons -- the embedding moves when the model
+# is retrained, the wording does not -- so requiring them to agree buys back
+# recall without spending the false-match budget.
+#
+# A message may attach to a campaign by any of three routes, checked in order
+# of evidential strength. The embedding is consulted in all three: it is the
+# manuscript's specified signal, and nothing attaches on wording alone.
+#
+#   tier "domain"    shares a blasted domain, embedding >= 0.90
+#   tier "hybrid"    embedding >= 0.99  AND  lexical >= 0.45
+#   tier "embedding" embedding >= 0.999                    (the calibrated bar)
+#
+# Because the third tier is exactly the pre-hybrid rule, the hybrid path can
+# only *add* matches -- recall rises, and every added match carries
+# corroboration the embedding-only rule never had.
+#
+# Measured by scripts/calibrate_hybrid_match.py. That script runs the whole
+# sweep under two *independent* definitions of "same campaign", because
+# calibrating a wording-based gate on wording-defined groups would be circular
+# and would flatter this signal for free:
+#
+#   grouping    baseline recall/FMR    with hybrid (0.99 / 0.45)
+#   lexical         93.8% / 2.6%          100.0% / 3.2%
+#   hdbscan         44.4% / 3.4%           49.6% / 4.0%
+#
+# The hdbscan row is the one that counts -- its groups are defined purely by
+# embedding geometry and know nothing about wording, so it cannot be rigged in
+# the lexical gate's favour. It still shows +5.2pp recall for +0.6pp false
+# matches, so the gain is real and not an artifact of the ground truth.
+#
+# ⚠️ Note the baseline gap between the two rows: HDBSCAN's own cluster members
+# only re-match their own centroid 44.4% of the time at 0.999. The offline pass
+# is producing clusters the fast path then cannot recognise -- consistent with
+# the diffuse "generic scam" region documented in PIPELINE.md, and an argument
+# for the min_cluster_size question being settled with the adviser.
+
+#: Relaxed embedding bar, usable only with lexical corroboration. At 0.99 the
+#: embedding alone admits 30.5% of strangers (see the table above), which is
+#: why it is never sufficient by itself -- it is a coarse "same neighbourhood"
+#: filter that the lexical gate then has to confirm.
+#:
+#: Measured: 0.95 / 0.97 / 0.98 / 0.99 all produce identical recall once the
+#: lexical gate is applied, so this costs nothing and 0.99 is chosen as the
+#: most conservative of the indistinguishable options.
+HYBRID_EMBEDDING_GATE = 0.99
+
+#: Lexical Dice-overlap a message must share with a campaign's template to
+#: corroborate a relaxed embedding score.
+#:
+#: Measured (hdbscan grouping, the non-circular one): 0.30 buys +5.5pp recall
+#: for +1.4pp false matches; 0.45 buys +5.2pp for +0.6pp. Nearly all the recall
+#: for under half the cost, so 0.45 is the knee. 0.45 and 0.50 differ by 0.1pp
+#: on both axes -- within noise, so this is a plateau rather than a sharp
+#: optimum, which is the good case: it will not shift under small data changes.
+LEXICAL_GATE = 0.45
+
+#: Embedding floor for the domain tier. A shared scam domain is near-conclusive
+#: on its own, but this keeps a Ham message that merely quotes a scam link
+#: (a user asking "is bdo-verify.xyz legit?") from being filed as a campaign
+#: member. 0.90 is roughly "same class", far below the campaign bar.
+#:
+#: Measured: the tier holds a 0.3% false-match rate across 0.80-0.95, so the
+#: floor is not load-bearing for accuracy -- it is a safety rail against the
+#: quoted-link case, and 0.90 keeps 11.6% recall of the 11.8% available at 0.80.
+DOMAIN_EMBEDDING_FLOOR = 0.90
 
 
 def cosine_similarity(a, b) -> float:
@@ -61,6 +179,10 @@ class CampaignCentroid:
     centroid: Sequence[float]
     label: Optional[str] = None
     url_domains: List[str] = field(default_factory=list)
+    #: Wording this campaign holds in common, for the hybrid tiers. ``None``
+    #: for campaigns clustered before WBS 5.3.6 -- those simply fall back to
+    #: embedding-only matching.
+    lexical: Optional[LexicalProfile] = None
 
 
 @dataclass
@@ -73,6 +195,14 @@ class MatchResult:
     #: True when nothing cleared the threshold, so the embedding should be
     #: buffered for the next offline HDBSCAN pass (manuscript Stage 5b).
     should_buffer: bool
+    #: Lexical overlap with the reported cluster's template, 0.0 when no text
+    #: was supplied or the campaign predates lexical profiles.
+    lexical_similarity: float = 0.0
+    #: Which route produced the match -- ``"domain"``, ``"hybrid"``,
+    #: ``"embedding"``, or ``None`` when nothing matched. Persisted so a
+    #: campaign attribution can be explained after the fact, and so the tiers
+    #: can be audited independently once real traffic accumulates.
+    match_reason: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -80,6 +210,8 @@ class MatchResult:
             "similarity": round(self.similarity, 4),
             "matched": self.matched,
             "should_buffer": self.should_buffer,
+            "lexical_similarity": round(self.lexical_similarity, 4),
+            "match_reason": self.match_reason,
         }
 
 
@@ -106,36 +238,90 @@ class CampaignMatcher:
     def centroids(self) -> List[CampaignCentroid]:
         return list(self._centroids)
 
-    def match(self, embedding) -> MatchResult:
+    def match(self, embedding, text: Optional[str] = None) -> MatchResult:
         """Find the best-matching active campaign for one embedding.
+
+        ``text`` is the raw message body. It is optional so every existing
+        caller keeps working unchanged: without it, only the third tier can
+        fire and the behaviour is exactly the pre-hybrid, embedding-only rule.
+        Passing it enables the two corroborated tiers described at the top of
+        this module.
 
         With no active clusters yet (cold start), everything buffers -- which
         is correct: campaigns can only be discovered by the offline pass once
         enough unmatched messages accumulate.
         """
         if not self._centroids:
-            return MatchResult(
-                cluster_id=None, similarity=0.0, matched=False, should_buffer=True
-            )
+            return MatchResult(cluster_id=None, similarity=0.0, matched=False, should_buffer=True)
 
         # Seeded below -1 (cosine's floor) rather than at 0, so a genuinely
         # negative best similarity is reported honestly instead of being
         # rounded up to 0.0 -- the reported number is used for threshold
         # tuning, so it has to be the real one.
-        best_id: Optional[str] = None
         best_sim = -2.0
+
+        # Best candidate found per tier. Every tier is evaluated for every
+        # centroid before any decision is made, because the tiers are ranked by
+        # how much evidence they carry, not by which centroid scores highest:
+        # a domain-corroborated match at 0.94 is stronger evidence than a bare
+        # embedding match at 0.9991, and picking the higher cosine first would
+        # silently invert that ranking.
+        domain_hit: Optional[tuple] = None  # (similarity, lexical, cluster_id)
+        hybrid_hit: Optional[tuple] = None
+        embedding_hit: Optional[tuple] = None
 
         for centroid in self._centroids:
             sim = cosine_similarity(embedding, centroid.centroid)
             if sim > best_sim:
-                best_sim, best_id = sim, centroid.cluster_id
+                best_sim = sim
 
-        matched = best_sim >= self.threshold
+            profile = centroid.lexical
+            lex = 0.0
+            if text is not None and profile is not None:
+                lex = lexical_similarity(text, profile)
+
+                if sim >= DOMAIN_EMBEDDING_FLOOR and shares_domain(text, profile):
+                    cand = (sim, lex, centroid.cluster_id)
+                    if domain_hit is None or sim > domain_hit[0]:
+                        domain_hit = cand
+
+                if sim >= HYBRID_EMBEDDING_GATE and lex >= LEXICAL_GATE:
+                    cand = (sim, lex, centroid.cluster_id)
+                    # Ranked by *lexical* score, not cosine: above the hybrid
+                    # gate the embeddings are all within ~0.01 of each other
+                    # (that is the whole thin-margin problem), so cosine cannot
+                    # meaningfully separate candidates there. The wording can.
+                    if hybrid_hit is None or lex > hybrid_hit[1]:
+                        hybrid_hit = cand
+
+            if sim >= self.threshold:
+                if embedding_hit is None or sim > embedding_hit[0]:
+                    embedding_hit = (sim, lex, centroid.cluster_id)
+
+        for reason, hit in (
+            ("domain", domain_hit),
+            ("hybrid", hybrid_hit),
+            ("embedding", embedding_hit),
+        ):
+            if hit is not None:
+                sim, lex, cluster_id = hit
+                return MatchResult(
+                    cluster_id=cluster_id,
+                    similarity=sim,
+                    matched=True,
+                    should_buffer=False,
+                    lexical_similarity=lex,
+                    match_reason=reason,
+                )
+
+        # Nothing cleared any route. Report the closest centroid's similarity
+        # anyway (with no cluster_id) -- that number is what the threshold
+        # calibration scripts consume.
         return MatchResult(
-            cluster_id=best_id if matched else None,
+            cluster_id=None,
             similarity=best_sim,
-            matched=matched,
-            should_buffer=not matched,
+            matched=False,
+            should_buffer=True,
         )
 
 
@@ -162,12 +348,18 @@ def build_matcher_from_clusters(
     embeddings,
     cluster_labels: Sequence[int],
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+    texts: Optional[Sequence[str]] = None,
 ) -> CampaignMatcher:
     """Build a matcher from an HDBSCAN result.
 
     ``cluster_labels`` follows sklearn's convention where ``-1`` means noise
     (not part of any cluster) -- those are skipped, since noise points are by
     definition not a campaign.
+
+    ``texts`` are the message bodies in the same order as ``embeddings``. When
+    supplied, each cluster also gets a lexical profile built from its members,
+    enabling the corroborated tiers; when omitted the matcher is
+    embedding-only, which is the pre-WBS-5.3.6 behaviour.
     """
     import numpy as np
 
@@ -180,10 +372,17 @@ def build_matcher_from_clusters(
         by_cluster.setdefault(int(cid), []).append(idx)
 
     for cid, idxs in sorted(by_cluster.items()):
+        profile: Optional[LexicalProfile] = None
+        if texts is not None:
+            members = [texts[i] for i in idxs if i < len(texts)]
+            domains = {d for t in members for d in extract_domains(t)}
+            profile = build_profile(members, domains=domains)
         centroids.append(
             CampaignCentroid(
                 cluster_id=str(cid),
                 centroid=compute_centroid(arr[idxs]),
+                url_domains=sorted(profile.domains) if profile else [],
+                lexical=profile,
             )
         )
     return CampaignMatcher(centroids, threshold=threshold)

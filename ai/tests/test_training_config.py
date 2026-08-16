@@ -38,6 +38,7 @@ def test_coerce_label_rejects_out_of_range():
 
 # --- class-weighted loss --------------------------------------------------- #
 
+
 def test_class_weights_are_inverse_frequency():
     """Rarer classes get proportionally larger weights."""
     from training.train import compute_class_weights

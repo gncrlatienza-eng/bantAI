@@ -31,29 +31,41 @@ class CampaignMatch(BaseModel):
     cluster_id: Optional[str] = Field(
         None, description="Matched campaign cluster, or null when nothing cleared the threshold"
     )
-    similarity: float = Field(
-        ..., ge=-1.0, le=1.0, description="Cosine similarity to the closest active centroid"
+    similarity: float = Field(..., ge=-1.0, le=1.0, description="Cosine similarity to the closest active centroid")
+    matched: bool = Field(
+        ...,
+        description="Whether similarity met the campaign match threshold "
+        "(0.999, re-calibrated in WBS 5.3.6 from the manuscript's 0.85)",
     )
-    matched: bool = Field(..., description="Whether similarity met the 0.85 threshold")
     should_buffer: bool = Field(
         ...,
-        description="True when unmatched — the embedding is buffered for the next "
-                    "offline HDBSCAN re-clustering pass",
+        description="True when unmatched — the embedding is buffered for the next offline HDBSCAN re-clustering pass",
+    )
+    lexical_similarity: float = Field(
+        0.0,
+        ge=0.0,
+        le=1.0,
+        description="Word-overlap with the matched campaign's template (WBS 5.3.6 "
+        "second signal). 0.0 when the campaign has no lexical profile.",
+    )
+    match_reason: Optional[Literal["domain", "hybrid", "embedding"]] = Field(
+        None,
+        description="Which route produced the match — 'domain' (shared scam link), "
+        "'hybrid' (relaxed embedding corroborated by wording), or "
+        "'embedding' (the calibrated 0.999 bar alone). Null when unmatched.",
     )
 
 
 class ClassifyResponse(BaseModel):
     label: Label = Field(..., description="Predicted class (Ham/Spam/Scam)")
     score: float = Field(..., ge=0.0, le=1.0, description="Confidence of the predicted class")
-    scores: Dict[Label, float] = Field(
-        ..., description="Full softmax distribution over all classes"
-    )
+    scores: Dict[Label, float] = Field(..., description="Full softmax distribution over all classes")
     bucket: Bucket = Field(..., description="User-facing routing decision")
     masked_text: str = Field(..., description="PII-masked text fed to the model")
     campaign: Optional[CampaignMatch] = Field(
         None,
         description="Campaign clustering result. Null when no campaign centroids "
-                    "are loaded (cold start), so existing callers stay unaffected.",
+        "are loaded (cold start), so existing callers stay unaffected.",
     )
 
 
@@ -65,26 +77,22 @@ class SummarizeRequest(BaseModel):
     30 messages" rather than implying the user has seen everything.
     """
 
-    messages: List[str] = Field(
-        ..., min_length=1, description="Message bodies in the thread, oldest first"
-    )
-    max_sentences: int = Field(
-        3, ge=1, le=10, description="Upper bound on sentences in the summary"
-    )
+    messages: List[str] = Field(..., min_length=1, description="Message bodies in the thread, oldest first")
+    max_sentences: int = Field(3, ge=1, le=10, description="Upper bound on sentences in the summary")
 
 
 class SummarizeResponse(BaseModel):
     summary: str = Field(
         ...,
         description="Extractive summary — sentences that were actually sent, in "
-                    "chronological order. Empty when the thread has no "
-                    "summarizable content (e.g. only short fragments).",
+        "chronological order. Empty when the thread has no "
+        "summarizable content (e.g. only short fragments).",
     )
     sentence_count: int = Field(..., description="Sentences in the summary")
     source_message_count: int = Field(..., description="Messages summarized")
     truncated: bool = Field(
-        ..., description="Whether content was left out. False means the summary "
-                         "covers every usable sentence in the thread."
+        ...,
+        description="Whether content was left out. False means the summary covers every usable sentence in the thread.",
     )
 
 

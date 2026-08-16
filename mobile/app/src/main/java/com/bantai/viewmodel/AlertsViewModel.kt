@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class AlertsViewModel(application: Application) : AndroidViewModel(application) {
-
+class AlertsViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _alerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
@@ -44,7 +45,8 @@ class AlertsViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            SmsApi.getAlerts(token)
+            SmsApi
+                .getAlerts(token)
                 .onSuccess { alerts -> _alerts.value = alerts }
                 .onFailure { error -> if (!silent) _errorMessage.value = error.message ?: "Could not reach the server" }
             if (!silent) _isLoading.value = false

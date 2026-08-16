@@ -14,7 +14,6 @@ embeddings rather than a trained model:
 """
 
 import numpy as np
-import pytest
 
 from scripts.cluster_campaigns import (
     DEFAULT_MIN_CLUSTER_SIZE,
@@ -60,16 +59,32 @@ def test_members_of_one_campaign_share_a_cluster():
     assert len(set(assigned)) == 1
 
 
-def test_single_homogeneous_blob_yields_no_cluster():
-    """Documents a real HDBSCAN property, verified 2026-07-30.
+def test_single_homogeneous_blob_is_found_with_the_calibrated_default():
+    """The Sprint 5 (WBS 5.3.6) ``min_samples=2`` default lifts a real limit.
 
-    HDBSCAN is density-based: it separates dense regions *from* sparser
-    surroundings. Given one uniform group and no background there is no
-    contrast, so everything is labeled noise -- not a bug, but an operational
-    constraint. The offline re-clustering buffer must contain a mix of message
-    types; running it over a buffer holding a single campaign finds nothing.
+    Under sklearn's default -- ``min_samples`` silently equal to
+    ``min_cluster_size`` -- a buffer holding one campaign and no background
+    found *nothing*: HDBSCAN is density-based and needs contrast, and requiring
+    5 core neighbours made a uniform group indistinguishable from noise. That
+    was an operational hazard, because a buffer containing a single active
+    campaign is an ordinary situation, not a pathological one.
+
+    Decoupling ``min_samples`` fixes it. Pinned by
+    :func:`test_conservative_min_samples_still_finds_no_contrast` below, which
+    keeps the old behaviour documented and reachable.
     """
     labels = cluster_embeddings(blob(0, 30, seed=3), min_cluster_size=5)
+    assert any(c != -1 for c in labels)
+
+
+def test_conservative_min_samples_still_finds_no_contrast():
+    """The pre-5.3.6 behaviour, preserved as the explanation for the change.
+
+    With ``min_samples`` back at ``min_cluster_size``, one uniform group and no
+    background is still all-noise -- the property is real, it was simply the
+    wrong default for this pipeline.
+    """
+    labels = cluster_embeddings(blob(0, 30, seed=3), min_cluster_size=5, min_samples=5)
     assert all(c == -1 for c in labels)
 
 
@@ -136,11 +151,7 @@ def test_row_order_does_not_change_groupings():
     restored[order] = shuffled
 
     def partition(lbls):
-        return {
-            frozenset(np.where(lbls == c)[0].tolist())
-            for c in set(lbls)
-            if c != -1
-        }
+        return {frozenset(np.where(lbls == c)[0].tolist()) for c in set(lbls) if c != -1}
 
     assert partition(labels) == partition(restored)
 

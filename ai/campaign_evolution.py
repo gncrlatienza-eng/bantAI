@@ -195,13 +195,9 @@ class EvolutionReport:
                     "centroid_similarity": round(c.centroid_similarity, 4),
                     "size_before": c.size_before,
                     "size_after": c.size_after,
-                    "growth_ratio": (
-                        round(c.growth_ratio, 2) if c.growth_ratio is not None else None
-                    ),
+                    "growth_ratio": (round(c.growth_ratio, 2) if c.growth_ratio is not None else None),
                     "share_growth_ratio": (
-                        round(c.share_growth_ratio, 2)
-                        if c.share_growth_ratio is not None
-                        else None
+                        round(c.share_growth_ratio, 2) if c.share_growth_ratio is not None else None
                     ),
                     "surging": c.is_surging(),
                     "new_domains": c.new_domains,
@@ -228,8 +224,7 @@ class EvolutionReport:
                 for s in self.splits
             ],
             "merge_candidates": [
-                {"cluster_a": a, "cluster_b": b, "similarity": round(sim, 4)}
-                for a, b, sim in self.merge_candidates
+                {"cluster_a": a, "cluster_b": b, "similarity": round(sim, 4)} for a, b, sim in self.merge_candidates
             ],
         }
 
@@ -372,9 +367,7 @@ def detect_evolution(
     )
 
 
-def _find_merge_candidates(
-    current: Sequence[ClusterSnapshotEntry], threshold: float
-) -> List[Tuple[str, str, float]]:
+def _find_merge_candidates(current: Sequence[ClusterSnapshotEntry], threshold: float) -> List[Tuple[str, str, float]]:
     """Pairs of *distinct* current clusters whose centroids are similar
     enough to plausibly be the same campaign, evaluated on one snapshot alone.
 

@@ -1,0 +1,13 @@
+# Minimal overrides on top of detekt's own default ruleset
+# (buildUponDefaultConfig = true in app/build.gradle.kts).
+#
+# Deliberately small for this first pass -- everything currently in the
+# codebase is grandfathered into detekt-baseline.xml regardless of these
+# settings, so tuning individual rules further is a follow-up once real
+# (non-baselined) findings start surfacing on new code.
+
+style:
+  MaxLineLength:
+    # Matches the line length already chosen for ai/ and backend/+web/'s
+    # Prettier configs -- one consistent width across the whole monorepo.
+    maxLineLength: 120

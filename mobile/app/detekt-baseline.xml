@@ -1,0 +1,447 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ComplexCondition:MessageDetailScreen.kt$showAISummary &amp;&amp; summaryText == null &amp;&amp; !isSummaryLoading &amp;&amp; conversation.isNotEmpty()</ID>
+    <ID>CyclomaticComplexMethod:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
+    <ID>CyclomaticComplexMethod:HomeScreen.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun HomeScreen( navController: NavController, innerPadding: PaddingValues, onNavigateToMessages: () -&gt; Unit = {}, viewModel: HomeViewModel = viewModel(), )</ID>
+    <ID>CyclomaticComplexMethod:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
+    <ID>CyclomaticComplexMethod:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
+    <ID>CyclomaticComplexMethod:MessagesViewModel.kt$MessagesViewModel$private fun filterMessages(query: String)</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>FunctionNaming:AISummaryBottomSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AISummaryBottomSheet( onDismiss: () -&gt; Unit, onViewFullAnalysis: () -&gt; Unit, isSuspicious: Boolean = true, summary: String? = null, isLoadingSummary: Boolean = false, )</ID>
+    <ID>FunctionNaming:AlertsScreen.kt$@Composable fun AlertsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: AlertsViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:AlertsScreen.kt$@Composable private fun AlertCard( alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:AlertsScreen.kt$@Composable private fun StatusPill( label: String, color: Color, )</ID>
+    <ID>FunctionNaming:BantAILogo.kt$@Composable fun BantAILogo( containerSize: Dp = 80.dp, iconSize: Dp = 44.dp, backgroundColor: Color = Color(0xFF1A1A2E), )</ID>
+    <ID>FunctionNaming:BlockedNumbersScreen.kt$@Composable fun BlockedNumbersScreen( navController: NavController, viewModel: BlockedNumbersViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable fun CampaignDetailScreen( campaignId: String, navController: NavController, viewModel: CampaignDetailViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail)</ID>
+    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun EmptySectionRow(message: String)</ID>
+    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
+    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun StatCard( icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:CampaignsScreen.kt$@Composable fun CampaignsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: CampaignsViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun CampaignRow( campaign: CampaignsApi.CampaignSummary, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun GroupedList( items: List&lt;CampaignsApi.CampaignSummary&gt;, onClick: (CampaignsApi.CampaignSummary) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun InfoRow( message: String, isError: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.HourglassEmpty, )</ID>
+    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun LoadingRow()</ID>
+    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun SectionHeader(label: String)</ID>
+    <ID>FunctionNaming:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:EditProfileScreen.kt$@Composable fun EditProfileScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>FunctionNaming:HomeScreen.kt$@Composable private fun HomeMessageRow( item: MessageItem, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:HomeScreen.kt$@Composable private fun StatCard( modifier: Modifier = Modifier, icon: ImageVector, iconTint: Color, value: String, valueColor: Color, label: String, subtitle: String? = null, )</ID>
+    <ID>FunctionNaming:HomeScreen.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun HomeScreen( navController: NavController, innerPadding: PaddingValues, onNavigateToMessages: () -&gt; Unit = {}, viewModel: HomeViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:HowItWorksScreen.kt$@Composable fun HowItWorksScreen(navController: NavController)</ID>
+    <ID>FunctionNaming:MainScreen.kt$@Composable fun MainScreen( navController: NavController, settingsViewModel: SettingsViewModel, initialTab: Int? = null, )</ID>
+    <ID>FunctionNaming:MainScreen.kt$@Composable private fun CollapsedTabPill( tab: NavTab, showBadge: Boolean, )</ID>
+    <ID>FunctionNaming:MainScreen.kt$@Composable private fun FloatingTabBar( selected: Int, expanded: Boolean, onSelect: (Int) -&gt; Unit, onExpand: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:MainScreen.kt$@Composable private fun TabItem( tab: NavTab, selected: Boolean, showBadge: Boolean, onClick: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:MessageItem.kt$@Composable fun StatusBadge(type: BadgeType)</ID>
+    <ID>FunctionNaming:MessageItem.kt$@Composable private fun BadgePill( label: String, bg: Color, textColor: Color, border: Color?, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun FilterBubble( selected: MessageFilter, onSelect: (MessageFilter) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun FilterMenuItem( label: String, checked: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun GlassIconButton( icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun SearchPill( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun SelectionTopBar( selectedCount: Int, isRecentlyDeleted: Boolean, onCancel: () -&gt; Unit, onSelectAll: () -&gt; Unit, onDelete: () -&gt; Unit, onRestore: () -&gt; Unit, onPermanentDelete: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun VerdictLabel(badge: BadgeType)</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageListRow( item: MessageItem, selectionMode: Boolean, isSelected: Boolean, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:NavGraph.kt$@Composable fun NavGraph( requestedTab: Int? = null, requestedConversationSender: String? = null, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable fun NotificationsScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun LegendDot( color: Color, label: String, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun NotificationItem( title: String, subtitle: String, time: String, expanded: Boolean, dangerLink: String? = null, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun StatColumn( value: String, label: String, sub: String, valueColor: Color, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun TabItem( label: String, icon: @Composable () -&gt; Unit, selected: Boolean, onClick: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun ThreatAlertsTab( smishingAlerts: Boolean, onSmishingAlertsChanged: (Boolean) -&gt; Unit, suspiciousAlerts: Boolean, onSuspiciousAlertsChanged: (Boolean) -&gt; Unit, autoBlockNotice: Boolean, onAutoBlockNoticeChanged: (Boolean) -&gt; Unit, recentAlerts: List&lt;SmsApi.AlertSummary&gt;, alertsLoading: Boolean, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun ToggleRow( title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun WeeklyDigestTab()</ID>
+    <ID>FunctionNaming:OnboardingAllowAccessScreen.kt$@Composable fun OnboardingAllowAccessScreen(onNext: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:OnboardingAllowAccessScreen.kt$@Composable private fun PermissionCheckRow( icon: ImageVector, title: String, subtitle: String, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun AccentIconTile( icon: ImageVector, accent: Color = Indigo, size: Dp = 36.dp, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun FeatureListRow( icon: ImageVector, title: String, subtitle: String, accent: Color = Indigo, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun GroupedCard( modifier: Modifier = Modifier, content: @Composable ColumnScope.() -&gt; Unit, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun GroupedDivider(startInset: Dp = 64.dp)</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun OnboardingHeader( title: String, modifier: Modifier = Modifier, eyebrow: String? = null, subtitle: String? = null, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun PillTextField( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, placeholder: String = "", keyboardOptions: KeyboardOptions = KeyboardOptions.Default, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun PrimaryButton( text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, enabled: Boolean = true, isLoading: Boolean = false, )</ID>
+    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun SectionLabel(text: String)</ID>
+    <ID>FunctionNaming:OnboardingConfirmNumberScreen.kt$@Composable fun OnboardingConfirmNumberScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
+    <ID>FunctionNaming:OnboardingDefaultSmsScreen.kt$@Composable fun OnboardingDefaultSmsScreen(onNext: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:OnboardingEnterCodeScreen.kt$@Composable fun OnboardingEnterCodeScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
+    <ID>FunctionNaming:OnboardingEnterCodeScreen.kt$@Composable private fun OtpBox( value: String, focusRequester: FocusRequester, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:OnboardingProfileScreen.kt$@Composable fun OnboardingProfileScreen( viewModel: OnboardingViewModel, onNext: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:OnboardingProtectedScreen.kt$@Composable fun OnboardingProtectedScreen( viewModel: OnboardingViewModel, onFinish: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:OnboardingTermsScreen.kt$@Composable fun OnboardingTermsScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
+    <ID>FunctionNaming:PermissionHandler.kt$@Composable private fun PermissionDeniedScreen()</ID>
+    <ID>FunctionNaming:PermissionHandler.kt$@Composable private fun PermissionRationaleScreen(onRequest: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:PermissionHandler.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun SmsPermissionWrapper(onPermissionGranted: @Composable () -&gt; Unit)</ID>
+    <ID>FunctionNaming:PrivacyDataScreen.kt$@Composable fun PrivacyDataScreen(navController: NavController)</ID>
+    <ID>FunctionNaming:PrivacyDataScreen.kt$@Composable private fun InfoCard( title: String, body: String, )</ID>
+    <ID>FunctionNaming:ReportSentScreen.kt$@Composable fun ReportSentScreen( type: String, navController: NavController, )</ID>
+    <ID>FunctionNaming:ScamAwarenessScreen.kt$@Composable fun ScamAwarenessScreen( navController: NavController, viewModel: ScamAwarenessViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:SenderAvatar.kt$@Composable fun SenderAvatar( sender: String, size: Dp, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
+    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun SettingsRow( icon: ImageVector, title: String, subtitle: String? = null, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:SmishingAlertScreen.kt$@Composable fun SmishingAlertScreen( messageId: String, navController: NavController, viewModel: AlertDetailViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:SmishingAlertScreen.kt$@Composable private fun SmishingAlertContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, )</ID>
+    <ID>FunctionNaming:SplashScreen.kt$@Composable fun SplashScreen(onFinished: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@Composable private fun ChatBubble( text: String, time: String, )</ID>
+    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@Composable private fun DateSeparator(text: String)</ID>
+    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@Composable private fun FlaggedChatBubble(navController: NavController)</ID>
+    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SuspiciousDetailScreen( sender: String, navController: NavController, )</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable fun TakeActionScreen(navController: NavController)</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ActionButton( text: String, enabled: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ActionToggleCard( modifier: Modifier = Modifier, title: String, description: String, icon: ImageVector, iconColor: Color, selected: Boolean, selectedBg: Color, selectedBorder: Color, checkColor: Color, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun BlockInfoRow()</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ConfirmationDialog( type: String, onDismiss: () -&gt; Unit, onConfirm: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun NotesSection( notes: String, onNotesChange: (String) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ReportTypeSection( selectedType: Int, onSelect: (Int) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:Theme.kt$@Composable fun BantAITheme(content: @Composable () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable fun ThreatAnalysisScreen( messageId: String = "", navController: NavController, viewModel: AlertDetailViewModel = viewModel(), )</ID>
+    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
+    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable private fun ThreatAnalysisContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, navController: NavController, )</ID>
+    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable private fun ThreatIndicatorCard( title: String, subtitle: String, )</ID>
+    <ID>FunctionNaming:TipDetailScreen.kt$@Composable fun TipDetailScreen( tip: String, navController: NavController, )</ID>
+    <ID>FunctionNaming:TipDetailScreen.kt$@Composable private fun BulletPoint(text: String)</ID>
+    <ID>FunctionNaming:TipDetailScreen.kt$@Composable private fun SectionHeading(text: String)</ID>
+    <ID>FunctionNaming:UnsafeLinkScreen.kt$@Composable fun UnsafeLinkScreen(navController: NavController)</ID>
+    <ID>LongMethod:AISummaryBottomSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AISummaryBottomSheet( onDismiss: () -&gt; Unit, onViewFullAnalysis: () -&gt; Unit, isSuspicious: Boolean = true, summary: String? = null, isLoadingSummary: Boolean = false, )</ID>
+    <ID>LongMethod:AlertsScreen.kt$@Composable fun AlertsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: AlertsViewModel = viewModel(), )</ID>
+    <ID>LongMethod:BlockedNumbersScreen.kt$@Composable fun BlockedNumbersScreen( navController: NavController, viewModel: BlockedNumbersViewModel = viewModel(), )</ID>
+    <ID>LongMethod:CampaignDetailScreen.kt$@Composable private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail)</ID>
+    <ID>LongMethod:CampaignsScreen.kt$@Composable private fun CampaignRow( campaign: CampaignsApi.CampaignSummary, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
+    <ID>LongMethod:EditProfileScreen.kt$@Composable fun EditProfileScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>LongMethod:HomeScreen.kt$@Composable private fun HomeMessageRow( item: MessageItem, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun HomeScreen( navController: NavController, innerPadding: PaddingValues, onNavigateToMessages: () -&gt; Unit = {}, viewModel: HomeViewModel = viewModel(), )</ID>
+    <ID>LongMethod:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
+    <ID>LongMethod:MessagesScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageListRow( item: MessageItem, selectionMode: Boolean, isSelected: Boolean, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
+    <ID>LongMethod:NavGraph.kt$@Composable fun NavGraph( requestedTab: Int? = null, requestedConversationSender: String? = null, )</ID>
+    <ID>LongMethod:NotificationsScreen.kt$@Composable fun NotificationsScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>LongMethod:NotificationsScreen.kt$@Composable private fun ThreatAlertsTab( smishingAlerts: Boolean, onSmishingAlertsChanged: (Boolean) -&gt; Unit, suspiciousAlerts: Boolean, onSuspiciousAlertsChanged: (Boolean) -&gt; Unit, autoBlockNotice: Boolean, onAutoBlockNoticeChanged: (Boolean) -&gt; Unit, recentAlerts: List&lt;SmsApi.AlertSummary&gt;, alertsLoading: Boolean, )</ID>
+    <ID>LongMethod:NotificationsScreen.kt$@Composable private fun WeeklyDigestTab()</ID>
+    <ID>LongMethod:OnboardingAllowAccessScreen.kt$@Composable fun OnboardingAllowAccessScreen(onNext: () -&gt; Unit)</ID>
+    <ID>LongMethod:OnboardingConfirmNumberScreen.kt$@Composable fun OnboardingConfirmNumberScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
+    <ID>LongMethod:OnboardingDefaultSmsScreen.kt$@Composable fun OnboardingDefaultSmsScreen(onNext: () -&gt; Unit)</ID>
+    <ID>LongMethod:OnboardingEnterCodeScreen.kt$@Composable fun OnboardingEnterCodeScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
+    <ID>LongMethod:OnboardingProfileScreen.kt$@Composable fun OnboardingProfileScreen( viewModel: OnboardingViewModel, onNext: () -&gt; Unit, )</ID>
+    <ID>LongMethod:OnboardingProtectedScreen.kt$@Composable fun OnboardingProtectedScreen( viewModel: OnboardingViewModel, onFinish: () -&gt; Unit, )</ID>
+    <ID>LongMethod:OnboardingTermsScreen.kt$@Composable fun OnboardingTermsScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
+    <ID>LongMethod:PrivacyDataScreen.kt$@Composable fun PrivacyDataScreen(navController: NavController)</ID>
+    <ID>LongMethod:ReportSentScreen.kt$@Composable fun ReportSentScreen( type: String, navController: NavController, )</ID>
+    <ID>LongMethod:ScamAwarenessScreen.kt$@Composable fun ScamAwarenessScreen( navController: NavController, viewModel: ScamAwarenessViewModel = viewModel(), )</ID>
+    <ID>LongMethod:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
+    <ID>LongMethod:SmishingAlertScreen.kt$@Composable private fun SmishingAlertContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, )</ID>
+    <ID>LongMethod:SmsRepository.kt$SmsRepository$private fun classifyMessage( sender: String, body: String, ): String</ID>
+    <ID>LongMethod:SplashScreen.kt$@Composable fun SplashScreen(onFinished: () -&gt; Unit)</ID>
+    <ID>LongMethod:SuspiciousDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SuspiciousDetailScreen( sender: String, navController: NavController, )</ID>
+    <ID>LongMethod:TakeActionScreen.kt$@Composable fun TakeActionScreen(navController: NavController)</ID>
+    <ID>LongMethod:ThreatAnalysisScreen.kt$@Composable private fun ThreatAnalysisContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, navController: NavController, )</ID>
+    <ID>LongMethod:TipDetailScreen.kt$@Composable fun TipDetailScreen( tip: String, navController: NavController, )</ID>
+    <ID>LongMethod:TipDetailScreen.kt$private fun tipContent(tip: String): TipContent</ID>
+    <ID>LongMethod:UnsafeLinkScreen.kt$@Composable fun UnsafeLinkScreen(navController: NavController)</ID>
+    <ID>LongParameterList:HomeScreen.kt$( modifier: Modifier = Modifier, icon: ImageVector, iconTint: Color, value: String, valueColor: Color, label: String, subtitle: String? = null, )</ID>
+    <ID>LongParameterList:MessagesScreen.kt$( selectedCount: Int, isRecentlyDeleted: Boolean, onCancel: () -&gt; Unit, onSelectAll: () -&gt; Unit, onDelete: () -&gt; Unit, onRestore: () -&gt; Unit, onPermanentDelete: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:NotificationsScreen.kt$( smishingAlerts: Boolean, onSmishingAlertsChanged: (Boolean) -&gt; Unit, suspiciousAlerts: Boolean, onSuspiciousAlertsChanged: (Boolean) -&gt; Unit, autoBlockNotice: Boolean, onAutoBlockNoticeChanged: (Boolean) -&gt; Unit, recentAlerts: List&lt;SmsApi.AlertSummary&gt;, alertsLoading: Boolean, )</ID>
+    <ID>LongParameterList:SmsIngestPipeline.kt$SmsIngestPipeline$( context: Context, repository: SmsRepository, sender: String, body: String, notifId: Int, messageId: Long?, )</ID>
+    <ID>LongParameterList:SmsIngestPipeline.kt$SmsIngestPipeline$( context: Context, repository: SmsRepository, token: String, sender: String, body: String, receivedAt: Long, messageId: Long?, timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS, )</ID>
+    <ID>LongParameterList:SmsIngestPipeline.kt$SmsIngestPipeline$( context: Context, result: SmsApi.IngestResult, sender: String, body: String, notifId: Int, messageId: Long?, )</ID>
+    <ID>LongParameterList:TakeActionScreen.kt$( modifier: Modifier = Modifier, title: String, description: String, icon: ImageVector, iconColor: Color, selected: Boolean, selectedBg: Color, selectedBorder: Color, checkColor: Color, onClick: () -&gt; Unit, )</ID>
+    <ID>MagicNumber:AISummaryBottomSheet.kt$0xFF16163A</ID>
+    <ID>MagicNumber:AISummaryBottomSheet.kt$0xFF666666</ID>
+    <ID>MagicNumber:AuthApi.kt$AuthApi$200</ID>
+    <ID>MagicNumber:AuthApi.kt$AuthApi$299</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFF00BCD4</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFF4CAF50</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFF9C27B0</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFFE91E8C</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFFFF4444</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFFFF6B35</ID>
+    <ID>MagicNumber:AvatarHelper.kt$0xFFFF9500</ID>
+    <ID>MagicNumber:AvatarHelper.kt$24</ID>
+    <ID>MagicNumber:AvatarHelper.kt$3600000</ID>
+    <ID>MagicNumber:AvatarHelper.kt$60</ID>
+    <ID>MagicNumber:AvatarHelper.kt$60000</ID>
+    <ID>MagicNumber:AvatarHelper.kt$7</ID>
+    <ID>MagicNumber:AvatarHelper.kt$86400000</ID>
+    <ID>MagicNumber:BantAILogo.kt$0xFF1A1A2E</ID>
+    <ID>MagicNumber:BlockedNumbersApi.kt$BlockedNumbersApi$200</ID>
+    <ID>MagicNumber:BlockedNumbersApi.kt$BlockedNumbersApi$299</ID>
+    <ID>MagicNumber:BlockedNumbersApi.kt$BlockedNumbersApi$404</ID>
+    <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF4A4A4A</ID>
+    <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:BlockedNumbersScreen.kt$0xFFFF3B30</ID>
+    <ID>MagicNumber:CampaignDetailScreen.kt$0xFF2A1A00</ID>
+    <ID>MagicNumber:CampaignDetailScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:CampaignDetailScreen.kt$10</ID>
+    <ID>MagicNumber:CampaignsApi.kt$CampaignsApi$200</ID>
+    <ID>MagicNumber:CampaignsApi.kt$CampaignsApi$299</ID>
+    <ID>MagicNumber:Color.kt$0xFF000000</ID>
+    <ID>MagicNumber:Color.kt$0xFF00BCD4</ID>
+    <ID>MagicNumber:Color.kt$0xFF0A84FF</ID>
+    <ID>MagicNumber:Color.kt$0xFF0D1F0D</ID>
+    <ID>MagicNumber:Color.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:Color.kt$0xFF1A1A2E</ID>
+    <ID>MagicNumber:Color.kt$0xFF1C1C1E</ID>
+    <ID>MagicNumber:Color.kt$0xFF242424</ID>
+    <ID>MagicNumber:Color.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:Color.kt$0xFF2C2C2E</ID>
+    <ID>MagicNumber:Color.kt$0xFF34C759</ID>
+    <ID>MagicNumber:Color.kt$0xFF3A3A5C</ID>
+    <ID>MagicNumber:Color.kt$0xFF4CAF50</ID>
+    <ID>MagicNumber:Color.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:Color.kt$0xFF636366</ID>
+    <ID>MagicNumber:Color.kt$0xFF8A8A8A</ID>
+    <ID>MagicNumber:Color.kt$0xFF9C27B0</ID>
+    <ID>MagicNumber:Color.kt$0xFFE91E8C</ID>
+    <ID>MagicNumber:Color.kt$0xFFFF3B30</ID>
+    <ID>MagicNumber:Color.kt$0xFFFF4444</ID>
+    <ID>MagicNumber:Color.kt$0xFFFF9500</ID>
+    <ID>MagicNumber:Color.kt$0xFFFFFFFF</ID>
+    <ID>MagicNumber:ComposeScreen.kt$15</ID>
+    <ID>MagicNumber:ComposeScreen.kt$7</ID>
+    <ID>MagicNumber:EditProfileScreen.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:EditProfileScreen.kt$0xFF34C759</ID>
+    <ID>MagicNumber:EditProfileScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:EditProfileScreen.kt$0xFFFF3B30</ID>
+    <ID>MagicNumber:EditProfileScreen.kt$0xFFFF6B35</ID>
+    <ID>MagicNumber:HomeScreen.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:HomeScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:HomeScreen.kt$0xFFFF6B35</ID>
+    <ID>MagicNumber:HomeScreen.kt$100</ID>
+    <ID>MagicNumber:HomeScreen.kt$1000</ID>
+    <ID>MagicNumber:HomeViewModel.kt$HomeViewModel$12</ID>
+    <ID>MagicNumber:HomeViewModel.kt$HomeViewModel$18</ID>
+    <ID>MagicNumber:HomeViewModel.kt$HomeViewModel$6</ID>
+    <ID>MagicNumber:HowItWorksScreen.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:HowItWorksScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:MainScreen.kt$0x21FFFFFF</ID>
+    <ID>MagicNumber:MainScreen.kt$0x8C1A1A1F</ID>
+    <ID>MagicNumber:MainScreen.kt$0xE61A1A1F</ID>
+    <ID>MagicNumber:MainScreen.kt$0xFF8E8E93</ID>
+    <ID>MagicNumber:MainScreen.kt$200</ID>
+    <ID>MagicNumber:MainScreen.kt$280</ID>
+    <ID>MagicNumber:MainScreen.kt$3</ID>
+    <ID>MagicNumber:MessageDetailScreen.kt$0.75f</ID>
+    <ID>MagicNumber:MessageDetailScreen.kt$0xFF2A1A00</ID>
+    <ID>MagicNumber:MessageItem.kt$0xFF1A3A1A</ID>
+    <ID>MagicNumber:MessageItem.kt$0xFF3A0000</ID>
+    <ID>MagicNumber:MessageItem.kt$0xFF3A1A00</ID>
+    <ID>MagicNumber:MessagesScreen.kt$200</ID>
+    <ID>MagicNumber:MessagesScreen.kt$250</ID>
+    <ID>MagicNumber:NotificationHelper.kt$NotificationHelper$10</ID>
+    <ID>MagicNumber:NotificationHelper.kt$NotificationHelper$120</ID>
+    <ID>MagicNumber:NotificationHelper.kt$NotificationHelper$30</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0.021f</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0.040f</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF16163A</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF1A1A2A</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF2A0A0A</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF34C759</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$100</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$1440</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$3</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$60</ID>
+    <ID>MagicNumber:NotificationsScreen.kt$60_000</ID>
+    <ID>MagicNumber:OnboardingConfirmNumberScreen.kt$10</ID>
+    <ID>MagicNumber:OnboardingConfirmNumberScreen.kt$11</ID>
+    <ID>MagicNumber:OnboardingConfirmNumberScreen.kt$12</ID>
+    <ID>MagicNumber:OnboardingConfirmNumberScreen.kt$13</ID>
+    <ID>MagicNumber:OnboardingConfirmNumberScreen.kt$3</ID>
+    <ID>MagicNumber:OnboardingConfirmNumberScreen.kt$6</ID>
+    <ID>MagicNumber:OnboardingEnterCodeScreen.kt$6</ID>
+    <ID>MagicNumber:OnboardingTermsScreen.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:OnboardingViewModel.kt$OnboardingViewModel$6</ID>
+    <ID>MagicNumber:ReportSentScreen.kt$0xFF0A2A0A</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF16163A</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF2A0A0A</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF2A1A00</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFF8A8A8A</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFFFF3B30</ID>
+    <ID>MagicNumber:ScamAwarenessScreen.kt$0xFFFF9500</ID>
+    <ID>MagicNumber:SenderAvatar.kt$0.58f</ID>
+    <ID>MagicNumber:SettingsScreen.kt$0xFF00BCD4</ID>
+    <ID>MagicNumber:SettingsScreen.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:SettingsScreen.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:SettingsScreen.kt$0xFF5B4FE8</ID>
+    <ID>MagicNumber:SettingsScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:SettingsScreen.kt$0xFF8A8A8A</ID>
+    <ID>MagicNumber:SmishingAlertScreen.kt$0xFF2A0A0A</ID>
+    <ID>MagicNumber:SmishingAlertScreen.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:SmishingAlertScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:SmishingAlertScreen.kt$100</ID>
+    <ID>MagicNumber:SmsApi.kt$SmsApi$200</ID>
+    <ID>MagicNumber:SmsApi.kt$SmsApi$299</ID>
+    <ID>MagicNumber:SmsIngestPipeline.kt$SmsIngestPipeline$10</ID>
+    <ID>MagicNumber:SplashScreen.kt$2000</ID>
+    <ID>MagicNumber:SummarizeApi.kt$SummarizeApi$200</ID>
+    <ID>MagicNumber:SummarizeApi.kt$SummarizeApi$299</ID>
+    <ID>MagicNumber:SuspiciousDetailScreen.kt$0.85f</ID>
+    <ID>MagicNumber:SuspiciousDetailScreen.kt$0xFF2A0000</ID>
+    <ID>MagicNumber:SuspiciousDetailScreen.kt$0xFF2A1A00</ID>
+    <ID>MagicNumber:TakeActionScreen.kt$0xFF0A2A0A</ID>
+    <ID>MagicNumber:TakeActionScreen.kt$0xFF16163A</ID>
+    <ID>MagicNumber:TakeActionScreen.kt$0xFF2A0A0A</ID>
+    <ID>MagicNumber:TakeActionScreen.kt$0xFF3A3A5C</ID>
+    <ID>MagicNumber:ThreatAnalysisScreen.kt$0xFF2A0A0A</ID>
+    <ID>MagicNumber:ThreatAnalysisScreen.kt$0xFF2A1A00</ID>
+    <ID>MagicNumber:ThreatAnalysisScreen.kt$0xFF2A2A2A</ID>
+    <ID>MagicNumber:ThreatAnalysisScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:ThreatAnalysisScreen.kt$100</ID>
+    <ID>MagicNumber:TipDetailScreen.kt$0xFF16163A</ID>
+    <ID>MagicNumber:UnsafeLinkScreen.kt$0xFF2A0000</ID>
+    <ID>MagicNumber:UnsafeLinkScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:UserPreferences.kt$UserPreferences$50</ID>
+    <ID>MatchingDeclarationName:NavGraph.kt$Screen</ID>
+    <ID>MaxLineLength:AISummaryBottomSheet.kt$"No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."</ID>
+    <ID>MaxLineLength:AISummaryBottomSheet.kt$"This conversation contains suspicious patterns. It may be legitimate but proceed with caution. Do not share personal information."</ID>
+    <ID>MaxLineLength:AISummaryBottomSheet.kt$Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:AISummaryBottomSheet.kt$Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF666666), modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:AISummaryBottomSheet.kt$Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:AlertsScreen.kt$if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged"</ID>
+    <ID>MaxLineLength:AuthApi.kt$AuthApi$suspend fun requestOtp(phone: String): Result&lt;Unit&gt;</ID>
+    <ID>MaxLineLength:AvatarHelper.kt$words.size &gt;= 2 -&gt; "${words[0].firstOrNull()?.uppercase() ?: ""}${words[1].firstOrNull()?.uppercase() ?: ""}"</ID>
+    <ID>MaxLineLength:BlockedNumbersApi.kt$BlockedNumbersApi$suspend</ID>
+    <ID>MaxLineLength:CampaignDetailScreen.kt$Icon(Icons.Default.Link, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))</ID>
+    <ID>MaxLineLength:CampaignDetailScreen.kt$Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = 12.sp)</ID>
+    <ID>MaxLineLength:CampaignDetailScreen.kt$Text("Inactive", color = Color(0xFF666666), fontSize = 11.sp, fontWeight = FontWeight.Medium)</ID>
+    <ID>MaxLineLength:CampaignsApi.kt$CampaignsApi$private fun parseCampaignList(json: JSONArray): List&lt;CampaignSummary&gt;</ID>
+    <ID>MaxLineLength:CampaignsApi.kt$CampaignsApi$suspend fun list(token: String): Result&lt;List&lt;CampaignSummary&gt;&gt;</ID>
+    <ID>MaxLineLength:CampaignsApi.kt$CampaignsApi$suspend fun listInactive(token: String): Result&lt;List&lt;CampaignSummary&gt;&gt;</ID>
+    <ID>MaxLineLength:CampaignsScreen.kt$Icon(icon, contentDescription = null, tint = if (isError) Danger else TextTertiary, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:CampaignsScreen.kt$inactiveErrorMessage != null -&gt; InfoRow(inactiveErrorMessage ?: "Could not load past campaigns", isError = true)</ID>
+    <ID>MaxLineLength:CampaignsScreen.kt$onClick = { campaign -&gt; navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) }</ID>
+    <ID>MaxLineLength:ComposeScreen.kt$.</ID>
+    <ID>MaxLineLength:ComposeScreen.kt$Icon(Icons.Default.PersonAdd, contentDescription = "Add contact", tint = Indigo, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:ComposeScreen.kt$NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))</ID>
+    <ID>MaxLineLength:DeletedMessagesStore.kt$DeletedMessagesStore$/** Also used after a permanent delete succeeds — the soft-delete record is meaningless once the row is truly gone. */</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Icon(Icons.Filled.VerifiedUser, contentDescription = null, tint = Safe, modifier = Modifier.size(24.dp))</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text("See all", color = Indigo, fontSize = 13.sp, modifier = Modifier.clickable { onNavigateToMessages() })</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text(userData.firstName.ifEmpty { "..." }, color = White, fontWeight = FontWeight.Bold, fontSize = 22.sp)</ID>
+    <ID>MaxLineLength:HowItWorksScreen.kt$"All classification happens on-device. No message body is ever sent to a server without your explicit consent."</ID>
+    <ID>MaxLineLength:HowItWorksScreen.kt$"HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders."</ID>
+    <ID>MaxLineLength:HowItWorksScreen.kt$"High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review."</ID>
+    <ID>MaxLineLength:HowItWorksScreen.kt$"SHAP values identify which words or phrases contributed most to the classification — giving you a transparent reason, not just a verdict."</ID>
+    <ID>MaxLineLength:HowItWorksScreen.kt$"Step 1 — Receive SMS" to "When a message arrives, BantAI intercepts it as the default SMS app before it reaches your inbox."</ID>
+    <ID>MaxLineLength:HowItWorksScreen.kt$"XLM-RoBERTa, a multilingual AI model trained on Filipino smishing patterns, analyzes the message body for threats."</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$Icon(Icons.Default.Warning, contentDescription = null, tint = Danger, modifier = Modifier.size(12.dp))</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$color = if (msg.classification == "suspicious") Color(0xFF2A1A00) else Surface</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$color = if (msg.sendStatus == SendStatus.FAILED) Indigo.copy(alpha = 0.5f) else Indigo</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$if (msg.sendStatus == SendStatus.SENDING) "Sending…" else getRelativeTime(msg.timestamp)</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$repo.updateMessageType(msg.id, if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)</ID>
+    <ID>MaxLineLength:NotificationHelper.kt$NotificationHelper$"A smishing message from $safe was detected and the sender has been automatically blocked. Tap to view threat details."</ID>
+    <ID>MaxLineLength:NotificationHelper.kt$NotificationHelper$.</ID>
+    <ID>MaxLineLength:NotificationHelper.kt$NotificationHelper$fun</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$"6 smishing messages were detected this week — 2 more than last week. Stay cautious of GCash-related texts."</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$"This is how BantAI notifies you when a smishing or suspicious message is detected. Tap a notification to expand it."</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$Icon(Icons.Filled.BarChart, contentDescription = null, tint = Indigo, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(14.dp))</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:OnboardingAllowAccessScreen.kt$"BantAI needs to read your incoming messages to detect phishing attempts. Your messages are processed on-device — nothing is sent to a server without your consent."</ID>
+    <ID>MaxLineLength:OnboardingDefaultSmsScreen.kt$subtitle = "BantAI needs to be your default messaging app to read and protect your SMS messages from phishing threats."</ID>
+    <ID>MaxLineLength:OnboardingTermsScreen.kt$"BantAI collects anonymized SMS metadata (sender hash, message hash, timestamp) to improve its detection model. No message body is stored on our servers."</ID>
+    <ID>MaxLineLength:OnboardingTermsScreen.kt$"BantAI does not sell your data to third parties. We may share aggregate threat intelligence with authorized research partners."</ID>
+    <ID>MaxLineLength:OnboardingTermsScreen.kt$"Messages are classified locally on your device using an on-device AI model. Only aggregate, non-identifiable statistics are used for model retraining."</ID>
+    <ID>MaxLineLength:OnboardingTermsScreen.kt$"You can delete your account and all associated data at any time from Settings &gt; Account. Deletion is permanent and irreversible."</ID>
+    <ID>MaxLineLength:PrivacyDataScreen.kt$Icon(Icons.Filled.Download, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:PrivacyDataScreen.kt$body = "Anonymized SMS metadata (sender hash, message hash, timestamp). No message bodies are stored on our servers."</ID>
+    <ID>MaxLineLength:PrivacyDataScreen.kt$body = "Data is used solely to improve BantAI's smishing detection model. Only non-identifiable aggregate statistics are shared."</ID>
+    <ID>MaxLineLength:PrivacyDataScreen.kt$body = "You can request deletion of all your data at any time. Deleting your account permanently removes all associated data."</ID>
+    <ID>MaxLineLength:ReportSentScreen.kt$"block_only" -&gt; "The number has been added to your blocked list and can no longer send you messages. You can unblock it anytime from this screen."</ID>
+    <ID>MaxLineLength:ReportSentScreen.kt$"both" -&gt; "Your report has been submitted and the number has been blocked. It can no longer send you messages."</ID>
+    <ID>MaxLineLength:ReportSentScreen.kt$else -&gt; "Thank you for your report. It helps PhishNet improve its AI model and protect other users from this threat."</ID>
+    <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("action", "ACTION", "What to do when scammed", Icons.AutoMirrored.Filled.Help, Color(0xFF8A8A8A), Color(0xFF1A1A1A))</ID>
+    <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("gcash", "FINANCE", "How to spot a GCash scam", Icons.Filled.Shield, Color(0xFFFF3B30), Color(0xFF2A0A0A))</ID>
+    <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("links", "TECHNICAL", "Safe links vs phishing links", Icons.Filled.Link, Color(0xFF5B4FE8), Color(0xFF16163A))</ID>
+    <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("shap", "AI/ML", "Understanding SHAP scores", Icons.Filled.Psychology, Color(0xFF5B4FE8), Color(0xFF16163A))</ID>
+    <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("urgency", "PSYCHOLOGY", "Why scammers use urgency", Icons.Filled.Bolt, Color(0xFFFF9500), Color(0xFF2A1A00))</ID>
+    <ID>MaxLineLength:SmishingAlertScreen.kt$Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:SmishingAlertScreen.kt$Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))</ID>
+    <ID>MaxLineLength:SmishingAlertScreen.kt$Text("${(score * 100).roundToInt()}% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)</ID>
+    <ID>MaxLineLength:SmsApi.kt$SmsApi$private fun parseAlerts(json: JSONArray): List&lt;AlertSummary&gt;</ID>
+    <ID>MaxLineLength:SmsApi.kt$SmsApi$suspend</ID>
+    <ID>MaxLineLength:SmsRepository.kt$SmsRepository$arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE)</ID>
+    <ID>MaxLineLength:SmsRepository.kt$SmsRepository$fun getMessagesByClassification(classification: String): List&lt;SmsMessage&gt;</ID>
+    <ID>MaxLineLength:SmsRepository.kt$SmsRepository$fun hasReadSmsPermission(): Boolean</ID>
+    <ID>MaxLineLength:SuspiciousDetailScreen.kt$Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:TakeActionScreen.kt$"BDO Online will be added to your blocked list and can no longer send you messages. You can unblock it anytime in Settings."</ID>
+    <ID>MaxLineLength:TakeActionScreen.kt$"This number will be added to your blocked list and can no longer send you messages. You can unblock anytime in Settings."</ID>
+    <ID>MaxLineLength:TakeActionScreen.kt$"Your report will be sent to the PhishNet team and the number will be blocked from sending you messages."</ID>
+    <ID>MaxLineLength:TakeActionScreen.kt$Text(data.title, color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp, textAlign = TextAlign.Center)</ID>
+    <ID>MaxLineLength:ThreatAnalysisScreen.kt$Icon(Icons.Default.GppBad, contentDescription = null, tint = Danger, modifier = Modifier.size(24.dp))</ID>
+    <ID>MaxLineLength:ThreatAnalysisScreen.kt$Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:ThreatAnalysisScreen.kt$Text("${(confidence * 100).roundToInt()}%", color = Suspicious, fontWeight = FontWeight.Bold, fontSize = 14.sp)</ID>
+    <ID>MaxLineLength:ThreatAnalysisScreen.kt$Text(alert.label ?: "Suspicious", color = Suspicious, fontSize = 11.sp, fontWeight = FontWeight.Medium)</ID>
+    <ID>MaxLineLength:ThreatAnalysisScreen.kt$ThreatIndicatorCard(indicator.tag, "${(indicator.weight.coerceIn(0.0, 1.0) * 100).roundToInt()}% contribution")</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$"An empty indicators section means SHAP is still computing — it arrives a few seconds after the alert"</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$"Multiple indicators together (e.g., Urgency Cue + Suspicious URL) build a stronger combined case"</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$"Tag names are plain language: \"Prize Lure\", \"Brand Impersonation\", \"OTP / Account Phishing\""</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "GCash impersonation is the most common smishing attack in the Philippines. Scammers send texts that look like official GCash messages — using the brand name, urgency language, and fake account warnings — to trick you into tapping a link or revealing your OTP."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "If you have already tapped a link, shared personal information, or sent money, there are concrete steps you can take to limit the damage. Acting within the first hour gives you the best chance of preventing further loss."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "OTP (One-Time Password) scams trick you into sharing your verification code, giving the attacker complete access to your account. By the time they message you asking for the code, they have already obtained your credentials and are in the middle of logging in."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "Phishing links disguise malicious websites as legitimate ones. Scammers use URL shorteners (bit.ly, tinyurl), typosquatted domains (gcash-ph.net instead of gcash.com), or long confusing URLs so you cannot tell where you are going. The fake site may even copy the official brand's colors and logos."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "SHAP (SHapley Additive exPlanations) is a machine learning technique that explains model decisions. When BantAI flags a message, it uses SHAP to identify which words or patterns drove that classification — producing the Threat Indicators you see on the alert screen."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "Smishing (SMS phishing) is a type of fraud where attackers send text messages pretending to be trusted brands to steal your credentials or money."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatIsIt = "Urgency language is a psychological manipulation tactic used in nearly every smishing attempt. By creating artificial deadlines (\"Act now or your account is deleted\"), scammers try to bypass your judgment and get you to act before you reflect on whether the message is real."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "1. Change all passwords and MPIN immediately. 2. Call your bank or e-wallet to freeze your account (GCash: 1-800-8-GCASH, BDO: (02) 8631-8000). 3. File a report with BSP Consumer Protection (consumeraffairs@bsp.gov.ph) for bank fraud. 4. Report the sender to NTC at txt.ntc.gov.ph. 5. Block the sender in BantAI and delete the message thread."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Do not click the link. Do not reply. Block the sender and report it through BantAI. If you already clicked, change your password immediately and contact your bank."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Do not tap links in SMS from unknown senders. For any account action, open the official app or type the official website address directly into your browser. If you already tapped: close the page immediately, clear your browser history, and change the account password as a precaution."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Do not tap the link. Open the official GCash app directly to check your account status. If you receive an OTP you did not request, someone may be attempting to log in — change your MPIN immediately and report it through the in-app Help Center."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Never share your OTP with anyone. No legitimate bank, e-wallet, or company will ever ask you for it. If you receive an unsolicited OTP, your account is likely under attack — change your password or MPIN immediately, then contact the service provider's official support to lock the account."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Pause before acting. Any message that pressures you to respond immediately is a red flag. Legitimate companies do not suspend accounts via SMS without prior notice sent through official channels. Verify directly by opening the official app yourself — never through the link in the message."</ID>
+    <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Use the indicators as context, not as final proof. If BantAI flagged a message but none of the indicators match what you are reading, tap Report to help improve the model. Your judgment plus BantAI's analysis is always stronger than either alone."</ID>
+    <ID>MaxLineLength:UnsafeLinkScreen.kt$"This link has been flagged as part of a known smishing campaign. Visiting it may expose you to credential theft or malware."</ID>
+    <ID>ReturnCount:ComposeScreen.kt$fun sendMessage()</ID>
+    <ID>ReturnCount:OnboardingConfirmNumberScreen.kt$private fun normalizePhNumber(raw: String?): String?</ID>
+    <ID>ReturnCount:OnboardingViewModel.kt$OnboardingViewModel$fun validateAndSaveProfile(onSuccess: () -&gt; Unit)</ID>
+    <ID>ReturnCount:SmsRepository.kt$SmsRepository$fun getMessageById(id: Long): SmsMessage?</ID>
+    <ID>SwallowedException:EditProfileScreen.kt$e: Exception</ID>
+    <ID>SwallowedException:HomeScreen.kt$e: Exception</ID>
+    <ID>SwallowedException:SenderAvatar.kt$e: Exception</ID>
+    <ID>SwallowedException:SettingsScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:BlockHelper.kt$BlockHelper$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ComposeScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:EditProfileScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:HomeScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MessageDetailScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SenderAvatar.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SettingsScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SmsIngestPipeline.kt$SmsIngestPipeline$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SmsReceiver.kt$SmsReceiver$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SmsRepository.kt$SmsRepository$e: Exception</ID>
+    <ID>TooManyFunctions:MessagesViewModel.kt$MessagesViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:OnboardingViewModel.kt$OnboardingViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt$SettingsViewModel : AndroidViewModel</ID>
+    <ID>TooManyFunctions:SmsApi.kt$SmsApi</ID>
+    <ID>TooManyFunctions:SmsRepository.kt$SmsRepository</ID>
+    <ID>WildcardImport:BlockedNumbersScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:BlockedNumbersScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:BlockedNumbersScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:BlockedNumbersScreen.kt$import com.bantai.ui.theme.*</ID>
+    <ID>WildcardImport:EditProfileScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:EditProfileScreen.kt$import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:EditProfileScreen.kt$import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:EditProfileScreen.kt$import com.bantai.ui.theme.*</ID>
+    <ID>WildcardImport:HowItWorksScreen.kt$import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:HowItWorksScreen.kt$import com.bantai.ui.theme.*</ID>
+    <ID>WildcardImport:UserPreferences.kt$import androidx.datastore.preferences.core.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

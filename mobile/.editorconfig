@@ -1,0 +1,22 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+insert_final_newline = true
+
+# @Composable functions are conventionally PascalCase (they're used like a
+# widget: `MessageDetailScreen()`, not `messageDetailScreen()`) -- this is
+# the Jetpack Compose community standard, not a naming violation. Without
+# this, ktlint's default function-naming rule flags nearly every Composable
+# in the codebase.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# A handful of Compose UI files import a large namespace wholesale
+# (androidx.compose.material3.*, .foundation.layout.*, .runtime.*, this
+# project's own ui.theme.*) -- expanding those to dozens of explicit names
+# by hand is pure churn with no real readability gain over the wildcard.
+ktlint_standard_no-wildcard-imports = disabled
+
+# Left to detekt's MaxLineLength (see app/detekt.yml) rather than enforced
+# twice by two different tools with two different limits.
+max_line_length = off

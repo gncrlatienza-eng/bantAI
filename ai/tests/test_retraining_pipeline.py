@@ -53,9 +53,7 @@ def test_dry_run_writes_a_snapshot_and_stops(labeled_dir, tmp_path):
 
 def test_dry_run_defaults_to_the_null_report_source(labeled_dir, tmp_path):
     """No report store exists until WBS 4.3.1; the manifest must say so."""
-    run = run_retraining(
-        labeled_dir=labeled_dir, runs_root=str(tmp_path / "runs"), dry_run=True
-    )
+    run = run_retraining(labeled_dir=labeled_dir, runs_root=str(tmp_path / "runs"), dry_run=True)
     assert run.manifest.n_reports == 0
     assert "null" in run.manifest.report_source
     assert not run.promoted
@@ -64,9 +62,7 @@ def test_dry_run_defaults_to_the_null_report_source(labeled_dir, tmp_path):
 def test_dry_run_includes_reports_from_a_file_source(labeled_dir, tmp_path):
     reports_dir = tmp_path / "reports"
     reports_dir.mkdir()
-    (reports_dir / "batch.csv").write_text(
-        "text,label\nyou won a prize,Scam\nclaim here,Scam\n", encoding="utf-8"
-    )
+    (reports_dir / "batch.csv").write_text("text,label\nyou won a prize,Scam\nclaim here,Scam\n", encoding="utf-8")
 
     run = run_retraining(
         labeled_dir=labeled_dir,
@@ -82,17 +78,13 @@ def test_dry_run_includes_reports_from_a_file_source(labeled_dir, tmp_path):
 
 def test_run_directories_are_created_under_the_runs_root(labeled_dir, tmp_path):
     runs_root = tmp_path / "runs"
-    run = run_retraining(
-        labeled_dir=labeled_dir, runs_root=str(runs_root), dry_run=True
-    )
+    run = run_retraining(labeled_dir=labeled_dir, runs_root=str(runs_root), dry_run=True)
     assert os.path.dirname(run.run_dir) == str(runs_root)
 
 
 def test_run_directory_name_is_filesystem_portable(labeled_dir, tmp_path):
     """Colons are legal on POSIX but not Windows; this project uses both."""
-    run = run_retraining(
-        labeled_dir=labeled_dir, runs_root=str(tmp_path / "runs"), dry_run=True
-    )
+    run = run_retraining(labeled_dir=labeled_dir, runs_root=str(tmp_path / "runs"), dry_run=True)
     assert ":" not in os.path.basename(run.run_dir)
 
 
@@ -109,13 +101,9 @@ def test_last_run_time_reads_the_newest_manifest(tmp_path):
     ]:
         run_dir = runs_root / name
         run_dir.mkdir(parents=True)
-        (run_dir / MANIFEST_JSON).write_text(
-            json.dumps({"created_at": stamp}), encoding="utf-8"
-        )
+        (run_dir / MANIFEST_JSON).write_text(json.dumps({"created_at": stamp}), encoding="utf-8")
 
-    assert last_run_time(str(runs_root)) == datetime(
-        2026, 8, 9, tzinfo=timezone.utc
-    )
+    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
 
 
 def test_a_corrupt_manifest_does_not_block_a_retrain(tmp_path):
@@ -128,9 +116,7 @@ def test_a_corrupt_manifest_does_not_block_a_retrain(tmp_path):
         json.dumps({"created_at": "2026-08-09T00:00:00+00:00"}), encoding="utf-8"
     )
 
-    assert last_run_time(str(runs_root)) == datetime(
-        2026, 8, 9, tzinfo=timezone.utc
-    )
+    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
 
 
 def test_a_dry_run_does_not_advance_the_report_watermark(labeled_dir, tmp_path):
@@ -168,9 +154,7 @@ def test_a_real_run_does_advance_the_watermark(labeled_dir, tmp_path):
         json.dumps({"created_at": "2026-08-09T00:00:00+00:00", "dry_run": False}),
         encoding="utf-8",
     )
-    assert last_run_time(str(runs_root)) == datetime(
-        2026, 8, 9, tzinfo=timezone.utc
-    )
+    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
 
 
 def test_explicit_since_overrides_the_watermark(labeled_dir, tmp_path):
@@ -231,7 +215,9 @@ def test_evaluate_candidate_rejects_a_worse_model(monkeypatch):
     monkeypatch.setattr(pl, "_predict", fake_predict)
 
     decision = evaluate_candidate(
-        "baseline", "candidate", [f"row {i}" for i in range(100)],
+        "baseline",
+        "candidate",
+        [f"row {i}" for i in range(100)],
         [0] * 80 + [2] * 20,
     )
     assert not decision.promote
@@ -239,22 +225,16 @@ def test_evaluate_candidate_rejects_a_worse_model(monkeypatch):
 
 # --- reporting --------------------------------------------------------------
 def test_summary_marks_a_dry_run_as_such(labeled_dir, tmp_path):
-    run = run_retraining(
-        labeled_dir=labeled_dir, runs_root=str(tmp_path / "runs"), dry_run=True
-    )
+    run = run_retraining(labeled_dir=labeled_dir, runs_root=str(tmp_path / "runs"), dry_run=True)
     summary = run.summary()
     assert "DRY RUN" in summary
     assert "no training run" in summary
 
 
-def test_summary_reports_relabels_when_a_report_corrected_the_dataset(
-    labeled_dir, tmp_path
-):
+def test_summary_reports_relabels_when_a_report_corrected_the_dataset(labeled_dir, tmp_path):
     reports_dir = tmp_path / "reports"
     reports_dir.mkdir()
-    (reports_dir / "batch.csv").write_text(
-        "text,label\nmessage number 3,Scam\n", encoding="utf-8"
-    )
+    (reports_dir / "batch.csv").write_text("text,label\nmessage number 3,Scam\n", encoding="utf-8")
     run = run_retraining(
         labeled_dir=labeled_dir,
         report_source=FileReportSource(str(reports_dir)),

@@ -6,10 +6,11 @@ export const ROUTES = {
   LICENSING: '/request-access',
   LOGIN: '/login',
   ADMIN_LOGIN: '/admin-login',
+  FORGOT_PASSWORD: '/forgot-password',
   TWO_FACTOR: '/2fa',
   PROFILE: '/profile',
   SETTINGS: '/settings',
-  
+
   CLIENT: {
     OVERVIEW: '/client/overview',
     MESSAGES: '/client/messages',
@@ -20,7 +21,7 @@ export const ROUTES = {
     SETTINGS: '/client/settings',
     NOTIFICATIONS: '/client/notifications',
   },
-  
+
   ADMIN: {
     OVERVIEW: '/admin/overview',
     REPORTS: '/admin/reports',
@@ -39,5 +40,5 @@ export const ROUTES = {
     TIPS: '/admin/tips',
     SETTINGS: '/admin/settings',
     NOTIFICATIONS: '/admin/notifications',
-  }
+  },
 } as const;

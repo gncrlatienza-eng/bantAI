@@ -64,24 +64,27 @@ fun BlockedNumbersScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         // Top bar
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.Default.ArrowBack,
                 contentDescription = "Back",
                 tint = White,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { navController.popBackStack() },
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .clickable { navController.popBackStack() },
             )
             Spacer(Modifier.width(16.dp))
             Text(
@@ -125,9 +128,10 @@ fun BlockedNumbersScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(blockedNumbers) { entry ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -154,9 +158,10 @@ fun BlockedNumbersScreen(
                             Icons.Default.Close,
                             contentDescription = "Unblock",
                             tint = Color(0xFF666666),
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clickable { numberToUnblock = entry },
+                            modifier =
+                                Modifier
+                                    .size(20.dp)
+                                    .clickable { numberToUnblock = entry },
                         )
                     }
                     HorizontalDivider(

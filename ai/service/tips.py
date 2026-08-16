@@ -36,8 +36,8 @@ class ScamTip:
 
     tag: str
     title: str
-    description: str          # what this kind of scam is
-    actions: List[str]        # what the user should do
+    description: str  # what this kind of scam is
+    actions: List[str]  # what the user should do
 
     def to_dict(self) -> dict:
         return {

@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     # The bar is deliberately highest for "blocked" — hiding a real message is
     # the most costly mistake. Tune these once the model's score distribution is
     # observed on real data.
-    safe_threshold: float = 0.50    # Ham  -> safe    (inbox)
-    spam_threshold: float = 0.60    # Spam -> spam    (dropdown)
-    block_threshold: float = 0.90   # Scam -> blocked (dropdown)
+    safe_threshold: float = 0.50  # Ham  -> safe    (inbox)
+    spam_threshold: float = 0.60  # Spam -> spam    (dropdown)
+    block_threshold: float = 0.90  # Scam -> blocked (dropdown)
 
     # Minimum gap between the top two class probabilities. When the winner
     # leads the runner-up by less than this, the model is treated as "torn"
@@ -54,8 +54,12 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:3000/api"
 
     # Cosine similarity a message must reach to join an existing campaign
-    # (manuscript Stage 5b).
-    campaign_threshold: float = 0.85
+    # (manuscript Stage 5b). The manuscript specifies 0.85; measured against
+    # real data that attaches 54.5% of *unrelated* messages, because the
+    # classifier embedding this reuses encodes class rather than campaign.
+    # Re-calibrated to 0.999 in Sprint 5 (WBS 5.3.6) -- see
+    # service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD for the full sweep.
+    campaign_threshold: float = 0.999
 
 
 settings = Settings()

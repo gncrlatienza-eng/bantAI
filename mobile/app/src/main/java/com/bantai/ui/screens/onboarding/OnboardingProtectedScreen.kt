@@ -60,16 +60,17 @@ fun OnboardingProtectedScreen(
     LaunchedEffect(Unit) { visible = true }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
-            .graphicsLayer {
-                alpha = slideAlpha
-                translationY = slideOffsetY
-            },
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .graphicsLayer {
+                    alpha = slideAlpha
+                    translationY = slideOffsetY
+                },
     ) {
         Spacer(Modifier.height(56.dp))
 

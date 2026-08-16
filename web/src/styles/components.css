@@ -5,7 +5,9 @@
   padding: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   min-height: 100vh;
   background: var(--bg-dark);
   color: var(--text-primary);
@@ -25,21 +27,41 @@ a {
   transition: color 0.2s ease;
 }
 
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
   font: inherit;
 }
 
 /* Typography Hierarchy */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
-h1 { font-size: 2.25rem; line-height: 1.2; }
-h2 { font-size: 1.75rem; line-height: 1.3; }
-h3 { font-size: 1.25rem; line-height: 1.4; }
-h4 { font-size: 1rem; line-height: 1.4; }
+h1 {
+  font-size: 2.25rem;
+  line-height: 1.2;
+}
+h2 {
+  font-size: 1.75rem;
+  line-height: 1.3;
+}
+h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+h4 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
 
 /* Eyebrow / Overline */
 .eyebrow {
@@ -80,7 +102,11 @@ h4 { font-size: 1rem; line-height: 1.4; }
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-primary-hover) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary) 0%,
+    var(--accent-primary-hover) 100%
+  );
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
@@ -243,24 +269,56 @@ textarea.form-input {
   white-space: nowrap;
 }
 
-.badge-red { background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
-.badge-amber { background: var(--amber-bg); border: 1px solid var(--amber-border); color: var(--amber-text); }
-.badge-green { background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
-.badge-blue { background: var(--blue-bg); border: 1px solid var(--blue-border); color: var(--blue-text); }
-.badge-gray { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border-default); color: var(--text-muted); }
+.badge-red {
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  color: var(--red-text);
+}
+.badge-amber {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-border);
+  color: var(--amber-text);
+}
+.badge-green {
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  color: var(--green-text);
+}
+.badge-blue {
+  background: var(--blue-bg);
+  border: 1px solid var(--blue-border);
+  color: var(--blue-text);
+}
+.badge-gray {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+}
 
-/* Public Shell with Deep Obsidian Base & Light Blue Micro Cyber Grid */
+/* Public Shell with Deep Dark Obsidian Base & Cyber Grid */
 .public-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #060810;
-  background-image: 
-    radial-gradient(circle at 4% 20%, rgba(56, 189, 248, 0.07) 0%, transparent 35%),
-    radial-gradient(circle at 96% 20%, rgba(96, 165, 250, 0.07) 0%, transparent 35%),
-    linear-gradient(to right, rgba(56, 189, 248, 0.038) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(56, 189, 248, 0.038) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+  background-color: #04060c;
+  background-image:
+    radial-gradient(
+      circle at 4% 20%,
+      rgba(37, 99, 235, 0.14) 0%,
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 96% 20%,
+      rgba(124, 58, 237, 0.12) 0%,
+      transparent 35%
+    ),
+    linear-gradient(to right, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    36px 36px,
+    36px 36px;
   background-attachment: fixed;
   position: relative;
   overflow-x: hidden;
@@ -279,7 +337,9 @@ textarea.form-input {
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 30px rgba(37, 99, 235, 0.15);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(37, 99, 235, 0.15);
 }
 
 .brand-lockup {
@@ -362,13 +422,19 @@ textarea.form-input {
 .public-footer {
   margin-top: auto;
   border-top: 1px solid rgba(59, 130, 246, 0.25);
-  background: linear-gradient(180deg, rgba(8, 10, 16, 0.45) 0%, rgba(15, 23, 42, 0.88) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(8, 10, 16, 0.45) 0%,
+    rgba(15, 23, 42, 0.88) 100%
+  );
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   padding: 44px 40px;
   color: var(--text-muted);
   font-size: 0.8125rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 -10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 -10px 30px rgba(0, 0, 0, 0.4);
 }
 
 .footer-inner {
@@ -393,13 +459,30 @@ textarea.form-input {
   justify-content: center;
   padding: 20px;
   background-color: #080a11;
-  background-image: 
-    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.22) 0%, transparent 45%),
-    radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.20) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.12) 0%, transparent 40%),
-    linear-gradient(to right, rgba(96, 165, 250, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(96, 165, 250, 0.045) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+  background-image:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(37, 99, 235, 0.22) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(124, 58, 237, 0.2) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(6, 182, 212, 0.12) 0%,
+      transparent 40%
+    ),
+    linear-gradient(to right, rgba(96, 165, 250, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(96, 165, 250, 0.08) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    36px 36px,
+    36px 36px;
   background-attachment: fixed;
   position: relative;
   overflow: hidden;
@@ -408,13 +491,20 @@ textarea.form-input {
 .auth-card {
   width: 100%;
   max-width: 440px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.82) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.88) 0%,
+    rgba(30, 41, 59, 0.82) 100%
+  );
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 20px;
   padding: 38px 36px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.7),
+    0 0 35px rgba(37, 99, 235, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -497,18 +587,36 @@ textarea.form-input {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-/* Dashboard Shell & Cyber Tech Ambient Background Overlay (Subtle Premium Background for Admin & Client) */
+/* Dashboard Shell (Matching High-Tech Cyber Grid Background from Login Page) */
 .dashboard-shell {
   display: flex;
   min-height: 100vh;
-  background-color: #07080e;
-  background-image: 
-    radial-gradient(circle at 18% 14%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 82% 82%, rgba(124, 58, 237, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 50% 35%, rgba(6, 182, 212, 0.04) 0%, transparent 40%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  position: relative;
+  background-color: #060810;
+  background-image:
+    radial-gradient(
+      circle at 15% 15%,
+      rgba(37, 99, 235, 0.28) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 85% 85%,
+      rgba(124, 58, 237, 0.25) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 40%,
+      rgba(6, 182, 212, 0.16) 0%,
+      transparent 40%
+    ),
+    linear-gradient(to right, rgba(96, 165, 250, 0.13) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(96, 165, 250, 0.13) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    32px 32px,
+    32px 32px;
   background-attachment: fixed;
 }
 
@@ -631,12 +739,14 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-topbar {
   min-height: 76px;
   padding: 12px 36px;
-  background: rgba(10, 11, 16, 0.88);
+  background: rgba(10, 11, 16, 0.82);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
@@ -657,6 +767,8 @@ textarea.form-input {
   max-width: 100%;
   width: 100%;
   margin: 0 auto;
+  position: relative;
+  z-index: 2;
 }
 
 /* Cards & Panels */
@@ -668,8 +780,13 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s ease;
 }
 
 .panel:hover {
@@ -730,14 +847,21 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
   border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 20px rgba(37, 99, 235, 0.18);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 20px rgba(37, 99, 235, 0.18);
 }
 
 .stat-card small {
@@ -972,10 +1096,11 @@ tr:hover td {
 .card-hover-effect,
 .stat-card,
 .panel {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s ease,
-              box-shadow 0.25s ease,
-              background 0.25s ease;
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
   will-change: transform, box-shadow;
   position: relative;
 }
@@ -985,9 +1110,10 @@ tr:hover td {
 .panel:hover {
   transform: translateY(-3px);
   border-color: rgba(59, 130, 246, 0.45) !important;
-  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.5), 
-              0 0 20px rgba(37, 99, 235, 0.2), 
-              inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 10px 28px -4px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(37, 99, 235, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Static Panel Exemption (No big lift animation) */
@@ -1009,22 +1135,56 @@ tr:hover td {
 }
 
 .campaign-card-interactive {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s ease,
-              box-shadow 0.25s ease,
-              background 0.25s ease;
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
   will-change: transform, box-shadow;
 }
 
 .campaign-card-interactive:hover {
   transform: translateY(-3px);
   border-color: rgba(59, 130, 246, 0.45) !important;
-  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.5), 
-              0 0 20px rgba(37, 99, 235, 0.2), 
-              inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 10px 28px -4px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(37, 99, 235, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Ambient Homepage Lighting (High-Contrast Dark Space with Light Blue Spotlights) */
+/* Dashboard Shell (Subtle Premium Background for Admin & Client - No Hexagons) */
+.dashboard-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: #07080e;
+  background-image:
+    radial-gradient(
+      circle at 18% 14%,
+      rgba(59, 130, 246, 0.08) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 82% 82%,
+      rgba(124, 58, 237, 0.06) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(6, 182, 212, 0.04) 0%,
+      transparent 40%
+    ),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    40px 40px,
+    40px 40px;
+  background-attachment: fixed;
+}
+
+/* Ambient Homepage Lighting & Side-Only Hexagon Cyber Accents (Home Page Only) */
 .homepage-light-bg {
   position: absolute;
   top: 0;
@@ -1033,14 +1193,41 @@ tr:hover td {
   bottom: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 0;
+  z-index: 1;
   background: 
-    /* Top Hero Light Blue Spotlight */
-    radial-gradient(circle at 50% -5%, rgba(56, 189, 248, 0.16) 0%, rgba(37, 99, 235, 0.10) 35%, transparent 58%),
-    /* Subtle Mid-Section Light Blue Ambient Tint */
-    radial-gradient(circle at 50% 40%, rgba(56, 189, 248, 0.06) 0%, transparent 48%),
-    /* Bottom CTA Light Blue Spotlight */
-    radial-gradient(circle at 50% 88%, rgba(56, 189, 248, 0.15) 0%, rgba(37, 99, 235, 0.08) 38%, transparent 60%);
+    /* Top Hero Darkened Spotlight */
+    radial-gradient(
+      circle at 50% -5%,
+      rgba(37, 99, 235, 0.12) 0%,
+      rgba(15, 23, 42, 0.08) 35%,
+      transparent 60%
+    ),
+    /* Mid-Section Subtle Dark Ambient Glow */
+    radial-gradient(
+        circle at 50% 40%,
+        rgba(56, 189, 248, 0.04) 0%,
+        transparent 50%
+      ),
+    /* Bottom CTA Darkened Spotlight */
+    radial-gradient(
+        circle at 50% 88%,
+        rgba(37, 99, 235, 0.1) 0%,
+        rgba(15, 23, 42, 0.05) 38%,
+        transparent 62%
+      );
+}
+
+.homepage-light-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1400 900' width='100%25' height='100%25' preserveAspectRatio='xMidYMin slice'%3E%3C!-- UPPER-LEFT HEXAGON CLUSTER --%3E%3Cg fill='none' stroke='rgba(56, 189, 248, 0.35)' stroke-width='1.8'%3E%3Cpolygon points='235,140 197,205 122,205 85,140 122,75 197,75'/%3E%3Cpolygon points='320,75 295,118 245,118 220,75 245,32 295,32' stroke='rgba(37, 99, 235, 0.25)'/%3E%3Cpolygon points='105,240 87,270 52,270 35,240 52,210 87,210' stroke='rgba(96, 165, 250, 0.18)'/%3E%3C/g%3E%3Cg fill='%2338bdf8'%3E%3Ccircle cx='235' cy='140' r='3.5' opacity='0.85'/%3E%3Ccircle cx='197' cy='205' r='4' opacity='0.95'/%3E%3Ccircle cx='122' cy='205' r='3' opacity='0.7'/%3E%3Ccircle cx='85' cy='140' r='3.5' opacity='0.9'/%3E%3Ccircle cx='122' cy='75' r='3' opacity='0.65'/%3E%3Ccircle cx='197' cy='75' r='4' opacity='0.95'/%3E%3Ccircle cx='320' cy='75' r='3' opacity='0.6'/%3E%3Ccircle cx='245' cy='32' r='3' opacity='0.5'/%3E%3C/g%3E%3C!-- UPPER-RIGHT HEXAGON CLUSTER --%3E%3Cg fill='none' stroke='rgba(56, 189, 248, 0.35)' stroke-width='1.8'%3E%3Cpolygon points='1315,140 1277,205 1202,205 1165,140 1202,75 1277,75'/%3E%3Cpolygon points='1180,75 1155,118 1105,118 1080,75 1105,32 1155,32' stroke='rgba(37, 99, 235, 0.25)'/%3E%3Cpolygon points='1365,240 1347,270 1312,270 1295,240 1312,210 1347,210' stroke='rgba(96, 165, 250, 0.18)'/%3E%3C/g%3E%3Cg fill='%2338bdf8'%3E%3Ccircle cx='1315' cy='140' r='3.5' opacity='0.85'/%3E%3Ccircle cx='1277' cy='205' r='4' opacity='0.95'/%3E%3Ccircle cx='1202' cy='205' r='3' opacity='0.7'/%3E%3Ccircle cx='1165' cy='140' r='3.5' opacity='0.9'/%3E%3Ccircle cx='1202' cy='75' r='3' opacity='0.65'/%3E%3Ccircle cx='1277' cy='75' r='4' opacity='0.95'/%3E%3Ccircle cx='1180' cy='75' r='3' opacity='0.6'/%3E%3Ccircle cx='1105' cy='32' r='3' opacity='0.5'/%3E%3C/g%3E%3C!-- SUBTLE SIDE ACCENTS --%3E%3Cg fill='none' stroke='rgba(56, 189, 248, 0.22)' stroke-width='1.5'%3E%3Cpolygon points='1360,520 1340,555 1300,555 1280,520 1300,485 1340,485'/%3E%3Cpolygon points='118,540 99,573 61,573 42,540 61,507 99,507'/%3E%3C/g%3E%3Cg fill='%2338bdf8'%3E%3Ccircle cx='1360' cy='520' r='2.5' opacity='0.5'/%3E%3Ccircle cx='1280' cy='520' r='2.5' opacity='0.4'/%3E%3Ccircle cx='118' cy='540' r='2.5' opacity='0.5'/%3E%3Ccircle cx='42' cy='540' r='2.5' opacity='0.4'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
 }
 
 /* Dedicated Glowing Stat Card Classes */
@@ -1062,9 +1249,13 @@ tr:hover td {
 
 /* Card 1: Electric Blue Glow */
 .glow-card-blue {
-  background: linear-gradient(145deg, rgba(15, 28, 60, 0.75) 0%, rgba(10, 16, 36, 0.88) 100%);
+  background: linear-gradient(
+    145deg,
+    rgba(15, 28, 60, 0.75) 0%,
+    rgba(10, 16, 36, 0.88) 100%
+  );
   border: 1px solid rgba(59, 130, 246, 0.45);
-  box-shadow: 
+  box-shadow:
     0 12px 35px -5px rgba(37, 99, 235, 0.3),
     0 4px 15px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
@@ -1074,7 +1265,7 @@ tr:hover td {
 .glow-card-blue:hover {
   transform: translateY(-5px) scale(1.015);
   border-color: #60a5fa !important;
-  box-shadow: 
+  box-shadow:
     0 16px 45px -5px rgba(37, 99, 235, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
@@ -1083,9 +1274,13 @@ tr:hover td {
 
 /* Card 2: Vibrant Cyan Glow */
 .glow-card-cyan {
-  background: linear-gradient(145deg, rgba(12, 38, 62, 0.75) 0%, rgba(8, 20, 38, 0.88) 100%);
+  background: linear-gradient(
+    145deg,
+    rgba(12, 38, 62, 0.75) 0%,
+    rgba(8, 20, 38, 0.88) 100%
+  );
   border: 1px solid rgba(56, 189, 248, 0.45);
-  box-shadow: 
+  box-shadow:
     0 12px 35px -5px rgba(56, 189, 248, 0.3),
     0 4px 15px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
@@ -1095,7 +1290,7 @@ tr:hover td {
 .glow-card-cyan:hover {
   transform: translateY(-5px) scale(1.015);
   border-color: #38bdf8 !important;
-  box-shadow: 
+  box-shadow:
     0 16px 45px -5px rgba(56, 189, 248, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
@@ -1104,9 +1299,13 @@ tr:hover td {
 
 /* Card 3: Emerald Neon Green Glow */
 .glow-card-emerald {
-  background: linear-gradient(145deg, rgba(10, 38, 30, 0.75) 0%, rgba(6, 20, 16, 0.88) 100%);
+  background: linear-gradient(
+    145deg,
+    rgba(10, 38, 30, 0.75) 0%,
+    rgba(6, 20, 16, 0.88) 100%
+  );
   border: 1px solid rgba(52, 211, 153, 0.45);
-  box-shadow: 
+  box-shadow:
     0 12px 35px -5px rgba(16, 185, 129, 0.3),
     0 4px 15px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
@@ -1116,11 +1315,9 @@ tr:hover td {
 .glow-card-emerald:hover {
   transform: translateY(-5px) scale(1.015);
   border-color: #34d399 !important;
-  box-shadow: 
+  box-shadow:
     0 16px 45px -5px rgba(16, 185, 129, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     inset 0 0 30px rgba(16, 185, 129, 0.25) !important;
 }
-
-

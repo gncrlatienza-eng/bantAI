@@ -212,6 +212,36 @@ dry run trains nothing, so letting it advance the watermark would make the next
 real run silently skip every report the dry run merely looked at. `--since all`
 overrides the watermark entirely.
 
+### What the gate records, and what it does not
+
+Every run writes `decision.json` — the verdict plus every number behind it,
+**including for a rejection.** A rejected candidate is the case most worth
+explaining later, so it is recorded in exactly as much detail as a promotion.
+
+Since WBS 4.3.5 that also includes the class-level breakdown of the
+disagreements:
+
+```json
+"regression_transitions": { "Scam->Spam": 20, "Ham->Spam": 12 },
+"fix_transitions":        { "Spam->Scam": 41, "Ham->Ham": 9 }
+```
+
+`97 fixes vs 44 regressions` invites exactly one follow-up — *what got worse?* —
+and the counts alone cannot answer it. `Scam->Spam: 20` says the candidate
+started under-calling scams, which is a different and more serious failure than
+the same number of Ham/Spam mix-ups. These are text-free by design, so they are
+safe to commit and to quote in the manuscript.
+
+The row-level detail lands beside it in **`disagreements.json`**: index, true
+label, both predictions, and the message text for every row the two models
+disagreed on.
+
+> ⚠️ **`disagreements.json` must never be committed.** It reproduces real SMS
+> bodies from the validation split — masked (`<URL>`, `<OTP>`), because that is
+> the form the models were scored on, but still real user messages. It stays in
+> the run directory, which `ai/models/*/` already git-ignores. Quote the
+> transition counts instead.
+
 ### Validation caveat
 
 The candidate is scored on the held-out 20% of its own snapshot, which it has

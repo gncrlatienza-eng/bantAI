@@ -26,7 +26,7 @@ from retraining.reports import (
     NullReportSource,
     ReportSourceError,
 )
-from retraining.snapshot import MANIFEST_JSON, SNAPSHOT_CSV
+from retraining.snapshot import MANIFEST_JSON, SNAPSHOT_CSV, SnapshotManifest
 
 
 @pytest.fixture
@@ -342,3 +342,159 @@ def run_manifest():
         report_source=NullReportSource().describe(),
         max_history=None,
     )
+
+
+# --- what got worse, not just how much (WBS 4.3.5) --------------------------
+def _fake_predictors(monkeypatch, baseline_pred, candidate_pred):
+    """Stub _predict so the gate can be exercised without a real checkpoint."""
+    calls = {"n": 0}
+
+    def fake(model_dir, texts, batch_size=32):
+        calls["n"] += 1
+        return baseline_pred if calls["n"] == 1 else candidate_pred
+
+    monkeypatch.setattr(pl, "_predict", fake)
+
+
+def test_decision_records_which_class_confusions_regressed(monkeypatch, tmp_path):
+    """'44 regressions' invites exactly one question. Scam->Spam x2 answers it."""
+    val_texts = ["a", "b", "c", "d"]
+    val_labels = [2, 2, 0, 1]  # Scam, Scam, Ham, Spam
+    baseline = [2, 2, 0, 0]  # right, right, right, wrong
+    candidate = [1, 1, 0, 1]  # Scam->Spam twice, right, fixed
+
+    _fake_predictors(monkeypatch, baseline, candidate)
+    decision = evaluate_candidate("b", "c", val_texts, val_labels, run_dir=str(tmp_path))
+
+    assert decision.n_regressions == 2
+    assert decision.regression_transitions == {"Scam->Spam": 2}
+    assert decision.fix_transitions == {"Spam->Ham": 1}
+
+
+def test_transitions_reach_decision_json(monkeypatch, tmp_path):
+    val_labels = [2, 0]
+    _fake_predictors(monkeypatch, [2, 0], [1, 0])
+
+    decision = evaluate_candidate("b", "c", ["a", "b"], val_labels, run_dir=str(tmp_path))
+    run = RetrainingRun(
+        run_dir=str(tmp_path),
+        snapshot_dir=str(tmp_path),
+        manifest=None,
+        decision=decision,
+    )
+    pl._write_decision(run)
+
+    written = json.loads((tmp_path / DECISION_JSON).read_text(encoding="utf-8"))
+    assert written["decision"]["regression_transitions"] == {"Scam->Spam": 1}
+
+
+def test_disagreements_file_names_the_offending_rows(monkeypatch, tmp_path):
+    val_texts = ["claim your prize at <URL>", "meeting at 3", "your OTP is <OTP>"]
+    val_labels = [2, 0, 0]
+    _fake_predictors(monkeypatch, [2, 0, 0], [1, 0, 0])
+
+    evaluate_candidate("b", "c", val_texts, val_labels, run_dir=str(tmp_path))
+
+    payload = json.loads((tmp_path / pl.DISAGREEMENTS_JSON).read_text(encoding="utf-8"))
+    assert payload["n_regressions"] == 1
+    (row,) = payload["regressions"]
+    assert row["index"] == 0
+    assert row["true"] == "Scam"
+    assert row["baseline"] == "Scam"
+    assert row["candidate"] == "Spam"
+    assert row["text"] == "claim your prize at <URL>"
+
+
+def test_disagreements_file_warns_against_committing_it(monkeypatch, tmp_path):
+    """It reproduces real SMS bodies. The run directory is git-ignored, and the
+    file has to say why so a well-meaning copy into evaluation/ does not leak."""
+    _fake_predictors(monkeypatch, [2], [1])
+    evaluate_candidate("b", "c", ["x"], [2], run_dir=str(tmp_path))
+
+    payload = json.loads((tmp_path / pl.DISAGREEMENTS_JSON).read_text(encoding="utf-8"))
+    assert "Do not commit" in payload["_warning"]
+
+
+def test_no_run_dir_writes_nothing_but_still_summarises(monkeypatch, tmp_path):
+    """The counts are always safe; the message bodies are opt-in."""
+    _fake_predictors(monkeypatch, [2], [1])
+    decision = evaluate_candidate("b", "c", ["x"], [2])
+
+    assert decision.regression_transitions == {"Scam->Spam": 1}
+    assert not (tmp_path / pl.DISAGREEMENTS_JSON).exists()
+
+
+def test_summary_prints_what_got_worse(monkeypatch, tmp_path):
+    _fake_predictors(monkeypatch, [2, 2], [1, 1])
+    decision = evaluate_candidate("b", "c", ["x", "y"], [2, 2], run_dir=str(tmp_path))
+    run = RetrainingRun(
+        run_dir="r",
+        snapshot_dir="s",
+        manifest=SnapshotManifest(
+            created_at="2026-08-17T00:00:00+00:00",
+            seed=42,
+            report_source="null (no report store consulted)",
+            max_history=None,
+        ),
+        decision=decision,
+    )
+    assert "worse:" in run.summary()
+    assert "Scam->Spam x2" in run.summary()
+
+
+# --- a rejection must be recorded as loudly as a promotion ------------------
+# PromotionDecision.__bool__ returns `promote`, so a rejected decision is
+# falsy. Both call sites below used to test it for *existence*, which meant a
+# rejected candidate wrote `"decision": null` and printed nothing -- discarding
+# the reason, both F1 scores and the p-value in exactly the case anyone would
+# later want explained.
+
+
+def _rejected(monkeypatch, tmp_path):
+    val_labels = [2, 0, 2]
+    _fake_predictors(monkeypatch, [2, 0, 2], [1, 0, 1])  # candidate strictly worse
+    decision = evaluate_candidate("b", "c", ["x", "y", "z"], val_labels, run_dir=str(tmp_path))
+    assert decision.promote is False, "fixture must actually be a rejection"
+    return decision
+
+
+def test_a_rejected_decision_is_still_written_in_full(monkeypatch, tmp_path):
+    decision = _rejected(monkeypatch, tmp_path)
+    run = RetrainingRun(
+        run_dir=str(tmp_path),
+        snapshot_dir=str(tmp_path),
+        manifest=None,
+        decision=decision,
+    )
+    pl._write_decision(run)
+
+    written = json.loads((tmp_path / DECISION_JSON).read_text(encoding="utf-8"))
+    assert written["decision"] is not None, "a rejection must not serialise as null"
+    assert written["decision"]["promote"] is False
+    assert written["decision"]["reason"]
+    assert written["decision"]["baseline_macro_f1"] > 0
+    assert written["decision"]["p_value"] is not None
+
+
+def test_summary_reports_a_rejection(monkeypatch, tmp_path):
+    decision = _rejected(monkeypatch, tmp_path)
+    run = RetrainingRun(
+        run_dir="r",
+        snapshot_dir="s",
+        manifest=SnapshotManifest(
+            created_at="2026-08-17T00:00:00+00:00",
+            seed=42,
+            report_source="null (no report store consulted)",
+            max_history=None,
+        ),
+        decision=decision,
+    )
+    text = run.summary()
+    assert "REJECT" in text
+    assert "macro-F1" in text
+
+
+def test_promoted_property_is_false_for_a_rejection(monkeypatch, tmp_path):
+    decision = _rejected(monkeypatch, tmp_path)
+    run = RetrainingRun(run_dir="r", snapshot_dir="s", manifest=None, decision=decision)
+    assert run.promoted is False

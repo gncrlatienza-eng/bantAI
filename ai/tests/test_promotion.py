@@ -3,6 +3,7 @@
 import pytest
 
 from retraining.promotion import (
+    discordant_indices,
     evaluate_promotion,
     mcnemar_counts,
 )
@@ -138,3 +139,48 @@ def test_decision_is_truthy():
     for i in range(70, 95):
         baseline[i] = "Ham"
     assert bool(evaluate_promotion(truth, baseline, candidate))
+
+
+# --- which rows disagreed, not just how many (WBS 4.3.5) --------------------
+def test_discordant_indices_points_at_the_actual_rows():
+    """Counts answer 'how many changed'. Only indices answer 'which' -- the
+    first question anyone asks about a promotion."""
+    truth = ["Ham", "Scam", "Spam", "Scam", "Ham"]
+    baseline = ["Ham", "Ham", "Spam", "Scam", "Ham"]  # wrong at 1
+    candidate = ["Ham", "Scam", "Spam", "Ham", "Ham"]  # wrong at 3
+
+    fixes, regressions = discordant_indices(truth, baseline, candidate)
+
+    assert fixes == [1]
+    assert regressions == [3]
+
+
+def test_counts_and_indices_can_never_disagree():
+    """mcnemar_counts delegates, so there is one definition of a fix."""
+    truth = ["Ham", "Scam", "Spam", "Scam", "Ham", "Spam"]
+    baseline = ["Scam", "Ham", "Spam", "Scam", "Ham", "Ham"]
+    candidate = ["Ham", "Scam", "Ham", "Ham", "Ham", "Spam"]
+
+    fixes, regressions = discordant_indices(truth, baseline, candidate)
+    assert mcnemar_counts(truth, baseline, candidate) == (len(fixes), len(regressions))
+
+
+def test_rows_both_models_get_wrong_are_not_disagreements():
+    """Both wrong carries no information about which model is better -- that
+    is the whole reason McNemar looks only at the discordant cells."""
+    truth = ["Scam", "Scam"]
+    baseline = ["Ham", "Ham"]
+    candidate = ["Spam", "Ham"]
+    assert discordant_indices(truth, baseline, candidate) == ([], [])
+
+
+def test_mismatched_lengths_still_raise_through_the_wrapper():
+    with pytest.raises(ValueError):
+        discordant_indices(["Ham"] * 3, ["Ham"] * 3, ["Ham"] * 2)
+
+
+def test_transition_fields_default_to_none():
+    """The gate decides verdicts; it does not decide what gets persisted."""
+    decision = evaluate_promotion(["Ham", "Scam"], ["Ham", "Ham"], ["Ham", "Scam"])
+    assert decision.regression_transitions is None
+    assert decision.fix_transitions is None

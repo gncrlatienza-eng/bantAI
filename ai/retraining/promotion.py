@@ -35,7 +35,7 @@ than the chi-square approximation because ``b + c`` here is often small
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Optional, Sequence
 
 from scipy.stats import binomtest
 from sklearn.metrics import f1_score
@@ -67,16 +67,33 @@ class PromotionDecision:
     n_regressions: int  # baseline right -> candidate wrong
     p_value: float
 
+    #: ``{"Scam->Spam": 20, ...}`` -- which class confusions the regressions
+    #: and fixes actually consist of. Text-free by design, so it can be
+    #: committed and quoted; the row-level detail contains real message
+    #: bodies and stays in the git-ignored run directory.
+    #:
+    #: Populated by ``pipeline.evaluate_candidate``, not by the gate itself:
+    #: the gate's job is the verdict, and it has no business deciding what
+    #: gets persisted. ``None`` when nobody asked for the breakdown.
+    regression_transitions: Optional[dict] = None
+    fix_transitions: Optional[dict] = None
+
     def __bool__(self) -> bool:
         return self.promote
 
 
-def mcnemar_counts(
+def discordant_indices(
     y_true: Sequence,
     baseline_pred: Sequence,
     candidate_pred: Sequence,
 ) -> tuple:
-    """Count the two discordant cells: (fixes, regressions).
+    """Locate the two discordant cells: ``(fix_indices, regression_indices)``.
+
+    The counts alone answer *how many* rows changed, which is all the gate
+    needs. They cannot answer **which** rows -- so "what did the new model
+    break?" was unanswerable from a completed run, and that is the first
+    question anyone reviewing a promotion asks. The indices point back into
+    the caller's validation sequence so the offending rows can be recovered.
 
     Raises:
         ValueError: if the three sequences differ in length -- which would
@@ -90,15 +107,30 @@ def mcnemar_counts(
             f"{len(candidate_pred)}"
         )
 
-    fixes = regressions = 0
-    for truth, base, cand in zip(y_true, baseline_pred, candidate_pred):
+    fixes = []
+    regressions = []
+    for i, (truth, base, cand) in enumerate(zip(y_true, baseline_pred, candidate_pred)):
         base_ok = base == truth
         cand_ok = cand == truth
         if not base_ok and cand_ok:
-            fixes += 1
+            fixes.append(i)
         elif base_ok and not cand_ok:
-            regressions += 1
+            regressions.append(i)
     return fixes, regressions
+
+
+def mcnemar_counts(
+    y_true: Sequence,
+    baseline_pred: Sequence,
+    candidate_pred: Sequence,
+) -> tuple:
+    """Count the two discordant cells: ``(fixes, regressions)``.
+
+    Thin wrapper over :func:`discordant_indices` so the two can never
+    disagree about what counts as a fix or a regression.
+    """
+    fixes, regressions = discordant_indices(y_true, baseline_pred, candidate_pred)
+    return len(fixes), len(regressions)
 
 
 def evaluate_promotion(

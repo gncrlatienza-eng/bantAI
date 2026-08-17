@@ -171,6 +171,14 @@ def _predict(model_dir: str, masked_texts: Sequence[str], batch_size: int = 32) 
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     model.eval()
 
+    # Scoring runs on whatever the fine-tune just used. The gate has to run
+    # both checkpoints over the full validation split, so on CPU it can take
+    # longer than the training it is judging -- on a Colab T4 that is the
+    # difference between a couple of minutes and most of an hour. Falls back
+    # to CPU cleanly, which is what every unit test uses.
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device)
+
     config = TrainingConfig()
     predictions: List[int] = []
     with torch.no_grad():
@@ -182,7 +190,7 @@ def _predict(model_dir: str, masked_texts: Sequence[str], batch_size: int = 32) 
                 max_length=config.max_length,
                 padding=True,
                 return_tensors="pt",
-            )
+            ).to(device)
             logits = model(**inputs).logits
             predictions.extend(int(i) for i in torch.argmax(logits, dim=-1))
     return predictions
@@ -248,8 +256,12 @@ def run_retraining(
         since = last_run_time(runs_root)
 
     run_dir = os.path.join(runs_root, datetime.now(timezone.utc).strftime(_RUN_STAMP))
-    os.makedirs(run_dir, exist_ok=True)
 
+    # Assemble before creating the directory. A report source that cannot reach
+    # its store raises here (see ``reports.ReportSourceError``), and creating
+    # the directory first would leave an empty, manifest-less run behind on
+    # every such failure -- harmless to ``last_run_time``, which skips them,
+    # but it accumulates directories that look like runs and are not.
     rows, manifest = build_snapshot(
         dataset_rows=read_labeled_dataset(labeled_dir),
         reports=source.fetch(since),
@@ -258,6 +270,7 @@ def run_retraining(
         report_source=source.describe(),
     )
     manifest.dry_run = dry_run
+    os.makedirs(run_dir, exist_ok=True)
     snapshot_dir = write_snapshot(rows, manifest, run_dir)
 
     run = RetrainingRun(

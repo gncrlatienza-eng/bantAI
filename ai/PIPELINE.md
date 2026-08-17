@@ -1482,8 +1482,12 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `retraining/triggers.py` | Retrain-decision thresholds — sample count, F1 floor, Page-Hinkley (WBS 4.1.2) |
 | `retraining/sampling.py` | Reservoir sampling, Vitter's Algorithm R (WBS 4.3.6) |
 | `retraining/promotion.py` | McNemar test + F1-floor promotion gate (WBS 4.3.7) |
-| `colab/` | Colab notebook + package + instructions (no local GPU path) |
-| `tests/` | 220 pytest tests across every module above |
+| `retraining/reports.py` | Where validated corrections come from — null / file / backend (WBS 4.3.5) |
+| `retraining/snapshot.py` | Assembles and writes the training input: dataset + reports, de-duplicated (WBS 4.3.5) |
+| `retraining/pipeline.py` | Orchestrates snapshot → fine-tune → gate → `decision.json` (WBS 4.3.5) |
+| `scripts/retrain.py` | CLI for the above; also `--export-reports` for the offline/Colab hop |
+| `colab/` | Two Colab notebooks + packages — train from scratch (2.3.4), and retrain (4.3.5) |
+| `tests/` | 359 pytest tests across every module above |
 | `models/` | Trained weights output (git-ignored) |
 | `../docs/api/classify.md` | ML service API contract (consumed by the NestJS backend) |
 | `../docs/api/summarize.md` | Thread summarization API contract (WBS 4.3.9) |

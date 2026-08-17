@@ -2,12 +2,30 @@
 
 **Sprint 4 · Track B (AI/ML) · WBS 4.3.5**
 
-Drop admin-validated user reports here as CSV or JSONL, then point the
-retraining pipeline at this directory:
+Admin-validated user reports as CSV or JSONL, read by `FileReportSource`:
 
 ```bash
 cd ai && python scripts/retrain.py --reports-dir datasets/reports --dry-run
 ```
+
+**This is the offline route, not the primary one.** The live source is the
+backend's `UserReport` table, read directly by `DatabaseReportSource`:
+
+```bash
+cd ai && python scripts/retrain.py --reports-url http://localhost:3000/api --dry-run
+```
+
+Use this directory when the machine doing the training cannot reach the
+backend — which in practice means Colab, since it has no route to a laptop's
+`localhost:3000`. Fill it from the database rather than by hand:
+
+```bash
+cd ai && python scripts/retrain.py --export-reports datasets/reports/validated.csv \
+    --reports-url http://localhost:3000/api
+```
+
+The export writes exactly the columns documented below, so the two sources
+round-trip.
 
 The files themselves are **gitignored** — they contain real reported SMS
 bodies, the same reason `datasets/labeled/*.csv` is not pushed. Only this
@@ -43,18 +61,19 @@ retraining at will.
 
 Nothing in this directory can verify that property. It is the exporter's
 responsibility to include only reports an admin has marked **Validated**
-(WBS 4.3.2).
+(WBS 4.3.2) — which is the main reason to fill it with `--export-reports`
+rather than by hand: `DatabaseReportSource` applies that filter for you.
 
 ---
 
-## This is a stopgap
+## No source is ever used implicitly
 
-The real source is the `UserReports` table (**WBS 4.3.1, Track A**), which does
-not exist yet. When it lands, a `DatabaseReportSource` implementing the same
-two methods as `FileReportSource` (`fetch`, `describe`) drops into
-`retraining/reports.py` with no change to the snapshot or pipeline code — the
-interface exists precisely so that swap is a non-event.
+Running without `--reports-dir` or `--reports-url` is a real choice, and the
+manifest records it as one: `null (no report store consulted)`, not a zero that
+reads like "none were filed". A `BANTAI_AI_BACKEND_URL` sitting in the
+environment is not enough on its own to turn the database source on.
 
-Until then, running without `--reports-dir` is the honest default: the manifest
-records `null (no report store configured)` rather than implying reports were
-consulted and none were found.
+`DatabaseReportSource` drops in behind the same two methods as
+`FileReportSource` (`fetch`, `describe`) with no change to the snapshot or
+pipeline code — the interface existed precisely so that swap would be a
+non-event, and it was.

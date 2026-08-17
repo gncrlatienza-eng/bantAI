@@ -153,8 +153,10 @@ pattern is a legitimate Colab convention, not a violation).
     campaigns between clustering snapshots (`campaign_evolution.py`).
   - 🟡 **Automated retraining pipeline** — built and dry-run verified end-to-end
     (`retraining/snapshot.py`, `retraining/reports.py`, `retraining/pipeline.py`,
-    `scripts/retrain.py`). Track A's `UserReports` table + intake endpoint
-    (WBS 4.3.1) has since landed, but `reports.py` doesn't read from it yet —
-    only `NullReportSource`/`FileReportSource` exist, `DatabaseReportSource` is
-    the remaining piece. See [`RETRAINING.md`](RETRAINING.md). Also outstanding:
-    a real GPU fine-tune (no local GPU; see `ai/colab/`).
+    `scripts/retrain.py`). All three report sources are live:
+    `NullReportSource` (still the default), `FileReportSource`, and
+    `DatabaseReportSource`, which reads Track A's `UserReport` table via
+    `GET /reports`. See [`RETRAINING.md`](RETRAINING.md). **One thing left:** a
+    real (non-dry) GPU fine-tune, so the train → score → gate path has actually
+    run once — no local GPU, so use
+    [`colab/BantAI_Retrain_Colab.ipynb`](colab/README.md).

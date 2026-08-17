@@ -20,7 +20,12 @@ from retraining.pipeline import (
     last_run_time,
     run_retraining,
 )
-from retraining.reports import FileReportSource, NullReportSource
+from retraining.reports import (
+    DatabaseReportSource,
+    FileReportSource,
+    NullReportSource,
+    ReportSourceError,
+)
 from retraining.snapshot import MANIFEST_JSON, SNAPSHOT_CSV
 
 
@@ -74,6 +79,79 @@ def test_dry_run_includes_reports_from_a_file_source(labeled_dir, tmp_path):
     assert run.manifest.n_reports == 2
     assert run.manifest.label_counts["Scam"] == 2
     assert "batch.csv" in run.manifest.report_source
+
+
+def test_dry_run_includes_reports_from_the_database_source(labeled_dir, tmp_path, monkeypatch):
+    """The seam works end to end: no pipeline or snapshot code knows which
+    source it was handed, which is the whole reason the interface exists."""
+    import io
+    import urllib.request
+
+    payload = [
+        {
+            "id": "rpt-1",
+            "status": "Validated",
+            "reportedLabel": "Scam",
+            "updatedAt": "2026-08-12T14:30:00.000Z",
+            "message": {"id": "m1", "body": "you won a prize"},
+        },
+        {
+            "id": "rpt-2",
+            "status": "Pending",
+            "reportedLabel": "Scam",
+            "updatedAt": "2026-08-12T14:31:00.000Z",
+            "message": {"id": "m2", "body": "not yet reviewed"},
+        },
+    ]
+
+    class _Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.close()
+            return False
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda request, timeout=None: _Resp(json.dumps(payload).encode("utf-8")),
+    )
+
+    run = run_retraining(
+        labeled_dir=labeled_dir,
+        report_source=DatabaseReportSource("http://localhost:3000/api", "k"),
+        runs_root=str(tmp_path / "runs"),
+        dry_run=True,
+    )
+
+    # The Pending row must not reach the snapshot.
+    assert run.manifest.n_reports == 1
+    # The manifest has to name the live store, so "1 report" from a database
+    # is never read as "1 report" from a hand-built CSV months later.
+    assert run.manifest.report_source.startswith("database:")
+    assert "1 of 2 reports" in run.manifest.report_source
+
+
+def test_database_source_failure_stops_the_run(labeled_dir, tmp_path, monkeypatch):
+    """A retrain that quietly trains on zero corrections is the outcome the
+    whole report path exists to prevent -- so this must propagate, not degrade
+    into a clean run with n_reports == 0."""
+    import urllib.error
+    import urllib.request
+
+    def _boom(request, timeout=None):
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+
+    with pytest.raises(ReportSourceError):
+        run_retraining(
+            labeled_dir=labeled_dir,
+            report_source=DatabaseReportSource("http://localhost:3000/api", "k"),
+            runs_root=str(tmp_path / "runs"),
+            dry_run=True,
+        )
 
 
 def test_run_directories_are_created_under_the_runs_root(labeled_dir, tmp_path):

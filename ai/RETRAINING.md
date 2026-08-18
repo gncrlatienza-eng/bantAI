@@ -147,8 +147,11 @@ But what gets *written* is the raw body, so the training path does its own
 preprocessing exactly as always. Masked text is a comparison key, never a
 stored artifact.
 
-`max_history` defaults to **None** — no cap. At ~16.8k rows there is no reason
-to sample, and sampling by default would silently discard training data.
+`max_history` defaults to **None** — no cap. At the current pool size (13.5k
+rows as of 2026-08-18, after `scripts/create_holdout_set.py` set aside a
+permanent 20% test set — see `PIPELINE.md` § "Permanent held-out test set")
+there is no reason to sample, and sampling by default would silently discard
+training data.
 
 ### The report source
 

@@ -81,6 +81,28 @@ def test_otp_phishing_tagalog():
     assert "OTP / Account Phishing" in tag_names("Ma-block ang account mo, i-verify ang account mo ngayon din.")
 
 
+# --- second gambling-vocabulary cluster + "avoid deactivation" phrasing -----
+# (WBS 5.3.7, scripts/analyze_indicator_coverage.py) -- measured 48.6% of
+# real Scam rows got no tag at all; these closed the two largest, most
+# frequent gaps in the untagged remainder. See indicator_tags.py comments.
+def test_gambling_bait_second_tagalog_cluster():
+    assert "Gambling Bait" in tag_names("Maglaro ng W+ at manalo ng IPHONE PROMAX! Sumali sa laro ngayon.")
+
+
+def test_gambling_bait_welcome_bonus_and_brand():
+    assert "Gambling Bait" in tag_names(
+        "Join us & FREE 50p today! Get extra 100p with any deposit. Welcome Bonus at Epicwin."
+    )
+
+
+def test_otp_phishing_avoid_deactivation_phrasing():
+    """Distinct grammar from 'will be deactivated' -- e.g. BDO/GCash notices
+    phrased as 'to avoid Deactivation' never matched the existing entry."""
+    assert "OTP / Account Phishing" in tag_names(
+        "Your BDO-Online Account is under review. Complete verification here to avoid Deactivation."
+    )
+
+
 # --- ordering and output shape ----------------------------------------------
 def test_tags_sorted_by_weight_descending():
     tags = tags_for_message("GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock")

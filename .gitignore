@@ -82,6 +82,15 @@ ai/datasets/reports/*.csv
 ai/datasets/reports/*.json
 ai/datasets/reports/*.jsonl
 
+# Permanent held-out test set (Sprint 6, WBS 6.4.6 prep -- scripts/create_holdout_set.py).
+# Real SMS bodies, same reason as the labeled data above. manifest.json (seed,
+# counts, a hash of the CSV -- no message text) stays tracked so the team can
+# see a holdout exists and verify it hasn't drifted, without the raw text ever
+# being committed. The dated pre-split backup of bantai_labeled.csv the script
+# writes matches this pattern too (it ends in the timestamp, not `.csv`).
+ai/datasets/holdout/*.csv
+ai/datasets/labeled/*.pre-holdout-backup-*
+
 # Colab upload package embeds a full copy of the labeled dataset (real personal
 # SMS) inside the zip -- same reason it must never be pushed. Notebook + README
 # stay tracked.

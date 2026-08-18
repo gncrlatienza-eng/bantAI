@@ -445,9 +445,43 @@ own RRL already establishes the comparison systems fall short.
 
 ### Not yet done
 
-Nothing outstanding on evaluation as of run 3 — bucket-level (post-threshold)
-results are now measured, see `docs/development/AI_MODEL_RESULTS.md` and
-`scripts/evaluate_buckets.py`.
+Bucket-level (post-threshold) results are measured, see
+`docs/development/AI_MODEL_RESULTS.md` and `scripts/evaluate_buckets.py`.
+
+**WBS 6.4.6** (confusion matrix on a genuinely held-out 20%) is prepped but
+not yet run — see the next section.
+
+### Permanent held-out test set (Sprint 6, WBS 6.4.6 prep) — 2026-08-18
+
+Every number above, including run 3's 0.9438, was measured on the same
+80/20 stratified split (`training/dataset.py`, seed 42) that gets
+regenerated from the full labeled dataset every time — not a set of rows
+permanently set aside and never trained on. Fine for day-to-day development;
+not the stronger claim a defense should be able to make.
+
+`scripts/create_holdout_set.py` carves one out: groups the dataset by
+*masked* text first (same de-duplication key as the train/val split, for the
+same reason — a near-duplicate landing on both sides is leakage under a
+different name), then moves whole groups — never a partial group — to
+`datasets/holdout/holdout.csv`, physically outside `datasets/labeled/` so
+neither `training/dataset.py` nor `retraining/snapshot.py` can ever glob
+them back in. No exclusion logic needed anywhere else; the rows are just not
+in the pool.
+
+**Run 2026-08-18:** 3,236 rows (2,986 masked-text groups) held out; 13,536
+rows remain for training. `datasets/holdout/manifest.json` (tracked in git;
+the raw CSV is not, same policy as the rest of `datasets/`) records the
+seed, counts, and a SHA-256 of the holdout file.
+
+⚠️ **Honest limitation, stated because it matters for 6.4.6:** this only
+protects models trained *after* 2026-08-18. The deployed checkpoint (run 3,
+2026-07-29) and the 2026-08-17 retraining candidate were both trained on the
+full pool before this split existed, so some of `holdout.csv`'s rows were
+almost certainly in their training data. **Neither can be honestly graded
+against this holdout set.** It becomes valid starting with the next model
+trained from this point forward — which, depending on the adviser's
+decision on the 2026-08-17 candidate (see § "Stage 5b — measured limits"),
+may be sooner than it sounds.
 
 ---
 

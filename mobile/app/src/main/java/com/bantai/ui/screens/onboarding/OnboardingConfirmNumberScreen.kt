@@ -159,7 +159,7 @@ fun OnboardingConfirmNumberScreen(
                     navController.navigate(Screen.OnboardingEnterCode.route)
                 }
             },
-            enabled = !state.isLoading,
+            enabled = !state.isLoading && phoneNumber.isNotBlank(),
             isLoading = state.isLoading,
         )
         Spacer(Modifier.height(24.dp))

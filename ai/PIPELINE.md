@@ -486,7 +486,7 @@ rather than depending on whether a real model happens to be installed locally.
 2026-07-30; SHAP integration (3.3.6) shipped the same session; this entry is
 the 3.1.2 sign-off pass.
 
-**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (17 tests)
+**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (20 tests)
 
 The manuscript's Stage 6 (Explainability and Tip Retrieval) specifies SHAP
 computing a Shapley value per token, then mapping the top contributing tokens
@@ -579,6 +579,38 @@ as automatically final:
   draft and needed no change.
 
 Dictionary contents are final for Sprint 3 as of this pass.
+
+### 5.3.7 polish pass (2026-08-18) — measured against every real Scam row
+
+WBS 5.3.7 asks to polish the dictionary "based on observed outputs." The
+2026-08-04 pass above was a manual review; this one is a measurement:
+`scripts/analyze_indicator_coverage.py` runs the keyword tagger over every
+labeled Spam/Scam row and reports what fraction get no tag at all.
+
+**Spam's zero-tag rate (84.9%) is expected, not a gap.** Most Spam in the
+dataset is ordinary telco/real-estate marketing — "Enjoy GoWATCH 599, unli
+data for 7 days" has no scam indicator because it isn't trying to deceive
+anyone. The dictionary tags *scam-like* patterns, not "any unsolicited
+message," so a high Spam zero-tag rate is the tagger working correctly.
+
+**Scam's zero-tag rate (48.6%) is the real signal** — these are the messages
+a user most needs a "why" for. The words most common in the untagged
+remainder pointed at one cluster: a second wave of Tagalog online-betting
+vocabulary (W+, T1BET, Epicwin, Betso88, COD63/COD99-style "recharge and
+receive daily cash" schemes) distinct from the `GAMBLING_HARD`-derived terms
+already present, plus a phishing phrasing gap — "...to avoid Deactivation" —
+that the existing "will be deactivated" entry doesn't cover. Both closed in
+`indicator_tags.py` (see the comments at each addition for the exact
+frequencies measured and the Ham false-positive check, all <0.1%).
+
+**Result: Scam zero-tag rate 48.6% → 40.0%.** Not zero — a hand-curated
+keyword dictionary structurally can't be exhaustive, and 40% is still a real
+number worth another pass later, likely once WBS 3.3.6's real SHAP path has
+run against enough live traffic to say something keyword matching can't.
+Left there rather than chased further this round: the remaining untagged
+messages are a long tail (real-estate ads misclassified upstream, one-off
+scam wordings), not another concentrated cluster the way the two fixes above
+were.
 
 ---
 

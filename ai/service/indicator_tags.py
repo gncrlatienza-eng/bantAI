@@ -151,6 +151,24 @@ _GAMBLING_BAIT = [
     "deposito",
     "pusta",
     "magtaya",
+    # WBS 5.3.7: measured against every real Spam/Scam row
+    # (scripts/analyze_indicator_coverage.py) -- 48.6% of Scam messages got
+    # *no* tag at all, and the words most common in the untagged remainder
+    # were a second, distinct cluster of Tagalog online-betting vocabulary
+    # ("W+", T1BET, Epicwin, Betso88, COD63/COD99-style recharge scams) that
+    # the 2026-07-30 pass above did not cover. All seven checked at <0.1% on
+    # Ham; "sumali"/"manalo ng" also appear on legitimately-labeled Spam
+    # (0.6-0.8%), which is expected -- not every betting promo is fraudulent.
+    "manalo ng",
+    "sumali",
+    "maglaro ng",
+    "magrehistro",
+    "welcome bonus",
+    "epicwin",
+    # The "recharge and receive daily cash" reward-scheme pattern (COD63,
+    # COD99-style): distinct from the spin/betting sites above but the same
+    # deposit-for-reward shape as the existing "deposit bonus"/"cash out".
+    "red envelope",
 ]
 
 _FAKE_JOB_OFFER = [
@@ -221,6 +239,13 @@ _OTP_PHISHING = [
     "ma-block ang account",
     "i-verify ang account",
     "i-click ang link",
+    # WBS 5.3.7: "avoid deactivation" is a distinct phrasing from the
+    # "will be deactivated" already above -- e.g. "...to avoid Deactivation"
+    # -- and showed up repeatedly (1.0% of all Scam rows, 0.01% of Ham) among
+    # untagged BDO/GCash phishing messages. Same account-under-threat shape,
+    # different grammar, so it needs its own entry rather than a rewrite of
+    # the existing one.
+    "avoid deactivation",
 ]
 
 TAG_KEYWORDS: dict[str, List[str]] = {

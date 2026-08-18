@@ -11,3 +11,12 @@ style:
     # Matches the line length already chosen for ai/ and backend/+web/'s
     # Prettier configs -- one consistent width across the whole monorepo.
     maxLineLength: 120
+
+naming:
+  FunctionNaming:
+    # PascalCase is the official Jetpack Compose convention for @Composable
+    # functions (they're used like widgets, not verbs) -- every composable
+    # already in this codebase follows it. Without this exemption, detekt's
+    # default lowerCamelCase rule flags each one now that new code is
+    # exercising it instead of relying on the baseline to hide it.
+    ignoreAnnotated: ['Composable']

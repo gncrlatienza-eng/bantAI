@@ -156,12 +156,30 @@ class OnboardingViewModel(
         _state.update { it.copy(otpCode = code, errorMessage = null) }
     }
 
+    /**
+     * Normalizes manual entry ("9171234567", "09171234567") and SIM-detected
+     * numbers (already "+63 917 123 4567") to the same "+63..." form the
+     * backend and every other stored phone number use. Without this, a
+     * manually typed number was saved with no country code at all, so it
+     * would never match its own SIM-detected form or any other +63 row.
+     */
+    private fun normalizePhone(raw: String): String {
+        val trimmed = raw.trim().replace(" ", "").replace("-", "")
+        if (trimmed.startsWith("+")) return trimmed
+        val digits = trimmed.filter { it.isDigit() }
+        return when {
+            digits.startsWith("63") -> "+$digits"
+            digits.startsWith("0") -> "+63${digits.substring(1)}"
+            else -> "+63$digits"
+        }
+    }
+
     fun requestOtp(
         rawPhone: String,
         onSuccess: () -> Unit,
     ) {
-        val phone = rawPhone.replace(" ", "")
-        if (phone.isEmpty()) {
+        val phone = normalizePhone(rawPhone)
+        if (phone == "+63") {
             _state.update { it.copy(errorMessage = "Enter your phone number") }
             return
         }

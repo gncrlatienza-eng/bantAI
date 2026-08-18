@@ -135,7 +135,7 @@ fun OnboardingEnterCodeScreen(
             text = "Verify",
             onClick = {
                 viewModel.verifyOtp {
-                    navController.navigate(Screen.OnboardingProfile.route)
+                    navController.navigate(Screen.OnboardingTerms.route)
                 }
             },
             enabled = !state.isLoading,

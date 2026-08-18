@@ -70,5 +70,23 @@ class Settings(BaseSettings):
     # service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD for the full sweep.
     campaign_threshold: float = 0.999
 
+    # --- Retraining round trip (Sprint 4, WBS 4.4.3) --------------------- #
+    # Where POST /retrain records the backend's trigger requests. Training
+    # itself does not happen here -- there is no GPU on the serving host --
+    # so this is a queue a human drains with `scripts/retrain.py` on Colab,
+    # not a job runner. A subdirectory (not a bare file directly under
+    # `models/`) so `ai/models/*/` in .gitignore covers it automatically --
+    # that pattern only ignores directories, not files placed straight in
+    # `models/`.
+    retrain_queue_path: str = "models/retrain_queue/queue.jsonl"
+
+    # Where `main.py`'s startup check reads the currently active model from,
+    # to compare against the version this service is actually serving (see
+    # `models/xlm-roberta-smishing/version.json`). Reuses the same backend
+    # as `centroid_source="backend"` and the same `backend_api_key` --
+    # `GET /models/active` is ApiKeyGuard-protected like `/campaigns/centroids`
+    # and `/reports`.
+    version_check_enabled: bool = True
+
 
 settings = Settings()

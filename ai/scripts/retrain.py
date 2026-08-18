@@ -40,6 +40,15 @@ in ``decision.json``; performing the swap is a separate, deliberate step (see
 ``ai/RETRAINING.md`` -- Rollback), and re-embedding + re-clustering must follow
 any swap because campaign centroids are tied to the checkpoint that produced
 them.
+
+    cd ai && python scripts/retrain.py --register --activate ...
+        WBS 4.4.3. --register POSTs the candidate to the backend's
+        ModelVersions table as an *inactive* row -- safe the moment a gate
+        verdict exists, it is only a record. --activate (implies --register)
+        additionally makes it the live ModelVersion, and refuses to do so for
+        a rejected candidate. Both need real backend connectivity, which
+        Colab does not have -- run them from a machine that can reach the
+        backend, against a candidate copied down from Drive.
 """
 
 from __future__ import annotations
@@ -57,6 +66,7 @@ from retraining.pipeline import (  # noqa: E402
     DEFAULT_RUNS_ROOT,
     run_retraining,
 )
+from retraining.registry import ModelRegistry, ModelRegistryError  # noqa: E402
 from retraining.reports import (  # noqa: E402
     DatabaseReportSource,
     FileReportSource,
@@ -172,6 +182,44 @@ def build_parser() -> argparse.ArgumentParser:
             "what makes a snapshot regenerable and two runs comparable."
         ),
     )
+    parser.add_argument(
+        "--register",
+        action="store_true",
+        help=(
+            "POST the finished candidate to the backend's ModelVersions table "
+            "(WBS 4.3.4/4.4.3) as an inactive row, once the gate has produced "
+            "a decision. Needs --models-url/--models-api-key (or the "
+            f"${ENV_BACKEND_URL}/${ENV_BACKEND_API_KEY} env vars). No-op with "
+            "--dry-run: there is no candidate yet."
+        ),
+    )
+    parser.add_argument(
+        "--activate",
+        action="store_true",
+        help=(
+            "Implies --register, and additionally makes the candidate the "
+            "live ModelVersion. This is the promotion decision -- refuses to "
+            "activate a candidate the gate rejected. Nothing here re-points "
+            "the running service at the new checkpoint; that is still a "
+            "separate manual step (see the note this script prints below)."
+        ),
+    )
+    parser.add_argument(
+        "--models-url",
+        default=None,
+        metavar="URL",
+        help=(
+            f"Backend base URL for --register/--activate. Defaults to "
+            f"${ENV_BACKEND_URL}, same variable --reports-url reads. Colab "
+            "cannot reach a laptop's localhost:3000 -- --register/--activate "
+            "are only usable from a machine with real backend connectivity."
+        ),
+    )
+    parser.add_argument(
+        "--models-api-key",
+        default=None,
+        help=f"Key for the backend's ModelVersions routes. Defaults to ${ENV_BACKEND_API_KEY}.",
+    )
     return parser
 
 
@@ -215,6 +263,81 @@ def _build_report_source(args):
     return DatabaseReportSource(url, key), None
 
 
+def _resolve_models_registry(args) -> tuple:
+    """Build the :class:`ModelRegistry` for --register/--activate, or an error.
+
+    Independent of report-source resolution on purpose: reports can come
+    from a file export (the Colab route), but registration always needs a
+    real, reachable backend -- there is no offline equivalent for "record
+    this candidate in ModelVersions".
+    """
+    url = args.models_url or os.environ.get(ENV_BACKEND_URL, "")
+    if not url:
+        return None, (
+            f"--register/--activate need a backend URL: pass --models-url or set "
+            f"${ENV_BACKEND_URL}, e.g. --models-url http://localhost:3000/api."
+        )
+    key = args.models_api_key or os.environ.get(ENV_BACKEND_API_KEY, "")
+    if not key:
+        return None, (
+            f"--register/--activate need an API key: pass --models-api-key or set "
+            f"${ENV_BACKEND_API_KEY} (must match the backend's INTERNAL_API_KEY)."
+        )
+    return ModelRegistry(url, key), None
+
+
+def _register_candidate(args, run) -> int:
+    """Handle --register/--activate for a finished run. Returns an exit code.
+
+    Registration needs a completed gate verdict -- ``run.decision`` -- so it
+    is a no-op (with an explanation, not silence) for a dry run or a run the
+    gate never reached (e.g. no baseline checkpoint existed yet).
+    """
+    if run.dry_run:
+        print("\n--register/--activate ignored: a dry run has no candidate to register.")
+        return 0
+    if run.decision is None:
+        print(f"\n--register/--activate ignored: {run.skipped_reason or 'no gate decision was produced'}.")
+        return 0
+
+    registry, error = _resolve_models_registry(args)
+    if error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+
+    try:
+        model_id = registry.register(
+            version_tag=run.version_tag,
+            f1_score=run.decision.candidate_macro_f1,
+            notes=(
+                f"{run.decision.reason} "
+                f"({run.decision.n_fixes} fixes vs {run.decision.n_regressions} regressions, "
+                f"p={run.decision.p_value:.6f})"
+            ),
+        )
+        print(f"\nRegistered {run.version_tag} as ModelVersion {model_id} (inactive).")
+
+        if args.activate:
+            if not run.decision.promote:
+                print(
+                    f"NOT activating: the gate rejected this candidate ({run.decision.reason}). "
+                    "Registered as an inactive record only."
+                )
+                return 1
+            registry.activate(model_id)
+            print(
+                f"Activated {run.version_tag} as the live ModelVersion.\n"
+                "This does NOT re-point the running service -- that is still a separate step:\n"
+                f"  1. Point the live model at {run.candidate_dir}\n"
+                "  2. Restart the AI service so /health reports the new version_tag\n"
+                "  3. Re-run scripts/embed_dataset.py and scripts/cluster_campaigns.py"
+            )
+    except ModelRegistryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def _export_reports(source, path: str) -> int:
     """Write validated reports to a CSV and stop.
 
@@ -254,6 +377,15 @@ def main(argv=None) -> int:
     if error:
         print(f"error: {error}", file=sys.stderr)
         return 2
+
+    # Checked before any work starts, same reasoning as the report source
+    # above: a missing --models-url should cost a line of output, not a
+    # multi-hour fine-tune followed by an unregistrable candidate.
+    if args.register or args.activate:
+        _, models_error = _resolve_models_registry(args)
+        if models_error:
+            print(f"error: {models_error}", file=sys.stderr)
+            return 2
 
     if args.export_reports:
         try:
@@ -309,6 +441,9 @@ def main(argv=None) -> int:
             "     -- campaign centroids are tied to the checkpoint that made them\n"
             "        and are meaningless against a different model's embeddings."
         )
+
+    if args.register or args.activate:
+        return _register_candidate(args, run)
 
     return 0
 

@@ -54,6 +54,7 @@ from .snapshot import (
     read_labeled_dataset,
     write_snapshot,
 )
+from .version_file import write_version
 
 #: Where run directories are created, relative to ``ai/``.
 DEFAULT_RUNS_ROOT = "models/retraining_runs"
@@ -86,6 +87,12 @@ class RetrainingRun:
     decision: Optional[PromotionDecision] = None
     #: Populated when the run stopped before producing a decision.
     skipped_reason: Optional[str] = None
+    #: ``v<run-stamp>``, e.g. ``v2026-08-17T04-15-33Z`` -- the tag
+    #: ``registry.ModelRegistry.register`` would use for this run's
+    #: candidate. Set even for dry runs and skipped runs (it costs nothing
+    #: and one less special case), but only a run that actually produced a
+    #: ``candidate_dir`` has a checkpoint carrying it in ``version.json``.
+    version_tag: Optional[str] = None
 
     @property
     def promoted(self) -> bool:
@@ -95,6 +102,7 @@ class RetrainingRun:
     def summary(self) -> str:
         lines = [
             f"run:       {self.run_dir}",
+            f"version:   {self.version_tag}",
             f"snapshot:  {self.manifest.n_total} rows "
             f"({self.manifest.n_reports} reports + "
             f"{self.manifest.n_history_after_sampling} history)",
@@ -389,6 +397,7 @@ def run_retraining(
         snapshot_dir=snapshot_dir,
         manifest=manifest,
         dry_run=dry_run,
+        version_tag=f"v{os.path.basename(run_dir)}",
     )
     if dry_run:
         return run
@@ -411,6 +420,11 @@ def run_retraining(
     )
     train_main(run_config)
     run.candidate_dir = candidate_dir
+
+    # version.json travels with the checkpoint from this point on, so a
+    # later manual promotion ("point the live model at candidate_dir") does
+    # not need a second step to remember it. See version_file.py.
+    write_version(candidate_dir, run.version_tag)
 
     # --- Promotion gate -------------------------------------------------- #
     if not os.path.isfile(os.path.join(baseline_dir, "config.json")):
@@ -442,6 +456,7 @@ def _write_decision(run: RetrainingRun) -> None:
     payload = {
         "run_dir": run.run_dir,
         "candidate_dir": run.candidate_dir,
+        "version_tag": run.version_tag,
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
         "skipped_reason": run.skipped_reason,
         "decision": (

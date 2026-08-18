@@ -5,27 +5,30 @@ admin has marked Validated since the last run. Those reports are the entire
 point of the exercise -- they are confirmed mistakes, the one source of signal
 that says where the deployed model is actually wrong.
 
-The canonical home for them is the ``UserReports`` table (WBS 4.3.1, Track A),
-which does not exist yet. Rather than block the whole pipeline on it, the
-report *source* is an interface with two implementations:
+The canonical home for them is the ``UserReport`` table (WBS 4.3.1, Track A),
+which landed in PR #39. The report *source* is an interface with three
+implementations, and which one you get is always an explicit choice:
 
-- :class:`NullReportSource` -- yields nothing. The honest default while there
-  is no report store. Retraining still runs; it just refreshes the model on
-  the existing dataset and the snapshot manifest records zero reports, so no
-  reader can mistake it for a correction-driven retrain.
-- :class:`FileReportSource` -- reads CSV/JSONL out of a directory. Works today
-  for offline experiments and for a manual export from whatever Track A ends
-  up building.
+- :class:`NullReportSource` -- yields nothing. Still the default. Retraining
+  runs; it just refreshes the model on the existing dataset and the snapshot
+  manifest records zero reports, so no reader can mistake it for a
+  correction-driven retrain.
+- :class:`FileReportSource` -- reads CSV/JSONL out of a directory. The offline
+  route: hand-built experiments, and the export that carries reports to a GPU
+  box (Colab cannot reach a laptop's ``localhost:3000``).
+- :class:`DatabaseReportSource` -- reads ``GET /reports`` off the NestJS
+  backend and keeps the ``Validated`` ones. The production path.
 
-When ``UserReports`` lands, a ``DatabaseReportSource`` implementing the same
-two methods drops in with no change to :mod:`retraining.snapshot` or
-:mod:`retraining.pipeline`. That is the whole reason the seam exists.
+None of them is auto-selected. ``scripts/retrain.py`` requires you to name the
+source, because inferring "there is a backend URL in the environment, so
+presumably use it" is the same class of mistake as reporting zero reports from
+a store that was never consulted.
 
 Note the deliberate asymmetry with the rest of ``retraining/``: every other
-module here is pure. This one touches the filesystem, because "where do
-reports come from" is inherently an I/O question. It is kept in its own module
-so that impurity stays quarantined and the policy modules remain trivially
-testable.
+module here is pure. This one touches the filesystem *and* the network, because
+"where do reports come from" is inherently an I/O question. It is kept in its
+own module so that impurity stays quarantined and the policy modules remain
+trivially testable.
 """
 
 from __future__ import annotations
@@ -53,6 +56,24 @@ class ReportFormatError(ValueError):
     broken column mapping than one bad row, and silently dropping rows would
     quietly shrink the correction set that justified retraining in the first
     place.
+    """
+
+
+class ReportSourceError(RuntimeError):
+    """The report store could not be reached, or answered unusably.
+
+    Raised rather than degraded to an empty list. This is the opposite of the
+    policy in ``service/centroid_source.py``, which swallows every failure --
+    and the difference is the whole point. An empty centroid list costs one
+    enhancement and the service still classifies; an empty *report* list is
+    indistinguishable from "no corrections were filed", so a 401 or a typo in
+    the URL would quietly produce a retrain that learned from none of the
+    mistakes that triggered it, and a manifest saying so in a way no reader
+    would question.
+
+    Same failure shape as the dry-run watermark bug in
+    :func:`retraining.pipeline.last_run_time`: not a crash, just corrections
+    that vanish without anyone being told.
     """
 
 
@@ -98,7 +119,7 @@ class ReportSource(Protocol):
 
 
 class NullReportSource:
-    """No reports available. The default until WBS 4.3.1 (Track A) exists.
+    """No reports consulted. Still the default, now by choice rather than need.
 
     Deliberately not an error. A retrain with zero reports is a legitimate
     operation -- it is what you do to reproduce a checkpoint, or to refresh
@@ -110,7 +131,7 @@ class NullReportSource:
         return ()
 
     def describe(self) -> str:
-        return "null (no report store configured; WBS 4.3.1 not yet available)"
+        return "null (no report store consulted)"
 
 
 def _coerce_label(value) -> str:
@@ -258,3 +279,131 @@ class FileReportSource:
             return f"file:{self.directory} (no report files present)"
         names = ", ".join(os.path.basename(f) for f in files)
         return f"file:{self.directory} ({names})"
+
+
+#: The status an admin sets via ``PATCH /reports/:id/validate`` (WBS 4.3.2).
+#: Only these rows may enter a snapshot: ``retraining.triggers`` fires on a
+#: count of *validated* reports specifically, because counting raw submissions
+#: would let one confused or malicious user force a retrain at will.
+VALIDATED_STATUS = "Validated"
+
+
+class DatabaseReportSource:
+    """Reads admin-validated reports from the NestJS backend (WBS 4.3.1).
+
+    Hits ``GET {base_url}/reports``, which is ``ApiKeyGuard``-protected, so
+    ``api_key`` is sent as ``x-api-key`` and must match the backend's
+    ``INTERNAL_API_KEY``.
+
+    **The Validated filter is applied here, not server-side.** ``ReportsService``
+    exposes only ``findAll()`` and ``findPending()`` -- there is no
+    ``findValidated()`` -- so this fetches every report and keeps the ones whose
+    ``status`` is ``Validated``. Fine at thesis scale; the route is also
+    unpaginated, so if the table ever grows past a few thousand rows the right
+    fix is a server-side filter on Track A's side, not paging from here against
+    an API that offers no cursor.
+
+    Field mapping, from the ``findAll`` selection:
+
+        ``message.body``   -> ``text``          the **raw** body, un-masked
+        ``reportedLabel``  -> ``label``         what the user says it should be
+        ``id``             -> ``report_id``
+        ``updatedAt``      -> ``validated_at``
+
+    ``reportedLabel`` rather than ``originalLabel``: the original is what the
+    model already said, and training on it would teach the model to repeat the
+    mistake that was reported.
+
+    ⚠️ ``updatedAt`` is Prisma ``@updatedAt``, so it moves on *any* write to the
+    row -- including an admin editing ``adminNote`` afterwards -- not only on
+    validation. It is the closest thing the API exposes to a validation
+    timestamp and is a good proxy in practice, but a dedicated ``validatedAt``
+    column on ``UserReport`` would be exact. Worth asking Track A for; the only
+    cost meanwhile is that a re-touched report can look newer than it is and be
+    re-consumed by a later run, which the snapshot de-duplicates anyway.
+
+    Unlike :func:`service.centroid_source.load_centroids`, failures raise --
+    see :class:`ReportSourceError`.
+    """
+
+    def __init__(self, base_url: str, api_key: str, timeout: float = 10.0) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.timeout = timeout
+        #: Set by :meth:`fetch` so :meth:`describe` can report real counts.
+        #: ``None`` until a fetch happens -- see :meth:`describe`.
+        self._last_counts: Optional[tuple] = None
+
+    @property
+    def url(self) -> str:
+        return f"{self.base_url}/reports"
+
+    def _get(self) -> list:
+        """One GET, decoded. Every failure mode becomes ``ReportSourceError``."""
+        import urllib.error
+        import urllib.request
+
+        request = urllib.request.Request(self.url, headers={"x-api-key": self.api_key})
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as resp:  # noqa: S310
+                payload = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            hint = ""
+            if exc.code == 401:
+                hint = " -- BANTAI_AI_BACKEND_API_KEY is missing or does not match the backend's INTERNAL_API_KEY"
+            raise ReportSourceError(f"GET {self.url} returned HTTP {exc.code} {exc.reason}{hint}") from exc
+        except urllib.error.URLError as exc:
+            raise ReportSourceError(f"GET {self.url} failed: {exc.reason}. Is the backend running?") from exc
+        except json.JSONDecodeError as exc:
+            raise ReportSourceError(f"GET {self.url} did not return JSON: {exc}") from exc
+
+        if not isinstance(payload, list):
+            raise ReportSourceError(f"GET {self.url} returned {type(payload).__name__}, expected a list of reports")
+        return payload
+
+    def fetch(self, since: Optional[datetime] = None) -> List[ValidatedReport]:
+        """Fetch validated reports, newest-first order preserved from the API.
+
+        Returns a list rather than a generator, deliberately: the request is a
+        single round trip, and deferring it into the middle of
+        ``build_snapshot`` would surface a connection failure from inside
+        snapshot assembly instead of at the point the source was asked for
+        data.
+        """
+        payload = self._get()
+
+        out: List[ValidatedReport] = []
+        for row in payload:
+            if row.get("status") != VALIDATED_STATUS:
+                continue
+            message = row.get("message") or {}
+            text = str(message.get("body") or "").strip()
+            if not text:
+                # Same rule as FileReportSource: a validated report with no
+                # body is a broken join or a deleted message, not a row to
+                # quietly drop from the correction set.
+                raise ReportFormatError(f"report {row.get('id')!r}: validated but its message has no body")
+            report = ValidatedReport(
+                text=text,
+                label=_coerce_label(row.get("reportedLabel")),
+                report_id=(str(row["id"]) if row.get("id") else None),
+                validated_at=_parse_timestamp(row.get("updatedAt")),
+            )
+            if _after(report, since):
+                out.append(report)
+
+        self._last_counts = (len(out), len(payload))
+        return out
+
+    def describe(self) -> str:
+        """Identify this source for the snapshot manifest.
+
+        Must stay correct *before* a fetch: ``pipeline.run_retraining`` passes
+        ``source.fetch(since)`` and ``source.describe()`` as sibling arguments,
+        and :class:`FileReportSource` returns a lazy generator, so no source may
+        depend on its own fetch having already run.
+        """
+        if self._last_counts is None:
+            return f"database:{self.url} (status={VALIDATED_STATUS})"
+        kept, total = self._last_counts
+        return f"database:{self.url} (status={VALIDATED_STATUS}; {kept} of {total} reports)"

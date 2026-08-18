@@ -37,6 +37,7 @@ def load_campaign_centroids() -> None:
         source=settings.centroid_source,
         cluster_file=settings.cluster_file,
         backend_url=settings.backend_url,
+        backend_api_key=settings.backend_api_key,
     )
     classify.matcher = CampaignMatcher(centroids, threshold=settings.campaign_threshold)
 
@@ -50,11 +51,17 @@ def load_campaign_centroids() -> None:
         # Logged loudly: an unnoticed zero looks identical to "no campaigns
         # exist yet", and silently degrading to that is exactly the bug this
         # startup hook exists to prevent.
+        hint = (
+            "BANTAI_AI_BACKEND_API_KEY is unset -- /campaigns/centroids is "
+            "ApiKeyGuard-protected and answers 401 without it"
+            if settings.centroid_source == "backend" and not settings.backend_api_key
+            else "Run scripts/cluster_campaigns.py, or check BANTAI_AI_CENTROID_SOURCE"
+        )
         logger.warning(
             "No campaign centroids loaded (source=%s). Campaign matching is "
-            "inactive -- every message will report no campaign. Run "
-            "scripts/cluster_campaigns.py, or check BANTAI_AI_CENTROID_SOURCE.",
+            "inactive -- every message will report no campaign. %s.",
             settings.centroid_source,
+            hint,
         )
 
 

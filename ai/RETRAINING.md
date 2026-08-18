@@ -150,20 +150,59 @@ stored artifact.
 `max_history` defaults to **None** — no cap. At ~16.8k rows there is no reason
 to sample, and sampling by default would silently discard training data.
 
-### The report source (⚠️ partial — WBS 4.3.1, Track A)
+### The report source
 
-The canonical source is the `UserReports` table, which **does not exist yet**.
-Rather than block the pipeline on it, the source is an interface:
+The canonical source is the `UserReport` table (WBS 4.3.1, Track A), which
+landed in PR #39. The source is an interface with three implementations:
 
-| Implementation | Status |
+| Implementation | What it reads |
 |---|---|
-| `NullReportSource` | Default. Yields nothing; manifest records `null (no report store configured)` |
+| `NullReportSource` | Nothing. Still the default; manifest records `null (no report store consulted)` |
 | `FileReportSource` | CSV/JSONL from a directory — see `datasets/reports/README.md` |
-| `DatabaseReportSource` | **Not built.** Drops in behind the same two methods when 4.3.1 lands |
+| `DatabaseReportSource` | `GET /reports` on the backend, keeping `status == "Validated"` |
 
 Running without reports is a legitimate operation — it is what you do to
 reproduce a checkpoint. What would be wrong is *pretending* reports were
-consulted, which `describe()` prevents.
+consulted, which `describe()` prevents. That is also why no source is ever
+selected implicitly: `scripts/retrain.py` requires `--reports-dir` or
+`--reports-url`, and a `BANTAI_AI_BACKEND_URL` sitting in the environment is
+not on its own enough to turn the database on.
+
+**The `Validated` filter runs client-side.** `ReportsService` exposes only
+`findAll()` and `findPending()` — there is no `findValidated()` — so the AI
+side fetches everything and filters. Fine at thesis scale; if the table ever
+outgrows one unpaginated response, the fix is a server-side filter on Track A's
+side, not paging from here against an API with no cursor.
+
+**`validated_at` is really `updatedAt`.** Prisma's `@updatedAt` moves on any
+write to the row, including a later `adminNote` edit, so it is a proxy for the
+validation time rather than the thing itself. A dedicated `validatedAt` column
+would be exact. The only cost meanwhile is that a re-touched report can look
+newer than it is and be re-consumed by a later run — harmless, since the
+snapshot de-duplicates.
+
+**Failures raise; they do not degrade.** This is the deliberate opposite of
+`service/centroid_source.py`, which swallows every error. An empty centroid
+list costs one enhancement and the service still classifies. An empty *report*
+list is indistinguishable from "no corrections were filed" — so a 401, or a
+typo in the URL, would otherwise produce a clean-looking retrain that learned
+from none of the mistakes that triggered it, and a manifest no reader would
+question. `ReportSourceError` stops the run instead.
+
+#### Getting reports onto a GPU box
+
+Colab has no route to a laptop's `localhost:3000`, so the database source
+cannot be used from the notebook. Export first, then carry the file:
+
+```bash
+cd ai
+python scripts/retrain.py --export-reports datasets/reports/validated.csv \
+    --reports-url http://localhost:3000/api
+python colab/build_retrain_package.py     # picks up datasets/reports/
+```
+
+The export writes exactly the columns `FileReportSource` reads, so the two
+sources round-trip.
 
 ### The `since` watermark
 
@@ -172,6 +211,36 @@ read from that run's manifest. **Dry runs are skipped** when computing it: a
 dry run trains nothing, so letting it advance the watermark would make the next
 real run silently skip every report the dry run merely looked at. `--since all`
 overrides the watermark entirely.
+
+### What the gate records, and what it does not
+
+Every run writes `decision.json` — the verdict plus every number behind it,
+**including for a rejection.** A rejected candidate is the case most worth
+explaining later, so it is recorded in exactly as much detail as a promotion.
+
+Since WBS 4.3.5 that also includes the class-level breakdown of the
+disagreements:
+
+```json
+"regression_transitions": { "Scam->Spam": 20, "Ham->Spam": 12 },
+"fix_transitions":        { "Spam->Scam": 41, "Ham->Ham": 9 }
+```
+
+`97 fixes vs 44 regressions` invites exactly one follow-up — *what got worse?* —
+and the counts alone cannot answer it. `Scam->Spam: 20` says the candidate
+started under-calling scams, which is a different and more serious failure than
+the same number of Ham/Spam mix-ups. These are text-free by design, so they are
+safe to commit and to quote in the manuscript.
+
+The row-level detail lands beside it in **`disagreements.json`**: index, true
+label, both predictions, and the message text for every row the two models
+disagreed on.
+
+> ⚠️ **`disagreements.json` must never be committed.** It reproduces real SMS
+> bodies from the validation split — masked (`<URL>`, `<OTP>`), because that is
+> the form the models were scored on, but still real user messages. It stays in
+> the run directory, which `ai/models/*/` already git-ignores. Quote the
+> transition counts instead.
 
 ### Validation caveat
 
@@ -290,5 +359,5 @@ unrecoverable step this document exists to prevent.
 | 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done |
 | 4.3.9 | TF-IDF summarization pipeline | ✅ Done (`service/summarize.py` + `POST /summarize`) |
 | 4.4.2 | Unit test: trigger evaluation logic | ✅ Done |
-| 4.3.5 | Automated retraining pipeline | 🟡 Built and dry-run verified; report source pending WBS 4.3.1 (Track A) |
+| 4.3.5 | Automated retraining pipeline | 🟡 Built; all three report sources live (`DatabaseReportSource` reads WBS 4.3.1's table). Remaining: one real GPU fine-tune — see `colab/BantAI_Retrain_Colab.ipynb` |
 | 4.3.8 | Campaign evolution tracking | ✅ Done (`campaign_evolution.py`, see `PIPELINE.md` Stage 9b — not a retraining component, listed here for status continuity) |

@@ -1,7 +1,26 @@
-# Colab fine-tuning package — Sprint 2 · Track B · WBS 2.3.4
+# Colab GPU packages — Track B (AI/ML)
 
-Everything needed to fine-tune XLM-RoBERTa on the labeled smishing dataset using
-a free Google Colab GPU, for when no local CUDA GPU is available.
+Two notebooks, for two different jobs, for when no local CUDA GPU is available.
+
+| Notebook | What it does | WBS |
+|---|---|---|
+| `BantAI_Finetune_Colab.ipynb` | **Train from scratch** on the labeled dataset → a checkpoint | 2.3.4 |
+| `BantAI_Retrain_Colab.ipynb` | **Retrain**: snapshot (dataset + validated reports) → fine-tune → promotion gate → `decision.json` | 4.3.5 |
+
+Pick by what you want out of it. If you want a model, use the first. If you
+want a *verdict on whether a new model is better than the deployed one*, use
+the second — that comparison is the entire point of the retraining pipeline,
+and the first notebook does not do it.
+
+The retraining notebook needs the first one to have run at least once: the gate
+compares against the currently deployed checkpoint, which it restores from
+`MyDrive/bantai/bantai_model.zip`.
+
+---
+
+# 1. Fine-tuning from scratch — Sprint 2 · WBS 2.3.4
+
+Everything needed to fine-tune XLM-RoBERTa on the labeled smishing dataset.
 
 | File | What it is |
 |---|---|
@@ -58,3 +77,84 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
 print("wrote", out)
 PY
 ```
+
+---
+
+# 2. Retraining run — Sprint 4 · WBS 4.3.5
+
+Runs the automated retraining pipeline end to end and records whether the
+promotion gate accepts the result.
+
+| File | What it is |
+|---|---|
+| `BantAI_Retrain_Colab.ipynb` | The notebook to run |
+| `build_retrain_package.py` | Builds the upload zip |
+| `bantai_retrain_package.zip` | The upload itself (0.9 MB) — **git-ignored, build it yourself** |
+
+Both zips in this directory are git-ignored: they embed a full copy of the
+labeled dataset, and the retraining one can also carry real reported SMS
+bodies. Cloning the repo gets you the notebook and the builder, never the
+package.
+
+## Steps
+
+1. **Export the validated reports** (skip only if you accept a run that
+   consumes no corrections):
+
+   ```bash
+   cd ai
+   python scripts/retrain.py --export-reports datasets/reports/validated.csv \
+       --reports-url http://localhost:3000/api
+   ```
+
+   Needs the backend running and `BANTAI_AI_BACKEND_API_KEY` set to match its
+   `INTERNAL_API_KEY`. Colab has no route to your laptop's `localhost:3000`,
+   which is the only reason this hop exists.
+
+2. **Build the package** — it picks up whatever is in `datasets/reports/`:
+
+   ```bash
+   cd ai && python colab/build_retrain_package.py
+   ```
+
+   It prints a loud note if no export was found, because the alternative is
+   discovering it from a manifest reading "0 reports" after a 30-minute run.
+
+3. Upload `BantAI_Retrain_Colab.ipynb` to Colab, **Runtime → Change runtime
+   type → T4 GPU**, and run the cells top to bottom.
+
+4. The notebook restores the baseline checkpoint from
+   `MyDrive/bantai/bantai_model.zip` (written by the Sprint 2 notebook's step
+   7), fine-tunes a candidate, scores both, and saves the whole run directory
+   back to `MyDrive/bantai/retraining_runs/`.
+
+5. Download it, unpack under `ai/models/retraining_runs/`, and commit
+   `manifest.json` + `decision.json` — the weights stay git-ignored.
+
+Expected runtime on a free T4: **~30-40 minutes** — longer than the Sprint 2
+notebook because the gate scores *two* checkpoints over the validation split
+after training.
+
+## What the zip contains
+
+`preprocessing/`, `training/`, `retraining/`, `scripts/retrain.py`, the labeled
+dataset, `requirements.txt`, and `datasets/reports/*` when an export is present.
+
+Deliberately **not** the other twenty files in `scripts/` — review sheets,
+clustering and calibration tools that pull in sklearn/hdbscan/shap and have
+nothing to do with a retraining run.
+
+## Reading the result
+
+`decision.json` holds every number the gate used, not just the outcome.
+
+| Field | Means |
+|---|---|
+| `promote: true` | Candidate beat the incumbent on macro-F1 and cleared McNemar. **Not deployed** — promotion is a separate, deliberate step. |
+| `promote: false` | Read `reason`. A rejection is a working gate, not a failed run. |
+| `skipped_reason` set | No baseline was present, so nothing was compared. Re-run step 4 — this is the outcome most easily mistaken for success. |
+
+If the gate says promote, re-run `scripts/embed_dataset.py` **and**
+`scripts/cluster_campaigns.py` after the swap. Campaign centroids live in the
+embedding space of the checkpoint that produced them and are meaningless
+against a different one. See `ai/RETRAINING.md` § Rollback.

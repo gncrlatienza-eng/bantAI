@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     cluster_file: str = "datasets/processed/campaign_clusters.json"
     backend_url: str = "http://localhost:3000/api"
 
+    # Shared secret for the backend's ApiKeyGuard-protected internal routes --
+    # GET /campaigns/centroids (this service) and GET /reports (the retraining
+    # pipeline). Must equal the backend's ``INTERNAL_API_KEY``. Empty means the
+    # header is omitted entirely, which those routes answer with 401; since
+    # ``load_centroids`` swallows failures by design, an unset key shows up as
+    # "0 campaigns loaded" rather than an error, so check this first if
+    # matching is silently doing nothing.
+    backend_api_key: str = ""
+
     # Cosine similarity a message must reach to join an existing campaign
     # (manuscript Stage 5b). The manuscript specifies 0.85; measured against
     # real data that attaches 54.5% of *unrelated* messages, because the

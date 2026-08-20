@@ -44,8 +44,10 @@ Expected runtime on a free T4: **~20-30 minutes** end to end.
 ## What the zip contains
 
 `preprocessing/` and `training/` (source, no `__pycache__`), the labeled dataset
-`datasets/labeled/bantai_labeled.csv` (16,772 rows: Ham 9,315 / Spam 4,788 /
-Scam 2,669), and `requirements.txt`.
+`datasets/labeled/bantai_labeled.csv` (13,536 rows: Ham 7,530 / Spam 3,835 /
+Scam 2,171 -- the post-holdout 80% pool, since `scripts/create_holdout_set.py`
+carved a permanent 20% test set out on 2026-08-18; see `PIPELINE.md` § Stage 5b),
+and `requirements.txt`.
 
 `sample.csv` is deliberately excluded — it is a hand-written format reference,
 not real data, and the training loader now skips it (see

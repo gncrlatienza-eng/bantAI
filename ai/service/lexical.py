@@ -222,17 +222,36 @@ def lexical_similarity(text: str, profile: Optional[LexicalProfile]) -> float:
     for a missing or non-distinctive profile, which makes the caller fall back
     to embedding-only matching rather than treating "no evidence" as
     "contradicting evidence".
+
+    Tokenizes ``text`` on every call -- fine for a single text-vs-profile
+    comparison, but a caller comparing one message against many profiles
+    (``CampaignMatcher.match``) should tokenize once and call
+    ``similarity_from_shingles`` directly instead of calling this per profile.
     """
     if profile is None or not profile.is_distinctive:
         return 0.0
-    msg = shingles(text)
-    if not msg:
+    return similarity_from_shingles(shingles(text), profile)
+
+
+def similarity_from_shingles(msg_shingles: Set[str], profile: Optional[LexicalProfile]) -> float:
+    """Dice-coefficient core of ``lexical_similarity``, given an already-
+    tokenized shingle set instead of raw text.
+
+    Split out so a message compared against many campaign profiles in one
+    pass -- ``CampaignMatcher.match`` loops over ~240 active centroids -- can
+    call ``shingles(text)`` once (masking + tokenizing) and reuse the result,
+    instead of ``lexical_similarity`` silently repeating that work per
+    centroid for text that never changes across the loop.
+    """
+    if profile is None or not profile.is_distinctive:
         return 0.0
-    shared = len(msg & profile.shingles)
+    if not msg_shingles:
+        return 0.0
+    shared = len(msg_shingles & profile.shingles)
     if shared == 0:
         return 0.0
     coverage = shared / len(profile.shingles)
-    precision = shared / len(msg)
+    precision = shared / len(msg_shingles)
     return 2.0 * coverage * precision / (coverage + precision)
 
 

@@ -17,6 +17,7 @@ from service.lexical import (
     lexical_similarity,
     shares_domain,
     shingles,
+    similarity_from_shingles,
 )
 
 # A templated blast: identical wording, different link and amount each send --
@@ -101,6 +102,25 @@ def test_missing_profile_scores_zero():
 
 def test_empty_message_scores_zero():
     assert lexical_similarity("", build_profile(CAMPAIGN)) == 0.0
+
+
+# --- similarity_from_shingles (CampaignMatcher's hot-path entry point) -----
+# CampaignMatcher.match() tokenizes a message once and calls this directly
+# for every centroid, instead of calling lexical_similarity (which re-
+# tokenizes) per centroid. Must agree with lexical_similarity exactly -- it
+# is the same computation, just handed a pre-tokenized set.
+def test_similarity_from_shingles_agrees_with_lexical_similarity():
+    profile = build_profile(CAMPAIGN)
+    text = "Congrats! Your GCash account won P777. Claim now at http://gcash-promo.xyz/z"
+    assert similarity_from_shingles(shingles(text), profile) == lexical_similarity(text, profile)
+
+
+def test_similarity_from_shingles_missing_profile_scores_zero():
+    assert similarity_from_shingles(shingles("anything at all"), None) == 0.0
+
+
+def test_similarity_from_shingles_empty_set_scores_zero():
+    assert similarity_from_shingles(set(), build_profile(CAMPAIGN)) == 0.0
 
 
 def test_shares_domain_matches_and_rejects():

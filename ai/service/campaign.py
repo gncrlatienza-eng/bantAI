@@ -35,8 +35,9 @@ from .lexical import (
     LexicalProfile,
     build_profile,
     extract_domains,
-    lexical_similarity,
     shares_domain,
+    shingles,
+    similarity_from_shingles,
 )
 
 # Campaign match threshold, re-calibrated against real data (Sprint 5, WBS
@@ -270,6 +271,12 @@ class CampaignMatcher:
         hybrid_hit: Optional[tuple] = None
         embedding_hit: Optional[tuple] = None
 
+        # Tokenized once, not once per centroid: shingles() runs the full
+        # masking pipeline (5 regex passes) plus tokenizing, and text never
+        # changes across this loop. Re-running it per centroid (up to ~240 of
+        # them) redid that work for an identical result every time.
+        msg_shingles = shingles(text) if text is not None else None
+
         for centroid in self._centroids:
             sim = cosine_similarity(embedding, centroid.centroid)
             if sim > best_sim:
@@ -277,8 +284,8 @@ class CampaignMatcher:
 
             profile = centroid.lexical
             lex = 0.0
-            if text is not None and profile is not None:
-                lex = lexical_similarity(text, profile)
+            if msg_shingles is not None and profile is not None:
+                lex = similarity_from_shingles(msg_shingles, profile)
 
                 if sim >= DOMAIN_EMBEDDING_FLOOR and shares_domain(text, profile):
                     cand = (sim, lex, centroid.cluster_id)

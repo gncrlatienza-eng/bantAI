@@ -1,6 +1,11 @@
 package com.bantai.navigation
 
 import android.net.Uri
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,11 +36,13 @@ import com.bantai.ui.screens.main.SuspiciousDetailScreen
 import com.bantai.ui.screens.main.TakeActionScreen
 import com.bantai.ui.screens.main.ThreatAnalysisScreen
 import com.bantai.ui.screens.main.UnsafeLinkScreen
+import com.bantai.ui.screens.onboarding.OnboardingAllowAccessScreen
 import com.bantai.ui.screens.onboarding.OnboardingConfirmNumberScreen
 import com.bantai.ui.screens.onboarding.OnboardingDefaultSmsScreen
 import com.bantai.ui.screens.onboarding.OnboardingEnterCodeScreen
 import com.bantai.ui.screens.onboarding.OnboardingProfileScreen
 import com.bantai.ui.screens.onboarding.OnboardingProtectedScreen
+import com.bantai.ui.screens.onboarding.OnboardingTermsScreen
 import com.bantai.ui.screens.onboarding.SplashScreen
 import com.bantai.ui.screens.settings.EditProfileScreen
 import com.bantai.ui.screens.settings.HowItWorksScreen
@@ -115,7 +122,6 @@ sealed class Screen(
 
     data object OnboardingProtected : Screen("onboarding_protected")
 
-    // Stubs retained so orphaned screen files compile — not registered as routes
     data object OnboardingAllowAccess : Screen("onboarding_allow_access")
 
     data object OnboardingTerms : Screen("onboarding_terms")
@@ -124,6 +130,9 @@ sealed class Screen(
         fun createRoute(sender: String) = "detail/${Uri.encode(sender)}"
     }
 }
+
+private const val SCREEN_TRANSITION_MS = 320
+private const val SCREEN_SLIDE_OFFSET_DIVISOR = 5
 
 @Composable
 fun NavGraph(
@@ -151,6 +160,30 @@ fun NavGraph(
     NavHost(
         navController = navController,
         startDestination = startDestination!!,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                animationSpec = tween(SCREEN_TRANSITION_MS),
+            ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_MS))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                animationSpec = tween(SCREEN_TRANSITION_MS),
+            ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_MS))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                animationSpec = tween(SCREEN_TRANSITION_MS),
+            ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_MS))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                animationSpec = tween(SCREEN_TRANSITION_MS),
+            ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_MS))
+        },
     ) {
         composable("splash") {
             SplashScreen(onFinished = {
@@ -162,6 +195,12 @@ fun NavGraph(
 
         composable("onboarding_default_sms") {
             OnboardingDefaultSmsScreen(onNext = {
+                navController.navigate("onboarding_allow_access")
+            })
+        }
+
+        composable("onboarding_allow_access") {
+            OnboardingAllowAccessScreen(onNext = {
                 navController.navigate("onboarding_confirm_number")
             })
         }
@@ -180,8 +219,16 @@ fun NavGraph(
             )
         }
 
+        composable("onboarding_terms") {
+            OnboardingTermsScreen(
+                navController = navController,
+                viewModel = viewModel,
+            )
+        }
+
         composable("onboarding_profile") {
             OnboardingProfileScreen(
+                navController = navController,
                 viewModel = viewModel,
                 onNext = { navController.navigate("onboarding_protected") },
             )

@@ -103,3 +103,38 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok"] = "ok"
     model_ready: bool = Field(..., description="Whether a fine-tuned model is loaded")
+    version_tag: Optional[str] = Field(
+        None,
+        description="versionTag of the checkpoint this service is actually serving "
+        "(from models/<dir>/version.json, written on promotion). Null until the "
+        "first promotion writes one -- true of every checkpoint deployed before "
+        "WBS 4.4.3, including the one currently live.",
+    )
+
+
+# --- Retraining round trip (Sprint 4, WBS 4.4.3) ---------------------------- #
+# The backend's hourly cron (retraining.service.ts) POSTs here when a trigger
+# fires. Training runs on Colab, not on the serving host -- this endpoint
+# records the request; it does not train anything. See
+# service/routers/retrain.py and RETRAINING.md § Stage 5.
+
+#: What tripped the backend's cron. Kept as ``str`` rather than a ``Literal``
+#: of the three known reasons: the backend is the source of truth for trigger
+#: names (retraining.service.ts), and a fourth trigger added there someday
+#: should not need a matching release here just to stop 422ing.
+RetrainTrigger = str
+
+
+class RetrainRequest(BaseModel):
+    trigger: RetrainTrigger = Field(..., min_length=1, description="Why the backend fired this request")
+
+
+class RetrainJobResponse(BaseModel):
+    job_id: str = Field(..., description="Opaque id for this queued request")
+    trigger: RetrainTrigger
+    status: Literal["queued"] = "queued"
+    requested_at: str = Field(..., description="ISO-8601 UTC timestamp the request was recorded")
+
+
+class RetrainJobList(BaseModel):
+    jobs: List[RetrainJobResponse]

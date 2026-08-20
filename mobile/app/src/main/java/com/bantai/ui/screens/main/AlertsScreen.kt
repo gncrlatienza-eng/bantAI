@@ -57,6 +57,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val ALERTS_POLL_INTERVAL_MS = 5_000L
 
@@ -231,9 +232,12 @@ private fun formatAlertTime(iso: String): String =
     try {
         val zoned = Instant.parse(iso).atZone(ZoneId.systemDefault())
         if (zoned.toLocalDate() == ZonedDateTime.now().toLocalDate()) {
-            zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
+            // Locale.US pinned, not device default — the app has no localized string
+            // resources yet, so a localized date/time next to hardcoded English labels
+            // would look more inconsistent, not less.
+            zoned.format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
         } else {
-            zoned.format(DateTimeFormatter.ofPattern("MMM d"))
+            zoned.format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
         }
     } catch (_: Exception) {
         ""

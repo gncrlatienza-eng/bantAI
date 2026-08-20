@@ -105,6 +105,7 @@ fun MessageDetailScreen(
     val context = LocalContext.current
     val conversation by viewModel.conversation.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val selectionMode by viewModel.selectionMode.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
     val draftBody by viewModel.draftBody.collectAsState()
@@ -148,15 +149,20 @@ fun MessageDetailScreen(
     }
 
     fun retryFailedMessage(msg: SmsMessage) {
-        val repo = SmsRepository(context)
-        repo.updateMessageType(msg.id, Telephony.Sms.MESSAGE_TYPE_OUTBOX)
-        viewModel.loadConversation(sender)
-        SmsSender.send(context, sender, msg.body) { success, error ->
-            repo.updateMessageType(msg.id, if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
-            if (!success) {
-                Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
-                NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))
+        try {
+            val repo = SmsRepository(context)
+            repo.updateMessageType(msg.id, Telephony.Sms.MESSAGE_TYPE_OUTBOX)
+            viewModel.loadConversation(sender)
+            SmsSender.send(context, sender, msg.body) { success, error ->
+                repo.updateMessageType(msg.id, if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
+                if (!success) {
+                    Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
+                    NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))
+                }
             }
+        } catch (e: Exception) {
+            Log.e("MessageDetailScreen", "Failed to retry message ${msg.id}", e)
+            Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -351,6 +357,10 @@ fun MessageDetailScreen(
         if (isLoading) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Indigo, modifier = Modifier.size(32.dp))
+            }
+        } else if (errorMessage != null) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(errorMessage ?: "Couldn't load this conversation", color = Danger, fontSize = 14.sp)
             }
         } else if (conversation.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {

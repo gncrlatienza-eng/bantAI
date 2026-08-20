@@ -62,7 +62,7 @@ Two things worth knowing before you touch either config:
 - **`@Composable` functions are exempted from ktlint's naming rule** (PascalCase is the Compose
   convention — `MessageDetailScreen()`, used like a widget). This is set in `.editorconfig` and
   is a permanent, correct exception — don't remove it.
-- **detekt runs against a baseline** (`app/detekt-baseline.xml`, ~440 entries) — everything
+- **detekt runs against a baseline** (`app/detekt-baseline.xml`, ~340 entries) — everything
   already in the codebase when detekt was first added is grandfathered in, so only *new* issues
   in future PRs fail the build. If you fix one of the baselined issues, regenerate the baseline
   with `./gradlew.bat :app:detektBaseline` so it doesn't silently drift out of sync with the

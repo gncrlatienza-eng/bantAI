@@ -53,6 +53,7 @@ import com.bantai.viewmodel.CampaignsViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun CampaignsScreen(
@@ -265,7 +266,7 @@ private fun CampaignRow(
 
 private fun formatShortDate(iso: String): String =
     try {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d"))
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
     } catch (_: Exception) {
         ""
     }

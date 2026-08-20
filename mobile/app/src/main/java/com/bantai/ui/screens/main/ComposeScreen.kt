@@ -83,16 +83,22 @@ fun ComposeScreen(
     // Accept E.164 (+[1-15 digits]) or local all-digit numbers (7-15 digits).
     // Rejects alphanumeric sender IDs (which are receive-only) and short codes
     // below 7 digits to prevent accidental sends to premium-rate services.
+    //
+    // Intentionally separate from OnboardingViewModel's normalizePhone: signup
+    // requires a real PH mobile line to receive an OTP, so it validates and
+    // rewrites to +63 form. Compose just needs "is this a plausible SMS-capable
+    // recipient" for any number, PH or not — don't merge the two.
     fun isValidRecipient(number: String): Boolean {
-        if (number.startsWith("+")) {
-            val digits = number.drop(1)
+        val cleaned = number.replace(Regex("[\\s\\-()]"), "")
+        if (cleaned.startsWith("+")) {
+            val digits = cleaned.drop(1)
             return digits.all { it.isDigit() } && digits.length in 7..15
         }
-        return number.all { it.isDigit() } && number.length in 7..15
+        return cleaned.all { it.isDigit() } && cleaned.length in 7..15
     }
 
     fun sendMessage() {
-        val to = recipient.trim()
+        val to = recipient.trim().replace(Regex("[\\s\\-()]"), "")
         val body = messageBody.trim()
         if (to.isEmpty()) {
             Toast.makeText(context, "Enter a recipient", Toast.LENGTH_SHORT).show()

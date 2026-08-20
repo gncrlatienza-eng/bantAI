@@ -592,7 +592,7 @@ private fun alertRelativeTime(iso: String): String =
             diffMin < 1440 -> "${diffMin / 60}h"
             else ->
                 java.time.format.DateTimeFormatter
-                    .ofPattern("MMM d")
+                    .ofPattern("MMM d", java.util.Locale.US)
                     .format(instant.atZone(java.time.ZoneId.systemDefault()))
         }
     } catch (_: Exception) {

@@ -117,6 +117,7 @@ fun HomeScreen(
     val smishingCount by viewModel.smishingCount.collectAsState()
     val suspiciousCount by viewModel.suspiciousCount.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val scanPeriod by viewModel.scanPeriod.collectAsState()
     val contentAlpha by animateFloatAsState(
         targetValue = if (!isLoading) 1f else 0f,
@@ -294,6 +295,15 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(color = Indigo, modifier = Modifier.size(32.dp))
+                    }
+                }
+            } else if (errorMessage != null) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(errorMessage ?: "Couldn't load messages", color = Danger, fontSize = 14.sp)
                     }
                 }
             } else if (recentMessages.isEmpty()) {

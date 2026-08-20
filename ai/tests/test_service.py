@@ -35,6 +35,18 @@ def test_classify_returns_503_without_model(tmp_path, monkeypatch):
     assert resp.status_code == 503
 
 
+def test_classify_returns_503_when_checkpoint_exists_but_fails_to_load(tmp_path, monkeypatch):
+    """_has_weights() only checks that config.json exists, not that the
+    checkpoint actually loads -- a corrupted/incompatible checkpoint must
+    still surface as the existing 503 path, not an unhandled 500."""
+    (tmp_path / "config.json").write_text("not valid json", encoding="utf-8")
+    broken = SmishingClassifier(model_dir=str(tmp_path))
+    monkeypatch.setattr(routers.classify, "classifier", broken)
+    resp = client.post("/classify", json={"message": "Claim ₱5000 at http://x.ph"})
+    assert resp.status_code == 503
+    assert "failed to load" in resp.json()["detail"]
+
+
 def test_classify_validates_empty_message():
     resp = client.post("/classify", json={"message": ""})
     assert resp.status_code == 422  # min_length=1

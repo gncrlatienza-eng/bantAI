@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .campaign import DEFAULT_SIMILARITY_THRESHOLD
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -68,7 +70,9 @@ class Settings(BaseSettings):
     # classifier embedding this reuses encodes class rather than campaign.
     # Re-calibrated to 0.999 in Sprint 5 (WBS 5.3.6) -- see
     # service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD for the full sweep.
-    campaign_threshold: float = 0.999
+    # Sourced from that constant rather than re-declared here, so the two
+    # cannot silently drift apart if the calibrated value ever changes.
+    campaign_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
 
     # --- Retraining round trip (Sprint 4, WBS 4.4.3) --------------------- #
     # Where POST /retrain records the backend's trigger requests. Training

@@ -106,11 +106,37 @@ class SmishingClassifier:
                 AutoTokenizer,
             )
 
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
-            self._model = AutoModelForSequenceClassification.from_pretrained(self.model_dir)
+            try:
+                self._tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
+                self._model = AutoModelForSequenceClassification.from_pretrained(self.model_dir)
+            except Exception as exc:  # noqa: BLE001 -- any load failure means "not ready", not a 500
+                # ``_has_weights()`` only checks that config.json exists, not
+                # that the checkpoint actually loads -- a corrupted or
+                # partially-downloaded checkpoint, or one saved by an
+                # incompatible transformers version, would otherwise reach
+                # here and raise an arbitrary exception that classify.py's
+                # `except ModelNotReadyError` does not catch, surfacing as an
+                # unhandled 500 instead of the existing, informative 503 path.
+                self._tokenizer = None
+                self._model = None
+                raise ModelNotReadyError(
+                    f"Found a checkpoint at '{self.model_dir}' but it failed to load: {exc}. "
+                    "It may be corrupted, partially downloaded, or saved by an incompatible "
+                    "transformers version."
+                ) from exc
             self._model.eval()
 
     def is_ready(self) -> bool:
+        """Best-effort, cheap readiness signal for ``GET /health``.
+
+        Checks that a checkpoint directory *looks* present (``config.json``
+        exists), not that it actually loads -- doing a real load here would
+        make every health check pay the full model-loading cost. A
+        checkpoint that looks present but is actually broken still reports
+        ``model_ready: true`` here; the honest failure surfaces from
+        ``/classify`` as a 503 the first time ``_ensure_loaded`` is called
+        (see the ``except Exception`` above), not from this check.
+        """
         return self._model is not None or self._has_weights()
 
     def _label_for(self, idx: int) -> Label:

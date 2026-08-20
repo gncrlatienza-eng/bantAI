@@ -264,7 +264,25 @@ def shares_domain(text: str, profile: Optional[LexicalProfile]) -> bool:
     campaign identifier. It is also the field the backend already maintains
     for link suppression (``getActiveDomains()``), so nothing new has to be
     collected to use it.
+
+    Extracts domains from ``text`` on every call -- fine for a single
+    comparison, but a caller checking one message against many profiles
+    should extract once and call ``domains_overlap`` directly instead of
+    calling this per profile.
     """
     if profile is None or not profile.domains:
         return False
-    return any(d in profile.domains for d in extract_domains(text))
+    return domains_overlap(extract_domains(text), profile)
+
+
+def domains_overlap(msg_domains: Iterable[str], profile: Optional[LexicalProfile]) -> bool:
+    """Core of ``shares_domain``, given an already-extracted domain list.
+
+    Split out for the same reason as ``similarity_from_shingles``:
+    ``CampaignMatcher.match`` loops over ~240 active centroids for one
+    message and would otherwise re-run URL extraction from scratch on every
+    centroid for text that never changes across the loop.
+    """
+    if profile is None or not profile.domains:
+        return False
+    return any(d in profile.domains for d in msg_domains)

@@ -13,6 +13,7 @@ from service.lexical import (
     MIN_PROFILE_SHINGLES,
     LexicalProfile,
     build_profile,
+    domains_overlap,
     extract_domains,
     lexical_similarity,
     shares_domain,
@@ -133,6 +134,20 @@ def test_shares_domain_matches_and_rejects():
 def test_shares_domain_without_domains_is_false():
     assert not shares_domain("http://gcash-promo.xyz", build_profile(CAMPAIGN))
     assert not shares_domain("http://gcash-promo.xyz", None)
+
+
+# --- domains_overlap (CampaignMatcher's hot-path entry point) --------------
+# Same relationship as similarity_from_shingles/lexical_similarity: match()
+# extracts domains from a message once and calls this directly per centroid,
+# instead of calling shares_domain (which re-extracts) per centroid.
+def test_domains_overlap_agrees_with_shares_domain():
+    profile = build_profile(CAMPAIGN, domains={"gcash-promo.xyz"})
+    text = "click http://gcash-promo.xyz/new"
+    assert domains_overlap(extract_domains(text), profile) == shares_domain(text, profile)
+
+
+def test_domains_overlap_missing_profile_is_false():
+    assert not domains_overlap(extract_domains("http://gcash-promo.xyz"), None)
 
 
 def test_profile_round_trips_through_dict():

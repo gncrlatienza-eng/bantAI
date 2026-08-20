@@ -17,6 +17,7 @@ from service.campaign import (
     DEFAULT_SIMILARITY_THRESHOLD,
     CampaignCentroid,
     CampaignMatcher,
+    _cosine_similarity_with_norm,
     build_matcher_from_clusters,
     compute_centroid,
     cosine_similarity,
@@ -53,6 +54,28 @@ def test_magnitude_does_not_matter():
 
 def test_zero_vector_does_not_divide_by_zero():
     assert cosine_similarity(np.zeros(3), unit(1, 1, 1)) == 0.0
+
+
+# --- _cosine_similarity_with_norm (CampaignMatcher's hot-path entry point) --
+# match() computes norm(embedding) once and calls this directly per centroid,
+# instead of calling cosine_similarity (which recomputes norm(a)) per
+# centroid. Must agree with cosine_similarity exactly -- same computation,
+# just handed a precomputed norm(a). norm(b) is still recomputed per call,
+# since a backend-sourced centroid has no guaranteed normalization.
+def test_cosine_similarity_with_norm_agrees_with_cosine_similarity():
+    a, b = unit(1, 2, 3), unit(3, 1, 2)
+    norm_a = float(np.linalg.norm(a))
+    assert _cosine_similarity_with_norm(a, norm_a, b) == cosine_similarity(a, b)
+
+
+def test_cosine_similarity_with_norm_handles_unnormalized_b():
+    a = np.array([1.0, 0.0], dtype="float32")
+    b = np.array([50.0, 0.0], dtype="float32")
+    assert _cosine_similarity_with_norm(a, float(np.linalg.norm(a)), b) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_cosine_similarity_with_norm_zero_norm_a_does_not_divide_by_zero():
+    assert _cosine_similarity_with_norm(np.zeros(3), 0.0, unit(1, 1, 1)) == 0.0
 
 
 # --- threshold behaviour ----------------------------------------------------

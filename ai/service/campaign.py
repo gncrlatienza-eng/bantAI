@@ -34,8 +34,8 @@ from typing import Dict, List, Optional, Sequence
 from .lexical import (
     LexicalProfile,
     build_profile,
+    domains_overlap,
     extract_domains,
-    shares_domain,
     shingles,
     similarity_from_shingles,
 )
@@ -160,8 +160,27 @@ def cosine_similarity(a, b) -> float:
     import numpy as np
 
     a = np.asarray(a, dtype="float32")
+    return _cosine_similarity_with_norm(a, float(np.linalg.norm(a)), b)
+
+
+def _cosine_similarity_with_norm(a, norm_a: float, b) -> float:
+    """``cosine_similarity``'s core, given ``norm(a)`` already computed.
+
+    ``CampaignMatcher.match`` compares one message embedding against every
+    active centroid (documented above at up to ~240) -- ``norm(a)`` is
+    identical on every iteration of that loop, so it computes it once and
+    reuses it here instead of letting ``cosine_similarity`` recompute the
+    same sqrt-of-768-dims value per centroid. ``norm(b)`` still varies per
+    centroid and is always computed fresh -- a backend-sourced centroid has
+    no guaranteed normalization (see ``centroid_source.py:load_from_backend``,
+    which stores whatever the backend returns as-is), so this cannot be
+    dropped the same way ``norm(a)`` can.
+    """
+    import numpy as np
+
+    a = np.asarray(a, dtype="float32")
     b = np.asarray(b, dtype="float32")
-    denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+    denom = float(norm_a * np.linalg.norm(b))
     if denom == 0.0:
         return 0.0
     return float(np.dot(a, b) / denom)
@@ -255,6 +274,14 @@ class CampaignMatcher:
         if not self._centroids:
             return MatchResult(cluster_id=None, similarity=0.0, matched=False, should_buffer=True)
 
+        import numpy as np
+
+        # norm(embedding) is identical on every iteration of the loop below --
+        # computed once here instead of once per centroid inside
+        # cosine_similarity (previously up to ~240 redundant sqrt-of-768-dims
+        # calls per matched message).
+        norm_embedding = float(np.linalg.norm(np.asarray(embedding, dtype="float32")))
+
         # Seeded below -1 (cosine's floor) rather than at 0, so a genuinely
         # negative best similarity is reported honestly instead of being
         # rounded up to 0.0 -- the reported number is used for threshold
@@ -271,14 +298,16 @@ class CampaignMatcher:
         hybrid_hit: Optional[tuple] = None
         embedding_hit: Optional[tuple] = None
 
-        # Tokenized once, not once per centroid: shingles() runs the full
-        # masking pipeline (5 regex passes) plus tokenizing, and text never
-        # changes across this loop. Re-running it per centroid (up to ~240 of
-        # them) redid that work for an identical result every time.
+        # Tokenized/extracted once, not once per centroid: shingles() runs the
+        # full masking pipeline (5 regex passes) plus tokenizing, and
+        # extract_domains() runs its own regex + urlparse pass -- text never
+        # changes across this loop, so re-running either per centroid (up to
+        # ~240 of them) redid that work for an identical result every time.
         msg_shingles = shingles(text) if text is not None else None
+        msg_domains = extract_domains(text) if text is not None else None
 
         for centroid in self._centroids:
-            sim = cosine_similarity(embedding, centroid.centroid)
+            sim = _cosine_similarity_with_norm(embedding, norm_embedding, centroid.centroid)
             if sim > best_sim:
                 best_sim = sim
 
@@ -287,7 +316,7 @@ class CampaignMatcher:
             if msg_shingles is not None and profile is not None:
                 lex = similarity_from_shingles(msg_shingles, profile)
 
-                if sim >= DOMAIN_EMBEDDING_FLOOR and shares_domain(text, profile):
+                if sim >= DOMAIN_EMBEDDING_FLOOR and domains_overlap(msg_domains, profile):
                     cand = (sim, lex, centroid.cluster_id)
                     if domain_hit is None or sim > domain_hit[0]:
                         domain_hit = cand

@@ -13,10 +13,12 @@ from service.lexical import (
     MIN_PROFILE_SHINGLES,
     LexicalProfile,
     build_profile,
+    domains_overlap,
     extract_domains,
     lexical_similarity,
     shares_domain,
     shingles,
+    similarity_from_shingles,
 )
 
 # A templated blast: identical wording, different link and amount each send --
@@ -103,6 +105,25 @@ def test_empty_message_scores_zero():
     assert lexical_similarity("", build_profile(CAMPAIGN)) == 0.0
 
 
+# --- similarity_from_shingles (CampaignMatcher's hot-path entry point) -----
+# CampaignMatcher.match() tokenizes a message once and calls this directly
+# for every centroid, instead of calling lexical_similarity (which re-
+# tokenizes) per centroid. Must agree with lexical_similarity exactly -- it
+# is the same computation, just handed a pre-tokenized set.
+def test_similarity_from_shingles_agrees_with_lexical_similarity():
+    profile = build_profile(CAMPAIGN)
+    text = "Congrats! Your GCash account won P777. Claim now at http://gcash-promo.xyz/z"
+    assert similarity_from_shingles(shingles(text), profile) == lexical_similarity(text, profile)
+
+
+def test_similarity_from_shingles_missing_profile_scores_zero():
+    assert similarity_from_shingles(shingles("anything at all"), None) == 0.0
+
+
+def test_similarity_from_shingles_empty_set_scores_zero():
+    assert similarity_from_shingles(set(), build_profile(CAMPAIGN)) == 0.0
+
+
 def test_shares_domain_matches_and_rejects():
     profile = build_profile(CAMPAIGN, domains={"gcash-promo.xyz"})
     assert shares_domain("click http://gcash-promo.xyz/new", profile)
@@ -113,6 +134,20 @@ def test_shares_domain_matches_and_rejects():
 def test_shares_domain_without_domains_is_false():
     assert not shares_domain("http://gcash-promo.xyz", build_profile(CAMPAIGN))
     assert not shares_domain("http://gcash-promo.xyz", None)
+
+
+# --- domains_overlap (CampaignMatcher's hot-path entry point) --------------
+# Same relationship as similarity_from_shingles/lexical_similarity: match()
+# extracts domains from a message once and calls this directly per centroid,
+# instead of calling shares_domain (which re-extracts) per centroid.
+def test_domains_overlap_agrees_with_shares_domain():
+    profile = build_profile(CAMPAIGN, domains={"gcash-promo.xyz"})
+    text = "click http://gcash-promo.xyz/new"
+    assert domains_overlap(extract_domains(text), profile) == shares_domain(text, profile)
+
+
+def test_domains_overlap_missing_profile_is_false():
+    assert not domains_overlap(extract_domains("http://gcash-promo.xyz"), None)
 
 
 def test_profile_round_trips_through_dict():

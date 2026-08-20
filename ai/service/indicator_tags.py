@@ -285,7 +285,9 @@ def _domain_tags(raw_text: str) -> List[IndicatorTag]:
     suspicious = False
     for url in urls:
         host = urlparse(url if "://" in url else f"//{url}").hostname or ""
-        host = host.lower().lstrip("www.")
+        host = host.lower()
+        if host.startswith("www."):
+            host = host[4:]
         if host in _SHORTENER_HOSTS:
             suspicious = True
         elif not any(host == d or host.endswith(f".{d}") for d in _OFFICIAL_DOMAINS):

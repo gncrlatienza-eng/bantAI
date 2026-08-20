@@ -18,19 +18,21 @@ fun getAvatarColor(sender: String): Color {
 }
 
 fun getInitialsFromSender(sender: String): String =
-    if (sender.startsWith("+")) {
+    if (sender.isBlank()) {
+        "?"
+    } else if (sender.startsWith("+")) {
         "+9"
     } else {
         val words = sender.trim().split(" ")
         when {
             words.size >= 2 -> "${words[0].firstOrNull()?.uppercase() ?: ""}${words[1].firstOrNull()?.uppercase() ?: ""}"
-            words.size == 1 -> sender.take(2).uppercase()
+            words.size == 1 -> words[0].take(2).uppercase()
             else -> "?"
         }
     }
 
 fun getRelativeTime(timestamp: Long): String {
-    val diff = System.currentTimeMillis() - timestamp
+    val diff = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L)
     val minutes = diff / 60000
     val hours = diff / 3600000
     val days = diff / 86400000

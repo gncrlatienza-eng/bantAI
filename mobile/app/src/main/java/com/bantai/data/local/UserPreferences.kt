@@ -1,6 +1,7 @@
 package com.bantai.data.local
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -8,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+
+private const val TAG = "UserPreferences"
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "bantai_prefs")
 
@@ -44,6 +47,7 @@ class UserPreferences(
         context.dataStore.data
             .catch { exception ->
                 if (exception is IOException) {
+                    Log.e(TAG, "DataStore read failed, resetting to defaults", exception)
                     emit(emptyPreferences())
                 } else {
                     throw exception

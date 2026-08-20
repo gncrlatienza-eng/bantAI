@@ -5,6 +5,7 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.provider.Telephony
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsRepository
@@ -15,11 +16,14 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+private const val TAG = "MessagesViewModel"
 
 enum class MessageFilter(
     val label: String,
@@ -80,6 +84,11 @@ class MessagesViewModel(
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private var loadJob: Job? = null
 
     private val _hasPermission = MutableStateFlow(smsRepository.hasReadSmsPermission())
     val hasPermission: StateFlow<Boolean> = _hasPermission.asStateFlow()
@@ -152,23 +161,36 @@ class MessagesViewModel(
     }
 
     fun loadMessages() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _isLoading.value = true
-            val deletedIds =
-                deletedMessagesStore.deletedEntries
-                    .first()
-                    .map { it.id }
-                    .toSet()
-            // The inbox always shows the full message history like a normal SMS
-            // app; the scan period setting only governs scanning/stat windows.
-            allMessages.value =
-                smsRepository
-                    .getInboxMessages(limit = 500)
-                    .filterNot { it.id in deletedIds }
-            recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
-            filterMessages(_searchQuery.value)
-            _isLoading.value = false
-        }
+        // Cancels any in-flight load before starting a new one — loadMessages() fires
+        // concurrently from init, the content observer, scan-period changes, and the
+        // permission callback, so a burst of incoming SMS can otherwise race several
+        // overlapping loads writing these StateFlows out of order.
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                _isLoading.value = true
+                _errorMessage.value = null
+                try {
+                    val deletedIds =
+                        deletedMessagesStore.deletedEntries
+                            .first()
+                            .map { it.id }
+                            .toSet()
+                    // The inbox always shows the full message history like a normal SMS
+                    // app; the scan period setting only governs scanning/stat windows.
+                    allMessages.value =
+                        smsRepository
+                            .getInboxMessages(limit = 500)
+                            .filterNot { it.id in deletedIds }
+                    recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
+                    filterMessages(_searchQuery.value)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load messages", e)
+                    _errorMessage.value = "Couldn't load messages"
+                } finally {
+                    _isLoading.value = false
+                }
+            }
     }
 
     fun updateSearchQuery(query: String) {

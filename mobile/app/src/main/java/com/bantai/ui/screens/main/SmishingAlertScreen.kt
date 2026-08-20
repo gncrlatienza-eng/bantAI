@@ -49,6 +49,7 @@ import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -332,14 +333,17 @@ private fun SmishingAlertContent(
 
 private fun formatFullTimestamp(iso: String): String =
     try {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
+        Instant
+            .parse(iso)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US))
     } catch (_: Exception) {
         ""
     }
 
 private fun formatTimeOnly(iso: String): String =
     try {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a"))
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
     } catch (_: Exception) {
         ""
     }

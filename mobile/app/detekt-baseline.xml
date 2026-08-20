@@ -9,105 +9,6 @@
     <ID>CyclomaticComplexMethod:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
     <ID>CyclomaticComplexMethod:MessagesViewModel.kt$MessagesViewModel$private fun filterMessages(query: String)</ID>
     <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
-    <ID>FunctionNaming:AISummaryBottomSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AISummaryBottomSheet( onDismiss: () -&gt; Unit, onViewFullAnalysis: () -&gt; Unit, isSuspicious: Boolean = true, summary: String? = null, isLoadingSummary: Boolean = false, )</ID>
-    <ID>FunctionNaming:AlertsScreen.kt$@Composable fun AlertsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: AlertsViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:AlertsScreen.kt$@Composable private fun AlertCard( alert: SmsApi.AlertSummary, blocked: Boolean, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:AlertsScreen.kt$@Composable private fun StatusPill( label: String, color: Color, )</ID>
-    <ID>FunctionNaming:BantAILogo.kt$@Composable fun BantAILogo( containerSize: Dp = 80.dp, iconSize: Dp = 44.dp, backgroundColor: Color = Color(0xFF1A1A2E), )</ID>
-    <ID>FunctionNaming:BlockedNumbersScreen.kt$@Composable fun BlockedNumbersScreen( navController: NavController, viewModel: BlockedNumbersViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable fun CampaignDetailScreen( campaignId: String, navController: NavController, viewModel: CampaignDetailViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail)</ID>
-    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun EmptySectionRow(message: String)</ID>
-    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
-    <ID>FunctionNaming:CampaignDetailScreen.kt$@Composable private fun StatCard( icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:CampaignsScreen.kt$@Composable fun CampaignsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: CampaignsViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun CampaignRow( campaign: CampaignsApi.CampaignSummary, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun GroupedList( items: List&lt;CampaignsApi.CampaignSummary&gt;, onClick: (CampaignsApi.CampaignSummary) -&gt; Unit, )</ID>
-    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun InfoRow( message: String, isError: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.HourglassEmpty, )</ID>
-    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun LoadingRow()</ID>
-    <ID>FunctionNaming:CampaignsScreen.kt$@Composable private fun SectionHeader(label: String)</ID>
-    <ID>FunctionNaming:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:EditProfileScreen.kt$@Composable fun EditProfileScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
-    <ID>FunctionNaming:HomeScreen.kt$@Composable private fun HomeMessageRow( item: MessageItem, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:HomeScreen.kt$@Composable private fun StatCard( modifier: Modifier = Modifier, icon: ImageVector, iconTint: Color, value: String, valueColor: Color, label: String, subtitle: String? = null, )</ID>
-    <ID>FunctionNaming:HomeScreen.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun HomeScreen( navController: NavController, innerPadding: PaddingValues, onNavigateToMessages: () -&gt; Unit = {}, viewModel: HomeViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:HowItWorksScreen.kt$@Composable fun HowItWorksScreen(navController: NavController)</ID>
-    <ID>FunctionNaming:MainScreen.kt$@Composable fun MainScreen( navController: NavController, settingsViewModel: SettingsViewModel, initialTab: Int? = null, )</ID>
-    <ID>FunctionNaming:MainScreen.kt$@Composable private fun CollapsedTabPill( tab: NavTab, showBadge: Boolean, )</ID>
-    <ID>FunctionNaming:MainScreen.kt$@Composable private fun FloatingTabBar( selected: Int, expanded: Boolean, onSelect: (Int) -&gt; Unit, onExpand: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:MainScreen.kt$@Composable private fun TabItem( tab: NavTab, selected: Boolean, showBadge: Boolean, onClick: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:MessageItem.kt$@Composable fun StatusBadge(type: BadgeType)</ID>
-    <ID>FunctionNaming:MessageItem.kt$@Composable private fun BadgePill( label: String, bg: Color, textColor: Color, border: Color?, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun FilterBubble( selected: MessageFilter, onSelect: (MessageFilter) -&gt; Unit, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun FilterMenuItem( label: String, checked: Boolean, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun GlassIconButton( icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun SearchPill( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun SelectionTopBar( selectedCount: Int, isRecentlyDeleted: Boolean, onCancel: () -&gt; Unit, onSelectAll: () -&gt; Unit, onDelete: () -&gt; Unit, onRestore: () -&gt; Unit, onPermanentDelete: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@Composable private fun VerdictLabel(badge: BadgeType)</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageListRow( item: MessageItem, selectionMode: Boolean, isSelected: Boolean, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:NavGraph.kt$@Composable fun NavGraph( requestedTab: Int? = null, requestedConversationSender: String? = null, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable fun NotificationsScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun LegendDot( color: Color, label: String, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun NotificationItem( title: String, subtitle: String, time: String, expanded: Boolean, dangerLink: String? = null, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun StatColumn( value: String, label: String, sub: String, valueColor: Color, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun TabItem( label: String, icon: @Composable () -&gt; Unit, selected: Boolean, onClick: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun ThreatAlertsTab( smishingAlerts: Boolean, onSmishingAlertsChanged: (Boolean) -&gt; Unit, suspiciousAlerts: Boolean, onSuspiciousAlertsChanged: (Boolean) -&gt; Unit, autoBlockNotice: Boolean, onAutoBlockNoticeChanged: (Boolean) -&gt; Unit, recentAlerts: List&lt;SmsApi.AlertSummary&gt;, alertsLoading: Boolean, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun ToggleRow( title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -&gt; Unit, )</ID>
-    <ID>FunctionNaming:NotificationsScreen.kt$@Composable private fun WeeklyDigestTab()</ID>
-    <ID>FunctionNaming:OnboardingAllowAccessScreen.kt$@Composable fun OnboardingAllowAccessScreen(onNext: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:OnboardingAllowAccessScreen.kt$@Composable private fun PermissionCheckRow( icon: ImageVector, title: String, subtitle: String, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun AccentIconTile( icon: ImageVector, accent: Color = Indigo, size: Dp = 36.dp, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun FeatureListRow( icon: ImageVector, title: String, subtitle: String, accent: Color = Indigo, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun GroupedCard( modifier: Modifier = Modifier, content: @Composable ColumnScope.() -&gt; Unit, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun GroupedDivider(startInset: Dp = 64.dp)</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun OnboardingHeader( title: String, modifier: Modifier = Modifier, eyebrow: String? = null, subtitle: String? = null, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun PillTextField( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, placeholder: String = "", keyboardOptions: KeyboardOptions = KeyboardOptions.Default, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun PrimaryButton( text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, enabled: Boolean = true, isLoading: Boolean = false, )</ID>
-    <ID>FunctionNaming:OnboardingComponents.kt$@Composable fun SectionLabel(text: String)</ID>
-    <ID>FunctionNaming:OnboardingConfirmNumberScreen.kt$@Composable fun OnboardingConfirmNumberScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
-    <ID>FunctionNaming:OnboardingDefaultSmsScreen.kt$@Composable fun OnboardingDefaultSmsScreen(onNext: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:OnboardingEnterCodeScreen.kt$@Composable fun OnboardingEnterCodeScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
-    <ID>FunctionNaming:OnboardingEnterCodeScreen.kt$@Composable private fun OtpBox( value: String, focusRequester: FocusRequester, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:OnboardingProfileScreen.kt$@Composable fun OnboardingProfileScreen( viewModel: OnboardingViewModel, onNext: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:OnboardingProtectedScreen.kt$@Composable fun OnboardingProtectedScreen( viewModel: OnboardingViewModel, onFinish: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:OnboardingTermsScreen.kt$@Composable fun OnboardingTermsScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
-    <ID>FunctionNaming:PermissionHandler.kt$@Composable private fun PermissionDeniedScreen()</ID>
-    <ID>FunctionNaming:PermissionHandler.kt$@Composable private fun PermissionRationaleScreen(onRequest: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:PermissionHandler.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun SmsPermissionWrapper(onPermissionGranted: @Composable () -&gt; Unit)</ID>
-    <ID>FunctionNaming:PrivacyDataScreen.kt$@Composable fun PrivacyDataScreen(navController: NavController)</ID>
-    <ID>FunctionNaming:PrivacyDataScreen.kt$@Composable private fun InfoCard( title: String, body: String, )</ID>
-    <ID>FunctionNaming:ReportSentScreen.kt$@Composable fun ReportSentScreen( type: String, navController: NavController, )</ID>
-    <ID>FunctionNaming:ScamAwarenessScreen.kt$@Composable fun ScamAwarenessScreen( navController: NavController, viewModel: ScamAwarenessViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:SenderAvatar.kt$@Composable fun SenderAvatar( sender: String, size: Dp, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionNaming:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
-    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
-    <ID>FunctionNaming:SettingsScreen.kt$@Composable private fun SettingsRow( icon: ImageVector, title: String, subtitle: String? = null, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:SmishingAlertScreen.kt$@Composable fun SmishingAlertScreen( messageId: String, navController: NavController, viewModel: AlertDetailViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:SmishingAlertScreen.kt$@Composable private fun SmishingAlertContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, )</ID>
-    <ID>FunctionNaming:SplashScreen.kt$@Composable fun SplashScreen(onFinished: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@Composable private fun ChatBubble( text: String, time: String, )</ID>
-    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@Composable private fun DateSeparator(text: String)</ID>
-    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@Composable private fun FlaggedChatBubble(navController: NavController)</ID>
-    <ID>FunctionNaming:SuspiciousDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SuspiciousDetailScreen( sender: String, navController: NavController, )</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable fun TakeActionScreen(navController: NavController)</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ActionButton( text: String, enabled: Boolean, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ActionToggleCard( modifier: Modifier = Modifier, title: String, description: String, icon: ImageVector, iconColor: Color, selected: Boolean, selectedBg: Color, selectedBorder: Color, checkColor: Color, onClick: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun BlockInfoRow()</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ConfirmationDialog( type: String, onDismiss: () -&gt; Unit, onConfirm: () -&gt; Unit, )</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun NotesSection( notes: String, onNotesChange: (String) -&gt; Unit, )</ID>
-    <ID>FunctionNaming:TakeActionScreen.kt$@Composable private fun ReportTypeSection( selectedType: Int, onSelect: (Int) -&gt; Unit, )</ID>
-    <ID>FunctionNaming:Theme.kt$@Composable fun BantAITheme(content: @Composable () -&gt; Unit)</ID>
-    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable fun ThreatAnalysisScreen( messageId: String = "", navController: NavController, viewModel: AlertDetailViewModel = viewModel(), )</ID>
-    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable private fun SectionLabel(text: String)</ID>
-    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable private fun ThreatAnalysisContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, navController: NavController, )</ID>
-    <ID>FunctionNaming:ThreatAnalysisScreen.kt$@Composable private fun ThreatIndicatorCard( title: String, subtitle: String, )</ID>
-    <ID>FunctionNaming:TipDetailScreen.kt$@Composable fun TipDetailScreen( tip: String, navController: NavController, )</ID>
-    <ID>FunctionNaming:TipDetailScreen.kt$@Composable private fun BulletPoint(text: String)</ID>
-    <ID>FunctionNaming:TipDetailScreen.kt$@Composable private fun SectionHeading(text: String)</ID>
-    <ID>FunctionNaming:UnsafeLinkScreen.kt$@Composable fun UnsafeLinkScreen(navController: NavController)</ID>
     <ID>LongMethod:AISummaryBottomSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AISummaryBottomSheet( onDismiss: () -&gt; Unit, onViewFullAnalysis: () -&gt; Unit, isSuspicious: Boolean = true, summary: String? = null, isLoadingSummary: Boolean = false, )</ID>
     <ID>LongMethod:AlertsScreen.kt$@Composable fun AlertsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: AlertsViewModel = viewModel(), )</ID>
     <ID>LongMethod:BlockedNumbersScreen.kt$@Composable fun BlockedNumbersScreen( navController: NavController, viewModel: BlockedNumbersViewModel = viewModel(), )</ID>
@@ -128,7 +29,6 @@
     <ID>LongMethod:OnboardingConfirmNumberScreen.kt$@Composable fun OnboardingConfirmNumberScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
     <ID>LongMethod:OnboardingDefaultSmsScreen.kt$@Composable fun OnboardingDefaultSmsScreen(onNext: () -&gt; Unit)</ID>
     <ID>LongMethod:OnboardingEnterCodeScreen.kt$@Composable fun OnboardingEnterCodeScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
-    <ID>LongMethod:OnboardingProfileScreen.kt$@Composable fun OnboardingProfileScreen( viewModel: OnboardingViewModel, onNext: () -&gt; Unit, )</ID>
     <ID>LongMethod:OnboardingProtectedScreen.kt$@Composable fun OnboardingProtectedScreen( viewModel: OnboardingViewModel, onFinish: () -&gt; Unit, )</ID>
     <ID>LongMethod:OnboardingTermsScreen.kt$@Composable fun OnboardingTermsScreen( navController: NavController, viewModel: OnboardingViewModel, )</ID>
     <ID>LongMethod:PrivacyDataScreen.kt$@Composable fun PrivacyDataScreen(navController: NavController)</ID>
@@ -421,7 +321,10 @@
     <ID>TooGenericExceptionCaught:ComposeScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:EditProfileScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:HomeScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:HomeViewModel.kt$HomeViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:MessageDetailScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MessageDetailViewModel.kt$MessageDetailViewModel$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MessagesViewModel.kt$MessagesViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SenderAvatar.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SettingsScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SmsIngestPipeline.kt$SmsIngestPipeline$e: Exception</ID>

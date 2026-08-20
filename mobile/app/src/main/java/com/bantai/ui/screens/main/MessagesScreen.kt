@@ -120,6 +120,7 @@ fun MessagesScreen(
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val visibleMessages by viewModel.visibleMessages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
     val selectionMode by viewModel.selectionMode.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
 
@@ -224,6 +225,15 @@ fun MessagesScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(28.dp))
+                        }
+                    }
+                } else if (errorMessage != null) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(errorMessage ?: "Couldn't load messages", color = Danger, fontSize = 15.sp)
                         }
                     }
                 } else if (tabMessages.isEmpty()) {

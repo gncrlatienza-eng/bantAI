@@ -81,6 +81,19 @@ def test_otp_phishing_tagalog():
     assert "OTP / Account Phishing" in tag_names("Ma-block ang account mo, i-verify ang account mo ngayon din.")
 
 
+# --- www.-stripping regression (str.lstrip is a char-set strip, not a prefix
+# strip -- ".lstrip('www.')" used to also eat a leading "w" off *any* host,
+# so a typosquat like "wbpi.com.ph" got corrupted into "bpi.com.ph" and was
+# silently treated as the real bank) --------------------------------------
+def test_www_prefix_is_stripped_for_official_domain_match():
+    tags = tag_names("Check your balance at https://www.gcash.com/app")
+    assert "Suspicious URL" not in tags
+
+
+def test_w_prefixed_typosquat_is_not_mistaken_for_official_domain():
+    assert "Suspicious URL" in tag_names("Verify now at https://wbpi.com.ph/unlock")
+
+
 # --- ordering and output shape ----------------------------------------------
 def test_tags_sorted_by_weight_descending():
     tags = tags_for_message("GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock")

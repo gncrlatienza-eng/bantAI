@@ -212,7 +212,16 @@ def _post_json(url: str, payload: dict) -> tuple:
         with urllib.request.urlopen(request, timeout=10) as resp:  # noqa: S310
             return resp.status, json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        return exc.code, json.loads(exc.read().decode("utf-8"))
+        # An unexpected non-JSON error body (a raw 500 traceback, a proxy's
+        # HTML error page) must still show up as a clean FAIL line -- the
+        # whole point of this script's check() helper -- rather than crashing
+        # this smoke test on an unrelated JSONDecodeError.
+        body_text = exc.read().decode("utf-8", errors="replace")
+        try:
+            body = json.loads(body_text)
+        except json.JSONDecodeError:
+            body = {"error": body_text[:500]}
+        return exc.code, body
 
 
 def _get_json(url: str) -> dict:

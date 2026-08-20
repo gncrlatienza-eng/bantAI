@@ -81,7 +81,15 @@ class _FileLock:
             try:
                 self._fd = os.open(self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 return self
-            except FileExistsError:
+            # Windows can raise PermissionError instead of FileExistsError
+            # for O_CREAT|O_EXCL against a path another thread is deleting or
+            # creating at nearly the same instant (NTFS's create/delete
+            # semantics have no atomic-unlink guarantee the way POSIX does) --
+            # confirmed by a real flaky failure under this module's own
+            # 16-thread concurrency test on this exact Windows dev machine.
+            # Treated identically to "someone else holds it": retry, don't
+            # let a filesystem-specific exception type escape as a crash.
+            except (FileExistsError, PermissionError):
                 self._clear_if_stale()
                 if time.monotonic() >= deadline:
                     # Fails open rather than deadlocking a retrain trigger

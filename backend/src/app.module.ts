@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from '../database/prisma.module';
 import { AiModule } from './ai/ai.module';
@@ -22,6 +23,7 @@ import { BlockedNumbersModule } from './blocked-numbers/blocked-numbers.module';
     ]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AnalyticsModule,
     HealthModule,
     AiModule,
     AuthModule,

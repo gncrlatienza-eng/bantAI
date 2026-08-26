@@ -59,7 +59,7 @@ export class ModelsService {
     await this.prisma.$transaction([
       this.prisma.modelVersion.updateMany({
         where: { isActive: true },
-        data: { isActive: false, rolledBackAt: new Date() },
+        data: { isActive: false },
       }),
       this.prisma.modelVersion.update({
         where: { id },

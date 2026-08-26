@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import {
   CanActivate,
   ExecutionContext,
@@ -19,7 +20,14 @@ export class ApiKeyGuard implements CanActivate {
       );
     }
 
-    if (key !== expected) {
+    // timingSafeEqual prevents brute-force timing attacks on the key value.
+    // A length mismatch is itself a distinguishable signal, so we reject
+    // before comparing rather than padding.
+    const keyStr = Array.isArray(key) ? key[0] : (key ?? '');
+    if (
+      keyStr.length !== expected.length ||
+      !timingSafeEqual(Buffer.from(keyStr), Buffer.from(expected))
+    ) {
       throw new UnauthorizedException('Invalid or missing API key.');
     }
 

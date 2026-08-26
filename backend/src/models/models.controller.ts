@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   UseGuards,
@@ -24,8 +25,10 @@ export class ModelsController {
   }
 
   @Get('active')
-  findActive() {
-    return this.modelsService.findActive();
+  async findActive() {
+    const model = await this.modelsService.findActive();
+    if (!model) throw new NotFoundException('No active model version');
+    return model;
   }
 
   @HttpCode(HttpStatus.CREATED)

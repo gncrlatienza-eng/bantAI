@@ -94,26 +94,50 @@ export class ReportsService {
 
   // Admin: accept the report — queues it for the next retraining snapshot.
   async validate(id: string, adminNote?: string) {
-    return this.prisma.userReport.update({
-      where: { id },
-      data: { status: 'Validated', adminNote: adminNote ?? null },
-      select: { id: true, status: true, adminNote: true, updatedAt: true },
-    });
+    try {
+      return await this.prisma.userReport.update({
+        where: { id },
+        data: {
+          status: 'Validated',
+          adminNote: adminNote ?? null,
+          validatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          status: true,
+          adminNote: true,
+          validatedAt: true,
+          updatedAt: true,
+        },
+      });
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2025') {
+        throw new NotFoundException(`Report ${id} not found`);
+      }
+      throw err;
+    }
   }
 
   // Admin: discard the report — it will not affect retraining.
   async reject(id: string, adminNote?: string) {
-    return this.prisma.userReport.update({
-      where: { id },
-      data: { status: 'Rejected', adminNote: adminNote ?? null },
-      select: { id: true, status: true, adminNote: true, updatedAt: true },
-    });
+    try {
+      return await this.prisma.userReport.update({
+        where: { id },
+        data: { status: 'Rejected', adminNote: adminNote ?? null },
+        select: { id: true, status: true, adminNote: true, updatedAt: true },
+      });
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2025') {
+        throw new NotFoundException(`Report ${id} not found`);
+      }
+      throw err;
+    }
   }
 
   // Used by the retraining cron to count validated reports since a given date.
   countValidatedSince(since: Date): Promise<number> {
     return this.prisma.userReport.count({
-      where: { status: 'Validated', updatedAt: { gte: since } },
+      where: { status: 'Validated', validatedAt: { gte: since } },
     });
   }
 }

@@ -63,8 +63,9 @@ export class CampaignsController {
     return this.campaignsService.addDomains(id, dto.domains);
   }
 
-  // Mobile / dashboard: deactivate a campaign cluster
-  @UseGuards(JwtAuthGuard)
+  // Internal: AI/ML service or admin deactivates a cluster.
+  // ApiKeyGuard replaces JwtAuthGuard — any registered user could previously call this.
+  @UseGuards(ApiKeyGuard)
   @Patch(':id/deactivate')
   deactivate(@Param('id') id: string) {
     return this.campaignsService.deactivate(id);

@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { ModelsController } from './models.controller';
@@ -34,6 +35,11 @@ describe('ModelsController', () => {
     mockService.findActive.mockResolvedValue({ id: 'v1', isActive: true });
     const result = await controller.findActive();
     expect(result).toEqual({ id: 'v1', isActive: true });
+  });
+
+  it('findActive throws NotFoundException when no active model exists', async () => {
+    mockService.findActive.mockResolvedValue(null);
+    await expect(controller.findActive()).rejects.toThrow(NotFoundException);
   });
 
   it('register delegates dto to service', async () => {

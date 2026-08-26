@@ -206,6 +206,7 @@ export class SmsService {
             sender: true,
             body: true,
             receivedAt: true,
+            clusterId: true,
             classification: {
               select: { label: true, score: true, bucket: true },
             },

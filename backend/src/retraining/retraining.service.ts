@@ -41,7 +41,7 @@ export class RetrainingService {
     this.logger.warn(
       `Retraining trigger fired: ${result.reason} (validated=${result.validatedCount})`,
     );
-    await this.callRetrainEndpoint(result.reason);
+    await this.triggerRetrain(result.reason);
   }
 
   // Exposed so the manual trigger endpoint (Sprint 5, 5.3.4) can call it.
@@ -61,7 +61,7 @@ export class RetrainingService {
 
     // Condition 1: validated report count since last promotion
     const validatedCount = await this.prisma.userReport.count({
-      where: { status: 'Validated', updatedAt: { gte: lastPromotedAt } },
+      where: { status: 'Validated', validatedAt: { gte: lastPromotedAt } },
     });
 
     if (validatedCount >= REPORT_THRESHOLD) {
@@ -119,6 +119,11 @@ export class RetrainingService {
       currentF1,
       drift: false,
     };
+  }
+
+  async triggerRetrain(reason: string) {
+    this.logger.warn(`Retraining triggered: ${reason}`);
+    await this.callRetrainEndpoint(reason);
   }
 
   // Page-Hinkley test detecting a sustained upward shift in classification

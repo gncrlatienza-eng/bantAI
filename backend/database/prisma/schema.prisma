@@ -212,7 +212,7 @@ model UserReport {
   updatedAt     DateTime   @updatedAt
 
   @@unique([userId, messageId]) // one report per user per message
-  @@index([status, updatedAt])
+  @@index([status, validatedAt])
 }
 
 // Tracks every model version that was ever promoted to production.
@@ -232,4 +232,6 @@ model ModelVersion {
   rolledBackAt DateTime?
 
   createdAt    DateTime  @default(now())
+
+  @@index([isActive])
 }

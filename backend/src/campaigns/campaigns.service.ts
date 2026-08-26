@@ -78,10 +78,12 @@ export class CampaignsService {
       throw new NotFoundException(`Campaign cluster ${id} not found`);
 
     const merged = Array.from(new Set([...cluster.urlDomains, ...domains]));
-    return this.prisma.campaignCluster.update({
+    const updated = await this.prisma.campaignCluster.update({
       where: { id },
       data: { urlDomains: merged },
     });
+    this.invalidateDomainCache();
+    return updated;
   }
 
   async deactivate(id: string) {

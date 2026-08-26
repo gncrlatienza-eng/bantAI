@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   CanActivate,
   ExecutionContext,
@@ -20,14 +20,14 @@ export class ApiKeyGuard implements CanActivate {
       );
     }
 
-    // timingSafeEqual prevents brute-force timing attacks on the key value.
-    // A length mismatch is itself a distinguishable signal, so we reject
-    // before comparing rather than padding.
+    // Compare HMAC-SHA256 digests so the comparison is constant-time and
+    // length-independent — a direct timingSafeEqual rejects on length mismatch
+    // first, leaking the expected key length in O(1) probes.
     const keyStr = Array.isArray(key) ? key[0] : (key ?? '');
-    if (
-      keyStr.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(keyStr), Buffer.from(expected))
-    ) {
+    const hmacKey = Buffer.from(expected);
+    const digest = (v: string) =>
+      createHmac('sha256', hmacKey).update(v).digest();
+    if (!timingSafeEqual(digest(keyStr), digest(expected))) {
       throw new UnauthorizedException('Invalid or missing API key.');
     }
 

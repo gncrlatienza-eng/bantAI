@@ -24,6 +24,6 @@ CREATE INDEX "Classification_createdAt_idx" ON "Classification"("createdAt");
 -- CampaignCluster: campaigns.service.ts always filters WHERE isActive = true
 CREATE INDEX "CampaignCluster_isActive_idx" ON "CampaignCluster"("isActive");
 
--- UserReport: retraining trigger counts Validated rows by updatedAt;
--- ReportsService.findPending() filters by status
-CREATE INDEX "UserReport_status_updatedAt_idx" ON "UserReport"("status", "updatedAt");
+-- UserReport: retraining trigger and countValidatedSince filter by status + validatedAt
+-- (validatedAt is the precise field; updatedAt would also bump on adminNote edits)
+CREATE INDEX "UserReport_status_validatedAt_idx" ON "UserReport"("status", "validatedAt");

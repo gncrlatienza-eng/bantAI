@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { PrismaService } from '../../database/prisma.service';
@@ -21,6 +21,7 @@ export class RetrainingService {
   private readonly logger = new Logger(RetrainingService.name);
   private readonly aiServiceUrl =
     process.env.AI_SERVICE_URL ?? 'http://localhost:8001';
+  private _retrainInFlight = false;
 
   constructor(private prisma: PrismaService) {}
 
@@ -122,8 +123,16 @@ export class RetrainingService {
   }
 
   async triggerRetrain(reason: string) {
+    if (this._retrainInFlight) {
+      throw new ConflictException('A retraining job is already in progress.');
+    }
+    this._retrainInFlight = true;
     this.logger.warn(`Retraining triggered: ${reason}`);
-    await this.callRetrainEndpoint(reason);
+    try {
+      await this.callRetrainEndpoint(reason);
+    } finally {
+      this._retrainInFlight = false;
+    }
   }
 
   // Page-Hinkley test detecting a sustained upward shift in classification

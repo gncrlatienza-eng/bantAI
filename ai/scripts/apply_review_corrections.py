@@ -31,6 +31,7 @@ LABELED = os.path.join(DATASETS, "labeled", "bantai_labeled.csv")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
+
 def _discover_sheets(audit_dir: str) -> list[str]:
     """All review_sheet*.csv files in audit_dir, sorted for deterministic order.
 
@@ -40,10 +41,8 @@ def _discover_sheets(audit_dir: str) -> list[str]:
     """
     if not os.path.isdir(audit_dir):
         return []
-    return sorted(
-        f for f in os.listdir(audit_dir)
-        if f.startswith("review_sheet") and f.endswith(".csv")
-    )
+    return sorted(f for f in os.listdir(audit_dir) if f.startswith("review_sheet") and f.endswith(".csv"))
+
 
 CANON = {"HAM": "Ham", "SPAM": "Spam", "SCAM": "Scam"}
 

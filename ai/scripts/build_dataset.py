@@ -1518,17 +1518,17 @@ def load_raw():
         if "\x00" in text:
             text = text.replace("\x00", "")
         for row in csv.DictReader(io.StringIO(text)):
-                body = (row.get("body") or "").strip()
-                sender = (row.get("address") or row.get("sender_id") or "").strip()
-                if not body:
-                    continue
-                # Phone exports use date_iso/date_epoch_ms; the Kaggle files use
-                # "date". HDBSCAN campaign clustering needs these (manuscript
-                # p177), so take whichever the export actually provides.
-                stamp = (
-                    row.get("date_iso") or row.get("date") or row.get("timestamp") or row.get("date_epoch_ms") or ""
-                ).strip()
-                seen[(sender.lower(), body)] = (sender, body, stamp)
+            body = (row.get("body") or "").strip()
+            sender = (row.get("address") or row.get("sender_id") or "").strip()
+            if not body:
+                continue
+            # Phone exports use date_iso/date_epoch_ms; the Kaggle files use
+            # "date". HDBSCAN campaign clustering needs these (manuscript
+            # p177), so take whichever the export actually provides.
+            stamp = (
+                row.get("date_iso") or row.get("date") or row.get("timestamp") or row.get("date_epoch_ms") or ""
+            ).strip()
+            seen[(sender.lower(), body)] = (sender, body, stamp)
     out = []
     for sender, body, stamp in seen.values():
         label, conf, reason = label_raw(sender, body)
@@ -1586,8 +1586,7 @@ def main():
         excluded = before - len(final)
         if excluded:
             print(
-                f"Excluded {excluded} row(s) already carved out to {HOLDOUT_CSV} "
-                "(WBS 6.4.6) -- kept out of training."
+                f"Excluded {excluded} row(s) already carved out to {HOLDOUT_CSV} (WBS 6.4.6) -- kept out of training."
             )
 
     # Training CSV. Extra columns are harmless -- the loader selects by name --

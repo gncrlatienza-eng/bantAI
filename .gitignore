@@ -75,6 +75,15 @@ ai/datasets/labeled/*.csv
 !ai/datasets/labeled/sample.csv
 ai/datasets/audit/
 
+# Dated backups of bantai_labeled.csv taken outside create_holdout_set.py's own
+# backup mechanism (which already writes its dated backups directly beside the
+# file, no trailing .csv, matching the pattern below at line ~92). Kept OUTSIDE
+# ai/datasets/labeled/ on purpose -- both training/dataset.py and
+# retraining/snapshot.py glob ai/datasets/labeled/*.csv indiscriminately, so a
+# same-directory backup silently doubles the training pool (found 2026-08-26:
+# a backup here inflated a local dry-run's row count from 21,571 to 35,107).
+ai/datasets/labeled_backups/
+
 # Admin-validated user report exports feeding retraining (Sprint 4, WBS 4.3.5).
 # These are real reported SMS bodies -- same reason as the labeled data. The
 # README documenting the export format stays tracked.

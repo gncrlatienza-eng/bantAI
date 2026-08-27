@@ -42,12 +42,20 @@ from __future__ import annotations
 
 import csv
 import glob
+import io
 import os
 import re
 import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# So `import preprocessing` (ai/preprocessing/) and `import apply_review_corrections`
+# (its sibling in scripts/) both resolve regardless of cwd or invocation style --
+# `python scripts/build_dataset.py` already puts HERE on sys.path automatically,
+# but `python -m scripts.build_dataset` (also documented above) does not, so
+# both are inserted explicitly rather than relying on the automatic behaviour.
+sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..")))
+sys.path.insert(0, HERE)
 DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 SRC = os.path.join(DATASETS, "bantAI-datasets")
 # Only the training CSV goes in labeled/ -- the loader globs labeled/*.csv, so
@@ -1502,7 +1510,14 @@ def load_raw():
     seen = {}
     for path in sorted(glob.glob(os.path.join(SRC, "Raw", "*.csv"))):
         with open(path, encoding="utf-8-sig", newline="") as f:
-            for row in csv.DictReader(f):
+            text = f.read()
+        # Some phone-export batches pad a body with trailing NUL bytes (seen in
+        # the 2026-07-31 export, inside an otherwise-intact Yahoo OTP message).
+        # csv.reader raises unconditionally on an embedded NUL, so strip them
+        # rather than let one export tool's quirk crash the whole build.
+        if "\x00" in text:
+            text = text.replace("\x00", "")
+        for row in csv.DictReader(io.StringIO(text)):
                 body = (row.get("body") or "").strip()
                 sender = (row.get("address") or row.get("sender_id") or "").strip()
                 if not body:
@@ -1523,6 +1538,26 @@ def load_raw():
 
 HEADER = ["text", "label", "source", "confidence", "reason", "sender", "timestamp", "source_label", "language"]
 
+# scripts/create_holdout_set.py physically moved 20% of bantai_labeled.csv out
+# to datasets/holdout/holdout.csv (WBS 6.4.6) so it would be permanently
+# invisible to every future training/retraining run -- but this script
+# rebuilds bantai_labeled.csv from the ORIGINAL raw sources, which know
+# nothing about that carve-out, so a naive rebuild silently puts every
+# held-out row straight back into the training pool. Excluded here by the
+# same masked-text key create_holdout_set.py used to select them, so a
+# rebuild after adding new raw data can never quietly re-contaminate the
+# holdout set.
+HOLDOUT_CSV = os.path.join(DATASETS, "holdout", "holdout.csv")
+
+
+def _holdout_masked_texts() -> set:
+    if not os.path.isfile(HOLDOUT_CSV):
+        return set()
+    from preprocessing import preprocess
+
+    with open(HOLDOUT_CSV, encoding="utf-8") as f:
+        return {preprocess(str(row["text"])) for row in csv.DictReader(f)}
+
 
 def main():
     os.makedirs(OUT, exist_ok=True)
@@ -1542,6 +1577,16 @@ def main():
             by_text[key] = r
     final = list(by_text.values())
 
+    holdout_masked = _holdout_masked_texts()
+    if holdout_masked:
+        from preprocessing import preprocess
+
+        before = len(final)
+        final = [r for r in final if preprocess(str(r[0])) not in holdout_masked]
+        excluded = before - len(final)
+        if excluded:
+            print(f"Excluded {excluded} row(s) already carved out to {HOLDOUT_CSV} (WBS 6.4.6) -- kept out of training.")
+
     # Training CSV. Extra columns are harmless -- the loader selects by name --
     # and the timestamp is required for HDBSCAN campaign clustering (p177).
     train_path = os.path.join(OUT, "bantai_labeled.csv")
@@ -1550,6 +1595,24 @@ def main():
         w.writerow(["text", "label", "language", "timestamp", "source"])
         for body, label, src, conf, reason, sender, stamp, orig, lang in final:
             w.writerow([body, label, lang, stamp, src])
+
+    # Every rebuild starts from the rules alone, which silently discards any
+    # human correction recorded in the review sheets unless this runs
+    # afterwards -- previously a manual second command (apply_review_corrections.py)
+    # that was easy to forget (found missing 2026-08-26: 163 already-confirmed
+    # corrections sat absent from the training data after a rebuild). Now part
+    # of the rebuild itself so there is no second step to skip.
+    from apply_review_corrections import apply_corrections
+
+    correction_stats = apply_corrections(train_path, AUDIT)
+    corrected_labels = {}
+    with open(train_path, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            corrected_labels[row["text"]] = row["label"]
+    final = [
+        (body, corrected_labels.get(body, label), src, conf, reason, sender, stamp, orig, lang)
+        for (body, label, src, conf, reason, sender, stamp, orig, lang) in final
+    ]
 
     for path, data in (
         (os.path.join(AUDIT, "bantai_labeled_full.csv"), audit_rows),

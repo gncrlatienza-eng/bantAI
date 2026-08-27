@@ -8,11 +8,36 @@ pydantic>=2.6
 pydantic-settings>=2.2
 
 # --- Model / training ---
-transformers>=4.46        # 4.46 renamed Trainer(tokenizer=) -> processing_class
+# Exact pins below, not ranges. History, because it took two tries to get
+# right: 2026-08-26's retraining run crashed on a fresh Colab install because
+# an unbounded `transformers>=4.46` grabbed a 5.0.0-5.0.x release that had
+# (temporarily) dropped TrainingArguments' warmup_ratio -- training/train.py's
+# TrainingArguments() call needs it. First fix pinned `<5.0` and the retry
+# succeeded; but a version check pulled from that same Colab tab afterwards
+# showed transformers 5.15.0, which looked like proof v5 was fine again after
+# all -- it wasn't. That reading came from a LATER, unrelated re-run of the
+# tab's original (unpinned) install cell, not from the run that actually
+# trained the candidate. Verified locally, twice: `transformers==5.15.0`
+# still throws the identical `unexpected keyword argument 'warmup_ratio'`
+# error; `transformers==4.57.6` (what `>=4.46,<5.0` resolves to right now)
+# does not, and a full `Trainer(...)` construction against this project's
+# actual `training/config.py` values passes cleanly under it. `datasets` and
+# `accelerate` below are what pip resolved alongside 4.57.6 in that same
+# local verification -- and matched, independently, what the live Colab
+# session reported for those two packages specifically (only its transformers
+# reading was the stale one). All four pinned exactly so nothing is left for
+# pip to re-resolve differently on the next install.
+transformers==4.57.6        # 4.46+ renamed Trainer(tokenizer=) -> processing_class;
+                            # see the exact-pin rationale above for why ==, not >=.
 torch>=2.2
 sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
-datasets>=2.19
-accelerate>=0.30
+datasets==4.0.0
+accelerate==1.14.0
+huggingface-hub==0.36.2      # transitive via transformers/datasets, declared and
+                            # pinned exactly for the same reason as the scipy pin
+                            # below -- a transitive pin is free to disappear, and
+                            # this is the version that actually resolved alongside
+                            # the pins above.
 scikit-learn>=1.4           # train/val split + metrics + TF-IDF + HDBSCAN
 scipy>=1.11                 # exact binomial test (retraining/promotion.py).
                             # Ships as a scikit-learn dependency, but declared

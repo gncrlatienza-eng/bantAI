@@ -31,16 +31,19 @@ LABELED = os.path.join(DATASETS, "labeled", "bantai_labeled.csv")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
-SHEETS = [
-    "review_sheet.csv",
-    "review_sheet_trusted.csv",
-    "review_sheet_promo_link.csv",
-    "review_sheet_confidence.csv",
-    "review_sheet_new_batch.csv",
-    "review_sheet_new_batch_2.csv",
-    "review_sheet_idn_fix.csv",
-    "review_sheet_backlog.csv",
-]
+def _discover_sheets(audit_dir: str) -> list[str]:
+    """All review_sheet*.csv files in audit_dir, sorted for deterministic order.
+
+    Was a hardcoded list -- new sheets (e.g. review_sheet_2026-08-26.csv) were
+    silently skipped until someone remembered to add them here, the same class
+    of bug apply_corrections() itself exists to prevent for build_dataset.py.
+    """
+    if not os.path.isdir(audit_dir):
+        return []
+    return sorted(
+        f for f in os.listdir(audit_dir)
+        if f.startswith("review_sheet") and f.endswith(".csv")
+    )
 
 CANON = {"HAM": "Ham", "SPAM": "Spam", "SCAM": "Scam"}
 
@@ -50,8 +53,18 @@ def norm(s: str) -> str:
     return re.sub(r"[^\x20-\x7E]", "", s or "")
 
 
-def main() -> None:
-    with open(LABELED, encoding="utf-8", newline="") as f:
+def apply_corrections(labeled_path: str = LABELED, audit_dir: str = AUDIT, quiet: bool = False) -> dict:
+    """Overlay every DISAGREE-verdict review correction onto ``labeled_path`` in place.
+
+    Callable, not just a CLI, so ``build_dataset.py`` can invoke this as the
+    last step of every rebuild -- the failure mode this exists to close is
+    exactly "somebody rebuilt and forgot to run this script by hand"
+    (found 2026-08-26: a rebuild left 163 already-confirmed corrections
+    silently missing from the training data for hours before it was caught).
+
+    Returns the same counters the CLI prints, for a caller to assert on.
+    """
+    with open(labeled_path, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         fields = reader.fieldnames
         rows = list(reader)
@@ -65,10 +78,12 @@ def main() -> None:
     per_sheet: Counter = Counter()
     moves: Counter = Counter()
 
-    for sheet in SHEETS:
-        path = os.path.join(AUDIT, sheet)
+    sheets = _discover_sheets(audit_dir)
+    for sheet in sheets:
+        path = os.path.join(audit_dir, sheet)
         if not os.path.exists(path):
-            print(f"  (skip, not found: {sheet})")
+            if not quiet:
+                print(f"  (skip, not found: {sheet})")
             continue
         with open(path, encoding="utf-8-sig", newline="") as f:
             entries = list(csv.DictReader(f))
@@ -100,28 +115,42 @@ def main() -> None:
                 applied += 1
                 per_sheet[sheet] += 1
 
-    with open(LABELED, "w", encoding="utf-8", newline="") as f:
+    with open(labeled_path, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         w.writerows(rows)
 
-    print("=" * 68)
-    print("Review corrections overlaid onto bantai_labeled.csv")
-    print("-" * 68)
-    for sheet in SHEETS:
-        if per_sheet.get(sheet):
-            print(f"  {sheet:32} {per_sheet[sheet]:4} applied")
-    print("-" * 68)
-    for move, n in moves.most_common():
-        print(f"  {move:20} {n:4}")
-    print("-" * 68)
-    print(f"  applied      {applied:5}   (label actually changed)")
-    print(f"  already ok   {already:5}   (rules now agree -- no change needed)")
-    print(f"  unresolved   {unresolved:5}   (reviewed text not in dataset)")
-    print(f"  ambiguous    {ambiguous:5}   (matched >1 row, skipped)")
-    print("-" * 68)
-    print(f"  final: {Counter(r['label'] for r in rows)}  total {len(rows)}")
-    print("=" * 68)
+    if not quiet:
+        print("=" * 68)
+        print("Review corrections overlaid onto bantai_labeled.csv")
+        print("-" * 68)
+        for sheet in sheets:
+            if per_sheet.get(sheet):
+                print(f"  {sheet:32} {per_sheet[sheet]:4} applied")
+        print("-" * 68)
+        for move, n in moves.most_common():
+            print(f"  {move:20} {n:4}")
+        print("-" * 68)
+        print(f"  applied      {applied:5}   (label actually changed)")
+        print(f"  already ok   {already:5}   (rules now agree -- no change needed)")
+        print(f"  unresolved   {unresolved:5}   (reviewed text not in dataset)")
+        print(f"  ambiguous    {ambiguous:5}   (matched >1 row, skipped)")
+        print("-" * 68)
+        print(f"  final: {Counter(r['label'] for r in rows)}  total {len(rows)}")
+        print("=" * 68)
+
+    return {
+        "applied": applied,
+        "already_ok": already,
+        "unresolved": unresolved,
+        "ambiguous": ambiguous,
+        "moves": dict(moves),
+        "final_counts": dict(Counter(r["label"] for r in rows)),
+    }
+
+
+def main() -> None:
+    apply_corrections()
 
 
 if __name__ == "__main__":

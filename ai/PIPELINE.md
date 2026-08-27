@@ -483,6 +483,93 @@ trained from this point forward — which, depending on the adviser's
 decision on the 2026-08-17 candidate (see § "Stage 5b — measured limits"),
 may be sooner than it sounds.
 
+#### `build_dataset.py` did not know the holdout carve-out existed — 2026-08-26
+
+Found while folding a new phone-export batch (nine more `Raw/PHONE-SMS-INBOX_*.csv`
+files, 2026-07-25 through 2026-08-01) into the training pool for the "compare
+initial vs. a freshly retrained model" run. `scripts/build_dataset.py` rebuilds
+`bantai_labeled.csv` **from the original raw sources** (Kaggle/NTC/phone
+exports) — it has no idea `create_holdout_set.py` ever physically moved 20%
+of that file out to `datasets/holdout/holdout.csv`. Re-running it after the
+2026-08-18 carve-out silently put **100% of the holdout set back into the
+training pool** (verified by masked-text overlap before the fix landed).
+
+Fixed by making `build_dataset.py` itself exclude any row whose masked text
+(same `preprocessing.preprocess` key `create_holdout_set.py` and
+`training/dataset.py` already use) appears in `datasets/holdout/holdout.csv`,
+so a future rebuild can't quietly re-contaminate the holdout set again —
+confirmed zero overlap after the fix. Also fixed in the same pass: one raw
+export (`PHONE-SMS-INBOX_20260731-143748.csv`) had a body padded with
+trailing NUL bytes, which `csv.DictReader` cannot survive at all; NULs are
+now stripped from each raw file's text before parsing.
+
+**Net effect on the training pool** (holdout correctly excluded both before
+and after): 11,942 → **18,938** unique (masked-text) rows, +58.6%, from the
+new raw batch. Label mix: Ham 7,530→12,355, Spam 3,835→6,926, Scam
+2,171→2,290. A fine-tune ran on this pool the same day
+(`models/retraining_runs/2026-08-26T14-29-53Z`, Colab T4) — see the
+"Adviser sign-off" section below for the gate's verdict
+(`evaluation/retraining_run_2026-08-26.json`).
+
+One more environment issue found in the same run, unrelated to the data —
+and it took two tries to actually close out. `requirements.txt` pinned
+`transformers>=4.46` with no upper bound, and Colab's install grabbed a
+5.0.0-5.0.x release that had (temporarily) dropped the `warmup_ratio`
+argument `training/train.py` passes to `TrainingArguments`. First fix:
+pinned `<5.0`; the retry succeeded. A version check pulled from that same
+Colab tab afterwards printed `transformers 5.15.0`, which briefly read as
+"v5 is fine again, the bad window was narrow" — **wrong conclusion.** That
+reading came from a *later*, unrelated re-run of the tab's original
+(unpinned) install cell, not from the run that had actually trained the
+candidate. Verified locally instead of trusting the live-session number
+twice over: `transformers==5.15.0` still throws the identical crash on a
+clean install; `transformers==4.57.6` (what `>=4.46,<5.0` resolves to) does
+not, and a full `Trainer(...)` construction against this project's real
+`training/config.py` values passes cleanly under it. Corrected 2026-08-27 to
+exact pins — `transformers==4.57.6`, `datasets==4.0.0`, `accelerate==1.14.0`,
+`huggingface-hub==0.36.2` — in `requirements.txt` and both `colab/*.ipynb`
+notebooks. The `datasets`/`accelerate` values aren't a guess either: pip
+resolved them locally alongside `transformers==4.57.6` independent of
+Colab, and they matched what the live session reported for those two
+packages specifically — only its transformers reading was stale.
+
+#### Two more silent data-corruption bugs, found in a pre-flight audit — 2026-08-27
+
+Maxene asked for everything to be checked before what was meant to be the
+*last* retraining run. A three-agent audit against the live repo found two
+more bugs the 2026-08-26 candidate had already trained under:
+
+1. **163 human-confirmed review corrections were missing from training
+   data.** `scripts/apply_review_corrections.py` exists specifically to
+   re-overlay human `DISAGREE` verdicts onto `bantai_labeled.csv` after every
+   rebuild — it wasn't run (or its effect didn't survive) after the
+   2026-08-26 rebuild. Checked against 8 historical review sheets: 220 rows
+   already matched, 163 didn't — a human had confirmed the correct label
+   once, and the 08-26 rebuild silently reverted it. Root-cause fixed by
+   wiring the correction step directly into `build_dataset.py`'s `main()`,
+   so a rebuild can no longer skip it by omission.
+2. **The correction script itself only knew about 8 hardcoded filenames.**
+   `apply_review_corrections.py`'s `SHEETS` list named each of the 8
+   pre-existing review sheets individually. Two new sheets reviewed the same
+   day (`review_sheet_2026-08-26.csv`, 694 rows;
+   `review_sheet_backlog_gap_2026-08-26.csv`, 67 rows) weren't on that list,
+   so the first attempt at re-running the corrected pipeline silently applied
+   zero rows from either — caught only because the run's printed per-sheet
+   breakdown didn't mention them. Fixed by switching to auto-discovery of
+   any `review_sheet*.csv` in `datasets/audit/`, closing the same class of
+   bug as (1) one level up.
+
+With both fixed, a full rebuild applied **328** corrections total (163
+historical + 165 new) — up from the 163 the 08-26 candidate trained under.
+Holdout disjointness (`datasets/holdout/holdout.csv` vs. the rebuilt
+`bantai_labeled.csv`, masked-text key) was reconfirmed at exactly 0 overlap,
+and the local `.venv` was reinstalled to match the corrected pins above
+before this data was trusted for training. A fine-tune ran on this fully
+corrected pool the same day
+(`models/retraining_runs/2026-08-27T09-46-20Z`, Colab T4) — see the
+"Adviser sign-off" section for the gate's verdict
+(`evaluation/retraining_run_2026-08-27.json`).
+
 ---
 
 ## Stage 7 — Inference service & threshold routing
@@ -1016,6 +1103,57 @@ fast path, correctly, declines to call them the same campaign later.
 
 It is a second, independent argument that the `min_cluster_size` question needs
 settling with the adviser rather than being left at the manuscript default.
+
+#### ✅ Adviser sign-off received — 2026-08-26
+
+Maxene walked the adviser through the deviations documented in this section
+(prepared as a standalone briefing, `Campaign-Matching Sign-Off`) and got
+verbal approval to proceed. Recorded here as Track B's own contemporaneous
+note; **not** a substitute for `docs/development/WBS.md`/`DEV_LOG.md`, which
+are Gio's to update per `CLAUDE.md`'s ownership rule — flag this to him for
+those files rather than editing them directly.
+
+Approved, per the adviser:
+1. **0.85 → 0.999** campaign-match threshold (the core recalibration; see
+   "The 0.85 threshold sits inside the distribution of unrelated messages"
+   above).
+2. **The hybrid lexical second signal** (`service/lexical.py`, the
+   domain/hybrid/embedding tiers) as an addition beyond what the manuscript
+   describes.
+3. **Not adopting embedding re-centering**, despite it measuring best under
+   the hostile (hdbscan) referee — adviser agreed with the recommendation to
+   decline it (see "Re-centering the embedding — measured, not adopted"
+   above).
+
+4. **`min_cluster_size` stays at 5** (the manuscript's value, de-duplication
+   on by default — the existing documented default above, not a change from
+   it). 2026-08-26: adviser confirmed blanket approval of every change
+   *as documented in this section*, which covers this item since it was
+   already the standing default rather than an open deviation.
+
+**Deliberately not covered by this sign-off:** whether to promote a
+retraining candidate — a separate branch (see `RETRAINING.md` and
+[[bantai-stage5b-threshold-finding]]). The 2026-08-17 and 2026-08-26
+candidates are both now moot: a third run on 2026-08-27 supersedes them,
+trained on the same 18,938-row pool as 08-26 but with the two data-corruption
+bugs above fixed (all 328 known human-review corrections applied, not just
+163) and dependency versions locked exactly rather than left to re-resolve.
+This was explicitly meant to be the last retraining run before locking a
+candidate for the thesis. Gate verdict: **promote** (macro-F1 0.9225 →
+0.9461, 193 fixes vs. 76 regressions, p≈0 — full numbers and interpretation
+in `evaluation/retraining_run_2026-08-27.json`). Not acted on for the same
+reason the first two weren't: promoting invalidates the Sprint 5 calibration
+numbers that the adviser sign-off above just closed out, so it needs its own
+conversation rather than riding in on this one — this 08-27 candidate is the
+one meant for that conversation. The WBS 6.4.6 holdout-contamination caveat
+is a disclosure, not a decision, and stays open independent of this
+sign-off — and this candidate has now actually cleared it: the first genuinely
+clean WBS 6.4.6 confusion matrix, run the same day, scored **macro-F1 0.9592**
+on 3,236 never-seen holdout rows (`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`).
+Per-class: Ham F1 0.976 (0.22% false-positive rate — 4 of 1,785), Spam F1
+0.952, Scam F1 0.949 but **92.4% recall — 38 of 498 real scams missed
+(7.6%)**, the honest weak point to lead with in any adviser/defense
+conversation, not the strong headline number.
 
 #### Open: centroid drift is uncalibrated
 

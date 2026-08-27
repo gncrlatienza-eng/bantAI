@@ -1585,7 +1585,10 @@ def main():
         final = [r for r in final if preprocess(str(r[0])) not in holdout_masked]
         excluded = before - len(final)
         if excluded:
-            print(f"Excluded {excluded} row(s) already carved out to {HOLDOUT_CSV} (WBS 6.4.6) -- kept out of training.")
+            print(
+                f"Excluded {excluded} row(s) already carved out to {HOLDOUT_CSV} "
+                "(WBS 6.4.6) -- kept out of training."
+            )
 
     # Training CSV. Extra columns are harmless -- the loader selects by name --
     # and the timestamp is required for HDBSCAN campaign clustering (p177).
@@ -1604,7 +1607,7 @@ def main():
     # of the rebuild itself so there is no second step to skip.
     from apply_review_corrections import apply_corrections
 
-    correction_stats = apply_corrections(train_path, AUDIT)
+    apply_corrections(train_path, AUDIT)
     corrected_labels = {}
     with open(train_path, encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):

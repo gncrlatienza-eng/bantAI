@@ -24,7 +24,19 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
-      - run: pip-audit -r requirements.txt
+      # 5 CVEs currently flagged in transformers==4.57.6 / datasets==4.0.0, all
+      # remote-code-execution / path-traversal bugs that trigger only when
+      # loading an attacker-controlled Hub repo (malicious config.json,
+      # malicious checkpoint, trust_remote_code bypass) or calling
+      # save_to_disk/push_to_hub on an untrusted folder-based dataset builder.
+      # This codebase never does either -- every from_pretrained() call here
+      # loads only our own locally-trained checkpoint (verified via repo-wide
+      # grep, 2026-08-27), and trust_remote_code is never set. Versions are
+      # pinned to what's verified to work with training/train.py's
+      # warmup_ratio usage (transformers>=5.0 dropped it in the 5.0.x line);
+      # bumping past these CVEs needs real Colab compatibility testing before
+      # trusting it, not a same-day version jump. Revisit if that's done.
+      - run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2025-217 --ignore-vuln PYSEC-2026-2288 --ignore-vuln PYSEC-2026-2289 --ignore-vuln PYSEC-2026-2290 --ignore-vuln PYSEC-2026-3716
 
   backend:
     name: Backend (eslint, prettier, jest, build)

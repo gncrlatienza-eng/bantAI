@@ -1,0 +1,170 @@
+{
+  "_comment": [
+    "Third real (non-dry) retraining run -- WBS 4.3.5, 2026-08-27, Colab T4.",
+    "",
+    "This run was explicitly meant to be the LAST retrain before locking a",
+    "candidate for the thesis. A pre-flight audit on 2026-08-26/27 found two",
+    "silent data-corruption bugs that the 2026-08-26 run's candidate trained",
+    "under, both fixed before this run:",
+    "",
+    "  1. 163 human-confirmed review corrections (DISAGREE verdicts with a",
+    "     correct_label, from 8 historical review sheets) were never re-applied",
+    "     after the 2026-08-26 rebuild -- apply_review_corrections.py exists to",
+    "     do exactly this but wasn't run/didn't stick. Root-cause fixed by",
+    "     wiring the correction step directly into build_dataset.py's main(),",
+    "     so every future rebuild auto-applies it.",
+    "  2. Discovered while re-running the fix: apply_review_corrections.py",
+    "     itself read from a HARDCODED list of 8 sheet filenames, so the two",
+    "     new sheets reviewed today (review_sheet_2026-08-26.csv, 694 rows;",
+    "     review_sheet_backlog_gap_2026-08-26.csv, 67 rows) were silently",
+    "     skipped on the first rebuild attempt -- the same class of bug as (1).",
+    "     Fixed by switching to auto-discovery of any review_sheet*.csv in",
+    "     datasets/audit/.",
+    "",
+    "With both fixed, this run's rebuild applied 328 corrections total (163",
+    "historical + 165 new from today's two sheets), vs. the 163 the 2026-08-26",
+    "candidate actually trained under. Same 21,571-row raw pool / 18,938",
+    "unique-after-holdout-exclusion structure as 2026-08-26 -- WBS 6.4.6's",
+    "holdout set (datasets/holdout/holdout.csv, frozen 2026-08-18) was",
+    "reconfirmed at 0 overlap before this run.",
+    "",
+    "Dependency pins were also locked exactly (transformers==4.57.6,",
+    "datasets==4.0.0, accelerate==1.14.0, huggingface-hub==0.36.2) after the",
+    "2026-08-26 run's mid-run transformers-v5 crash -- reused known-good exact",
+    "versions instead of letting Colab's pip re-resolve, so this run installed",
+    "clean with no crash.",
+    "",
+    "Committed here rather than beside the checkpoint because ai/models/*/ is",
+    "git-ignored. The candidate weights (~1.1 GB) live only in Google Drive at",
+    "MyDrive/bantai/retraining_runs/, per the notebook's own step 10 guidance",
+    "(regenerable from this manifest: same labeled dataset, same seed 42, same",
+    "training code -- no reason to pull the weights unless promoting or",
+    "running the holdout evaluation).",
+    "",
+    "READ THE VERDICT AS A RECOMMENDATION, NOT AN INSTRUCTION. Nothing was",
+    "promoted. See _interpretation below."
+  ],
+
+  "run_dir": "models/retraining_runs/2026-08-27T09-46-20Z",
+  "environment": "Google Colab, Tesla T4",
+  "baseline_checkpoint": {
+    "trained": "2026-07-29",
+    "version_tag": "v2026-07-29-run3",
+    "_comment": "The currently-deployed ai/models/xlm-roberta-smishing/ -- unchanged since the 2026-08-17 and 2026-08-26 runs; still nothing has been promoted."
+  },
+
+  "manifest": {
+    "created_at": "2026-08-27T09:46:20.390103+00:00",
+    "dry_run": false,
+    "label_counts": { "Ham": 10189, "Scam": 1784, "Spam": 6965 },
+    "max_history": null,
+    "n_dataset_duplicates_dropped": 2633,
+    "n_dataset_rows_seen": 21571,
+    "n_dataset_rows_superseded_by_report": 0,
+    "n_history_after_sampling": 18938,
+    "n_reports": 0,
+    "n_reports_that_relabelled_a_row": 0,
+    "n_total": 18938,
+    "report_ids": [],
+    "report_source": "null (no report store consulted)",
+    "seed": 42
+  },
+
+  "decision": {
+    "candidate_dir": "models/retraining_runs/2026-08-27T09-46-20Z/candidate",
+    "evaluated_at": "2026-08-27T10:07:30.961870+00:00",
+    "skipped_reason": null,
+    "promote": true,
+    "reason": "significantly better: 193 fixes vs 76 regressions (p=0.0000), macro-F1 0.9225 -> 0.9461",
+    "baseline_macro_f1": 0.9225396656953078,
+    "candidate_macro_f1": 0.9461435287067804,
+    "n_fixes": 193,
+    "n_regressions": 76,
+    "p_value": 6.573362463382407e-13,
+    "fix_transitions": {
+      "Ham->Scam": 15,
+      "Ham->Spam": 56,
+      "Scam->Ham": 3,
+      "Scam->Spam": 5,
+      "Spam->Ham": 108,
+      "Spam->Scam": 6
+    },
+    "regression_transitions": {
+      "Ham->Scam": 7,
+      "Ham->Spam": 32,
+      "Scam->Ham": 14,
+      "Scam->Spam": 5,
+      "Spam->Ham": 14,
+      "Spam->Scam": 4
+    }
+  },
+
+  "_interpretation": {
+    "zero_reports_was_deliberate": [
+      "Same as the 2026-08-17 and 2026-08-26 runs: no validated user reports",
+      "exist yet (mobile's report flow is navigation-only, not wired to the",
+      "backend), so the manifest records 'null (no report store consulted)'",
+      "rather than a zero that could be misread as 'none were filed'."
+    ],
+    "why_this_scores_slightly_higher_than_the_2026-08-26_run": [
+      "Baseline macro-F1 moved from 0.9186 (08-26 run) to 0.9225, and candidate",
+      "macro-F1 moved from 0.9451 to 0.9461. Both are measured against the",
+      "same held-out validation split mechanism (seed=42) but drawn from a",
+      "dataset with 165 additional label corrections applied that the 08-26",
+      "run's data was missing -- see _comment. The direction of those",
+      "corrections (net Ham -> Spam/Scam, from today's two review sheets) is a",
+      "plausible, modest driver of the small score shift in both directions;",
+      "not a large effect, which is expected since only ~1% of the pool",
+      "changed label."
+    ],
+    "what_drove_the_improvement_over_the_deployed_baseline": [
+      "Same story as 2026-08-26: fix transitions skew heavily Spam->Ham (108)",
+      "and Ham->Spam (56), meaning most of the improvement over the currently-",
+      "deployed model is the candidate learning to tell honest marketing/promo",
+      "apart from personal/transactional messages more reliably -- consistent",
+      "with the raw-inbox batches folded in since the baseline's 2026-07-29",
+      "training date being real, everyday phone traffic rather than curated",
+      "corpus rows."
+    ],
+    "why_nothing_was_promoted_yet": [
+      "Same reasoning as both prior runs, and it still applies: promoting",
+      "requires re-running scripts/embed_dataset.py and",
+      "scripts/cluster_campaigns.py (campaign centroids live in the",
+      "checkpoint's embedding space) and invalidates the Sprint 5 calibration",
+      "numbers signed off by the adviser on 2026-08-26. This candidate is the",
+      "one meant to go to the adviser as the actual promotion decision -- it is",
+      "the first trained on genuinely finalized data (all known review",
+      "corrections applied, holdout-clean, locked dependency versions) -- but",
+      "the decision to swap the deployed model stays a separate, deliberate",
+      "step after that conversation, not something this run does on its own."
+    ],
+    "clean_holdout_evaluation": [
+      "DONE, same day. scripts/evaluate_holdout.py run against this candidate",
+      "-- the first genuinely clean WBS 6.4.6 result (trained after the",
+      "2026-08-18 holdout freeze, zero leakage, reconfirmed before this run).",
+      "Result: macro-F1 0.9592 on 3,236 never-seen rows -- see",
+      "evaluation/holdout_confusion_2026-08-27T10-32-15Z.json. Notably higher",
+      "than this candidate's own internal validation macro-F1 (0.9461 above),",
+      "which is a good sign against overfitting, not a discrepancy to worry",
+      "about -- different split, different size.",
+      "",
+      "The number that matters most for the thesis: Scam recall is 92.4%",
+      "(38 of 498 real scams misclassified as Ham/Spam, a 7.6% miss rate) --",
+      "call this out directly as the honest weak point, don't let the strong",
+      "macro-F1 bury it. Ham false-positive rate is very low (4 of 1,785,",
+      "0.22%), which matters for user trust/adoption.",
+      "",
+      "The pre-existing holdout_confusion_2026-08-18T15-21-47Z.json (macro-F1",
+      "0.95) is the DEPLOYED baseline measured on a holdout it may have partly",
+      "trained on -- still not a clean number, kept for reference only, not a",
+      "fair comparison point against this candidate's 0.9592."
+    ],
+    "known_gap": [
+      "Same as the prior two runs: the gate records how many messages moved",
+      "each way (fix_transitions / regression_transitions), not which specific",
+      "ones. The actual disagreeing message bodies exist in this run's",
+      "disagreements.json on Drive (git-ignored, contains real SMS text --",
+      "never committed) if a specific example is needed for a defense."
+    ]
+  }
+}

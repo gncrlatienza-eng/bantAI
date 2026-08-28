@@ -355,13 +355,32 @@ that aren't URLs, obfuscated links, empty input).
 | Model selection | best epoch by **macro-F1**, not accuracy or final epoch |
 | Class-weighted loss | **enabled** (`config.class_weighted_loss`) |
 
-**Class-weighted loss (added 2026-07-29).** The dataset is ~62% Ham / 21% Spam
-/ 17% Scam. With the standard loss every mistake costs the same, so Ham errors
-dominate purely by being more numerous and the model is rewarded for guessing
-Ham whenever it is unsure. Each class is instead weighted by
-`n_samples / (n_classes * class_count)` — on the current split that is
-**Ham 0.539, Spam 1.422, Scam 2.260**, i.e. a Scam mistake costs **4.2× a Ham
-mistake**.
+**Class-weighted loss (added 2026-07-29).** With the standard loss every
+mistake costs the same, so Ham errors dominate purely by being more numerous
+and the model is rewarded for guessing Ham whenever it is unsure. Each class
+is instead weighted by `n_samples / (n_classes * class_count)`. On the
+2026-07-29 model's training split (~62% Ham / 21% Spam / 17% Scam) that was
+**Ham 0.539, Spam 1.422, Scam 2.260** — a Scam mistake cost **4.2× a Ham
+mistake**. The pool has shifted since (raw phone-inbox exports skew heavily
+promotional, and Scam messages dedupe harder — mass-blast gambling/lottery templates are
+mostly identical text once PII is masked out, e.g. `...libre 1q2w3e7.ca` and
+`...libre 1q2w3e8.ca` both normalize to `...libre <URL>` and collapse to one
+training row instead of two; a real personal Ham conversation almost never
+does this. Measured directly on the 2026-08-26 rebuild: deduplication
+(`retraining/snapshot.py`, which compares *masked* text — `build_dataset.py`'s
+own earlier dedup pass only catches literal identical raw text, a smaller and
+separate step) dropped Scam rows at **25.5%** vs. Ham's 15.6% and Spam's
+1.8%. Combined with 498 real Scam rows being permanently walled off into the
+2026-08-18 holdout carve-out, Scam fell from 2,620 rows (deployed model's
+original pool) to 1,784 (candidate's), even though the pool overall grew
+~20%.
+
+On the 2026-08-27 candidate's training pool (Ham 53.8% / Spam 36.8% /
+Scam 9.4% of 18,938 rows) the same formula gives **Ham 0.620, Spam 0.906,
+Scam 3.539** — a Scam mistake now costs **~5.7× a Ham mistake**. Weights are
+computed at runtime from whatever pool is actually training, so this doesn't
+require a code change on every retrain — only the documentation here needed
+updating.
 
 Expected effect: Scam recall up (the class that matters — a missed scam
 defrauds a user, a misfiled promo annoys them), Ham precision slightly down,
@@ -1154,6 +1173,53 @@ Per-class: Ham F1 0.976 (0.22% false-positive rate — 4 of 1,785), Spam F1
 0.952, Scam F1 0.949 but **92.4% recall — 38 of 498 real scams missed
 (7.6%)**, the honest weak point to lead with in any adviser/defense
 conversation, not the strong headline number.
+
+#### Exploratory: candidate embedding space compared, not adopted — 2026-08-28
+
+Ran the full Stage 5b calibration cascade (`embed_dataset.py` →
+`cluster_campaigns.py` → `calibrate_match_threshold.py` →
+`calibrate_hybrid_match.py` ×2 → `compare_embedding_centering.py` ×2) a
+second time, against the 2026-08-27 candidate's checkpoint instead of the
+deployed one — purely to see what this section's numbers *would* become if
+that candidate is promoted. **Every file this section's numbers describe was
+backed up first** (`datasets/processed/exploratory_backup/`,
+`evaluation/exploratory_backup/`, suffixed `approved-2026-07-29-run3`) and
+the live/deployed-model versions are unchanged; nothing above this note is
+stale. Full side-by-side written up as a standalone artifact for the adviser
+conversation (`Retrain Candidate Review`) — summary here for the repo record:
+
+- **Why this needs re-running at all, mechanically:** a better classifier
+  collapses each class harder toward one prototype — that is largely *why*
+  it classifies better — which also makes unrelated same-class messages look
+  more alike to each other. Measured: mean cosine similarity between
+  unrelated message pairs is **0.47** under the deployed embedding, **0.688**
+  under the candidate's. Every threshold calibrated against the old number
+  needs re-checking, not assumed to carry over.
+- **Clustering:** 238 clusters (deployed) → **299 clusters** (candidate),
+  same population, same settings.
+- **Match threshold sweep:** the candidate is cleaner at every threshold
+  above ~0.98 (e.g. at 0.999: 91.3% recall / 0.4% false-match, vs. the
+  deployed model's 93.8% / 2.6%). The deployed model's *approved* operating
+  point (0.999 → 93.8%/2.6%) is reproduced almost exactly by the candidate
+  one notch lower, at **0.998** (94.8%/2.8%) — if promoted, 0.998 matches
+  what was actually signed off on; carrying 0.999 forward unchanged would be
+  stricter than the approved trade-off, not equivalent to it.
+- **Hybrid match, HDBSCAN referee:** embedding-only baseline recall **44.4%
+  → 58.0%** at a comparable false-match rate — a real improvement in how
+  well the candidate's embeddings alone separate genuine campaigns.
+- **Re-centering — worth reopening, not re-deciding by default:** under the
+  lexical referee the ranking is basically unchanged from what was already
+  declined. Under the HDBSCAN referee it is not: re-centering's edge over
+  raw goes from **+20.2pp (64.6% vs. 44.4%)**, already measured and
+  declined above, to **+32.4pp (91.8% vs. 59.4%)** under the candidate. The
+  original objection (a fitted mean vector needs re-fitting every retrain)
+  is unchanged, but the gain it was weighed against nearly doubled — this
+  is an explicit open question for the adviser if promotion happens, not an
+  assumption that item 3 of the 08-26 sign-off still holds as-is.
+
+**Status: informational only.** No threshold, no cluster file, no service
+config changed as a result of this pass — see the promotion note above for
+why that stays a separate, deliberate decision.
 
 #### Open: centroid drift is uncalibrated
 

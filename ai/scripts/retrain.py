@@ -14,8 +14,9 @@ Run:
 
     cd ai && python scripts/retrain.py
         Full cycle. Needs a GPU to be practical -- a CPU fine-tune of
-        xlm-roberta-base over ~16.8k rows takes many hours. See ai/colab/ for
-        the notebook that runs training on Colab.
+        xlm-roberta-base over ~18.9k rows (the deduplicated training snapshot
+        size as of 2026-08-27; grows as new data lands) takes many hours. See
+        ai/colab/ for the notebook that runs training on Colab.
 
     cd ai && python scripts/retrain.py --reports-url http://localhost:3000/api
         Include admin-validated user reports read live from the backend

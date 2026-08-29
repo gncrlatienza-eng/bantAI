@@ -44,10 +44,17 @@ Expected runtime on a free T4: **~20-30 minutes** end to end.
 ## What the zip contains
 
 `preprocessing/` and `training/` (source, no `__pycache__`), the labeled dataset
-`datasets/labeled/bantai_labeled.csv` (13,536 rows: Ham 7,530 / Spam 3,835 /
-Scam 2,171 -- the post-holdout 80% pool, since `scripts/create_holdout_set.py`
-carved a permanent 20% test set out on 2026-08-18; see `PIPELINE.md` § Stage 5b),
-and `requirements.txt`.
+`datasets/labeled/bantai_labeled.csv` (currently 21,571 rows: Ham 12,095 /
+Spam 7,095 / Scam 2,381 -- the post-holdout pool, since
+`scripts/create_holdout_set.py` carved a permanent 20% test set out on
+2026-08-18; see `PIPELINE.md` § Stage 5b), and `requirements.txt`. This row
+count updates as new raw batches and label corrections land, so check it
+against a fresh read of the file rather than trusting this number for long --
+it is **not** the same as what a retrain actually trains on, either: a
+retraining run's own snapshot step (`retraining/snapshot.py`) applies a
+further, deeper de-duplication pass on top of this (compares *masked* text,
+so e.g. two scam blasts differing only by tracking link collapse to one row)
+that this fine-tune-from-scratch package does not.
 
 `sample.csv` is deliberately excluded — it is a hand-written format reference,
 not real data, and the training loader now skips it (see

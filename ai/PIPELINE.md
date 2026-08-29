@@ -984,6 +984,12 @@ deviates from the manuscript's stated 0.85 *further* than 0.999 does, not less.
 Recorded here so the option is visible rather than buried in a JSON file —
 **pending adviser sign-off alongside the three items already flagged.**
 
+> **Confirmed 2026-08-26** — the adviser verbally signed off on all three
+> flagged items (the 0.85→0.999 match-threshold recalibration, the hybrid
+> lexical corroboration signal, and the `min_cluster_size=5`/27.4% blob left
+> visible rather than retuned), per Gio. See WBS 5.3.6. This re-centering
+> option itself remains not adopted, per the reasoning above.
+
 #### De-duplication, and the blob it exposes
 
 The clustering population was never de-duplicated, though training always was.

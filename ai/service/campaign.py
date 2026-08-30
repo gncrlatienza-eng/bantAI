@@ -56,28 +56,41 @@ from .lexical import (
 # random strangers, both scored against that campaign's centroid):
 #
 #     threshold   members attached   strangers attached
-#     0.85               100.0%            54.5%   <- manuscript
-#     0.99               100.0%            30.5%
-#     0.999               93.8%             2.6%   <- selected
-#     0.9995              87.9%             0.5%
+#     0.85               100.0%            71.8%   <- manuscript
+#     0.99                99.3%            31.6%
+#     0.998               94.8%             2.8%   <- selected
+#     0.999               91.3%             0.4%
+#     0.9995              85.2%             0.1%
 #
-# 0.999 is the knee: stricter costs 6pp of real campaign members to save 2pp of
-# false attachments. At 0.85 the feature was attaching a majority of unrelated
-# messages to campaigns, which is worse than not grouping at all -- a user told
-# "this is part of a known campaign" learns nothing if it is a coin flip.
+# ⚠️ 2026-08-30 promotion note: these numbers, and the 0.998 pick, are against
+# the checkpoint promoted that day (v2026-08-27T09-46-20Z), not the original
+# v2026-07-29-run3 the 0.999 bar (Sprint 5, WBS 5.3.6) was calibrated against.
+# 0.998 here reproduces the *same* recall/false-match trade-off that 0.999 gave
+# under the old checkpoint (93.8%/2.6%) -- carrying 0.999 forward unchanged
+# would have been stricter than the trade-off actually approved, not equivalent
+# to it. Full sweep and reasoning: `Retrain Candidate Review` artifact and
+# PIPELINE.md "Stage 5b" promotion note. Unlike the 0.85 -> 0.999 recalibration,
+# this threshold move was **not** put to the adviser before being applied --
+# see that PIPELINE.md note for exactly who decided this and on what basis.
+#
+# 0.998 is the knee: stricter costs 6pp of real campaign members to save 2pp of
+# false attachments -- the same shape of trade-off as before. At 0.85 the
+# feature was attaching a majority of unrelated messages to campaigns, which is
+# worse than not grouping at all -- a user told "this is part of a known
+# campaign" learns nothing if it is a coin flip.
 #
 # ⚠️ The margin is narrow by construction: members sit at ~0.9998 and the
-# threshold at 0.999. That is a property of reusing a classifier embedding for
-# similarity, not of this particular number, and it is the strongest argument
-# for giving campaign matching its own representation. See PIPELINE.md
-# "Stage 5b -- measured limits" and scripts/compare_campaign_embeddings.py.
+# threshold at 0.998-0.999. That is a property of reusing a classifier
+# embedding for similarity, not of this particular number, and it is the
+# strongest argument for giving campaign matching its own representation. See
+# PIPELINE.md "Stage 5b -- measured limits" and scripts/compare_campaign_embeddings.py.
 #
 # That narrowness is what the hybrid tiers below address: rather than resting
-# the whole decision on 0.0008 of headroom, a second, independent signal
+# the whole decision on a sliver of headroom, a second, independent signal
 # (service/lexical.py) can corroborate a *relaxed* embedding score. This
 # threshold remains the embedding-only bar, so behaviour never degrades below
 # what was calibrated here.
-DEFAULT_SIMILARITY_THRESHOLD = 0.999
+DEFAULT_SIMILARITY_THRESHOLD = 0.998
 
 # --- hybrid corroboration gates (Sprint 5, WBS 5.3.6) ------------------------
 # The embedding alone has ~0.16 of separation between members and strangers,
@@ -101,22 +114,25 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.999
 # Measured by scripts/calibrate_hybrid_match.py. That script runs the whole
 # sweep under two *independent* definitions of "same campaign", because
 # calibrating a wording-based gate on wording-defined groups would be circular
-# and would flatter this signal for free:
+# and would flatter this signal for free. Re-measured 2026-08-30 against the
+# promoted checkpoint (v2026-08-27T09-46-20Z) and its 0.998 embedding-only bar
+# -- see the promotion note near DEFAULT_SIMILARITY_THRESHOLD above:
 #
 #   grouping    baseline recall/FMR    with hybrid (0.99 / 0.45)
-#   lexical         93.8% / 2.6%          100.0% / 3.2%
-#   hdbscan         44.4% / 3.4%           49.6% / 4.0%
+#   lexical         94.8% / 2.8%           99.6% / 3.2%
+#   hdbscan         59.5% / 3.0%           63.1% / 3.6%
 #
 # The hdbscan row is the one that counts -- its groups are defined purely by
 # embedding geometry and know nothing about wording, so it cannot be rigged in
-# the lexical gate's favour. It still shows +5.2pp recall for +0.6pp false
+# the lexical gate's favour. It still shows +3.6pp recall for +0.7pp false
 # matches, so the gain is real and not an artifact of the ground truth.
 #
 # ⚠️ Note the baseline gap between the two rows: HDBSCAN's own cluster members
-# only re-match their own centroid 44.4% of the time at 0.999. The offline pass
-# is producing clusters the fast path then cannot recognise -- consistent with
-# the diffuse "generic scam" region documented in PIPELINE.md, and an argument
-# for the min_cluster_size question being settled with the adviser.
+# only re-match their own centroid 59.5% of the time at 0.998, up from 44.4%
+# under the old checkpoint but still well short of 100%. The offline pass is
+# producing clusters the fast path then cannot fully recognise -- consistent
+# with the diffuse "generic scam" region documented in PIPELINE.md, and an
+# argument for the min_cluster_size question being settled with the adviser.
 
 #: Relaxed embedding bar, usable only with lexical corroboration. At 0.99 the
 #: embedding alone admits 30.5% of strangers (see the table above), which is

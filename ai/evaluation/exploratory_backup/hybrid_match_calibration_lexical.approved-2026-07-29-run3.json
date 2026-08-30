@@ -1,34 +1,34 @@
 {
   "grouping": "lexical",
   "n_messages": 4000,
-  "n_groups": 82,
-  "n_positives": 542,
-  "n_negatives": 16400,
+  "n_groups": 86,
+  "n_positives": 497,
+  "n_negatives": 17200,
   "embedding_only_baseline": {
-    "threshold": 0.998,
-    "recall": 0.9483,
-    "false_match_rate": 0.0281
+    "threshold": 0.999,
+    "recall": 0.9376,
+    "false_match_rate": 0.026
   },
   "domain_tier": [
     {
       "floor": 0.8,
-      "recall": 0.1162,
-      "false_match_rate": 0.0021
+      "recall": 0.161,
+      "false_match_rate": 0.004
     },
     {
       "floor": 0.85,
-      "recall": 0.1162,
-      "false_match_rate": 0.0021
+      "recall": 0.161,
+      "false_match_rate": 0.0038
     },
     {
       "floor": 0.9,
-      "recall": 0.1162,
-      "false_match_rate": 0.002
+      "recall": 0.161,
+      "false_match_rate": 0.0035
     },
     {
       "floor": 0.95,
-      "recall": 0.1162,
-      "false_match_rate": 0.0013
+      "recall": 0.161,
+      "false_match_rate": 0.0033
     }
   ],
   "full_rule": [
@@ -36,241 +36,241 @@
       "hybrid_gate": 0.95,
       "lexical_gate": 0.2,
       "recall": 1.0,
-      "false_match_rate": 0.0721
+      "false_match_rate": 0.0661
     },
     {
       "hybrid_gate": 0.95,
       "lexical_gate": 0.3,
       "recall": 1.0,
-      "false_match_rate": 0.0421
+      "false_match_rate": 0.0385
     },
     {
       "hybrid_gate": 0.95,
       "lexical_gate": 0.35,
       "recall": 1.0,
-      "false_match_rate": 0.037
+      "false_match_rate": 0.0345
     },
     {
       "hybrid_gate": 0.95,
       "lexical_gate": 0.4,
       "recall": 1.0,
-      "false_match_rate": 0.0347
-    },
-    {
-      "hybrid_gate": 0.95,
-      "lexical_gate": 0.45,
-      "recall": 1.0,
-      "false_match_rate": 0.0329
-    },
-    {
-      "hybrid_gate": 0.95,
-      "lexical_gate": 0.5,
-      "recall": 1.0,
-      "false_match_rate": 0.0324
-    },
-    {
-      "hybrid_gate": 0.95,
-      "lexical_gate": 0.6,
-      "recall": 1.0,
-      "false_match_rate": 0.0313
-    },
-    {
-      "hybrid_gate": 0.95,
-      "lexical_gate": 0.7,
-      "recall": 0.9945,
-      "false_match_rate": 0.0304
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.2,
-      "recall": 1.0,
-      "false_match_rate": 0.0698
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.3,
-      "recall": 1.0,
-      "false_match_rate": 0.0416
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.35,
-      "recall": 1.0,
-      "false_match_rate": 0.0367
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.4,
-      "recall": 1.0,
-      "false_match_rate": 0.0347
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.45,
-      "recall": 1.0,
-      "false_match_rate": 0.0329
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.5,
-      "recall": 1.0,
-      "false_match_rate": 0.0324
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.6,
-      "recall": 1.0,
-      "false_match_rate": 0.0313
-    },
-    {
-      "hybrid_gate": 0.97,
-      "lexical_gate": 0.7,
-      "recall": 0.9945,
-      "false_match_rate": 0.0304
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.2,
-      "recall": 0.9982,
-      "false_match_rate": 0.0666
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.3,
-      "recall": 0.9982,
-      "false_match_rate": 0.0413
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.35,
-      "recall": 0.9982,
-      "false_match_rate": 0.0366
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.4,
-      "recall": 0.9982,
-      "false_match_rate": 0.0347
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.45,
-      "recall": 0.9982,
-      "false_match_rate": 0.0329
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.5,
-      "recall": 0.9982,
-      "false_match_rate": 0.0324
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.6,
-      "recall": 0.9982,
-      "false_match_rate": 0.0313
-    },
-    {
-      "hybrid_gate": 0.98,
-      "lexical_gate": 0.7,
-      "recall": 0.9926,
-      "false_match_rate": 0.0304
-    },
-    {
-      "hybrid_gate": 0.99,
-      "lexical_gate": 0.2,
-      "recall": 0.9963,
-      "false_match_rate": 0.0599
-    },
-    {
-      "hybrid_gate": 0.99,
-      "lexical_gate": 0.3,
-      "recall": 0.9963,
-      "false_match_rate": 0.0391
-    },
-    {
-      "hybrid_gate": 0.99,
-      "lexical_gate": 0.35,
-      "recall": 0.9963,
-      "false_match_rate": 0.0349
-    },
-    {
-      "hybrid_gate": 0.99,
-      "lexical_gate": 0.4,
-      "recall": 0.9963,
       "false_match_rate": 0.0335
     },
     {
-      "hybrid_gate": 0.99,
+      "hybrid_gate": 0.95,
       "lexical_gate": 0.45,
-      "recall": 0.9963,
-      "false_match_rate": 0.0321
+      "recall": 1.0,
+      "false_match_rate": 0.0319
+    },
+    {
+      "hybrid_gate": 0.95,
+      "lexical_gate": 0.5,
+      "recall": 1.0,
+      "false_match_rate": 0.0313
+    },
+    {
+      "hybrid_gate": 0.95,
+      "lexical_gate": 0.6,
+      "recall": 1.0,
+      "false_match_rate": 0.0303
+    },
+    {
+      "hybrid_gate": 0.95,
+      "lexical_gate": 0.7,
+      "recall": 0.994,
+      "false_match_rate": 0.0295
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.2,
+      "recall": 1.0,
+      "false_match_rate": 0.0653
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.3,
+      "recall": 1.0,
+      "false_match_rate": 0.0385
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.35,
+      "recall": 1.0,
+      "false_match_rate": 0.0345
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.4,
+      "recall": 1.0,
+      "false_match_rate": 0.0335
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.45,
+      "recall": 1.0,
+      "false_match_rate": 0.0319
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.5,
+      "recall": 1.0,
+      "false_match_rate": 0.0313
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.6,
+      "recall": 1.0,
+      "false_match_rate": 0.0303
+    },
+    {
+      "hybrid_gate": 0.97,
+      "lexical_gate": 0.7,
+      "recall": 0.994,
+      "false_match_rate": 0.0295
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.2,
+      "recall": 1.0,
+      "false_match_rate": 0.0639
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.3,
+      "recall": 1.0,
+      "false_match_rate": 0.0383
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.35,
+      "recall": 1.0,
+      "false_match_rate": 0.0345
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.4,
+      "recall": 1.0,
+      "false_match_rate": 0.0335
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.45,
+      "recall": 1.0,
+      "false_match_rate": 0.0319
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.5,
+      "recall": 1.0,
+      "false_match_rate": 0.0313
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.6,
+      "recall": 1.0,
+      "false_match_rate": 0.0303
+    },
+    {
+      "hybrid_gate": 0.98,
+      "lexical_gate": 0.7,
+      "recall": 0.994,
+      "false_match_rate": 0.0295
     },
     {
       "hybrid_gate": 0.99,
-      "lexical_gate": 0.5,
-      "recall": 0.9963,
+      "lexical_gate": 0.2,
+      "recall": 1.0,
+      "false_match_rate": 0.0602
+    },
+    {
+      "hybrid_gate": 0.99,
+      "lexical_gate": 0.3,
+      "recall": 1.0,
+      "false_match_rate": 0.0377
+    },
+    {
+      "hybrid_gate": 0.99,
+      "lexical_gate": 0.35,
+      "recall": 1.0,
+      "false_match_rate": 0.0342
+    },
+    {
+      "hybrid_gate": 0.99,
+      "lexical_gate": 0.4,
+      "recall": 1.0,
+      "false_match_rate": 0.0333
+    },
+    {
+      "hybrid_gate": 0.99,
+      "lexical_gate": 0.45,
+      "recall": 1.0,
       "false_match_rate": 0.0319
     },
     {
       "hybrid_gate": 0.99,
+      "lexical_gate": 0.5,
+      "recall": 1.0,
+      "false_match_rate": 0.0312
+    },
+    {
+      "hybrid_gate": 0.99,
       "lexical_gate": 0.6,
-      "recall": 0.9963,
-      "false_match_rate": 0.031
+      "recall": 1.0,
+      "false_match_rate": 0.0303
     },
     {
       "hybrid_gate": 0.99,
       "lexical_gate": 0.7,
-      "recall": 0.9908,
-      "false_match_rate": 0.0304
+      "recall": 0.994,
+      "false_match_rate": 0.0295
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.2,
-      "recall": 0.9815,
-      "false_match_rate": 0.0479
+      "recall": 0.998,
+      "false_match_rate": 0.0539
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.3,
-      "recall": 0.9815,
-      "false_match_rate": 0.0354
+      "recall": 0.998,
+      "false_match_rate": 0.0361
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.35,
-      "recall": 0.9815,
-      "false_match_rate": 0.0329
+      "recall": 0.998,
+      "false_match_rate": 0.0333
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.4,
-      "recall": 0.9815,
-      "false_match_rate": 0.0321
+      "recall": 0.998,
+      "false_match_rate": 0.0324
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.45,
-      "recall": 0.9815,
-      "false_match_rate": 0.0311
+      "recall": 0.998,
+      "false_match_rate": 0.0313
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.5,
-      "recall": 0.9815,
-      "false_match_rate": 0.031
+      "recall": 0.998,
+      "false_match_rate": 0.0308
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.6,
-      "recall": 0.9815,
-      "false_match_rate": 0.0304
+      "recall": 0.998,
+      "false_match_rate": 0.0301
     },
     {
       "hybrid_gate": 0.995,
       "lexical_gate": 0.7,
-      "recall": 0.9779,
-      "false_match_rate": 0.0301
+      "recall": 0.992,
+      "false_match_rate": 0.0294
     }
   ]
 }

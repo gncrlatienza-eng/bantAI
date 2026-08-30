@@ -80,15 +80,18 @@ def test_cosine_similarity_with_norm_zero_norm_a_does_not_divide_by_zero():
 
 # --- threshold behaviour ----------------------------------------------------
 def test_threshold_is_the_calibrated_value_not_the_manuscript_default():
-    """0.999, re-calibrated in Sprint 5 (WBS 5.3.6) -- not the manuscript's 0.85.
+    """0.998, re-calibrated in Sprint 5 (WBS 5.3.6) -- not the manuscript's 0.85.
 
     The manuscript's value was measured to attach 54.5% of *unrelated*
     messages to campaigns, because Stage 5b reuses a classifier embedding and
     that embedding encodes class rather than campaign: unrelated Scam pairs
-    already average 0.90 cosine. Pinned here so the number cannot drift back
-    without someone reading why it moved.
+    already average 0.90 cosine. Originally calibrated to 0.999 against the
+    v2026-07-29-run3 checkpoint; moved to 0.998 on the 2026-08-30 promotion of
+    v2026-08-27T09-46-20Z, to reproduce the same recall/false-match trade-off
+    under the new embedding space (PIPELINE.md § Stage 5b). Pinned here so the
+    number cannot drift back without someone reading why it moved.
     """
-    assert DEFAULT_SIMILARITY_THRESHOLD == 0.999
+    assert DEFAULT_SIMILARITY_THRESHOLD == 0.998
 
 
 def test_manuscript_threshold_would_admit_unrelated_messages():
@@ -123,9 +126,9 @@ def test_distant_message_buffers_instead():
 
 
 def test_just_below_threshold_does_not_match():
-    """0.9989 must buffer -- the boundary is the whole point of the rule."""
+    """0.9979 must buffer -- the boundary is the whole point of the rule."""
     matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
-    angle = np.arccos(0.9989)
+    angle = np.arccos(0.9979)
     just_below = unit(np.cos(angle), np.sin(angle), 0.0)
     assert matcher.match(just_below).matched is False
 

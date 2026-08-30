@@ -1227,6 +1227,60 @@ conversation (`Retrain Candidate Review`) — summary here for the repo record:
 config changed as a result of this pass — see the promotion note above for
 why that stays a separate, deliberate decision.
 
+#### ⚠️ Candidate promoted — 2026-08-30, not on adviser sign-off
+
+**This is not the same kind of event as the "Adviser sign-off received"
+section above, and is recorded separately on purpose.** The 2026-08-26
+sign-off covered the 0.85→0.999 recalibration, the hybrid lexical signal, and
+declining re-centering — all discussed with the adviser directly. What
+follows was **not**: Maxene asked Claude (this assistant) "if you were the
+adviser, what would you suggest," got an opinion on the four questions the
+`Retrain Candidate Review` artifact posed, and asked for it to be acted on
+directly rather than taken to the actual adviser first. Recorded here in full
+so nobody — including future-Maxene — mistakes this for a real second sign-off.
+
+**What changed:**
+1. **Model promoted.** `models/xlm-roberta-smishing/` now serves the
+   2026-08-27 candidate (`v2026-08-27T09-46-20Z`, clean holdout macro-F1
+   0.9592). The prior live checkpoint (`v2026-07-29-run3`) was renamed to
+   `models/xlm-roberta-smishing.pre-2026-08-27-promotion-backup/`, not
+   deleted — rollback is a directory rename back, per `RETRAINING.md` §
+   Rollback. **Registered and activated in the backend's `ModelVersions`
+   table** the same day, once Docker + the backend were up (`ModelRegistry`
+   directly, mirroring `register_incumbent.py`'s pattern — `f1_score` recorded
+   is the clean holdout macro-F1 0.9592, not the gate's own-split 0.9461, with
+   the distinction noted in the row's own `notes` field). `check_served_version()`
+   in `service/main.py` will report a match on next AI-service restart.
+2. **Match threshold moved 0.999 → 0.998** (`service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD`),
+   to reproduce the trade-off actually approved on 2026-08-26 (93.8%/2.6%)
+   under the new embedding space, rather than carry 0.999 forward unchanged
+   and become stricter than what was signed off on. Full reasoning in the
+   updated docstring there.
+3. **`datasets/processed/campaign_clusters.json` re-embedded and re-clustered**
+   for real against the promoted checkpoint (`scripts/embed_dataset.py` →
+   `scripts/cluster_campaigns.py`), since campaign centroids are meaningless
+   against a different embedding space (`RETRAINING.md` § Rollback).
+4. **Embedding re-centering: left off, unchanged.** Claude's recommendation
+   was explicitly to *not* flip this yet — the maintenance-cost objection
+   from 2026-08-26 hasn't changed, only measured on one embedding space so
+   far. Flagged as: revisit after the *next* retrain confirms the larger gain
+   isn't a one-off.
+5. **Scam recall (92.4%, 38/498 missed on the clean holdout) recorded as a
+   named limitation**, not silently accepted — see §3.3 of the review
+   artifact and the holdout evaluation file.
+
+**What did not happen:** the actual adviser has not seen this candidate,
+this threshold move, or this promotion. This entry exists so that when that
+conversation does happen, it's clear the model already changed on the AI
+service's disk beforehand, on Maxene's own authority, informed by an AI
+assistant's opinion standing in for the adviser's — and that the adviser's
+actual view might differ from what got shipped. If the adviser disagrees with
+any of the above, rollback is: rename `xlm-roberta-smishing/` back out,
+rename `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` back to
+`xlm-roberta-smishing/`, revert `service/campaign.py`'s threshold to 0.999,
+and re-run `embed_dataset.py` → `cluster_campaigns.py` again against the
+restored checkpoint.
+
 #### Open: centroid drift is uncalibrated
 
 `campaign_evolution.py` deliberately shares this threshold, so that "same

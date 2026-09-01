@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
+class SettingsViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _userData = MutableStateFlow(UserData())
@@ -79,8 +80,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateEditFirstName(name: String) { _editFirstName.value = name }
-    fun updateEditLastName(name: String) { _editLastName.value = name }
+    fun updateEditFirstName(name: String) {
+        _editFirstName.value = name
+    }
+
+    fun updateEditLastName(name: String) {
+        _editLastName.value = name
+    }
 
     fun cycleAvatarColor() {
         val colors = listOf("#FF6B35", "#5B4FE8", "#00C896", "#0A84FF", "#E91E8C", "#FF3B30", "#00BCD4")
@@ -89,8 +95,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun getInitials(): String {
-        val first = _editFirstName.value.trim().firstOrNull()?.uppercase() ?: ""
-        val last = _editLastName.value.trim().firstOrNull()?.uppercase() ?: ""
+        val first =
+            _editFirstName.value
+                .trim()
+                .firstOrNull()
+                ?.uppercase() ?: ""
+        val last =
+            _editLastName.value
+                .trim()
+                .firstOrNull()
+                ?.uppercase() ?: ""
         return "$first$last".ifEmpty { "?" }
     }
 
@@ -151,7 +165,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     // real SMS_DELIVER broadcast, so it's classified/notified/shown identically —
     // used for testing/demos where a real carrier SMS isn't a reliable trigger
     // (e.g. carrier-side smishing filters silently dropping scam-pattern content).
-    fun simulateIncomingSms(sender: String, body: String) {
+    fun simulateIncomingSms(
+        sender: String,
+        body: String,
+    ) {
         val trimmedSender = sender.trim()
         val trimmedBody = body.trim()
         if (trimmedSender.isEmpty() || trimmedBody.isEmpty()) {

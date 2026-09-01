@@ -14,7 +14,6 @@ embeddings rather than a trained model:
 """
 
 import numpy as np
-import pytest
 
 from scripts.cluster_campaigns import (
     DEFAULT_MIN_CLUSTER_SIZE,
@@ -85,9 +84,7 @@ def test_conservative_min_samples_still_finds_no_contrast():
     background is still all-noise -- the property is real, it was simply the
     wrong default for this pipeline.
     """
-    labels = cluster_embeddings(
-        blob(0, 30, seed=3), min_cluster_size=5, min_samples=5
-    )
+    labels = cluster_embeddings(blob(0, 30, seed=3), min_cluster_size=5, min_samples=5)
     assert all(c == -1 for c in labels)
 
 
@@ -154,11 +151,7 @@ def test_row_order_does_not_change_groupings():
     restored[order] = shuffled
 
     def partition(lbls):
-        return {
-            frozenset(np.where(lbls == c)[0].tolist())
-            for c in set(lbls)
-            if c != -1
-        }
+        return {frozenset(np.where(lbls == c)[0].tolist()) for c in set(lbls) if c != -1}
 
     assert partition(labels) == partition(restored)
 

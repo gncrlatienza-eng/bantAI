@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,13 +51,14 @@ import com.bantai.viewmodel.OnboardingViewModel
 private fun normalizePhNumber(raw: String?): String? {
     if (raw.isNullOrBlank()) return null
     val digits = raw.filter { it.isDigit() }
-    val tenDigit = when {
-        digits.length == 10 && digits.startsWith("9") -> digits
-        digits.length == 11 && digits.startsWith("09") -> digits.substring(1)
-        digits.length == 12 && digits.startsWith("639") -> digits.substring(2)
-        digits.length == 13 && digits.startsWith("0063") -> digits.substring(3)
-        else -> null
-    } ?: return null
+    val tenDigit =
+        when {
+            digits.length == 10 && digits.startsWith("9") -> digits
+            digits.length == 11 && digits.startsWith("09") -> digits.substring(1)
+            digits.length == 12 && digits.startsWith("639") -> digits.substring(2)
+            digits.length == 13 && digits.startsWith("0063") -> digits.substring(3)
+            else -> null
+        } ?: return null
     return "+63 ${tenDigit.substring(0, 3)} ${tenDigit.substring(3, 6)} ${tenDigit.substring(6)}"
 }
 
@@ -71,31 +74,35 @@ fun OnboardingConfirmNumberScreen(
 
     fun readSimNumber() {
         val telephonyManager = context.getSystemService(TelephonyManager::class.java) ?: return
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_PHONE_NUMBERS,
-        ) == PackageManager.PERMISSION_GRANTED
+        val hasPermission =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_PHONE_NUMBERS,
+            ) == PackageManager.PERMISSION_GRANTED
         if (!hasPermission) return
-        val detected = try {
-            normalizePhNumber(telephonyManager.line1Number)
-        } catch (_: SecurityException) {
-            null
-        }
+        val detected =
+            try {
+                normalizePhNumber(telephonyManager.line1Number)
+            } catch (_: SecurityException) {
+                null
+            }
         if (detected != null) {
             phoneNumber = detected
             autoDetected = true
         }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { readSimNumber() }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { readSimNumber() }
 
     LaunchedEffect(Unit) {
-        val alreadyGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_PHONE_NUMBERS,
-        ) == PackageManager.PERMISSION_GRANTED
+        val alreadyGranted =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_PHONE_NUMBERS,
+            ) == PackageManager.PERMISSION_GRANTED
         if (alreadyGranted) {
             readSimNumber()
         } else {
@@ -104,23 +111,26 @@ fun OnboardingConfirmNumberScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(40.dp))
 
         OnboardingHeader(
             eyebrow = "Step 2 of 4",
             title = "Confirm your number",
-            subtitle = if (autoDetected) {
-                "We detected this number from your SIM. Confirm it's correct or enter your number manually."
-            } else {
-                "Enter your Philippine mobile number (+63...)."
-            },
+            subtitle =
+                if (autoDetected) {
+                    "We detected this number from your SIM. Confirm it's correct or enter your number manually."
+                } else {
+                    "Enter your Philippine mobile number (+63...)."
+                },
         )
         Spacer(Modifier.height(32.dp))
 
@@ -128,7 +138,10 @@ fun OnboardingConfirmNumberScreen(
         Spacer(Modifier.height(8.dp))
         PillTextField(
             value = phoneNumber,
-            onValueChange = { phoneNumber = it; autoDetected = false },
+            onValueChange = {
+                phoneNumber = it
+                autoDetected = false
+            },
             placeholder = "+63 917 123 4567",
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
         )
@@ -149,7 +162,7 @@ fun OnboardingConfirmNumberScreen(
                     navController.navigate(Screen.OnboardingEnterCode.route)
                 }
             },
-            enabled = !state.isLoading,
+            enabled = !state.isLoading && phoneNumber.isNotBlank(),
             isLoading = state.isLoading,
         )
         Spacer(Modifier.height(24.dp))

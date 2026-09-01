@@ -11,7 +11,6 @@ import com.bantai.ui.theme.BantAITheme
 import com.bantai.util.NotificationHelper
 
 class MainActivity : ComponentActivity() {
-
     // Tab index requested by a notification tap (e.g. the Alerts tab), read by
     // NavGraph/MainScreen on both cold start and while already running.
     private val requestedTab = mutableStateOf<Int?>(null)

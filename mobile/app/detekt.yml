@@ -1,0 +1,22 @@
+# Minimal overrides on top of detekt's own default ruleset
+# (buildUponDefaultConfig = true in app/build.gradle.kts).
+#
+# Deliberately small for this first pass -- everything currently in the
+# codebase is grandfathered into detekt-baseline.xml regardless of these
+# settings, so tuning individual rules further is a follow-up once real
+# (non-baselined) findings start surfacing on new code.
+
+style:
+  MaxLineLength:
+    # Matches the line length already chosen for ai/ and backend/+web/'s
+    # Prettier configs -- one consistent width across the whole monorepo.
+    maxLineLength: 120
+
+naming:
+  FunctionNaming:
+    # PascalCase is the official Jetpack Compose convention for @Composable
+    # functions (they're used like widgets, not verbs) -- every composable
+    # already in this codebase follows it. Without this exemption, detekt's
+    # default lowerCamelCase rule flags each one now that new code is
+    # exercising it instead of relying on the baseline to hide it.
+    ignoreAnnotated: ['Composable']

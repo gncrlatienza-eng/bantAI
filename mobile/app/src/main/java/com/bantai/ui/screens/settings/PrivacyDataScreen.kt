@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,10 +45,11 @@ fun PrivacyDataScreen(navController: NavController) {
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -91,13 +92,13 @@ fun PrivacyDataScreen(navController: NavController) {
             }
             item {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .clickable {
-                            Toast.makeText(context, "Data export coming soon", Toast.LENGTH_SHORT).show()
-                        }
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .clickable {
+                                Toast.makeText(context, "Data export coming soon", Toast.LENGTH_SHORT).show()
+                            }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Filled.Download, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
@@ -122,12 +123,16 @@ fun PrivacyDataScreen(navController: NavController) {
 }
 
 @Composable
-private fun InfoCard(title: String, body: String) {
+private fun InfoCard(
+    title: String,
+    body: String,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(16.dp))
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(16.dp))
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)

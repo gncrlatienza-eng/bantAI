@@ -27,9 +27,7 @@ import random
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
@@ -40,9 +38,18 @@ SEED = 20260729
 N_SAMPLE = 120
 
 FIELDS = [
-    "id", "verdict", "correct_label", "notes",
-    "text", "rule_label", "language", "confidence", "reason",
-    "source", "source_label", "sender",
+    "id",
+    "verdict",
+    "correct_label",
+    "notes",
+    "text",
+    "rule_label",
+    "language",
+    "confidence",
+    "reason",
+    "source",
+    "source_label",
+    "sender",
 ]
 
 TRUSTED_SOURCE = "kaggle:text-messages"
@@ -56,10 +63,7 @@ def _read(name):
 
 def main() -> None:
     full = _read("bantai_labeled_full.csv")
-    trusted_low = [
-        r for r in full
-        if r["source"] == TRUSTED_SOURCE and r["confidence"] == "low"
-    ]
+    trusted_low = [r for r in full if r["source"] == TRUSTED_SOURCE and r["confidence"] == "low"]
 
     # Don't re-serve rows already reviewed in the first pass -- same wasted
     # -effort concern as the dedupe in make_review_sheet.py.
@@ -85,21 +89,25 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         for i, r in enumerate(picked, start=1):
-            w.writerow({
-                "id": f"trusted-{i:03d}",
-                "verdict": "", "correct_label": "", "notes": "",
-                "text": r["text"], "rule_label": r["label"],
-                "language": r.get("language", ""),
-                "confidence": r.get("confidence", ""),
-                "reason": r.get("reason", ""),
-                "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "sender": r.get("sender", ""),
-            })
+            w.writerow(
+                {
+                    "id": f"trusted-{i:03d}",
+                    "verdict": "",
+                    "correct_label": "",
+                    "notes": "",
+                    "text": r["text"],
+                    "rule_label": r["label"],
+                    "language": r.get("language", ""),
+                    "confidence": r.get("confidence", ""),
+                    "reason": r.get("reason", ""),
+                    "source": r.get("source", ""),
+                    "source_label": r.get("source_label", ""),
+                    "sender": r.get("sender", ""),
+                }
+            )
 
     print("=" * 60)
-    print(f"Trusted-corpus review sheet: {len(picked)} rows -> "
-          f"{os.path.relpath(out_path, DATASETS)}")
+    print(f"Trusted-corpus review sheet: {len(picked)} rows -> {os.path.relpath(out_path, DATASETS)}")
     print("-" * 60)
     print(f"Eligible pool (low-confidence, never reviewed): {len(pool)}")
     print("All rows are currently labeled Scam (that is the corpus's own")

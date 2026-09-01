@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Button } from "./Button";
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Button } from './Button';
 
 const LINKS = [
-  { label: "How It Works", to: "/how-it-works" },
-  { label: "About", to: "/about" },
-  { label: "Research", to: "/research" },
+  { label: 'How It Works', to: '/how-it-works' },
+  { label: 'About', to: '/about' },
+  { label: 'Research', to: '/research' },
 ];
 
 export function Navbar() {
@@ -16,8 +16,8 @@ export function Navbar() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function Navbar() {
   }, [location.pathname]);
 
   return (
-    <header className={`navbar ${scrolled ? "navbar-scrolled" : ""}`.trim()}>
+    <header className={`navbar ${scrolled ? 'navbar-scrolled' : ''}`.trim()}>
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand">
           <ShieldMark />
@@ -40,7 +40,7 @@ export function Navbar() {
             <Link
               key={link.to}
               to={link.to}
-              className={location.pathname === link.to ? "active" : ""}
+              className={location.pathname === link.to ? 'active' : ''}
             >
               {link.label}
             </Link>
@@ -48,12 +48,16 @@ export function Navbar() {
         </nav>
 
         <div className="navbar-actions">
-          <Button to="/login" variant="ghost">Log In</Button>
-          <Button to="/request-access" variant="primary" className="tiny">Licensing</Button>
+          <Button to="/login" variant="ghost">
+            Log In
+          </Button>
+          <Button to="/request-access" variant="primary" className="tiny">
+            Licensing
+          </Button>
         </div>
 
         <button
-          className={`navbar-toggle ${menuOpen ? "open" : ""}`.trim()}
+          className={`navbar-toggle ${menuOpen ? 'open' : ''}`.trim()}
           type="button"
           aria-label="Toggle navigation menu"
           onClick={() => setMenuOpen((open) => !open)}
@@ -64,15 +68,23 @@ export function Navbar() {
         </button>
       </div>
 
-      <div className={`navbar-mobile ${menuOpen ? "open" : ""}`.trim()}>
+      <div className={`navbar-mobile ${menuOpen ? 'open' : ''}`.trim()}>
         {LINKS.map((link) => (
-          <Link key={link.to} to={link.to} className={location.pathname === link.to ? "active" : ""}>
+          <Link
+            key={link.to}
+            to={link.to}
+            className={location.pathname === link.to ? 'active' : ''}
+          >
             {link.label}
           </Link>
         ))}
         <div className="navbar-mobile-actions">
-          <Button to="/login" variant="ghost" className="wide">Log In</Button>
-          <Button to="/request-access" variant="primary" className="wide">Licensing</Button>
+          <Button to="/login" variant="ghost" className="wide">
+            Log In
+          </Button>
+          <Button to="/request-access" variant="primary" className="wide">
+            Licensing
+          </Button>
         </div>
       </div>
     </header>

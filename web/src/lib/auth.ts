@@ -1,6 +1,6 @@
-export type Role = "client" | "admin";
+export type Role = 'client' | 'admin';
 
-const KEY = "bantai_session";
+const KEY = 'bantai_session';
 
 export function setSession(role: Role) {
   localStorage.setItem(KEY, role);
@@ -8,7 +8,7 @@ export function setSession(role: Role) {
 
 export function getSession(): Role | null {
   const value = localStorage.getItem(KEY);
-  return value === "client" || value === "admin" ? value : null;
+  return value === 'client' || value === 'admin' ? value : null;
 }
 
 export function clearSession() {

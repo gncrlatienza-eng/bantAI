@@ -53,6 +53,8 @@ model OtpCode {
   verified   Boolean  @default(false)
 
   createdAt  DateTime @default(now())
+
+  @@index([phone, verified])
 }
 
 model SmsMessage {
@@ -72,6 +74,8 @@ model SmsMessage {
   feature        MessageFeature?
   alerts         Alert[]
   reports        UserReport[]
+
+  @@index([userId, receivedAt])
 }
 
 model MessageFeature {
@@ -101,6 +105,8 @@ model Classification {
   createdAt DateTime @default(now())
 
   indicator ExplainableIndicator?
+
+  @@index([createdAt])
 }
 
 model Alert {
@@ -112,6 +118,9 @@ model Alert {
   status    String   @default("Pending") // Pending | Blocked | Reported | Ignored
 
   createdAt DateTime @default(now())
+
+  @@index([messageId])
+  @@index([status])
 }
 
 // Groups of similar smishing messages detected by AI clustering (HDBSCAN).
@@ -130,6 +139,8 @@ model CampaignCluster {
   updatedAt    DateTime @updatedAt
 
   messages     SmsMessage[]
+
+  @@index([isActive])
 }
 
 // SHAP-based feature importance for a single classification result.
@@ -195,11 +206,13 @@ model UserReport {
   // Pending → Validated (accepted into training set) | Rejected (discarded)
   status        String     @default("Pending")
   adminNote     String?
+  validatedAt   DateTime?  // set when status transitions to Validated; used by AI retraining pipeline
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
   @@unique([userId, messageId]) // one report per user per message
+  @@index([status, validatedAt])
 }
 
 // Tracks every model version that was ever promoted to production.
@@ -219,4 +232,6 @@ model ModelVersion {
   rolledBackAt DateTime?
 
   createdAt    DateTime  @default(now())
+
+  @@index([isActive])
 }

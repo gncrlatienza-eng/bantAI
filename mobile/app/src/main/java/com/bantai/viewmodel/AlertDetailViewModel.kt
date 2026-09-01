@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class AlertDetailViewModel(application: Application) : AndroidViewModel(application) {
-
+class AlertDetailViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _alert = MutableStateFlow<SmsApi.AlertSummary?>(null)
@@ -51,12 +52,14 @@ class AlertDetailViewModel(application: Application) : AndroidViewModel(applicat
 
             // There is no single-alert-by-id endpoint yet — GET /sms/alerts returns
             // the full list, so the matching alert for this messageId is found here.
-            SmsApi.getAlerts(token)
+            SmsApi
+                .getAlerts(token)
                 .onSuccess { alerts -> _alert.value = alerts.find { it.messageId == messageId } }
                 .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
 
             // Indicators failing is non-fatal: an empty list just means no SHAP bars render.
-            SmsApi.getIndicators(token, messageId)
+            SmsApi
+                .getIndicators(token, messageId)
                 .onSuccess { tags -> _indicators.value = tags }
 
             _isLoading.value = false

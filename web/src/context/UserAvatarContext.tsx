@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 export interface AvatarState {
   type: 'preset' | 'initials' | 'image';
@@ -34,15 +34,17 @@ const UserAvatarContext = createContext<UserAvatarContextType>({
   setClientAvatar: () => {},
 });
 
-export const UserAvatarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UserAvatarProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [adminAvatar, setAdminAvatarState] = useState<AvatarState>(() => {
     const saved = localStorage.getItem('bantai_admin_avatar');
-    return saved ? JSON.parse(saved) : DEFAULT_ADMIN_AVATAR;
+    return saved ? (JSON.parse(saved) as AvatarState) : DEFAULT_ADMIN_AVATAR;
   });
 
   const [clientAvatar, setClientAvatarState] = useState<AvatarState>(() => {
     const saved = localStorage.getItem('bantai_client_avatar');
-    return saved ? JSON.parse(saved) : DEFAULT_CLIENT_AVATAR;
+    return saved ? (JSON.parse(saved) as AvatarState) : DEFAULT_CLIENT_AVATAR;
   });
 
   const setAdminAvatar = (avatar: AvatarState) => {
@@ -56,7 +58,9 @@ export const UserAvatarProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   return (
-    <UserAvatarContext.Provider value={{ adminAvatar, clientAvatar, setAdminAvatar, setClientAvatar }}>
+    <UserAvatarContext.Provider
+      value={{ adminAvatar, clientAvatar, setAdminAvatar, setClientAvatar }}
+    >
       {children}
     </UserAvatarContext.Provider>
   );

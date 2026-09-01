@@ -58,7 +58,7 @@ describe('AuthService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(user);
 
-      const result = await service.register(dto as any);
+      const result = await service.register(dto);
 
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
         where: { phone: dto.phone },
@@ -81,7 +81,7 @@ describe('AuthService', () => {
         phone: dto.phone,
       });
 
-      const result = await service.register(dto as any);
+      const result = await service.register(dto);
 
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
       expect(result.message).toBeDefined();

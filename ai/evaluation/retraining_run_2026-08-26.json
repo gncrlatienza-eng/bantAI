@@ -1,0 +1,143 @@
+{
+  "_comment": [
+    "Second real (non-dry) retraining run -- WBS 4.3.5, 2026-08-26, Colab T4.",
+    "",
+    "Trained on the pool after folding in 9 new PHONE-SMS-INBOX export batches",
+    "(2026-07-25 through 2026-08-01), which grew the training pool 11,942 ->",
+    "18,938 unique (masked-text) rows. WBS 6.4.6's holdout set (carved out",
+    "2026-08-18, datasets/holdout/holdout.csv) was correctly excluded from this",
+    "pool -- see PIPELINE.md's 2026-08-26 entry on the build_dataset.py fix",
+    "that made this possible (it previously had no awareness of the holdout",
+    "carve-out and would have silently put those rows back into training).",
+    "",
+    "Committed here rather than beside the checkpoint because ai/models/*/ is",
+    "git-ignored. The candidate weights (~1.1 GB) live only in Google Drive at",
+    "MyDrive/bantai/retraining_runs/bantai_retrain_run.zip -- regenerable from",
+    "this manifest: same labeled dataset, same seed 42, same training code.",
+    "",
+    "READ THE VERDICT AS A RECOMMENDATION, NOT AN INSTRUCTION. Nothing was",
+    "promoted. See _interpretation below."
+  ],
+
+  "run_dir": "models/retraining_runs/2026-08-26T14-29-53Z",
+  "environment": "Google Colab, Tesla T4",
+  "baseline_checkpoint": {
+    "trained": "2026-07-29",
+    "_comment": "The currently-deployed ai/models/xlm-roberta-smishing/ -- same baseline compared against in the 2026-08-17 run."
+  },
+
+  "manifest": {
+    "created_at": "2026-08-26T14:29:53.677012+00:00",
+    "dry_run": false,
+    "label_counts": { "Ham": 10431, "Scam": 1706, "Spam": 6801 },
+    "max_history": null,
+    "n_dataset_duplicates_dropped": 2633,
+    "n_dataset_rows_seen": 21571,
+    "n_dataset_rows_superseded_by_report": 0,
+    "n_history_after_sampling": 18938,
+    "n_reports": 0,
+    "n_reports_that_relabelled_a_row": 0,
+    "n_total": 18938,
+    "report_ids": [],
+    "report_source": "null (no report store consulted)",
+    "seed": 42
+  },
+
+  "decision": {
+    "candidate_dir": "models/retraining_runs/2026-08-26T14-29-53Z/candidate",
+    "evaluated_at": "2026-08-26T14:44:04.538084+00:00",
+    "skipped_reason": null,
+    "promote": true,
+    "reason": "significantly better: 181 fixes vs 58 regressions (p=0.0000), macro-F1 0.9186 -> 0.9451",
+    "baseline_macro_f1": 0.9186354087422753,
+    "candidate_macro_f1": 0.9451194197404483,
+    "n_fixes": 181,
+    "n_regressions": 58,
+    "p_value": 6.558064087309464e-16,
+    "fix_transitions": {
+      "Ham->Scam": 13,
+      "Ham->Spam": 67,
+      "Scam->Ham": 5,
+      "Scam->Spam": 6,
+      "Spam->Ham": 87,
+      "Spam->Scam": 3
+    },
+    "regression_transitions": {
+      "Ham->Scam": 5,
+      "Ham->Spam": 24,
+      "Scam->Ham": 9,
+      "Scam->Spam": 4,
+      "Spam->Ham": 11,
+      "Spam->Scam": 5
+    }
+  },
+
+  "_interpretation": {
+    "zero_reports_was_deliberate": [
+      "Same as the 2026-08-17 run: no validated user reports exist yet, so",
+      "the manifest records 'null (no report store consulted)' rather than a",
+      "zero that could be misread as 'none were filed'."
+    ],
+    "why_the_baseline_score_dropped_from_0.95_to_0.92": [
+      "This is the most important number to explain, not a red flag on the",
+      "deployed model. Every earlier measurement of the baseline -- 0.9438 in",
+      "AI_MODEL_RESULTS.md, 0.9520 in the 2026-08-17 run, 0.95 in the",
+      "2026-08-18 holdout confusion run -- was scored on a validation slice",
+      "drawn overwhelmingly from data the baseline had already trained on or",
+      "that predates it only slightly.",
+      "",
+      "This run's validation slice is drawn from the pool AFTER folding in",
+      "~8,000 new raw-inbox rows the baseline has never seen at all (exported",
+      "2026-07-25 through 2026-08-01, all after the baseline's 2026-07-29",
+      "training date). That is a genuinely harder, more honest test of the",
+      "deployed model's real-world generalization -- and its score fell to",
+      "0.9186 under it. The candidate, trained on that same new data, recovers",
+      "to 0.9451 -- notably higher than the baseline ever scored even on its",
+      "own comfortable, partly-memorized validation splits.",
+      "",
+      "In plain terms: the deployed model is measurably worse at handling the",
+      "kinds of messages that have shown up since it was trained, and",
+      "retraining on that new data closes most of that gap."
+    ],
+    "what_drove_the_improvement": [
+      "The 9 new PHONE-SMS-INBOX export files (2026-07-25 through 2026-08-01),",
+      "folded into the training pool this session -- see PIPELINE.md's",
+      "2026-08-26 entry for exactly which files and the row-count accounting.",
+      "Fix transitions skew heavily Spam->Ham (87) and Ham->Spam (67), meaning",
+      "most of the improvement is the candidate learning to tell honest",
+      "marketing/promo apart from personal/transactional messages more",
+      "reliably -- consistent with the new raw-inbox batch being real,",
+      "everyday phone traffic rather than curated corpus rows."
+    ],
+    "why_nothing_was_promoted": [
+      "Same reasoning as 2026-08-17, and it still applies: promoting requires",
+      "re-running scripts/embed_dataset.py and scripts/cluster_campaigns.py",
+      "(campaign centroids live in the checkpoint's embedding space), and",
+      "invalidates every Sprint 5 calibration number that was just signed off",
+      "by the adviser on 2026-08-26 (the 0.85->0.999 threshold, the hybrid",
+      "lexical gates, the min_cluster_size default -- see PIPELINE.md).",
+      "Swapping the model out from under a review that just closed is exactly",
+      "the wrong timing. This is a candidate + a verdict, not a decision to act",
+      "on yet -- bring it to the adviser as a sixth item, same pattern as the",
+      "first five."
+    ],
+    "clean_holdout_evaluation_still_pending": [
+      "This candidate is the FIRST model eligible for an honest WBS 6.4.6",
+      "confusion matrix against datasets/holdout/holdout.csv (created",
+      "2026-08-18) -- see the holdout manifest's own note: 'the first model",
+      "this is valid for is the next one trained from this point on'. The",
+      "existing holdout_confusion_2026-08-18T15-21-47Z.json (macro-F1 0.95) is",
+      "the DEPLOYED baseline, measured on a holdout it may have partly",
+      "trained on -- not a clean number. Running scripts/evaluate_holdout.py",
+      "against this candidate (once its weights are downloaded from Drive)",
+      "would produce the first genuinely clean 6.4.6 result."
+    ],
+    "known_gap": [
+      "Same as 2026-08-17: the gate records how many messages moved each way",
+      "(fix_transitions / regression_transitions), not which specific ones.",
+      "The actual disagreeing message bodies exist in this run's",
+      "disagreements.json on Drive (git-ignored, contains real SMS text --",
+      "never committed) if a specific example is needed for a defense."
+    ]
+  }
+}

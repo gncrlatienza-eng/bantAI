@@ -173,7 +173,10 @@ describe('ReportsService', () => {
       expect(mockPrisma.userReport.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'r1' },
-          data: { status: 'Validated', adminNote: 'Confirmed FN' },
+          data: expect.objectContaining({
+            status: 'Validated',
+            adminNote: 'Confirmed FN',
+          }),
         }),
       );
     });
@@ -183,8 +186,26 @@ describe('ReportsService', () => {
       await service.validate('r1');
       expect(mockPrisma.userReport.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { status: 'Validated', adminNote: null },
+          data: expect.objectContaining({
+            status: 'Validated',
+            adminNote: null,
+          }),
         }),
+      );
+    });
+
+    it('sets validatedAt to a current Date', async () => {
+      mockPrisma.userReport.update.mockResolvedValue({});
+      await service.validate('r1');
+      const call = mockPrisma.userReport.update.mock.calls[0][0];
+      expect(call.data.validatedAt).toBeInstanceOf(Date);
+    });
+
+    it('throws NotFoundException when report does not exist (P2025)', async () => {
+      const p2025 = Object.assign(new Error('Not found'), { code: 'P2025' });
+      mockPrisma.userReport.update.mockRejectedValue(p2025);
+      await expect(service.validate('missing-id')).rejects.toThrow(
+        NotFoundException,
       );
     });
   });
@@ -203,6 +224,14 @@ describe('ReportsService', () => {
         }),
       );
     });
+
+    it('throws NotFoundException when report does not exist (P2025)', async () => {
+      const p2025 = Object.assign(new Error('Not found'), { code: 'P2025' });
+      mockPrisma.userReport.update.mockRejectedValue(p2025);
+      await expect(service.reject('missing-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   // --- countValidatedSince ---
@@ -214,7 +243,7 @@ describe('ReportsService', () => {
       const count = await service.countValidatedSince(since);
       expect(count).toBe(42);
       expect(mockPrisma.userReport.count).toHaveBeenCalledWith({
-        where: { status: 'Validated', updatedAt: { gte: since } },
+        where: { status: 'Validated', validatedAt: { gte: since } },
       });
     });
   });

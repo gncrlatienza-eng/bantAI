@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,7 +39,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.bantai.viewmodel.SettingsViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,9 +61,13 @@ import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.SettingsViewModel
 
 @Composable
-fun NotificationsScreen(navController: NavController, viewModel: SettingsViewModel) {
+fun NotificationsScreen(
+    navController: NavController,
+    viewModel: SettingsViewModel,
+) {
     var selectedTab by remember { mutableStateOf(0) }
     val smishingAlerts by viewModel.smishingAlerts.collectAsState()
     val suspiciousAlerts by viewModel.suspiciousAlerts.collectAsState()
@@ -74,10 +77,11 @@ fun NotificationsScreen(navController: NavController, viewModel: SettingsViewMod
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -116,16 +120,17 @@ fun NotificationsScreen(navController: NavController, viewModel: SettingsViewMod
         HorizontalDivider(color = BorderColor)
 
         when (selectedTab) {
-            0 -> ThreatAlertsTab(
-                smishingAlerts = smishingAlerts,
-                onSmishingAlertsChanged = { viewModel.toggleSmishingAlerts(it) },
-                suspiciousAlerts = suspiciousAlerts,
-                onSuspiciousAlertsChanged = { viewModel.toggleSuspiciousAlerts(it) },
-                autoBlockNotice = autoBlockNotice,
-                onAutoBlockNoticeChanged = { viewModel.toggleAutoBlockNotice(it) },
-                recentAlerts = recentAlerts,
-                alertsLoading = alertsLoading,
-            )
+            0 ->
+                ThreatAlertsTab(
+                    smishingAlerts = smishingAlerts,
+                    onSmishingAlertsChanged = { viewModel.toggleSmishingAlerts(it) },
+                    suspiciousAlerts = suspiciousAlerts,
+                    onSuspiciousAlertsChanged = { viewModel.toggleSuspiciousAlerts(it) },
+                    autoBlockNotice = autoBlockNotice,
+                    onAutoBlockNoticeChanged = { viewModel.toggleAutoBlockNotice(it) },
+                    recentAlerts = recentAlerts,
+                    alertsLoading = alertsLoading,
+                )
             1 -> WeeklyDigestTab()
         }
     }
@@ -141,19 +146,19 @@ private fun TabItem(
 ) {
     val color = if (selected) Indigo else Color(0xFF666666)
     Box(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .drawBehind {
-                if (selected) {
-                    drawLine(
-                        color = Indigo,
-                        start = Offset(0f, size.height),
-                        end = Offset(size.width, size.height),
-                        strokeWidth = 2.dp.toPx(),
-                    )
-                }
-            }
-            .padding(vertical = 12.dp),
+        modifier =
+            modifier
+                .clickable(onClick = onClick)
+                .drawBehind {
+                    if (selected) {
+                        drawLine(
+                            color = Indigo,
+                            start = Offset(0f, size.height),
+                            end = Offset(size.width, size.height),
+                            strokeWidth = 2.dp.toPx(),
+                        )
+                    }
+                }.padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -199,49 +204,58 @@ private fun ThreatAlertsTab(
 
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 Text("Recent alerts", color = TextSecondary, fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))
 
                 when {
-                    alertsLoading -> Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
-                    }
-                    recentAlerts.isEmpty() -> NotificationItem(
-                        title = "BantAI is protecting you",
-                        subtitle = "No threats detected yet. All messages are clear.",
-                        time = "",
-                        expanded = false,
-                    )
-                    else -> recentAlerts.take(3).forEachIndexed { index, alert ->
-                        if (index > 0) {
-                            HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
+                    alertsLoading ->
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
                         }
-                        val isBlocked = alert.status == "Blocked"
-                        val scoreText = alert.score
-                            ?.let { " ${"%.0f".format(it * 100)}% confidence." }
-                            ?: ""
+                    recentAlerts.isEmpty() ->
                         NotificationItem(
-                            title = if (isBlocked)
-                                "⚠ Smishing detected — ${alert.sender}"
-                            else
-                                "⚡ Suspicious message — ${alert.sender}",
-                            subtitle = if (isBlocked)
-                                "Auto-blocked.$scoreText"
-                            else
-                                "Review in BantAI.$scoreText",
-                            time = alertRelativeTime(alert.createdAt),
-                            expanded = index == 0 && isBlocked,
+                            title = "BantAI is protecting you",
+                            subtitle = "No threats detected yet. All messages are clear.",
+                            time = "",
+                            expanded = false,
                         )
-                    }
+                    else ->
+                        recentAlerts.take(3).forEachIndexed { index, alert ->
+                            if (index > 0) {
+                                HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
+                            }
+                            val isBlocked = alert.status == "Blocked"
+                            val scoreText =
+                                alert.score
+                                    ?.let { " ${"%.0f".format(it * 100)}% confidence." }
+                                    ?: ""
+                            NotificationItem(
+                                title =
+                                    if (isBlocked) {
+                                        "⚠ Smishing detected — ${alert.sender}"
+                                    } else {
+                                        "⚡ Suspicious message — ${alert.sender}"
+                                    },
+                                subtitle =
+                                    if (isBlocked) {
+                                        "Auto-blocked.$scoreText"
+                                    } else {
+                                        "Review in BantAI.$scoreText"
+                                    },
+                                time = alertRelativeTime(alert.createdAt),
+                                expanded = index == 0 && isBlocked,
+                            )
+                        }
                 }
             }
         }
@@ -252,9 +266,10 @@ private fun ThreatAlertsTab(
 
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp)),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp)),
             ) {
                 ToggleRow(
                     title = "Smishing alerts",
@@ -294,9 +309,10 @@ private fun NotificationItem(
         verticalAlignment = Alignment.Top,
     ) {
         Box(
-            modifier = Modifier
-                .size(32.dp)
-                .background(Indigo, RoundedCornerShape(8.dp)),
+            modifier =
+                Modifier
+                    .size(32.dp)
+                    .background(Indigo, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(18.dp))
@@ -320,17 +336,19 @@ private fun NotificationItem(
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(
-                        modifier = Modifier
-                            .background(Color(0xFF2A0A0A), RoundedCornerShape(100.dp))
-                            .border(1.dp, Danger, RoundedCornerShape(100.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier =
+                            Modifier
+                                .background(Color(0xFF2A0A0A), RoundedCornerShape(100.dp))
+                                .border(1.dp, Danger, RoundedCornerShape(100.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text("View details", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                     Box(
-                        modifier = Modifier
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier =
+                            Modifier
+                                .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text("Dismiss", color = White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
@@ -348,9 +366,10 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -360,10 +379,11 @@ private fun ToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = White,
-                checkedTrackColor = Color(0xFF5B4FE8),
-            ),
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = White,
+                    checkedTrackColor = Color(0xFF5B4FE8),
+                ),
         )
     }
 }
@@ -385,10 +405,11 @@ private fun WeeklyDigestTab() {
 
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1A1A2A), RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1A1A2A), RoundedCornerShape(16.dp))
+                        .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -414,10 +435,11 @@ private fun WeeklyDigestTab() {
 
                 // Segmented bar
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
                 ) {
                     Box(modifier = Modifier.fillMaxWidth(0.021f).height(8.dp).background(Danger))
                     Box(modifier = Modifier.fillMaxWidth(0.040f).height(8.dp).background(Suspicious))
@@ -431,10 +453,11 @@ private fun WeeklyDigestTab() {
                 }
 
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
+                            .padding(12.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Icon(Icons.Filled.Bolt, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
@@ -452,10 +475,11 @@ private fun WeeklyDigestTab() {
 
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(12.dp))
-                    .padding(12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(12.dp))
+                        .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Row(
@@ -463,9 +487,10 @@ private fun WeeklyDigestTab() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(Indigo, RoundedCornerShape(6.dp)),
+                        modifier =
+                            Modifier
+                                .size(24.dp)
+                                .background(Indigo, RoundedCornerShape(6.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(14.dp))
@@ -485,11 +510,12 @@ private fun WeeklyDigestTab() {
 
         item {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
-                    .border(1.dp, Indigo, RoundedCornerShape(12.dp))
-                    .padding(14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
+                        .border(1.dp, Indigo, RoundedCornerShape(12.dp))
+                        .padding(14.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(
@@ -515,7 +541,12 @@ private fun WeeklyDigestTab() {
 }
 
 @Composable
-private fun StatColumn(value: String, label: String, sub: String, valueColor: Color) {
+private fun StatColumn(
+    value: String,
+    label: String,
+    sub: String,
+    valueColor: Color,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Text(label, color = TextSecondary, fontSize = 11.sp)
@@ -524,7 +555,10 @@ private fun StatColumn(value: String, label: String, sub: String, valueColor: Co
 }
 
 @Composable
-private fun LegendDot(color: Color, label: String) {
+private fun LegendDot(
+    color: Color,
+    label: String,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(4.dp)))
         Text(label, color = TextSecondary, fontSize = 10.sp)
@@ -543,14 +577,24 @@ private fun SectionLabel(text: String) {
     )
 }
 
-private fun alertRelativeTime(iso: String): String = try {
-    val instant = java.time.Instant.parse(iso)
-    val diffMin = (java.time.Instant.now().toEpochMilli() - instant.toEpochMilli()) / 60_000
-    when {
-        diffMin < 1 -> "now"
-        diffMin < 60 -> "${diffMin}m"
-        diffMin < 1440 -> "${diffMin / 60}h"
-        else -> java.time.format.DateTimeFormatter.ofPattern("MMM d")
-            .format(instant.atZone(java.time.ZoneId.systemDefault()))
+private fun alertRelativeTime(iso: String): String =
+    try {
+        val instant = java.time.Instant.parse(iso)
+        val diffMin =
+            (
+                java.time.Instant
+                    .now()
+                    .toEpochMilli() - instant.toEpochMilli()
+            ) / 60_000
+        when {
+            diffMin < 1 -> "now"
+            diffMin < 60 -> "${diffMin}m"
+            diffMin < 1440 -> "${diffMin / 60}h"
+            else ->
+                java.time.format.DateTimeFormatter
+                    .ofPattern("MMM d", java.util.Locale.US)
+                    .format(instant.atZone(java.time.ZoneId.systemDefault()))
+        }
+    } catch (_: Exception) {
+        ""
     }
-} catch (_: Exception) { "" }

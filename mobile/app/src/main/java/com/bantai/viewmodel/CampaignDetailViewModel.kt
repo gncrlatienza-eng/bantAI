@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class CampaignDetailViewModel(application: Application) : AndroidViewModel(application) {
-
+class CampaignDetailViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _campaign = MutableStateFlow<CampaignsApi.CampaignDetail?>(null)
@@ -36,7 +37,8 @@ class CampaignDetailViewModel(application: Application) : AndroidViewModel(appli
                 return@launch
             }
 
-            CampaignsApi.getById(token, id)
+            CampaignsApi
+                .getById(token, id)
                 .onSuccess { detail -> _campaign.value = detail }
                 .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
             _isLoading.value = false

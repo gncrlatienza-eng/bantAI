@@ -34,9 +34,10 @@ from typing import Dict, List, Optional, Sequence
 from .lexical import (
     LexicalProfile,
     build_profile,
+    domains_overlap,
     extract_domains,
-    lexical_similarity,
-    shares_domain,
+    shingles,
+    similarity_from_shingles,
 )
 
 # Campaign match threshold, re-calibrated against real data (Sprint 5, WBS
@@ -55,28 +56,41 @@ from .lexical import (
 # random strangers, both scored against that campaign's centroid):
 #
 #     threshold   members attached   strangers attached
-#     0.85               100.0%            54.5%   <- manuscript
-#     0.99               100.0%            30.5%
-#     0.999               93.8%             2.6%   <- selected
-#     0.9995              87.9%             0.5%
+#     0.85               100.0%            71.8%   <- manuscript
+#     0.99                99.3%            31.6%
+#     0.998               94.8%             2.8%   <- selected
+#     0.999               91.3%             0.4%
+#     0.9995              85.2%             0.1%
 #
-# 0.999 is the knee: stricter costs 6pp of real campaign members to save 2pp of
-# false attachments. At 0.85 the feature was attaching a majority of unrelated
-# messages to campaigns, which is worse than not grouping at all -- a user told
-# "this is part of a known campaign" learns nothing if it is a coin flip.
+# ⚠️ 2026-08-30 promotion note: these numbers, and the 0.998 pick, are against
+# the checkpoint promoted that day (v2026-08-27T09-46-20Z), not the original
+# v2026-07-29-run3 the 0.999 bar (Sprint 5, WBS 5.3.6) was calibrated against.
+# 0.998 here reproduces the *same* recall/false-match trade-off that 0.999 gave
+# under the old checkpoint (93.8%/2.6%) -- carrying 0.999 forward unchanged
+# would have been stricter than the trade-off actually approved, not equivalent
+# to it. Full sweep and reasoning: `Retrain Candidate Review` artifact and
+# PIPELINE.md "Stage 5b" promotion note. Unlike the 0.85 -> 0.999 recalibration,
+# this threshold move was **not** put to the adviser before being applied --
+# see that PIPELINE.md note for exactly who decided this and on what basis.
+#
+# 0.998 is the knee: stricter costs 6pp of real campaign members to save 2pp of
+# false attachments -- the same shape of trade-off as before. At 0.85 the
+# feature was attaching a majority of unrelated messages to campaigns, which is
+# worse than not grouping at all -- a user told "this is part of a known
+# campaign" learns nothing if it is a coin flip.
 #
 # ⚠️ The margin is narrow by construction: members sit at ~0.9998 and the
-# threshold at 0.999. That is a property of reusing a classifier embedding for
-# similarity, not of this particular number, and it is the strongest argument
-# for giving campaign matching its own representation. See PIPELINE.md
-# "Stage 5b -- measured limits" and scripts/compare_campaign_embeddings.py.
+# threshold at 0.998-0.999. That is a property of reusing a classifier
+# embedding for similarity, not of this particular number, and it is the
+# strongest argument for giving campaign matching its own representation. See
+# PIPELINE.md "Stage 5b -- measured limits" and scripts/compare_campaign_embeddings.py.
 #
 # That narrowness is what the hybrid tiers below address: rather than resting
-# the whole decision on 0.0008 of headroom, a second, independent signal
+# the whole decision on a sliver of headroom, a second, independent signal
 # (service/lexical.py) can corroborate a *relaxed* embedding score. This
 # threshold remains the embedding-only bar, so behaviour never degrades below
 # what was calibrated here.
-DEFAULT_SIMILARITY_THRESHOLD = 0.999
+DEFAULT_SIMILARITY_THRESHOLD = 0.998
 
 # --- hybrid corroboration gates (Sprint 5, WBS 5.3.6) ------------------------
 # The embedding alone has ~0.16 of separation between members and strangers,
@@ -100,22 +114,25 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.999
 # Measured by scripts/calibrate_hybrid_match.py. That script runs the whole
 # sweep under two *independent* definitions of "same campaign", because
 # calibrating a wording-based gate on wording-defined groups would be circular
-# and would flatter this signal for free:
+# and would flatter this signal for free. Re-measured 2026-08-30 against the
+# promoted checkpoint (v2026-08-27T09-46-20Z) and its 0.998 embedding-only bar
+# -- see the promotion note near DEFAULT_SIMILARITY_THRESHOLD above:
 #
 #   grouping    baseline recall/FMR    with hybrid (0.99 / 0.45)
-#   lexical         93.8% / 2.6%          100.0% / 3.2%
-#   hdbscan         44.4% / 3.4%           49.6% / 4.0%
+#   lexical         94.8% / 2.8%           99.6% / 3.2%
+#   hdbscan         59.5% / 3.0%           63.1% / 3.6%
 #
 # The hdbscan row is the one that counts -- its groups are defined purely by
 # embedding geometry and know nothing about wording, so it cannot be rigged in
-# the lexical gate's favour. It still shows +5.2pp recall for +0.6pp false
+# the lexical gate's favour. It still shows +3.6pp recall for +0.7pp false
 # matches, so the gain is real and not an artifact of the ground truth.
 #
 # ⚠️ Note the baseline gap between the two rows: HDBSCAN's own cluster members
-# only re-match their own centroid 44.4% of the time at 0.999. The offline pass
-# is producing clusters the fast path then cannot recognise -- consistent with
-# the diffuse "generic scam" region documented in PIPELINE.md, and an argument
-# for the min_cluster_size question being settled with the adviser.
+# only re-match their own centroid 59.5% of the time at 0.998, up from 44.4%
+# under the old checkpoint but still well short of 100%. The offline pass is
+# producing clusters the fast path then cannot fully recognise -- consistent
+# with the diffuse "generic scam" region documented in PIPELINE.md, and an
+# argument for the min_cluster_size question being settled with the adviser.
 
 #: Relaxed embedding bar, usable only with lexical corroboration. At 0.99 the
 #: embedding alone admits 30.5% of strangers (see the table above), which is
@@ -159,8 +176,27 @@ def cosine_similarity(a, b) -> float:
     import numpy as np
 
     a = np.asarray(a, dtype="float32")
+    return _cosine_similarity_with_norm(a, float(np.linalg.norm(a)), b)
+
+
+def _cosine_similarity_with_norm(a, norm_a: float, b) -> float:
+    """``cosine_similarity``'s core, given ``norm(a)`` already computed.
+
+    ``CampaignMatcher.match`` compares one message embedding against every
+    active centroid (documented above at up to ~240) -- ``norm(a)`` is
+    identical on every iteration of that loop, so it computes it once and
+    reuses it here instead of letting ``cosine_similarity`` recompute the
+    same sqrt-of-768-dims value per centroid. ``norm(b)`` still varies per
+    centroid and is always computed fresh -- a backend-sourced centroid has
+    no guaranteed normalization (see ``centroid_source.py:load_from_backend``,
+    which stores whatever the backend returns as-is), so this cannot be
+    dropped the same way ``norm(a)`` can.
+    """
+    import numpy as np
+
+    a = np.asarray(a, dtype="float32")
     b = np.asarray(b, dtype="float32")
-    denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+    denom = float(norm_a * np.linalg.norm(b))
     if denom == 0.0:
         return 0.0
     return float(np.dot(a, b) / denom)
@@ -252,15 +288,20 @@ class CampaignMatcher:
         enough unmatched messages accumulate.
         """
         if not self._centroids:
-            return MatchResult(
-                cluster_id=None, similarity=0.0, matched=False, should_buffer=True
-            )
+            return MatchResult(cluster_id=None, similarity=0.0, matched=False, should_buffer=True)
+
+        import numpy as np
+
+        # norm(embedding) is identical on every iteration of the loop below --
+        # computed once here instead of once per centroid inside
+        # cosine_similarity (previously up to ~240 redundant sqrt-of-768-dims
+        # calls per matched message).
+        norm_embedding = float(np.linalg.norm(np.asarray(embedding, dtype="float32")))
 
         # Seeded below -1 (cosine's floor) rather than at 0, so a genuinely
         # negative best similarity is reported honestly instead of being
         # rounded up to 0.0 -- the reported number is used for threshold
         # tuning, so it has to be the real one.
-        best_id: Optional[str] = None
         best_sim = -2.0
 
         # Best candidate found per tier. Every tier is evaluated for every
@@ -269,21 +310,29 @@ class CampaignMatcher:
         # a domain-corroborated match at 0.94 is stronger evidence than a bare
         # embedding match at 0.9991, and picking the higher cosine first would
         # silently invert that ranking.
-        domain_hit: Optional[tuple] = None    # (similarity, lexical, cluster_id)
+        domain_hit: Optional[tuple] = None  # (similarity, lexical, cluster_id)
         hybrid_hit: Optional[tuple] = None
         embedding_hit: Optional[tuple] = None
 
+        # Tokenized/extracted once, not once per centroid: shingles() runs the
+        # full masking pipeline (5 regex passes) plus tokenizing, and
+        # extract_domains() runs its own regex + urlparse pass -- text never
+        # changes across this loop, so re-running either per centroid (up to
+        # ~240 of them) redid that work for an identical result every time.
+        msg_shingles = shingles(text) if text is not None else None
+        msg_domains = extract_domains(text) if text is not None else None
+
         for centroid in self._centroids:
-            sim = cosine_similarity(embedding, centroid.centroid)
+            sim = _cosine_similarity_with_norm(embedding, norm_embedding, centroid.centroid)
             if sim > best_sim:
-                best_sim, best_id = sim, centroid.cluster_id
+                best_sim = sim
 
             profile = centroid.lexical
             lex = 0.0
-            if text is not None and profile is not None:
-                lex = lexical_similarity(text, profile)
+            if msg_shingles is not None and profile is not None:
+                lex = similarity_from_shingles(msg_shingles, profile)
 
-                if sim >= DOMAIN_EMBEDDING_FLOOR and shares_domain(text, profile):
+                if sim >= DOMAIN_EMBEDDING_FLOOR and domains_overlap(msg_domains, profile):
                     cand = (sim, lex, centroid.cluster_id)
                     if domain_hit is None or sim > domain_hit[0]:
                         domain_hit = cand

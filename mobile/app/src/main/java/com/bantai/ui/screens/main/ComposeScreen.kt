@@ -52,9 +52,9 @@ import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.White
 import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsSender
-import com.bantai.ui.theme.White
 import com.bantai.viewmodel.ComposeViewModel
 
 @Composable
@@ -83,16 +83,22 @@ fun ComposeScreen(
     // Accept E.164 (+[1-15 digits]) or local all-digit numbers (7-15 digits).
     // Rejects alphanumeric sender IDs (which are receive-only) and short codes
     // below 7 digits to prevent accidental sends to premium-rate services.
+    //
+    // Intentionally separate from OnboardingViewModel's normalizePhone: signup
+    // requires a real PH mobile line to receive an OTP, so it validates and
+    // rewrites to +63 form. Compose just needs "is this a plausible SMS-capable
+    // recipient" for any number, PH or not — don't merge the two.
     fun isValidRecipient(number: String): Boolean {
-        if (number.startsWith("+")) {
-            val digits = number.drop(1)
+        val cleaned = number.replace(Regex("[\\s\\-()]"), "")
+        if (cleaned.startsWith("+")) {
+            val digits = cleaned.drop(1)
             return digits.all { it.isDigit() } && digits.length in 7..15
         }
-        return number.all { it.isDigit() } && number.length in 7..15
+        return cleaned.all { it.isDigit() } && cleaned.length in 7..15
     }
 
     fun sendMessage() {
-        val to = recipient.trim()
+        val to = recipient.trim().replace(Regex("[\\s\\-()]"), "")
         val body = messageBody.trim()
         if (to.isEmpty()) {
             Toast.makeText(context, "Enter a recipient", Toast.LENGTH_SHORT).show()
@@ -141,17 +147,19 @@ fun ComposeScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .imePadding(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .imePadding(),
     ) {
         // Top bar
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -167,11 +175,12 @@ fun ComposeScreen(
                 modifier = Modifier.align(Alignment.Center),
             )
             Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
-                    .size(36.dp)
-                    .background(if (recipient.isNotEmpty() && messageBody.isNotEmpty()) Indigo else Surface, CircleShape),
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .size(36.dp)
+                        .background(if (recipient.isNotEmpty() && messageBody.isNotEmpty()) Indigo else Surface, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 if (isSending) {
@@ -196,11 +205,12 @@ fun ComposeScreen(
 
         // To field
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Black)
-                .border(width = 1.dp, color = BorderColor)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(Black)
+                    .border(width = 1.dp, color = BorderColor)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -212,10 +222,11 @@ fun ComposeScreen(
                 textStyle = TextStyle(color = White, fontSize = 15.sp),
                 cursorBrush = SolidColor(Indigo),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone,
-                    imeAction = ImeAction.Next,
-                ),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Next,
+                    ),
                 decorationBox = { inner ->
                     if (recipient.isEmpty()) {
                         Text("Phone number", color = TextSecondary, fontSize = 15.sp)
@@ -231,9 +242,10 @@ fun ComposeScreen(
         BasicTextField(
             value = messageBody,
             onValueChange = { messageBody = it },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
             textStyle = TextStyle(color = White, fontSize = 15.sp, lineHeight = 22.sp),
             cursorBrush = SolidColor(Indigo),
             decorationBox = { inner ->

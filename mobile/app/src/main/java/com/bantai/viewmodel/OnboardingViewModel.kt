@@ -13,16 +13,20 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val PH_MOBILE_DIGIT_COUNT = 10
+private const val PH_MOBILE_LEADING_DIGIT = '9'
+
 data class OnboardingUiState(
     val phoneNumber: String = "",
     val termsAccepted: Boolean = false,
     val otpCode: String = "",
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
 )
 
-class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
-
+class OnboardingViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _userData = MutableStateFlow(UserData())
@@ -77,8 +81,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         _lastNameErrorMessage.value = ""
     }
 
-    fun isValidName(name: String): Boolean =
-        name.trim().all { it.isLetter() || it.isWhitespace() }
+    fun isValidName(name: String): Boolean = name.trim().all { it.isLetter() || it.isWhitespace() }
 
     fun cycleAvatarColor() {
         val colors = listOf("#FF6B35", "#5B4FE8", "#00C896", "#0A84FF", "#E91E8C")
@@ -87,8 +90,16 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun getInitials(): String {
-        val first = _firstName.value.trim().firstOrNull()?.uppercase() ?: ""
-        val last = _lastName.value.trim().firstOrNull()?.uppercase() ?: ""
+        val first =
+            _firstName.value
+                .trim()
+                .firstOrNull()
+                ?.uppercase() ?: ""
+        val last =
+            _lastName.value
+                .trim()
+                .firstOrNull()
+                ?.uppercase() ?: ""
         return "$first$last".ifEmpty { "?" }
     }
 
@@ -115,7 +126,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             userPreferences.saveProfile(
                 firstName = trimmedFirst,
                 lastName = trimmedLast,
-                avatarColor = _avatarColor.value
+                avatarColor = _avatarColor.value,
             )
             // Sync the profile to the backend so the User row isn't left with null names.
             val token = userPreferences.userData.first().authToken
@@ -124,12 +135,12 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 onSuccess()
                 return@launch
             }
-            AuthApi.updateProfile(token, trimmedFirst, trimmedLast)
+            AuthApi
+                .updateProfile(token, trimmedFirst, trimmedLast)
                 .onSuccess {
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not sync your profile")
                     }
@@ -148,20 +159,52 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         _state.update { it.copy(otpCode = code, errorMessage = null) }
     }
 
-    fun requestOtp(rawPhone: String, onSuccess: () -> Unit) {
-        val phone = rawPhone.replace(" ", "")
-        if (phone.isEmpty()) {
-            _state.update { it.copy(errorMessage = "Enter your phone number") }
+    /**
+     * Normalizes manual entry ("9171234567", "09171234567") and SIM-detected
+     * numbers (already "+63 917 123 4567") to the same "+63..." form the
+     * backend and every other stored phone number use. Without this, a
+     * manually typed number was saved with no country code at all, so it
+     * would never match its own SIM-detected form or any other +63 row.
+     *
+     * Returns null for anything that isn't a plausible PH mobile number
+     * (wrong length, a landline, a non-PH number) instead of silently
+     * forcing it into a syntactically-plausible-but-wrong "+63..." value.
+     */
+    private fun normalizePhone(raw: String): String? {
+        val trimmed = raw.trim().replace(Regex("[\\s\\-()]"), "")
+        // Any "+" prefix that isn't "+63" is a non-PH E.164 number; reject rather
+        // than mangle it into a syntactically-plausible-but-wrong +63 value.
+        if (trimmed.startsWith("+") && !trimmed.startsWith("+63")) return null
+        val digits =
+            when {
+                trimmed.startsWith("+63") -> trimmed.removePrefix("+63")
+                trimmed.startsWith("0063") -> trimmed.removePrefix("0063")
+                trimmed.startsWith("63") && trimmed.length > PH_MOBILE_DIGIT_COUNT -> trimmed.removePrefix("63")
+                trimmed.startsWith("0") -> trimmed.removePrefix("0")
+                else -> trimmed
+            }.filter { it.isDigit() }
+        return digits
+            .takeIf { it.length == PH_MOBILE_DIGIT_COUNT && it.first() == PH_MOBILE_LEADING_DIGIT }
+            ?.let { "+63$it" }
+    }
+
+    fun requestOtp(
+        rawPhone: String,
+        onSuccess: () -> Unit,
+    ) {
+        val phone = normalizePhone(rawPhone)
+        if (phone == null) {
+            _state.update { it.copy(errorMessage = "Enter a valid PH mobile number") }
             return
         }
         _state.update { it.copy(phoneNumber = phone, isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            AuthApi.requestOtp(phone)
+            AuthApi
+                .requestOtp(phone)
                 .onSuccess {
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
                     }
@@ -183,13 +226,13 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         }
         _state.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            AuthApi.verifyOtp(current.phoneNumber, current.otpCode)
+            AuthApi
+                .verifyOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
                     userPreferences.saveAuth(auth.accessToken, current.phoneNumber)
                     _state.update { it.copy(isLoading = false) }
                     onSuccess()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
                     }

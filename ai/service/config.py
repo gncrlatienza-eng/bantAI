@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .campaign import DEFAULT_SIMILARITY_THRESHOLD
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -32,9 +34,9 @@ class Settings(BaseSettings):
     # The bar is deliberately highest for "blocked" — hiding a real message is
     # the most costly mistake. Tune these once the model's score distribution is
     # observed on real data.
-    safe_threshold: float = 0.50    # Ham  -> safe    (inbox)
-    spam_threshold: float = 0.60    # Spam -> spam    (dropdown)
-    block_threshold: float = 0.90   # Scam -> blocked (dropdown)
+    safe_threshold: float = 0.50  # Ham  -> safe    (inbox)
+    spam_threshold: float = 0.60  # Spam -> spam    (dropdown)
+    block_threshold: float = 0.90  # Scam -> blocked (dropdown)
 
     # Minimum gap between the top two class probabilities. When the winner
     # leads the runner-up by less than this, the model is treated as "torn"
@@ -53,13 +55,42 @@ class Settings(BaseSettings):
     cluster_file: str = "datasets/processed/campaign_clusters.json"
     backend_url: str = "http://localhost:3000/api"
 
+    # Shared secret for the backend's ApiKeyGuard-protected internal routes --
+    # GET /campaigns/centroids (this service) and GET /reports (the retraining
+    # pipeline). Must equal the backend's ``INTERNAL_API_KEY``. Empty means the
+    # header is omitted entirely, which those routes answer with 401; since
+    # ``load_centroids`` swallows failures by design, an unset key shows up as
+    # "0 campaigns loaded" rather than an error, so check this first if
+    # matching is silently doing nothing.
+    backend_api_key: str = ""
+
     # Cosine similarity a message must reach to join an existing campaign
     # (manuscript Stage 5b). The manuscript specifies 0.85; measured against
     # real data that attaches 54.5% of *unrelated* messages, because the
     # classifier embedding this reuses encodes class rather than campaign.
     # Re-calibrated to 0.999 in Sprint 5 (WBS 5.3.6) -- see
     # service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD for the full sweep.
-    campaign_threshold: float = 0.999
+    # Sourced from that constant rather than re-declared here, so the two
+    # cannot silently drift apart if the calibrated value ever changes.
+    campaign_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
+
+    # --- Retraining round trip (Sprint 4, WBS 4.4.3) --------------------- #
+    # Where POST /retrain records the backend's trigger requests. Training
+    # itself does not happen here -- there is no GPU on the serving host --
+    # so this is a queue a human drains with `scripts/retrain.py` on Colab,
+    # not a job runner. A subdirectory (not a bare file directly under
+    # `models/`) so `ai/models/*/` in .gitignore covers it automatically --
+    # that pattern only ignores directories, not files placed straight in
+    # `models/`.
+    retrain_queue_path: str = "models/retrain_queue/queue.jsonl"
+
+    # Where `main.py`'s startup check reads the currently active model from,
+    # to compare against the version this service is actually serving (see
+    # `models/xlm-roberta-smishing/version.json`). Reuses the same backend
+    # as `centroid_source="backend"` and the same `backend_api_key` --
+    # `GET /models/active` is ApiKeyGuard-protected like `/campaigns/centroids`
+    # and `/reports`.
+    version_check_enabled: bool = True
 
 
 settings = Settings()

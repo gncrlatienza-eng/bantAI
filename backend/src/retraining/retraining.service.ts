@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { PrismaService } from '../../database/prisma.service';
@@ -21,6 +21,7 @@ export class RetrainingService {
   private readonly logger = new Logger(RetrainingService.name);
   private readonly aiServiceUrl =
     process.env.AI_SERVICE_URL ?? 'http://localhost:8001';
+  private _retrainInFlight = false;
 
   constructor(private prisma: PrismaService) {}
 
@@ -41,7 +42,7 @@ export class RetrainingService {
     this.logger.warn(
       `Retraining trigger fired: ${result.reason} (validated=${result.validatedCount})`,
     );
-    await this.callRetrainEndpoint(result.reason);
+    await this.triggerRetrain(result.reason);
   }
 
   // Exposed so the manual trigger endpoint (Sprint 5, 5.3.4) can call it.
@@ -61,7 +62,7 @@ export class RetrainingService {
 
     // Condition 1: validated report count since last promotion
     const validatedCount = await this.prisma.userReport.count({
-      where: { status: 'Validated', updatedAt: { gte: lastPromotedAt } },
+      where: { status: 'Validated', validatedAt: { gte: lastPromotedAt } },
     });
 
     if (validatedCount >= REPORT_THRESHOLD) {
@@ -119,6 +120,19 @@ export class RetrainingService {
       currentF1,
       drift: false,
     };
+  }
+
+  async triggerRetrain(reason: string) {
+    if (this._retrainInFlight) {
+      throw new ConflictException('A retraining job is already in progress.');
+    }
+    this._retrainInFlight = true;
+    this.logger.warn(`Retraining triggered: ${reason}`);
+    try {
+      await this.callRetrainEndpoint(reason);
+    } finally {
+      this._retrainInFlight = false;
+    }
   }
 
   // Page-Hinkley test detecting a sustained upward shift in classification

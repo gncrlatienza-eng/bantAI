@@ -33,14 +33,40 @@ export const ProfilePage: React.FC = () => {
       userMeta="Threat Intelligence Analyst"
       org="Globe Telecom"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 900 }}>
-        <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 32 }}>
-          <div className="avatar client" style={{ width: 72, height: 72, fontSize: '1.75rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 24,
+          maxWidth: 900,
+        }}
+      >
+        <div
+          className="panel"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 24,
+            padding: 32,
+          }}
+        >
+          <div
+            className="avatar client"
+            style={{ width: 72, height: 72, fontSize: '1.75rem' }}
+          >
             MS
           </div>
           <div>
-            <h2 style={{ fontSize: '1.75rem', marginBottom: 4 }}>Maria Santos</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', marginBottom: 8 }}>
+            <h2 style={{ fontSize: '1.75rem', marginBottom: 4 }}>
+              Maria Santos
+            </h2>
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                fontSize: '0.9375rem',
+                marginBottom: 8,
+              }}
+            >
               Senior Threat Intelligence Analyst — Globe Telecom Fraud Ops
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -51,29 +77,48 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         <div className="panel">
-          <h3 style={{ fontSize: '1.25rem', marginBottom: 16 }}>Account Information</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, fontSize: '0.875rem' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: 16 }}>
+            Account Information
+          </h3>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 20,
+              fontSize: '0.875rem',
+            }}
+          >
             <div>
-              <small style={{ color: 'var(--text-muted)', display: 'block' }}>Email Address</small>
+              <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                Email Address
+              </small>
               <strong>analyst@globe.com.ph</strong>
             </div>
             <div>
-              <small style={{ color: 'var(--text-muted)', display: 'block' }}>Organization</small>
+              <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                Organization
+              </small>
               <strong>Globe Telecom, Inc.</strong>
             </div>
             <div>
-              <small style={{ color: 'var(--text-muted)', display: 'block' }}>Role</small>
+              <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                Role
+              </small>
               <strong>Threat Analyst Level 2</strong>
             </div>
             <div>
-              <small style={{ color: 'var(--text-muted)', display: 'block' }}>Member Since</small>
+              <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                Member Since
+              </small>
               <strong>January 14, 2026</strong>
             </div>
           </div>
         </div>
 
         <div className="panel">
-          <h3 style={{ fontSize: '1.25rem', marginBottom: 16 }}>Security & Access Log</h3>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: 16 }}>
+            Security & Access Log
+          </h3>
           <div className="table-wrap">
             <table>
               <thead>

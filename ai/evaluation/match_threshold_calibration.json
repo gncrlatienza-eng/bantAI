@@ -1,68 +1,68 @@
 {
   "n_messages": 4000,
-  "n_groups": 86,
+  "n_groups": 82,
   "group_jaccard": 0.75,
-  "member_centroid_mean": 0.9998,
-  "stranger_centroid_mean": 0.47,
+  "member_centroid_mean": 0.9995,
+  "stranger_centroid_mean": 0.688,
   "sweep": [
     {
       "threshold": 0.85,
       "recall": 1.0,
-      "false_match_rate": 0.5446
+      "false_match_rate": 0.7181
     },
     {
       "threshold": 0.9,
       "recall": 1.0,
-      "false_match_rate": 0.5226
+      "false_match_rate": 0.6845
     },
     {
       "threshold": 0.95,
       "recall": 1.0,
-      "false_match_rate": 0.4824
+      "false_match_rate": 0.603
     },
     {
       "threshold": 0.97,
       "recall": 1.0,
-      "false_match_rate": 0.437
+      "false_match_rate": 0.5346
     },
     {
       "threshold": 0.98,
-      "recall": 1.0,
-      "false_match_rate": 0.3916
+      "recall": 0.9982,
+      "false_match_rate": 0.4651
     },
     {
       "threshold": 0.99,
-      "recall": 1.0,
-      "false_match_rate": 0.3046
+      "recall": 0.9926,
+      "false_match_rate": 0.3155
     },
     {
       "threshold": 0.995,
-      "recall": 0.998,
-      "false_match_rate": 0.2106
+      "recall": 0.9686,
+      "false_match_rate": 0.1635
     },
     {
       "threshold": 0.997,
-      "recall": 0.992,
-      "false_match_rate": 0.1444
+      "recall": 0.9557,
+      "false_match_rate": 0.0707
     },
     {
       "threshold": 0.998,
-      "recall": 0.9738,
-      "false_match_rate": 0.091
+      "recall": 0.9483,
+      "false_match_rate": 0.0281
     },
     {
       "threshold": 0.999,
-      "recall": 0.9376,
-      "false_match_rate": 0.026
+      "recall": 0.9133,
+      "false_match_rate": 0.0038
     },
     {
       "threshold": 0.9995,
-      "recall": 0.8793,
-      "false_match_rate": 0.0047
+      "recall": 0.8524,
+      "false_match_rate": 0.0005
     },
     {
       "threshold": 0.9999,
-      "recall": 0.7203,
+      "recall": 0.5886,
       "false_match_rate": 0.0001
     }
   ]

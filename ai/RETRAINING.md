@@ -147,23 +147,65 @@ But what gets *written* is the raw body, so the training path does its own
 preprocessing exactly as always. Masked text is a comparison key, never a
 stored artifact.
 
-`max_history` defaults to **None** — no cap. At ~16.8k rows there is no reason
-to sample, and sampling by default would silently discard training data.
+`max_history` defaults to **None** — no cap. At the current pool size (13.5k
+rows as of 2026-08-18, after `scripts/create_holdout_set.py` set aside a
+permanent 20% test set — see `PIPELINE.md` § "Permanent held-out test set")
+there is no reason to sample, and sampling by default would silently discard
+training data.
 
-### The report source (⚠️ partial — WBS 4.3.1, Track A)
+### The report source
 
-The canonical source is the `UserReports` table, which **does not exist yet**.
-Rather than block the pipeline on it, the source is an interface:
+The canonical source is the `UserReport` table (WBS 4.3.1, Track A), which
+landed in PR #39. The source is an interface with three implementations:
 
-| Implementation | Status |
+| Implementation | What it reads |
 |---|---|
-| `NullReportSource` | Default. Yields nothing; manifest records `null (no report store configured)` |
+| `NullReportSource` | Nothing. Still the default; manifest records `null (no report store consulted)` |
 | `FileReportSource` | CSV/JSONL from a directory — see `datasets/reports/README.md` |
-| `DatabaseReportSource` | **Not built.** Drops in behind the same two methods when 4.3.1 lands |
+| `DatabaseReportSource` | `GET /reports` on the backend, keeping `status == "Validated"` |
 
 Running without reports is a legitimate operation — it is what you do to
 reproduce a checkpoint. What would be wrong is *pretending* reports were
-consulted, which `describe()` prevents.
+consulted, which `describe()` prevents. That is also why no source is ever
+selected implicitly: `scripts/retrain.py` requires `--reports-dir` or
+`--reports-url`, and a `BANTAI_AI_BACKEND_URL` sitting in the environment is
+not on its own enough to turn the database on.
+
+**The `Validated` filter runs client-side.** `ReportsService` exposes only
+`findAll()` and `findPending()` — there is no `findValidated()` — so the AI
+side fetches everything and filters. Fine at thesis scale; if the table ever
+outgrows one unpaginated response, the fix is a server-side filter on Track A's
+side, not paging from here against an API with no cursor.
+
+**`validated_at` is really `updatedAt`.** Prisma's `@updatedAt` moves on any
+write to the row, including a later `adminNote` edit, so it is a proxy for the
+validation time rather than the thing itself. A dedicated `validatedAt` column
+would be exact. The only cost meanwhile is that a re-touched report can look
+newer than it is and be re-consumed by a later run — harmless, since the
+snapshot de-duplicates.
+
+**Failures raise; they do not degrade.** This is the deliberate opposite of
+`service/centroid_source.py`, which swallows every error. An empty centroid
+list costs one enhancement and the service still classifies. An empty *report*
+list is indistinguishable from "no corrections were filed" — so a 401, or a
+typo in the URL, would otherwise produce a clean-looking retrain that learned
+from none of the mistakes that triggered it, and a manifest no reader would
+question. `ReportSourceError` stops the run instead.
+
+#### Getting reports onto a GPU box
+
+Colab has no route to a laptop's `localhost:3000`, so the database source
+cannot be used from the notebook. Export first, then carry the file:
+
+```bash
+cd ai
+python scripts/retrain.py --export-reports datasets/reports/validated.csv \
+    --reports-url http://localhost:3000/api
+python colab/build_retrain_package.py     # picks up datasets/reports/
+```
+
+The export writes exactly the columns `FileReportSource` reads, so the two
+sources round-trip.
 
 ### The `since` watermark
 
@@ -172,6 +214,36 @@ read from that run's manifest. **Dry runs are skipped** when computing it: a
 dry run trains nothing, so letting it advance the watermark would make the next
 real run silently skip every report the dry run merely looked at. `--since all`
 overrides the watermark entirely.
+
+### What the gate records, and what it does not
+
+Every run writes `decision.json` — the verdict plus every number behind it,
+**including for a rejection.** A rejected candidate is the case most worth
+explaining later, so it is recorded in exactly as much detail as a promotion.
+
+Since WBS 4.3.5 that also includes the class-level breakdown of the
+disagreements:
+
+```json
+"regression_transitions": { "Scam->Spam": 20, "Ham->Spam": 12 },
+"fix_transitions":        { "Spam->Scam": 41, "Ham->Ham": 9 }
+```
+
+`97 fixes vs 44 regressions` invites exactly one follow-up — *what got worse?* —
+and the counts alone cannot answer it. `Scam->Spam: 20` says the candidate
+started under-calling scams, which is a different and more serious failure than
+the same number of Ham/Spam mix-ups. These are text-free by design, so they are
+safe to commit and to quote in the manuscript.
+
+The row-level detail lands beside it in **`disagreements.json`**: index, true
+label, both predictions, and the message text for every row the two models
+disagreed on.
+
+> ⚠️ **`disagreements.json` must never be committed.** It reproduces real SMS
+> bodies from the validation split — masked (`<URL>`, `<OTP>`), because that is
+> the form the models were scored on, but still real user messages. It stays in
+> the run directory, which `ai/models/*/` already git-ignores. Quote the
+> transition counts instead.
 
 ### Validation caveat
 
@@ -234,6 +306,101 @@ promoted.
 
 ---
 
+## Stage 5 — Round trip (WBS 4.4.3)
+
+**Code:** `service/routers/retrain.py`, `service/retrain_queue.py`,
+`retraining/registry.py`, `retraining/version_file.py`, `retraining/checksum.py`
+· **CLI:** `scripts/retrain.py --register/--activate` ·
+**Live demo:** `scripts/round_trip.py` ·
+**Tests:** `tests/test_round_trip.py` (21)
+
+*Integration test: full retraining round trip (report → validate → retrain →
+deploy).* Before this, two links in that chain did not exist, both on the AI
+side:
+
+1. The backend's hourly cron (`retraining.service.ts`) already POSTed to
+   `${AI_SERVICE_URL}/retrain` when a trigger fired -- but the AI service
+   registered no such route. The call 404d and the backend caught it as a
+   warning, so the trigger had never once been observable from either side.
+2. `pipeline.py` scored a candidate and wrote `decision.json`, then stopped.
+   It never told `ModelVersions` a candidate existed, so the table stayed
+   empty -- which meant the backend's own F1-degradation trigger and its
+   rollback route were dead code, since `activeModel` was always `null`.
+
+Both are closed without changing what the deployed model is. The gate's
+verdict is still a recommendation; a swap is still a deliberate, separate act
+-- see `PIPELINE.md` § Stage 5b for why that separation matters more than
+usual right now (the Sprint 5 threshold numbers are with the adviser, and a
+promotion would invalidate all of them).
+
+### `POST /retrain` — accept and record, not train
+
+There is no GPU on the machine that would run this service; training happens
+on Colab. So the endpoint cannot train anything, and does not pretend to. It
+appends the request to a queue file and returns `202`. `GET /retrain/jobs`
+reads it back. A repeat of the same trigger while a job for it is still
+`queued` returns the existing job rather than a new one -- the cron's
+conditions stay true until a model is actually promoted, so an undeduped
+queue would grow one row per hour, forever, from day one.
+
+A human drains the queue with `scripts/retrain.py`, same as today.
+
+### `--register` / `--activate` — two flags, not one
+
+`scripts/retrain.py --register` POSTs the finished candidate to the backend
+as an **inactive** `ModelVersion` row: `versionTag` (`v<run-stamp>`, e.g.
+`v2026-08-17T04-15-33Z`), the candidate's macro-F1, and the gate's reason in
+`notes`. Safe the moment a decision exists -- it is only a record.
+
+`--activate` (implies `--register`) makes it the live `ModelVersion`, and
+refuses to for a candidate the gate rejected. This is the step that needs a
+human sign-off (the adviser, per the open item in `PIPELINE.md` § Stage 5b) --
+a pipeline that auto-activates on a green gate is exactly the failure mode
+that note warns against. Activating a `ModelVersion` row is also **not** the
+same as redeploying: it does not touch the running service, which still
+needs the manual "point the live model at `<candidate_dir>`" step
+`scripts/retrain.py` has always printed.
+
+### `version.json` — how "deploy" becomes checkable
+
+`config.model_dir` used to be a static string read at import; the service had
+no way to say *which* checkpoint it was actually serving. Now, the moment
+training finishes, `pipeline.py` writes `version.json` beside the candidate's
+weights (`version_tag` + a streamed SHA-256 of `model.safetensors` --
+`retraining/checksum.py`, pulled out of the Colab notebook's baseline-check
+cell so both compute the digest the same way). It travels with the
+checkpoint automatically, so "point the live model at `<candidate_dir>`"
+carries its identity along for free.
+
+`GET /health` reads it fresh on every call and reports `version_tag`. At
+startup, `service/main.py` compares it against the backend's
+`GET /models/active` and logs loudly on a mismatch -- non-fatal, same
+reasoning as the campaign-centroid load: a stale record must not stop the
+service from classifying. Every checkpoint deployed before this existed,
+including the one currently live, has no `version.json`; that reads as
+`version_tag: null`, an honest "not yet tracked," not a fabricated tag.
+
+### Proving the round trip without a GPU, Docker, or a network
+
+`tests/test_round_trip.py` walks every stage --
+report → gate verdict → register → activate → `/health` reporting the new
+version -- with the backend and `_predict` stubbed, the same pattern
+`test_reports.py` and `test_retraining_pipeline.py` already use. It proves
+the wiring composes, not that the model improved.
+
+`scripts/round_trip.py` is the live counterpart -- real backend, real AI
+service, one real forward pass (the deployed checkpoint scored against
+itself, so the gate has real numbers to report without training anything).
+It is the WBS 4.5.1 Sprint 4 demo, not a CI gate: run it by hand once Docker,
+the backend, and the AI service are all up. It seeds three temporary report
+rows (idempotent, cleaned up automatically) because there is no dev-mode way
+to read a generated OTP through the API to seed them via the normal app flow
+-- `OtpSmsService` only logs that delivery was skipped, it never returns the
+code. It never activates a `ModelVersion` for real; anything it registers is
+tagged `vROUNDTRIP-TEST-...` and stays inactive.
+
+---
+
 ## Rollback (WBS 4.2.3)
 
 Promotion is a pointer swap, not an overwrite. Checkpoints are written to
@@ -290,5 +457,6 @@ unrecoverable step this document exists to prevent.
 | 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done |
 | 4.3.9 | TF-IDF summarization pipeline | ✅ Done (`service/summarize.py` + `POST /summarize`) |
 | 4.4.2 | Unit test: trigger evaluation logic | ✅ Done |
-| 4.3.5 | Automated retraining pipeline | 🟡 Built and dry-run verified; report source pending WBS 4.3.1 (Track A) |
+| 4.3.5 | Automated retraining pipeline | ✅ Done. `DatabaseReportSource` reads WBS 4.3.1's table (verified against a live backend); first real GPU fine-tune ran 2026-08-17 (Colab T4, `evaluation/retraining_run_2026-08-17.json`), gate says promote — not acted on, see `PIPELINE.md` § Stage 5b. Second run 2026-08-26 (Colab T4, `evaluation/retraining_run_2026-08-26.json`), on the pool grown to 18,938 rows after folding in a new raw phone-export batch — gate again says promote (macro-F1 0.9186→0.9451, 181 fixes/58 regressions, p≈0) — also not acted on yet, same reasoning as the first run plus the adviser sign-off that just closed on the same date, see `PIPELINE.md`. Third run 2026-08-27 (Colab T4, `evaluation/retraining_run_2026-08-27.json`) — run after fixing two silent data-corruption bugs a pre-flight audit found in the second run's data (163 missing human review corrections, plus a hardcoded review-sheet filename list that silently skipped two newly-reviewed sheets) and locking exact dependency versions — gate again says promote (macro-F1 0.9225→0.9461, 193 fixes/76 regressions, p≈0). Also the first model to clear a genuinely clean WBS 6.4.6 holdout evaluation: macro-F1 0.9592 on 3,236 never-seen rows, Scam recall 92.4% (7.6% miss rate — the honest weak point), Ham false-positive rate 0.22% (`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`). **Promoted 2026-08-30** — `models/xlm-roberta-smishing/` now serves this checkpoint (`v2026-08-27T09-46-20Z`); prior checkpoint kept as `models/xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` for rollback. ⚠️ This was Maxene's own decision, not the adviser's — see `PIPELINE.md` § Stage 5b "Candidate promoted — 2026-08-30, not on adviser sign-off" for exactly what changed and why that distinction matters. `ModelVersions` registered and activated the same day (`603554f0-6563-4507-8037-108f7dccf386`) |
 | 4.3.8 | Campaign evolution tracking | ✅ Done (`campaign_evolution.py`, see `PIPELINE.md` Stage 9b — not a retraining component, listed here for status continuity) |
+| 4.4.3 | Integration test: full retraining round trip | ✅ Done. Built, CI-tested (`tests/test_round_trip.py`, 21 tests), and **run live** 2026-08-18 against real Docker Postgres + backend + AI service — `scripts/round_trip.py` passed every stage (report seeded → validated report read from the live table → `POST /retrain` accepted and queued → real gate verdict → `ModelVersion` registered, never activated → cleaned up). Found and fixed one real bug in the process (the script's own scratch directory wasn't created before the gate tried to write into it). `ModelVersions` also given its first real row the same session (`scripts/register_incumbent.py --activate`): the deployed 2026-07-29 checkpoint, macro-F1 0.9438 — confirmed via `GET /health` reporting `version_tag` and `GET /models/active` matching. Unblocks 4.5.1 |

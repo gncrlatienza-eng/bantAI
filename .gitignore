@@ -18,6 +18,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Generated Prisma client -- schema.prisma uses the default output location
+# (node_modules/@prisma/client), never a custom one; this stale copy got
+# accidentally committed early on and broke CI's Prettier check once it drifted
+# out of sync with the schema (DEV_LOG 2026-08-16).
+backend/database/prisma/generated/
+
 # ─── Android / Mobile ──────────────────────────────────────────────────────────
 mobile/.gradle/
 mobile/build/
@@ -69,12 +75,30 @@ ai/datasets/labeled/*.csv
 !ai/datasets/labeled/sample.csv
 ai/datasets/audit/
 
+# Dated backups of bantai_labeled.csv taken outside create_holdout_set.py's own
+# backup mechanism (which already writes its dated backups directly beside the
+# file, no trailing .csv, matching the pattern below at line ~92). Kept OUTSIDE
+# ai/datasets/labeled/ on purpose -- both training/dataset.py and
+# retraining/snapshot.py glob ai/datasets/labeled/*.csv indiscriminately, so a
+# same-directory backup silently doubles the training pool (found 2026-08-26:
+# a backup here inflated a local dry-run's row count from 21,571 to 35,107).
+ai/datasets/labeled_backups/
+
 # Admin-validated user report exports feeding retraining (Sprint 4, WBS 4.3.5).
 # These are real reported SMS bodies -- same reason as the labeled data. The
 # README documenting the export format stays tracked.
 ai/datasets/reports/*.csv
 ai/datasets/reports/*.json
 ai/datasets/reports/*.jsonl
+
+# Permanent held-out test set (Sprint 6, WBS 6.4.6 prep -- scripts/create_holdout_set.py).
+# Real SMS bodies, same reason as the labeled data above. manifest.json (seed,
+# counts, a hash of the CSV -- no message text) stays tracked so the team can
+# see a holdout exists and verify it hasn't drifted, without the raw text ever
+# being committed. The dated pre-split backup of bantai_labeled.csv the script
+# writes matches this pattern too (it ends in the timestamp, not `.csv`).
+ai/datasets/holdout/*.csv
+ai/datasets/labeled/*.pre-holdout-backup-*
 
 # Colab upload package embeds a full copy of the labeled dataset (real personal
 # SMS) inside the zip -- same reason it must never be pushed. Notebook + README
@@ -105,6 +129,12 @@ desktop.ini
 *.tmp
 *.swp
 *.swo
+
+# Stray tsc-compiled output of vite.config.ts, accidentally committed alongside
+# the real source -- Vite reads the .ts directly and never needs these; having
+# both tracked risks the stale .js silently shadowing edits to the .ts.
+web/vite.config.js
+web/vite.config.d.ts
 
 # --- Manuscript ----------------------------------------------------------------
 # 15 MB binary; git stores each version whole. Shared outside the

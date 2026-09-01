@@ -112,63 +112,65 @@ export class SmsService {
 
     if (shouldSuppress) {
       const urls = this.extractUrls(dto.body);
-      const clusterDomains = await this.campaignsService.getActiveDomains();
 
-      for (const url of urls) {
-        const host = this.extractHost(url);
-        const isShortenedUrl = SHORTENED_URL_HOSTS.has(host);
-        const isBlocklistedDomain = clusterDomains.has(host);
+      if (urls.length > 0) {
+        const clusterDomains = await this.campaignsService.getActiveDomains();
+        // Compute hosts once — reused for both suppression check and cluster match
+        const hosts = urls.map((u) => this.extractHost(u));
 
-        if (isShortenedUrl || isBlocklistedDomain) {
-          suppressedLinks.push(url);
+        for (let i = 0; i < urls.length; i++) {
+          if (
+            SHORTENED_URL_HOSTS.has(hosts[i]) ||
+            clusterDomains.has(hosts[i])
+          ) {
+            suppressedLinks.push(urls[i]);
+          }
         }
-      }
 
-      // Link campaign cluster if any URL domain matches
-      const matchedDomains = urls
-        .map((u) => this.extractHost(u))
-        .filter((h) => clusterDomains.has(h));
-      if (matchedDomains.length > 0) {
-        const cluster =
-          await this.campaignsService.findByDomains(matchedDomains);
-        if (cluster) {
-          await this.prisma.$transaction([
-            this.prisma.smsMessage.update({
-              where: { id: message.id },
-              data: { clusterId: cluster.id },
-            }),
-            this.prisma.campaignCluster.update({
-              where: { id: cluster.id },
-              data: { messageCount: { increment: 1 } },
-            }),
-          ]);
-          this.logger.log(
-            `Message ${message.id} linked to cluster ${cluster.id}`,
-          );
+        const matchedDomains = hosts.filter((h) => clusterDomains.has(h));
+        if (matchedDomains.length > 0) {
+          const cluster =
+            await this.campaignsService.findByDomains(matchedDomains);
+          if (cluster) {
+            await this.prisma.$transaction([
+              this.prisma.smsMessage.update({
+                where: { id: message.id },
+                data: { clusterId: cluster.id },
+              }),
+              this.prisma.campaignCluster.update({
+                where: { id: cluster.id },
+                data: { messageCount: { increment: 1 } },
+              }),
+            ]);
+            this.logger.log(
+              `Message ${message.id} linked to cluster ${cluster.id}`,
+            );
+          }
         }
       }
     }
 
-    // Step 8 — store preprocessed features (including suppressed links)
-    await this.prisma.messageFeature.create({
-      data: {
-        messageId: message.id,
-        normalizedBody,
-        maskedBody,
-        suppressedLinks,
-      },
-    });
-
-    // Step 9 — store classification result
-    await this.prisma.classification.create({
-      data: {
-        messageId: message.id,
-        label,
-        score,
-        scores,
-        bucket,
-      },
-    });
+    // Steps 8+9 — single transaction so a failed classification.create cannot
+    // leave an orphaned messageFeature row (and vice versa).
+    await this.prisma.$transaction([
+      this.prisma.messageFeature.create({
+        data: {
+          messageId: message.id,
+          normalizedBody,
+          maskedBody,
+          suppressedLinks,
+        },
+      }),
+      this.prisma.classification.create({
+        data: {
+          messageId: message.id,
+          label,
+          score,
+          scores,
+          bucket,
+        },
+      }),
+    ]);
 
     // Step 10 — create an Alert row for flagged messages so the Alerts screen
     //   has something to display. Inbox messages do not generate an alert.
@@ -206,6 +208,7 @@ export class SmsService {
             sender: true,
             body: true,
             receivedAt: true,
+            clusterId: true,
             classification: {
               select: { label: true, score: true, bucket: true },
             },
@@ -277,7 +280,7 @@ export class SmsService {
 
   private maskLocally(normalizedBody: string): string {
     return normalizedBody
-      .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
+      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
       .replace(/https?:\/\/\S+/gi, '[URL]')
       .replace(/\b(09\d{9}|\+639\d{9}|\d{7,8})\b/g, '[PHONE]')
       .replace(

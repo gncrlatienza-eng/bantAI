@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  ai:
+    name: AI/ML (ruff, pytest, pip-audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest
+      # 5 CVEs currently flagged in transformers==4.57.6 / datasets==4.0.0, all
+      # remote-code-execution / path-traversal bugs that trigger only when
+      # loading an attacker-controlled Hub repo (malicious config.json,
+      # malicious checkpoint, trust_remote_code bypass) or calling
+      # save_to_disk/push_to_hub on an untrusted folder-based dataset builder.
+      # This codebase never does either -- every from_pretrained() call here
+      # loads only our own locally-trained checkpoint (verified via repo-wide
+      # grep, 2026-08-27), and trust_remote_code is never set. Versions are
+      # pinned to what's verified to work with training/train.py's
+      # warmup_ratio usage (transformers>=5.0 dropped it in the 5.0.x line);
+      # bumping past these CVEs needs real Colab compatibility testing before
+      # trusting it, not a same-day version jump. Revisit if that's done.
+      - run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2025-217 --ignore-vuln PYSEC-2026-2288 --ignore-vuln PYSEC-2026-2289 --ignore-vuln PYSEC-2026-2290 --ignore-vuln PYSEC-2026-3716
+
+  backend:
+    name: Backend (eslint, prettier, jest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      # Stale/missing generated Prisma types produce hundreds of false
+      # "unsafe access" lint errors that have nothing to do with the change
+      # being reviewed — see DEV_LOG 2026-08-16.
+      - run: npx prisma generate --schema database/prisma/schema.prisma
+      - run: npm run lint
+      - run: npx prettier --check .
+      - run: npx jest
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  web:
+    name: Web Dashboard (eslint, prettier, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  mobile:
+    name: Mobile (ktlint, detekt, compile)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+      # Invoked via `bash` explicitly rather than `./gradlew` -- removes any
+      # dependency on the execute bit or shebang line resolving correctly on
+      # the runner, on top of the chmod above.
+      - run: bash gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin --console=plain

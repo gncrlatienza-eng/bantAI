@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
+import android.util.Log
 import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.UserPreferences
@@ -12,18 +13,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import android.util.Log
 
 private const val TAG = "SmsReceiver"
 
 class SmsReceiver : BroadcastReceiver() {
-
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         // Manifest registers SMS_DELIVER only (see AndroidManifest.xml comment) — this
         // guard just double-checks the action rather than assuming the caller is trusted.
         if (intent.action != Telephony.Sms.Intents.SMS_DELIVER_ACTION) return
 
-        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
+        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        if (messages.isNullOrEmpty()) return
         val repository = SmsRepository(context)
 
         // Only the default SMS app may write to the SMS ContentProvider (Android 4.4+).
@@ -57,9 +60,10 @@ class SmsReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val token = runCatching {
-                    UserPreferences(context).userData.first().authToken
-                }.getOrDefault("")
+                val token =
+                    runCatching {
+                        UserPreferences(context).userData.first().authToken
+                    }.getOrDefault("")
 
                 for ((sender, bodyBuilder) in grouped) {
                     SmsIngestPipeline.classifyAndNotify(
@@ -82,6 +86,8 @@ class SmsReceiver : BroadcastReceiver() {
 
     // Strip whitespace, hyphens, and parentheses so that "+63 917-123-4567"
     // and "+639171234567" group as the same sender.
-    private fun normalizeAddress(address: String?): String =
-        (address ?: "Unknown").replace(Regex("[\\s\\-()]"), "")
+    private fun normalizeAddress(address: String?): String {
+        val base = if (address.isNullOrBlank()) "Unknown" else address
+        return base.replace(Regex("[\\s\\-()]"), "")
+    }
 }

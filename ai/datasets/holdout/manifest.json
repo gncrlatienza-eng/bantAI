@@ -1,0 +1,16 @@
+{
+  "backup_of_original": "datasets/labeled\\bantai_labeled.csv.pre-holdout-backup-20260818T130821Z",
+  "created_at": "2026-08-18T13:08:21.735140+00:00",
+  "fraction": 0.2,
+  "holdout_csv_sha256": "19d4e1a429e84b72e7a271cfc1df2fea7fa6952afe9b2906bd33e5940a2d9125",
+  "label_counts": {
+    "Ham": 1785,
+    "Scam": 498,
+    "Spam": 953
+  },
+  "n_groups": 2986,
+  "n_rows": 3236,
+  "seed": 20260618,
+  "source_file": "datasets/labeled\\bantai_labeled.csv",
+  "warning": "This holdout set only protects models trained AFTER it was created. The checkpoint deployed 2026-07-29 and the 2026-08-17 retraining candidate were both trained on the full pool before this split existed and were almost certainly trained on some of these rows -- do not evaluate either of them against this holdout and report the result as a clean, never-seen test. The first model this is valid for is the next one trained from this point on."
+}

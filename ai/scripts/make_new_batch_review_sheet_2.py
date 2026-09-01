@@ -20,9 +20,7 @@ import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASETS = os.environ.get(
-    "BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets"))
-)
+DATASETS = os.environ.get("BANTAI_DATASETS", os.path.normpath(os.path.join(HERE, "..", "datasets")))
 AUDIT = os.path.join(os.environ.get("BANTAI_OUT_ROOT", DATASETS), "audit")
 SRC = os.path.join(DATASETS, "bantAI-datasets", "Raw")
 NEW_FILE = os.path.join(SRC, "PHONE-SMS-INBOX_20260729-171539.csv")
@@ -30,9 +28,18 @@ NEW_FILE = os.path.join(SRC, "PHONE-SMS-INBOX_20260729-171539.csv")
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 FIELDS = [
-    "id", "verdict", "correct_label", "notes",
-    "text", "rule_label", "confidence", "reason", "language",
-    "source", "source_label", "sender",
+    "id",
+    "verdict",
+    "correct_label",
+    "notes",
+    "text",
+    "rule_label",
+    "confidence",
+    "reason",
+    "language",
+    "source",
+    "source_label",
+    "sender",
 ]
 
 
@@ -62,8 +69,7 @@ def load_new_pairs() -> set[tuple[str, str]]:
 def main() -> None:
     new_pairs = load_new_pairs()
 
-    with open(os.path.join(AUDIT, "bantai_labeled_full.csv"),
-              encoding="utf-8", newline="") as f:
+    with open(os.path.join(AUDIT, "bantai_labeled_full.csv"), encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
     seen: set[str] = set()
@@ -84,20 +90,30 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
         for i, r in enumerate(picked, 1):
-            w.writerow({
-                "id": f"new2-{i:03d}", "verdict": "", "correct_label": "",
-                "notes": "", "text": r["text"], "rule_label": r["label"],
-                "confidence": r["confidence"], "reason": r.get("reason", ""),
-                "language": r.get("language", ""), "source": r.get("source", ""),
-                "source_label": r.get("source_label", ""),
-                "sender": r.get("sender", ""),
-            })
+            w.writerow(
+                {
+                    "id": f"new2-{i:03d}",
+                    "verdict": "",
+                    "correct_label": "",
+                    "notes": "",
+                    "text": r["text"],
+                    "rule_label": r["label"],
+                    "confidence": r["confidence"],
+                    "reason": r.get("reason", ""),
+                    "language": r.get("language", ""),
+                    "source": r.get("source", ""),
+                    "source_label": r.get("source_label", ""),
+                    "sender": r.get("sender", ""),
+                }
+            )
 
     print("=" * 68)
-    print(f"New-batch review sheet (round 6): {len(picked)} rows (full population, low-conf only) -> "
-          f"{os.path.relpath(out, DATASETS)}")
+    print(
+        f"New-batch review sheet (round 6): {len(picked)} rows (full population, low-conf only) -> "
+        f"{os.path.relpath(out, DATASETS)}"
+    )
     print("-" * 68)
-    for k, n in Counter(f'{r["reason"]}' for r in picked).most_common():
+    for k, n in Counter(f"{r['reason']}" for r in picked).most_common():
         print(f"  {k:44} {n:3}")
     print("-" * 68)
     print(f"  labels: {Counter(r['label'] for r in picked)}")

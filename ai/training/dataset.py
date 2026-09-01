@@ -12,14 +12,14 @@ import glob
 import os
 from typing import List, Tuple
 
+import pandas as pd
+
 from preprocessing import preprocess
 
 from .config import LABEL2ID, TrainingConfig
 
 
-def _read_files(path: str) -> "pd.DataFrame":
-    import pandas as pd
-
+def _read_files(path: str) -> pd.DataFrame:
     files = sorted(
         glob.glob(os.path.join(path, "*.csv"))
         + glob.glob(os.path.join(path, "*.jsonl"))
@@ -31,8 +31,7 @@ def _read_files(path: str) -> "pd.DataFrame":
     files = [f for f in files if not os.path.basename(f).startswith("sample")]
     if not files:
         raise FileNotFoundError(
-            f"No .csv/.json/.jsonl files found in '{path}'. "
-            "Add labeled data before training (see ai/README.md)."
+            f"No .csv/.json/.jsonl files found in '{path}'. Add labeled data before training (see ai/README.md)."
         )
     frames = []
     for f in files:
@@ -68,8 +67,7 @@ def load_split(config: TrainingConfig) -> Tuple[List[str], List[str], List[int],
     df = _read_files(config.dataset_path)
     if config.text_column not in df or config.label_column not in df:
         raise KeyError(
-            f"Dataset must contain '{config.text_column}' and "
-            f"'{config.label_column}' columns; got {list(df.columns)}."
+            f"Dataset must contain '{config.text_column}' and '{config.label_column}' columns; got {list(df.columns)}."
         )
 
     texts = [preprocess(str(t)) for t in df[config.text_column].tolist()]
@@ -105,9 +103,7 @@ def build_hf_datasets(config: TrainingConfig, tokenizer):
     def _to_ds(texts, labels):
         ds = Dataset.from_dict({"text": texts, "label": labels})
         return ds.map(
-            lambda b: tokenizer(
-                b["text"], truncation=True, max_length=config.max_length
-            ),
+            lambda b: tokenizer(b["text"], truncation=True, max_length=config.max_length),
             batched=True,
         )
 

@@ -39,38 +39,46 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 @Composable
-fun ReportSentScreen(type: String, navController: NavController) {
-    val title = when (type) {
-        "block_only" -> "Number blocked"
-        "both" -> "Report submitted & number blocked"
-        else -> "Report submitted"
-    }
-    val body = when (type) {
-        "block_only" -> "The number has been added to your blocked list and can no longer send you messages. You can unblock it anytime from this screen."
-        "both" -> "Your report has been submitted and the number has been blocked. It can no longer send you messages."
-        else -> "Thank you for your report. It helps PhishNet improve its AI model and protect other users from this threat."
-    }
+fun ReportSentScreen(
+    type: String,
+    navController: NavController,
+) {
+    val title =
+        when (type) {
+            "block_only" -> "Number blocked"
+            "both" -> "Report submitted & number blocked"
+            else -> "Report submitted"
+        }
+    val body =
+        when (type) {
+            "block_only" -> "The number has been added to your blocked list and can no longer send you messages. You can unblock it anytime from this screen."
+            "both" -> "Your report has been submitted and the number has been blocked. It can no longer send you messages."
+            else -> "Thank you for your report. It helps PhishNet improve its AI model and protect other users from this threat."
+        }
     val buttonText = if (type == "block_only") "Got it" else "Done"
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp),
     ) {
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(Color(0xFF0A2A0A), CircleShape),
+                modifier =
+                    Modifier
+                        .size(64.dp)
+                        .background(Color(0xFF0A2A0A), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -106,17 +114,19 @@ fun ReportSentScreen(type: String, navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
-                val checklistItems = buildList {
-                    add("Report queued for admin review")
-                    add("Used to retrain the PhishNet AI model")
-                    add("Domain/sender flagged for campaign tracking")
-                    if (type == "both") add("Number added to your blocked list")
-                }
+                val checklistItems =
+                    buildList {
+                        add("Report queued for admin review")
+                        add("Used to retrain the PhishNet AI model")
+                        add("Domain/sender flagged for campaign tracking")
+                        if (type == "both") add("Number added to your blocked list")
+                    }
                 checklistItems.forEach { item ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -140,9 +150,10 @@ fun ReportSentScreen(type: String, navController: NavController) {
                     navController.popBackStack(Screen.Main.route, false)
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {

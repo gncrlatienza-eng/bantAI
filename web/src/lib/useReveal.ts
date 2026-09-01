@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 export function useReveal<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);

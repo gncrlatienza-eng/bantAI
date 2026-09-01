@@ -56,6 +56,7 @@ import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -72,15 +73,17 @@ fun ThreatAnalysisScreen(
     LaunchedEffect(messageId) { viewModel.load(messageId) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -99,15 +102,18 @@ fun ThreatAnalysisScreen(
         HorizontalDivider(color = Surface)
 
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = TextSecondary)
-            }
-            errorMessage != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
-            }
-            alert == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No threat details available", color = TextSecondary, fontSize = 14.sp)
-            }
+            isLoading ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = TextSecondary)
+                }
+            errorMessage != null ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
+                }
+            alert == null ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No threat details available", color = TextSecondary, fontSize = 14.sp)
+                }
             else -> ThreatAnalysisContent(alert!!, indicators, navController)
         }
     }
@@ -128,10 +134,11 @@ private fun ThreatAnalysisContent(
     ) {
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
@@ -139,9 +146,10 @@ private fun ThreatAnalysisContent(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp)),
+                        modifier =
+                            Modifier
+                                .size(48.dp)
+                                .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(Icons.Default.GppBad, contentDescription = null, tint = Danger, modifier = Modifier.size(24.dp))
@@ -151,10 +159,11 @@ private fun ThreatAnalysisContent(
                         Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = 12.sp)
                     }
                     Box(
-                        modifier = Modifier
-                            .background(Color(0xFF2A1A00), RoundedCornerShape(100.dp))
-                            .border(1.dp, Suspicious, RoundedCornerShape(100.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier =
+                            Modifier
+                                .background(Color(0xFF2A1A00), RoundedCornerShape(100.dp))
+                                .border(1.dp, Suspicious, RoundedCornerShape(100.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         Text(alert.label ?: "Suspicious", color = Suspicious, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
@@ -167,10 +176,11 @@ private fun ThreatAnalysisContent(
                     Text("Confidence", color = TextSecondary, fontSize = 12.sp)
                     LinearProgressIndicator(
                         progress = { confidence.toFloat() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
                         color = Suspicious,
                         trackColor = BorderColor,
                     )
@@ -182,10 +192,11 @@ private fun ThreatAnalysisContent(
         item {
             SectionLabel("MESSAGE")
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(16.dp),
             ) {
                 Text(alert.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
             }
@@ -194,10 +205,11 @@ private fun ThreatAnalysisContent(
         item {
             SectionLabel("AI SUMMARY")
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
@@ -218,10 +230,11 @@ private fun ThreatAnalysisContent(
             SectionLabel("THREAT INDICATORS")
             if (indicators.isEmpty()) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
                 ) {
                     Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
                 }
@@ -238,9 +251,10 @@ private fun ThreatAnalysisContent(
             SectionLabel("ACTIONS")
             Button(
                 onClick = { navController.navigate(Screen.TakeAction.route) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Indigo),
             ) {
@@ -264,19 +278,24 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun ThreatIndicatorCard(title: String, subtitle: String) {
+private fun ThreatIndicatorCard(
+    title: String,
+    subtitle: String,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(16.dp))
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(16.dp))
+                .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
+            modifier =
+                Modifier
+                    .size(36.dp)
+                    .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
@@ -288,8 +307,12 @@ private fun ThreatIndicatorCard(title: String, subtitle: String) {
     }
 }
 
-private fun formatFullTimestamp(iso: String): String = try {
-    Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
-} catch (_: Exception) {
-    ""
-}
+private fun formatFullTimestamp(iso: String): String =
+    try {
+        Instant
+            .parse(iso)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US))
+    } catch (_: Exception) {
+        ""
+    }

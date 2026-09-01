@@ -5,6 +5,7 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.provider.Telephony
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsRepository
@@ -13,14 +14,18 @@ import com.bantai.data.local.DraftsStore
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.normalizeSenderKey
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class MessageDetailViewModel(application: Application) : AndroidViewModel(application) {
+private const val TAG = "MessageDetailViewModel"
 
+class MessageDetailViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val smsRepository = SmsRepository(application)
     private val deletedMessagesStore = DeletedMessagesStore(application)
     private val draftsStore = DraftsStore(application)
@@ -30,6 +35,11 @@ class MessageDetailViewModel(application: Application) : AndroidViewModel(applic
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private var loadJob: Job? = null
 
     // Any unsent reply text left in this thread's reply bar from a previous visit.
     private val _draftBody = MutableStateFlow("")
@@ -48,31 +58,54 @@ class MessageDetailViewModel(application: Application) : AndroidViewModel(applic
 
     // The SMS provider gives no push signal on its own — without this, a thread
     // left open would never show a message that arrives while you're looking at it.
-    private val contentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            currentSender?.let { loadConversation(it) }
+    private val contentObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                currentSender?.let { loadConversation(it) }
+            }
         }
-    }
 
     init {
         getApplication<Application>().contentResolver.registerContentObserver(
-            Telephony.Sms.CONTENT_URI, true, contentObserver,
+            Telephony.Sms.CONTENT_URI,
+            true,
+            contentObserver,
         )
     }
 
     fun loadConversation(sender: String) {
         currentSender = sender
-        viewModelScope.launch(Dispatchers.IO) {
-            _isLoading.value = true
-            val deletedIds = deletedMessagesStore.deletedEntries.first().map { it.id }.toSet()
-            _conversation.value = smsRepository.getConversationBySender(sender)
-                .filterNot { it.id in deletedIds }
-            val senderKey = normalizeSenderKey(sender)
-            _draftBody.value = draftsStore.drafts.first()
-                .firstOrNull { normalizeSenderKey(it.address) == senderKey }
-                ?.body ?: ""
-            _isLoading.value = false
-        }
+        // Cancels any in-flight load before starting a new one — loadConversation()
+        // fires concurrently from the initial screen entry, the content observer, and
+        // deleteSelected(), so an in-progress load and a fresh one could otherwise race
+        // to write _conversation out of order.
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                _isLoading.value = true
+                _errorMessage.value = null
+                try {
+                    val deletedIds =
+                        deletedMessagesStore.deletedEntries
+                            .first()
+                            .map { it.id }
+                            .toSet()
+                    _conversation.value =
+                        smsRepository
+                            .getConversationBySender(sender)
+                            .filterNot { it.id in deletedIds }
+                    val senderKey = normalizeSenderKey(sender)
+                    _draftBody.value = draftsStore.drafts
+                        .first()
+                        .firstOrNull { normalizeSenderKey(it.address) == senderKey }
+                        ?.body ?: ""
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load conversation for $sender", e)
+                    _errorMessage.value = "Couldn't load this conversation"
+                } finally {
+                    _isLoading.value = false
+                }
+            }
     }
 
     // Called once per screen visit (not from the ContentObserver's reload path,
@@ -111,11 +144,12 @@ class MessageDetailViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun toggleSelected(id: Long) {
-        _selectedIds.value = if (id in _selectedIds.value) {
-            _selectedIds.value - id
-        } else {
-            _selectedIds.value + id
-        }
+        _selectedIds.value =
+            if (id in _selectedIds.value) {
+                _selectedIds.value - id
+            } else {
+                _selectedIds.value + id
+            }
     }
 
     fun selectAll() {

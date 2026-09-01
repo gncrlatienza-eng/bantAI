@@ -1,8 +1,12 @@
 package com.bantai.ui.screens.main
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Campaign
@@ -36,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,13 +54,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.bantai.navigation.Screen
 import com.bantai.ui.screens.settings.SettingsScreen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.SettingsViewModel
 
 private data class NavTab(
@@ -65,20 +70,25 @@ private data class NavTab(
     val selectedIcon: ImageVector,
 )
 
-private val navTabs = listOf(
-    NavTab("Messages",  Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
-    NavTab("Alerts",    Icons.Outlined.Notifications,     Icons.Filled.Notifications),
-    NavTab("Campaigns", Icons.Outlined.Campaign,          Icons.Filled.Campaign),
-    NavTab("Settings",  Icons.Outlined.Settings,          Icons.Filled.Settings),
-)
+private val navTabs =
+    listOf(
+        NavTab("Messages", Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
+        NavTab("Alerts", Icons.Outlined.Notifications, Icons.Filled.Notifications),
+        NavTab("Campaigns", Icons.Outlined.Campaign, Icons.Filled.Campaign),
+        NavTab("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+    )
 
 // Translucent dark "glass" — approximates the iOS 26 Liquid Glass material
 // without a backdrop-blur dependency.
 private val GlassFill = Color(0xE61A1A1F)
+
 // Extra-translucent fill for the collapsed pill so content reads through it.
 private val GlassFillCollapsed = Color(0x8C1A1A1F)
 private val GlassStroke = Color(0x21FFFFFF)
 private val Unselected = Color(0xFF8E8E93)
+
+private const val TAB_FADE_IN_MS = 220
+private const val TAB_FADE_OUT_MS = 140
 
 @Composable
 fun MainScreen(
@@ -88,6 +98,13 @@ fun MainScreen(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var barExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // Hoisted here (rather than left as AlertsScreen's default viewModel())
+    // so the nav bar badge reflects the same real, live alert count the
+    // Alerts tab itself shows — not a hardcoded guess.
+    val alertsViewModel: AlertsViewModel = viewModel()
+    val alerts by alertsViewModel.alerts.collectAsState()
+    val hasUnreadAlerts = alerts.isNotEmpty()
 
     // Jumps to the requested tab on cold start from a notification tap, and again
     // whenever a new notification is tapped while the app is already running.
@@ -99,38 +116,30 @@ fun MainScreen(
     val contentPadding = PaddingValues(bottom = 116.dp)
 
     Box(modifier = Modifier.fillMaxSize().background(Black)) {
-        when (selectedTab) {
-            0 -> MessagesScreen(navController, contentPadding)
-            1 -> AlertsScreen(navController, contentPadding)
-            2 -> CampaignsScreen(navController, contentPadding)
-            3 -> SettingsScreen(contentPadding, navController, settingsViewModel)
-        }
+        MainTabContent(
+            selectedTab = selectedTab,
+            navController = navController,
+            contentPadding = contentPadding,
+            alertsViewModel = alertsViewModel,
+            settingsViewModel = settingsViewModel,
+        )
 
-        // Tapping anywhere outside the expanded bar collapses it back to the pill.
-        if (barExpanded) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { barExpanded = false },
-                    ),
-            )
-        }
+        CollapseBarScrim(visible = barExpanded, onCollapse = { barExpanded = false })
 
         Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 12.dp)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 12.dp)
+                    .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
             FloatingTabBar(
                 selected = selectedTab,
                 expanded = barExpanded,
+                hasUnreadAlerts = hasUnreadAlerts,
                 onSelect = { index ->
                     selectedTab = index
                     barExpanded = false
@@ -142,30 +151,73 @@ fun MainScreen(
 }
 
 @Composable
+private fun MainTabContent(
+    selectedTab: Int,
+    navController: NavController,
+    contentPadding: PaddingValues,
+    alertsViewModel: AlertsViewModel,
+    settingsViewModel: SettingsViewModel,
+) {
+    AnimatedContent(
+        targetState = selectedTab,
+        transitionSpec = {
+            fadeIn(tween(TAB_FADE_IN_MS)) togetherWith fadeOut(tween(TAB_FADE_OUT_MS))
+        },
+        label = "tab_content",
+    ) { tab ->
+        when (tab) {
+            0 -> MessagesScreen(navController, contentPadding)
+            1 -> AlertsScreen(navController, contentPadding, alertsViewModel)
+            2 -> CampaignsScreen(navController, contentPadding)
+            3 -> SettingsScreen(contentPadding, navController, settingsViewModel)
+        }
+    }
+}
+
+// Tapping anywhere outside the expanded bar collapses it back to the pill.
+@Composable
+private fun CollapseBarScrim(
+    visible: Boolean,
+    onCollapse: () -> Unit,
+) {
+    if (!visible) return
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCollapse,
+                ),
+    )
+}
+
+@Composable
 private fun FloatingTabBar(
     selected: Int,
     expanded: Boolean,
+    hasUnreadAlerts: Boolean,
     onSelect: (Int) -> Unit,
     onExpand: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .shadow(24.dp, RoundedCornerShape(32.dp), ambientColor = Black, spotColor = Black)
-            .clip(RoundedCornerShape(32.dp))
-            .background(if (expanded) GlassFill else GlassFillCollapsed)
-            .border(1.dp, GlassStroke, RoundedCornerShape(32.dp))
-            .animateContentSize(animationSpec = tween(280))
-            .then(if (expanded) Modifier.fillMaxWidth() else Modifier)
-            // Consume taps on the bar itself so touches in the gaps between
-            // tabs never fall through to the list content behind the glass;
-            // when collapsed, tapping the pill expands the bar.
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { if (!expanded) onExpand() },
-            )
-            .padding(horizontal = 6.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .shadow(24.dp, RoundedCornerShape(32.dp), ambientColor = Black, spotColor = Black)
+                .clip(RoundedCornerShape(32.dp))
+                .background(if (expanded) GlassFill else GlassFillCollapsed)
+                .border(1.dp, GlassStroke, RoundedCornerShape(32.dp))
+                .animateContentSize(animationSpec = tween(280))
+                .then(if (expanded) Modifier.fillMaxWidth() else Modifier)
+                // Consume taps on the bar itself so touches in the gaps between
+                // tabs never fall through to the list content behind the glass;
+                // when collapsed, tapping the pill expands the bar.
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { if (!expanded) onExpand() },
+                ).padding(horizontal = 6.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -174,7 +226,9 @@ private fun FloatingTabBar(
                 TabItem(
                     tab = tab,
                     selected = selected == index,
-                    showBadge = index == 1,
+                    // Only Alerts (index 1) ever carries a badge, and only when
+                    // there's a real unread alert behind it — not a hardcoded guess.
+                    showBadge = index == 1 && hasUnreadAlerts,
                     onClick = { onSelect(index) },
                     modifier = Modifier.weight(1f),
                 )
@@ -182,14 +236,17 @@ private fun FloatingTabBar(
         } else {
             CollapsedTabPill(
                 tab = navTabs[selected],
-                showBadge = selected != 1,
+                showBadge = selected == 1 && hasUnreadAlerts,
             )
         }
     }
 }
 
 @Composable
-private fun CollapsedTabPill(tab: NavTab, showBadge: Boolean) {
+private fun CollapsedTabPill(
+    tab: NavTab,
+    showBadge: Boolean,
+) {
     Row(
         modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -203,10 +260,11 @@ private fun CollapsedTabPill(tab: NavTab, showBadge: Boolean) {
             )
             if (showBadge) {
                 Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(7.dp)
-                        .background(Danger, CircleShape),
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .size(7.dp)
+                            .background(Danger, CircleShape),
                 )
             }
         }
@@ -235,14 +293,14 @@ private fun TabItem(
         label = "tabTint",
     )
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(vertical = 6.dp),
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(24.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ).padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
@@ -254,11 +312,12 @@ private fun TabItem(
             )
             if (showBadge) {
                 Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 0.dp)
-                        .size(8.dp)
-                        .background(Danger, CircleShape),
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 0.dp)
+                            .size(8.dp)
+                            .background(Danger, CircleShape),
                 )
             }
         }
@@ -272,4 +331,3 @@ private fun TabItem(
         )
     }
 }
-

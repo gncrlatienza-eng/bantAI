@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class ScamAwarenessViewModel(application: Application) : AndroidViewModel(application) {
-
+class ScamAwarenessViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
 
     private val _relevantTipIds = MutableStateFlow<Set<String>>(emptySet())

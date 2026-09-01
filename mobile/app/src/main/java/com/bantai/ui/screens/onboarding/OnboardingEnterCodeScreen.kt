@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -65,12 +67,14 @@ fun OnboardingEnterCodeScreen(
     LaunchedEffect(Unit) { focusRequesters[0].requestFocus() }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
         IconButton(onClick = { navController.popBackStack() }) {
@@ -134,7 +138,7 @@ fun OnboardingEnterCodeScreen(
             text = "Verify",
             onClick = {
                 viewModel.verifyOtp {
-                    navController.navigate(Screen.OnboardingProfile.route)
+                    navController.navigate(Screen.OnboardingTerms.route)
                 }
             },
             enabled = !state.isLoading,
@@ -157,35 +161,38 @@ private fun OtpBox(
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier
-            .height(52.dp)
-            .focusRequester(focusRequester),
-        textStyle = TextStyle(
-            color = White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        ),
+        modifier =
+            modifier
+                .height(52.dp)
+                .focusRequester(focusRequester),
+        textStyle =
+            TextStyle(
+                color = White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            ),
         cursorBrush = SolidColor(Indigo),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         interactionSource = interactionSource,
         decorationBox = { innerTextField ->
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(SurfaceElevated, RoundedCornerShape(12.dp))
-                    .then(
-                        if (isFocused) {
-                            Modifier.border(
-                                width = 1.dp,
-                                color = Indigo.copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(12.dp),
-                            )
-                        } else {
-                            Modifier
-                        }
-                    ),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(SurfaceElevated, RoundedCornerShape(12.dp))
+                        .then(
+                            if (isFocused) {
+                                Modifier.border(
+                                    width = 1.dp,
+                                    color = Indigo.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
                 contentAlignment = Alignment.Center,
             ) { innerTextField() }
         },

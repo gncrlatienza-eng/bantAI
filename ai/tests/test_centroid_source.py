@@ -6,7 +6,7 @@ until the backend returns the `centroid` field -- see service/centroid_source.py
 
 import json
 
-from service.centroid_source import load_centroids, load_from_file
+from service.centroid_source import load_centroids, load_from_backend, load_from_file
 
 
 def write_clusters(tmp_path, clusters):
@@ -69,9 +69,7 @@ def test_unreadable_source_degrades_instead_of_raising(tmp_path):
 
 
 def test_backend_source_falls_back_when_unreachable():
-    assert load_centroids(
-        source="backend", backend_url="http://127.0.0.1:9/api"
-    ) == []
+    assert load_centroids(source="backend", backend_url="http://127.0.0.1:9/api") == []
 
 
 class _FakeResponse:
@@ -99,9 +97,7 @@ def test_backend_parses_cluster_payload(monkeypatch):
         {"id": "abc", "centroid": [1.0, 0.0], "urlDomains": ["bit.ly"], "label": "gambling"},
         {"id": "def", "centroid": [0.0, 1.0], "urlDomains": []},
     ]
-    monkeypatch.setattr(
-        urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload)
-    )
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload))
 
     result = load_centroids(source="backend", backend_url="http://x/api")
     assert [c.cluster_id for c in result] == ["abc", "def"]
@@ -118,9 +114,64 @@ def test_backend_skips_clusters_missing_a_centroid(monkeypatch):
         {"id": "abc", "urlDomains": [], "messageCount": 12},  # no centroid
         {"id": "def", "centroid": [0.0, 1.0], "urlDomains": []},
     ]
-    monkeypatch.setattr(
-        urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload)
-    )
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=5.0: _FakeResponse(payload))
 
     result = load_centroids(source="backend", backend_url="http://x/api")
     assert [c.cluster_id for c in result] == ["def"]
+
+
+# --- the api key (WBS 4.3.5) ------------------------------------------------
+# The two tests above fake `urlopen` with a lambda that ignores its argument
+# entirely, so they passed happily while the real call sent no `x-api-key` at
+# all -- and GET /campaigns/centroids is ApiKeyGuard-protected. With
+# `load_centroids` swallowing the resulting 401 by design, the default
+# `centroid_source=backend` looked exactly like "no campaigns discovered yet".
+# These assert on the outgoing request, not just the parsed response.
+
+
+def capturing_urlopen(sent, payload=()):
+    def _open(request, timeout=5.0):
+        sent.append(request)
+        return _FakeResponse(list(payload))
+
+    return _open
+
+
+def test_backend_path_sends_the_api_key_header(monkeypatch):
+    import urllib.request
+
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", capturing_urlopen(sent))
+
+    load_from_backend("http://localhost:3000/api", "s3cret")
+
+    (request,) = sent
+    assert request.full_url == "http://localhost:3000/api/campaigns/centroids"
+    # urllib title-cases header names on the Request object.
+    assert request.get_header("X-api-key") == "s3cret"
+
+
+def test_no_key_sends_no_header_rather_than_an_empty_one(monkeypatch):
+    """An empty key is a *wrong* key to the guard, not a missing one -- the
+    same 401, but a far more confusing one to debug."""
+    import urllib.request
+
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", capturing_urlopen(sent))
+
+    load_from_backend("http://localhost:3000/api")
+
+    assert sent[0].get_header("X-api-key") is None
+
+
+def test_load_centroids_threads_the_key_through(monkeypatch):
+    """The dispatcher is where main.py hands the setting in; a key that stops
+    here would fail silently, since load_centroids never raises."""
+    import urllib.request
+
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", capturing_urlopen(sent))
+
+    load_centroids(source="backend", backend_url="http://x/api", backend_api_key="k")
+
+    assert sent[0].get_header("X-api-key") == "k"

@@ -17,6 +17,7 @@ from service.campaign import (
     DEFAULT_SIMILARITY_THRESHOLD,
     CampaignCentroid,
     CampaignMatcher,
+    _cosine_similarity_with_norm,
     build_matcher_from_clusters,
     compute_centroid,
     cosine_similarity,
@@ -55,17 +56,42 @@ def test_zero_vector_does_not_divide_by_zero():
     assert cosine_similarity(np.zeros(3), unit(1, 1, 1)) == 0.0
 
 
+# --- _cosine_similarity_with_norm (CampaignMatcher's hot-path entry point) --
+# match() computes norm(embedding) once and calls this directly per centroid,
+# instead of calling cosine_similarity (which recomputes norm(a)) per
+# centroid. Must agree with cosine_similarity exactly -- same computation,
+# just handed a precomputed norm(a). norm(b) is still recomputed per call,
+# since a backend-sourced centroid has no guaranteed normalization.
+def test_cosine_similarity_with_norm_agrees_with_cosine_similarity():
+    a, b = unit(1, 2, 3), unit(3, 1, 2)
+    norm_a = float(np.linalg.norm(a))
+    assert _cosine_similarity_with_norm(a, norm_a, b) == cosine_similarity(a, b)
+
+
+def test_cosine_similarity_with_norm_handles_unnormalized_b():
+    a = np.array([1.0, 0.0], dtype="float32")
+    b = np.array([50.0, 0.0], dtype="float32")
+    assert _cosine_similarity_with_norm(a, float(np.linalg.norm(a)), b) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_cosine_similarity_with_norm_zero_norm_a_does_not_divide_by_zero():
+    assert _cosine_similarity_with_norm(np.zeros(3), 0.0, unit(1, 1, 1)) == 0.0
+
+
 # --- threshold behaviour ----------------------------------------------------
 def test_threshold_is_the_calibrated_value_not_the_manuscript_default():
-    """0.999, re-calibrated in Sprint 5 (WBS 5.3.6) -- not the manuscript's 0.85.
+    """0.998, re-calibrated in Sprint 5 (WBS 5.3.6) -- not the manuscript's 0.85.
 
     The manuscript's value was measured to attach 54.5% of *unrelated*
     messages to campaigns, because Stage 5b reuses a classifier embedding and
     that embedding encodes class rather than campaign: unrelated Scam pairs
-    already average 0.90 cosine. Pinned here so the number cannot drift back
-    without someone reading why it moved.
+    already average 0.90 cosine. Originally calibrated to 0.999 against the
+    v2026-07-29-run3 checkpoint; moved to 0.998 on the 2026-08-30 promotion of
+    v2026-08-27T09-46-20Z, to reproduce the same recall/false-match trade-off
+    under the new embedding space (PIPELINE.md § Stage 5b). Pinned here so the
+    number cannot drift back without someone reading why it moved.
     """
-    assert DEFAULT_SIMILARITY_THRESHOLD == 0.999
+    assert DEFAULT_SIMILARITY_THRESHOLD == 0.998
 
 
 def test_manuscript_threshold_would_admit_unrelated_messages():
@@ -100,9 +126,9 @@ def test_distant_message_buffers_instead():
 
 
 def test_just_below_threshold_does_not_match():
-    """0.9989 must buffer -- the boundary is the whole point of the rule."""
+    """0.9979 must buffer -- the boundary is the whole point of the rule."""
     matcher = CampaignMatcher([CampaignCentroid("c1", unit(1, 0, 0))])
-    angle = np.arccos(0.9989)
+    angle = np.arccos(0.9979)
     just_below = unit(np.cos(angle), np.sin(angle), 0.0)
     assert matcher.match(just_below).matched is False
 
@@ -166,9 +192,7 @@ def test_centroid_of_one_vector_is_itself():
 
 def test_centroid_sits_between_its_members():
     centroid = compute_centroid([unit(1, 0), unit(0, 1)])
-    assert cosine_similarity(centroid, unit(1, 0)) == pytest.approx(
-        cosine_similarity(centroid, unit(0, 1)), abs=1e-6
-    )
+    assert cosine_similarity(centroid, unit(1, 0)) == pytest.approx(cosine_similarity(centroid, unit(0, 1)), abs=1e-6)
 
 
 # --- building a matcher from clustering output ------------------------------
@@ -196,9 +220,7 @@ def test_round_trip_member_matches_its_own_cluster():
     calibrated 0.999 they would (correctly) fail to round-trip.
     """
     close = np.arccos(0.99999)
-    embeddings = np.array(
-        [unit(1, 0, 0), unit(np.cos(close), np.sin(close), 0), unit(0, 1, 0)]
-    )
+    embeddings = np.array([unit(1, 0, 0), unit(np.cos(close), np.sin(close), 0), unit(0, 1, 0)])
     matcher = build_matcher_from_clusters(embeddings, [0, 0, -1])
     assert matcher.match(embeddings[0]).cluster_id == "0"
 

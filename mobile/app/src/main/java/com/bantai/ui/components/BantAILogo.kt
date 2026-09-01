@@ -21,9 +21,10 @@ fun BantAILogo(
     backgroundColor: Color = Color(0xFF1A1A2E),
 ) {
     Box(
-        modifier = Modifier
-            .size(containerSize)
-            .background(backgroundColor, RoundedCornerShape(20.dp)),
+        modifier =
+            Modifier
+                .size(containerSize)
+                .background(backgroundColor, RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Image(

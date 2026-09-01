@@ -1,10 +1,34 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/common/Button';
 import { Footer } from '../../components/layout/Footer';
 import { PublicHeader } from '../../components/layout/PublicHeader';
 import { ROUTES } from '../../constants/routes';
+import { getAnalyticsSummary } from '../../lib/services';
 
 export const LandingPage: React.FC = () => {
+  const [metrics, setMetrics] = useState({
+    messagesAnalyzed: '14,892+',
+    smishingIntercepted: '1,247+',
+    activeClusters: '31',
+  });
+
+  useEffect(() => {
+    getAnalyticsSummary()
+      .then((data) => {
+        setMetrics({
+          messagesAnalyzed: data.totalMessages
+            ? `${data.totalMessages.toLocaleString()}+`
+            : '14,892+',
+          smishingIntercepted: data.classificationsByLabel?.smishing
+            ? `${data.classificationsByLabel.smishing.toLocaleString()}+`
+            : '1,247+',
+          activeClusters: '31',
+        });
+      })
+      .catch(() => {
+        // Fallback to hardcoded public metrics
+      });
+  }, []);
   return (
     <div className="public-shell" style={{ position: 'relative' }}>
       {/* Homepage Light Ambient Background Glow */}
@@ -37,8 +61,14 @@ export const LandingPage: React.FC = () => {
         {/* UPPER-LEFT CLUSTER (3 Thin Regular Hexagons) */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="190,140 152,205 77,205 40,140 77,75 152,75" />
-          <polygon points="275,75 250,118 200,118 175,75 200,32 250,32" stroke="rgba(59, 130, 246, 0.65)" />
-          <polygon points="90,260 72,290 37,290 20,260 37,230 72,230" stroke="rgba(96, 165, 250, 0.55)" />
+          <polygon
+            points="275,75 250,118 200,118 175,75 200,32 250,32"
+            stroke="rgba(59, 130, 246, 0.65)"
+          />
+          <polygon
+            points="90,260 72,290 37,290 20,260 37,230 72,230"
+            stroke="rgba(96, 165, 250, 0.55)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#hexGlow)">
           <circle cx="190" cy="140" r="4.5" opacity="0.95" />
@@ -54,8 +84,14 @@ export const LandingPage: React.FC = () => {
         {/* UPPER-RIGHT CLUSTER (3 Thin Regular Hexagons) */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="1210,140 1172,205 1097,205 1060,140 1097,75 1172,75" />
-          <polygon points="1125,75 1100,118 1050,118 1025,75 1050,32 1100,32" stroke="rgba(59, 130, 246, 0.65)" />
-          <polygon points="1310,260 1292,290 1257,290 1240,260 1257,230 1292,230" stroke="rgba(96, 165, 250, 0.55)" />
+          <polygon
+            points="1125,75 1100,118 1050,118 1025,75 1050,32 1100,32"
+            stroke="rgba(59, 130, 246, 0.65)"
+          />
+          <polygon
+            points="1310,260 1292,290 1257,290 1240,260 1257,230 1292,230"
+            stroke="rgba(96, 165, 250, 0.55)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#hexGlow)">
           <circle cx="1210" cy="140" r="4.5" opacity="0.95" />
@@ -96,7 +132,13 @@ export const LandingPage: React.FC = () => {
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          <filter id="midLowerGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <filter
+            id="midLowerGlow"
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="160%"
+          >
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -108,7 +150,10 @@ export const LandingPage: React.FC = () => {
         {/* MID-LOWER LEFT FLANK */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="140,240 108,295 43,295 11,240 43,185 108,185" />
-          <polygon points="215,300 197,331 162,331 145,300 162,269 197,269" stroke="rgba(59, 130, 246, 0.6)" />
+          <polygon
+            points="215,300 197,331 162,331 145,300 162,269 197,269"
+            stroke="rgba(59, 130, 246, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#midLowerGlow)">
           <circle cx="140" cy="240" r="4.5" opacity="0.9" />
@@ -120,7 +165,10 @@ export const LandingPage: React.FC = () => {
         {/* MID-LOWER RIGHT FLANK */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="1350,240 1318,295 1253,295 1221,240 1253,185 1318,185" />
-          <polygon points="1235,300 1217,331 1182,331 1165,300 1182,269 1217,269" stroke="rgba(59, 130, 246, 0.6)" />
+          <polygon
+            points="1235,300 1217,331 1182,331 1165,300 1182,269 1217,269"
+            stroke="rgba(59, 130, 246, 0.6)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#midLowerGlow)">
           <circle cx="1350" cy="240" r="4.5" opacity="0.9" />
@@ -145,7 +193,13 @@ export const LandingPage: React.FC = () => {
         preserveAspectRatio="xMidYMax meet"
       >
         <defs>
-          <filter id="bottomHexGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <filter
+            id="bottomHexGlow"
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="160%"
+          >
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -157,7 +211,10 @@ export const LandingPage: React.FC = () => {
         {/* BOTTOM-LEFT ACCENT ABOVE FOOTER (2 Thin Regular Hexagons) */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="170,250 135,311 65,311 30,250 65,189 135,189" />
-          <polygon points="255,190 232,229 187,229 165,190 187,151 232,151" stroke="rgba(59, 130, 246, 0.65)" />
+          <polygon
+            points="255,190 232,229 187,229 165,190 187,151 232,151"
+            stroke="rgba(59, 130, 246, 0.65)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#bottomHexGlow)">
           <circle cx="170" cy="250" r="4.5" opacity="0.9" />
@@ -170,7 +227,10 @@ export const LandingPage: React.FC = () => {
         {/* BOTTOM-RIGHT ACCENT ABOVE FOOTER (2 Thin Regular Hexagons) */}
         <g fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2">
           <polygon points="1370,250 1335,311 1265,311 1230,250 1265,189 1335,189" />
-          <polygon points="1235,190 1212,229 1167,229 1145,190 1167,151 1212,151" stroke="rgba(59, 130, 246, 0.65)" />
+          <polygon
+            points="1235,190 1212,229 1167,229 1145,190 1167,151 1212,151"
+            stroke="rgba(59, 130, 246, 0.65)"
+          />
         </g>
         <g fill="#00f0ff" filter="url(#bottomHexGlow)">
           <circle cx="1370" cy="250" r="4.5" opacity="0.9" />
@@ -181,8 +241,18 @@ export const LandingPage: React.FC = () => {
         </g>
       </svg>
       <PublicHeader />
-      
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
+
+      <main
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          zIndex: 2,
+        }}
+      >
         {/* Hero Section */}
         <section
           className="animate-fade-in"
@@ -215,36 +285,105 @@ export const LandingPage: React.FC = () => {
               textTransform: 'uppercase',
             }}
           >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', animation: 'pulseDot 1.5s infinite' }} />
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: '#3b82f6',
+                animation: 'pulseDot 1.5s infinite',
+              }}
+            />
             Philippine SMS Threat Intelligence Platform
           </div>
 
           {/* Headline */}
-          <h1 style={{ fontSize: 'clamp(2.8rem, 5.2vw, 3.8rem)', fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', color: '#ffffff', margin: '4px 0' }}>
+          <h1
+            style={{
+              fontSize: 'clamp(2.8rem, 5.2vw, 3.8rem)',
+              fontWeight: 800,
+              lineHeight: 1.15,
+              letterSpacing: '-0.03em',
+              color: '#ffffff',
+              margin: '4px 0',
+            }}
+          >
             Campaign Intelligence <br />
-            <span style={{ background: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
               for Philippine Smishing
             </span>
           </h1>
 
           {/* Supporting Paragraph */}
-          <p style={{ fontSize: '1.15rem', color: 'var(--text-secondary)', maxWidth: 780, lineHeight: 1.65, margin: '0 auto' }}>
-            BantAI clusters coordinated smishing campaigns, tracks how scam tactics evolve, and delivers labeled threat intelligence to telecommunications and cybersecurity organizations.
+          <p
+            style={{
+              fontSize: '1.15rem',
+              color: 'var(--text-secondary)',
+              maxWidth: 780,
+              lineHeight: 1.65,
+              margin: '0 auto',
+            }}
+          >
+            BantAI clusters coordinated smishing campaigns, tracks how scam
+            tactics evolve, and delivers labeled threat intelligence to
+            telecommunications and cybersecurity organizations.
           </p>
 
           {/* Hero Action Buttons */}
-          <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <Button to={ROUTES.LICENSING} variant="primary" size="lg" style={{ padding: '14px 34px', fontSize: '1rem', borderRadius: 10, boxShadow: '0 8px 24px rgba(37, 99, 235, 0.4)' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 18,
+              marginTop: 10,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+            <Button
+              to={ROUTES.LICENSING}
+              variant="primary"
+              size="lg"
+              style={{
+                padding: '14px 34px',
+                fontSize: '1rem',
+                borderRadius: 10,
+                boxShadow: '0 8px 24px rgba(37, 99, 235, 0.4)',
+              }}
+            >
               Licensing →
             </Button>
-            <Button to={ROUTES.HOW_IT_WORKS} variant="ghost" size="lg" style={{ padding: '14px 30px', fontSize: '1rem', borderRadius: 10, border: '1px solid var(--border-default)' }}>
+            <Button
+              to={ROUTES.HOW_IT_WORKS}
+              variant="ghost"
+              size="lg"
+              style={{
+                padding: '14px 30px',
+                fontSize: '1rem',
+                borderRadius: 10,
+                border: '1px solid var(--border-default)',
+              }}
+            >
               Learn How It Works
             </Button>
           </div>
 
           {/* Disclaimer Text */}
-          <small style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: 6, maxWidth: 600 }}>
-            Restricted to authorized telecommunications and cybersecurity organizations. Access is by invitation only.
+          <small
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: '0.8125rem',
+              marginTop: 6,
+              maxWidth: 600,
+            }}
+          >
+            Restricted to authorized telecommunications and cybersecurity
+            organizations. Access is by invitation only.
           </small>
           {/* 3 Spacious, Uncompressed High-Tech Statistic Cards Grid */}
           <div
@@ -273,12 +412,30 @@ export const LandingPage: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '1.3rem' }}>📬</span>
-                <span style={{ color: '#93c5fd', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <span
+                  style={{
+                    color: '#93c5fd',
+                    fontSize: '0.8125rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Messages Analyzed
                 </span>
               </div>
-              <strong style={{ fontSize: '3rem', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 25px rgba(96, 165, 250, 0.85), 0 0 50px rgba(37, 99, 235, 0.65)' }}>
-                14,892+
+              <strong
+                style={{
+                  fontSize: '3rem',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  fontFamily: 'var(--font-mono)',
+                  lineHeight: 1.1,
+                  textShadow:
+                    '0 0 25px rgba(96, 165, 250, 0.85), 0 0 50px rgba(37, 99, 235, 0.65)',
+                }}
+              >
+                {metrics.messagesAnalyzed}
               </strong>
             </div>
 
@@ -297,12 +454,30 @@ export const LandingPage: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '1.3rem' }}>🚨</span>
-                <span style={{ color: '#7dd3fc', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <span
+                  style={{
+                    color: '#7dd3fc',
+                    fontSize: '0.8125rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Smishing Intercepted
                 </span>
               </div>
-              <strong style={{ fontSize: '3rem', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 25px rgba(56, 189, 248, 0.9), 0 0 50px rgba(14, 165, 233, 0.7)' }}>
-                1,247+
+              <strong
+                style={{
+                  fontSize: '3rem',
+                  fontWeight: 800,
+                  color: '#38bdf8',
+                  fontFamily: 'var(--font-mono)',
+                  lineHeight: 1.1,
+                  textShadow:
+                    '0 0 25px rgba(56, 189, 248, 0.9), 0 0 50px rgba(14, 165, 233, 0.7)',
+                }}
+              >
+                {metrics.smishingIntercepted}
               </strong>
             </div>
 
@@ -321,11 +496,29 @@ export const LandingPage: React.FC = () => {
                 }}
               >
                 <span style={{ fontSize: '1.3rem' }}>🛡️</span>
-                <span style={{ color: '#6ee7b7', fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <span
+                  style={{
+                    color: '#6ee7b7',
+                    fontSize: '0.8125rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Active Clusters
                 </span>
               </div>
-              <strong style={{ fontSize: '3rem', fontWeight: 800, color: '#34d399', fontFamily: 'var(--font-mono)', lineHeight: 1.1, textShadow: '0 0 25px rgba(52, 211, 153, 0.9), 0 0 50px rgba(16, 185, 129, 0.7)' }}>
+              <strong
+                style={{
+                  fontSize: '3rem',
+                  fontWeight: 800,
+                  color: '#34d399',
+                  fontFamily: 'var(--font-mono)',
+                  lineHeight: 1.1,
+                  textShadow:
+                    '0 0 25px rgba(52, 211, 153, 0.9), 0 0 50px rgba(16, 185, 129, 0.7)',
+                }}
+              >
                 31
               </strong>
             </div>
@@ -333,66 +526,132 @@ export const LandingPage: React.FC = () => {
         </section>
 
         {/* Highlight Cards Section */}
-        <section style={{ padding: '80px 20px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        <section
+          style={{
+            padding: '80px 20px',
+            maxWidth: 1200,
+            margin: '0 auto',
+            width: '100%',
+          }}
+        >
           <div style={{ textAlign: 'center', marginBottom: 50 }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: 12 }}>Built Specifically for the Philippine Threat Landscape</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: 600, margin: '0 auto' }}>
-              Targeting GCash, Maya, BDO, UnionBank, LBC, and e-commerce impersonation tactics using natural language processing and campaign clustering.
+            <h2 style={{ fontSize: '2rem', marginBottom: 12 }}>
+              Built Specifically for the Philippine Threat Landscape
+            </h2>
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                fontSize: '1rem',
+                maxWidth: 600,
+                margin: '0 auto',
+              }}
+            >
+              Targeting GCash, Maya, BDO, UnionBank, LBC, and e-commerce
+              impersonation tactics using natural language processing and
+              campaign clustering.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: 24,
+            }}
+          >
             <div
               className="panel card-hover-effect"
               style={{
-                background: 'linear-gradient(145deg, rgba(20, 30, 60, 0.55) 0%, rgba(10, 16, 35, 0.8) 100%)',
+                background:
+                  'linear-gradient(145deg, rgba(20, 30, 60, 0.55) 0%, rgba(10, 16, 35, 0.8) 100%)',
                 backdropFilter: 'blur(16px)',
                 border: '1px solid rgba(59, 130, 246, 0.35)',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                boxShadow:
+                  '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                 borderRadius: 18,
                 padding: '28px 24px',
               }}
             >
               <div style={{ fontSize: '2rem', marginBottom: 12 }}>🛡️</div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: '#ffffff' }}>AI-Powered NLP Engine</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                XLM-RoBERTa fine-tuned on Tagalog, Taglish, and English smishing texts to accurately detect deceptive lure language, sense of urgency, and typo-squatted URLs.
+              <h3
+                style={{
+                  fontSize: '1.25rem',
+                  marginBottom: 8,
+                  color: '#ffffff',
+                }}
+              >
+                AI-Powered NLP Engine
+              </h3>
+              <p
+                style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}
+              >
+                XLM-RoBERTa fine-tuned on Tagalog, Taglish, and English smishing
+                texts to accurately detect deceptive lure language, sense of
+                urgency, and typo-squatted URLs.
               </p>
             </div>
 
             <div
               className="panel card-hover-effect"
               style={{
-                background: 'linear-gradient(145deg, rgba(30, 25, 60, 0.55) 0%, rgba(16, 12, 35, 0.8) 100%)',
+                background:
+                  'linear-gradient(145deg, rgba(30, 25, 60, 0.55) 0%, rgba(16, 12, 35, 0.8) 100%)',
                 backdropFilter: 'blur(16px)',
                 border: '1px solid rgba(139, 92, 246, 0.35)',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                boxShadow:
+                  '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                 borderRadius: 18,
                 padding: '28px 24px',
               }}
             >
               <div style={{ fontSize: '2rem', marginBottom: 12 }}>🔗</div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: '#ffffff' }}>Automated Campaign Clustering</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                Groups isolated scam messages into broad syndicated campaign clusters using structural features, URL syntax, and timing patterns.
+              <h3
+                style={{
+                  fontSize: '1.25rem',
+                  marginBottom: 8,
+                  color: '#ffffff',
+                }}
+              >
+                Automated Campaign Clustering
+              </h3>
+              <p
+                style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}
+              >
+                Groups isolated scam messages into broad syndicated campaign
+                clusters using structural features, URL syntax, and timing
+                patterns.
               </p>
             </div>
 
             <div
               className="panel card-hover-effect"
               style={{
-                background: 'linear-gradient(145deg, rgba(14, 45, 60, 0.55) 0%, rgba(8, 22, 35, 0.8) 100%)',
+                background:
+                  'linear-gradient(145deg, rgba(14, 45, 60, 0.55) 0%, rgba(8, 22, 35, 0.8) 100%)',
                 backdropFilter: 'blur(16px)',
                 border: '1px solid rgba(6, 182, 212, 0.35)',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(6, 182, 212, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                boxShadow:
+                  '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(6, 182, 212, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                 borderRadius: 18,
                 padding: '28px 24px',
               }}
             >
               <div style={{ fontSize: '2rem', marginBottom: 12 }}>⚡</div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: '#ffffff' }}>Real-Time Threat Intelligence</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                Instant feeds and downloadable exports (CSV/API) enable telecommunications SOCs to immediately initiate SIM blocking and domain takedowns.
+              <h3
+                style={{
+                  fontSize: '1.25rem',
+                  marginBottom: 8,
+                  color: '#ffffff',
+                }}
+              >
+                Real-Time Threat Intelligence
+              </h3>
+              <p
+                style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}
+              >
+                Instant feeds and downloadable exports (CSV/API) enable
+                telecommunications SOCs to immediately initiate SIM blocking and
+                domain takedowns.
               </p>
             </div>
           </div>
@@ -402,9 +661,11 @@ export const LandingPage: React.FC = () => {
           style={{
             margin: '0 20px 80px 20px',
             padding: '60px 40px',
-            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(15, 23, 42, 0.85) 100%)',
+            background:
+              'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(15, 23, 42, 0.85) 100%)',
             border: '1px solid rgba(96, 165, 250, 0.45)',
-            boxShadow: '0 0 50px rgba(37, 99, 235, 0.25), 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
+            boxShadow:
+              '0 0 50px rgba(37, 99, 235, 0.25), 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
             borderRadius: 24,
             textAlign: 'center',
             maxWidth: 1100,
@@ -412,9 +673,19 @@ export const LandingPage: React.FC = () => {
             width: '100%',
           }}
         >
-          <h2 style={{ fontSize: '2.25rem', marginBottom: 16 }}>Ready to Protect Your Organization's Subscribers?</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.125rem', maxWidth: 650, margin: '0 auto 32px auto' }}>
-            Access the threat intelligence portal today to monitor live smishing campaign feeds for your security team.
+          <h2 style={{ fontSize: '2.25rem', marginBottom: 16 }}>
+            Ready to Protect Your Organization&apos;s Subscribers?
+          </h2>
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '1.125rem',
+              maxWidth: 650,
+              margin: '0 auto 32px auto',
+            }}
+          >
+            Access the threat intelligence portal today to monitor live smishing
+            campaign feeds for your security team.
           </p>
           <Button to={ROUTES.LOGIN} variant="primary" size="lg">
             Sign In to Intelligence Portal →

@@ -1,6 +1,7 @@
 package com.bantai.data.local
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -8,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+
+private const val TAG = "UserPreferences"
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "bantai_prefs")
 
@@ -24,8 +27,9 @@ data class UserData(
     val authToken: String = "",
 )
 
-class UserPreferences(private val context: Context) {
-
+class UserPreferences(
+    private val context: Context,
+) {
     private object Keys {
         val FIRST_NAME = stringPreferencesKey("first_name")
         val LAST_NAME = stringPreferencesKey("last_name")
@@ -39,34 +43,45 @@ class UserPreferences(private val context: Context) {
         val AUTH_TOKEN = stringPreferencesKey("auth_token")
     }
 
-    val userData: Flow<UserData> = context.dataStore.data
-        .catch { exception ->
-            if (exception is IOException) emit(emptyPreferences())
-            else throw exception
-        }
-        .map { prefs ->
-            UserData(
-                firstName = prefs[Keys.FIRST_NAME] ?: "",
-                lastName = prefs[Keys.LAST_NAME] ?: "",
-                avatarColor = prefs[Keys.AVATAR_COLOR] ?: "#FF6B35",
-                onboardingComplete = prefs[Keys.ONBOARDING_COMPLETE] ?: false,
-                scanPeriod = prefs[Keys.SCAN_PERIOD] ?: "daily",
-                smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
-                suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
-                autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
-                phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
-                authToken = prefs[Keys.AUTH_TOKEN] ?: "",
-            )
-        }
+    val userData: Flow<UserData> =
+        context.dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    Log.e(TAG, "DataStore read failed, resetting to defaults", exception)
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }.map { prefs ->
+                UserData(
+                    firstName = prefs[Keys.FIRST_NAME] ?: "",
+                    lastName = prefs[Keys.LAST_NAME] ?: "",
+                    avatarColor = prefs[Keys.AVATAR_COLOR] ?: "#FF6B35",
+                    onboardingComplete = prefs[Keys.ONBOARDING_COMPLETE] ?: false,
+                    scanPeriod = prefs[Keys.SCAN_PERIOD] ?: "daily",
+                    smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
+                    suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
+                    autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
+                    phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
+                    authToken = prefs[Keys.AUTH_TOKEN] ?: "",
+                )
+            }
 
-    suspend fun saveAuth(token: String, phoneNumber: String) {
+    suspend fun saveAuth(
+        token: String,
+        phoneNumber: String,
+    ) {
         context.dataStore.edit { prefs ->
             prefs[Keys.AUTH_TOKEN] = token
             prefs[Keys.PHONE_NUMBER] = phoneNumber
         }
     }
 
-    suspend fun saveProfile(firstName: String, lastName: String, avatarColor: String) {
+    suspend fun saveProfile(
+        firstName: String,
+        lastName: String,
+        avatarColor: String,
+    ) {
         val safeFirst = firstName.trim().take(50)
         val safeLast = lastName.trim().take(50)
         val safeColor = if (Regex("^#[0-9A-Fa-f]{6}$").matches(avatarColor)) avatarColor else "#FF6B35"
@@ -84,7 +99,11 @@ class UserPreferences(private val context: Context) {
     }
 
     suspend fun saveScanPeriod(period: String) {
-        val safePeriod = when (period) { "weekly", "monthly" -> period; else -> "daily" }
+        val safePeriod =
+            when (period) {
+                "weekly", "monthly" -> period
+                else -> "daily"
+            }
         context.dataStore.edit { prefs ->
             prefs[Keys.SCAN_PERIOD] = safePeriod
         }

@@ -51,10 +51,10 @@ URL_RE = re.compile(
 # are optional. Word-boundary look-arounds avoid biting into larger tokens.
 PHONE_RE = re.compile(
     r"(?<!\w)(?:"
-    r"\+?63[\s.\-]?9\d{2}[\s.\-]?\d{3}[\s.\-]?\d{4}"   # +63 9xx xxx xxxx
-    r"|09\d{2}[\s.\-]?\d{3}[\s.\-]?\d{4}"              # 09xx xxx xxxx
-    r"|\(?0\d{1,2}\)?[\s.\-]?\d{3,4}[\s.\-]?\d{4}"     # landline (0xx) xxx xxxx
-    r"|\+\d{7,14}"                                      # generic international
+    r"\+?63[\s.\-]?9\d{2}[\s.\-]?\d{3}[\s.\-]?\d{4}"  # +63 9xx xxx xxxx
+    r"|09\d{2}[\s.\-]?\d{3}[\s.\-]?\d{4}"  # 09xx xxx xxxx
+    r"|\(?0\d{1,2}\)?[\s.\-]?\d{3,4}[\s.\-]?\d{4}"  # landline (0xx) xxx xxxx
+    r"|\+\d{7,14}"  # generic international
     r")(?!\w)"
 )
 
@@ -65,8 +65,8 @@ PHONE_RE = re.compile(
 # branch from firing mid-word (e.g. the P in "iPhone 5").
 AMOUNT_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:"
-    r"(?:₱|php|p)\s?\d[\d,]*(?:\.\d{1,2})?[km]?"        # ₱5,000.00 / PHP 1200 / P50 / ₱5k
-    r"|\d[\d,]*(?:\.\d{1,2})?[km]?\s?(?:pesos|php)"      # 5000 pesos / 1200 php / 5k pesos
+    r"(?:₱|php|p)\s?\d[\d,]*(?:\.\d{1,2})?[km]?"  # ₱5,000.00 / PHP 1200 / P50 / ₱5k
+    r"|\d[\d,]*(?:\.\d{1,2})?[km]?\s?(?:pesos|php)"  # 5000 pesos / 1200 php / 5k pesos
     r")",
     re.IGNORECASE,
 )

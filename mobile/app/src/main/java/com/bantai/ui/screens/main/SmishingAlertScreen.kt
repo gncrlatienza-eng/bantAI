@@ -49,6 +49,7 @@ import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -65,15 +66,17 @@ fun SmishingAlertScreen(
     LaunchedEffect(messageId) { viewModel.load(messageId) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -92,22 +95,28 @@ fun SmishingAlertScreen(
         HorizontalDivider(color = Surface)
 
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = TextSecondary)
-            }
-            errorMessage != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
-            }
-            alert == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No alert details available", color = TextSecondary, fontSize = 14.sp)
-            }
+            isLoading ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = TextSecondary)
+                }
+            errorMessage != null ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
+                }
+            alert == null ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No alert details available", color = TextSecondary, fontSize = 14.sp)
+                }
             else -> SmishingAlertContent(alert!!, indicators)
         }
     }
 }
 
 @Composable
-private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<SmsApi.IndicatorTag>) {
+private fun SmishingAlertContent(
+    alert: SmsApi.AlertSummary,
+    indicators: List<SmsApi.IndicatorTag>,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp),
@@ -116,10 +125,11 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
         // Auto-blocked banner
         item {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
-                    .padding(12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -139,10 +149,11 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
         // Sender info card
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(
@@ -150,9 +161,10 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
+                        modifier =
+                            Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
@@ -183,9 +195,10 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
                     letterSpacing = 0.8.sp,
                 )
                 Box(
-                    modifier = Modifier
-                        .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    modifier =
+                        Modifier
+                            .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text("Read-only", color = TextSecondary, fontSize = 10.sp)
                 }
@@ -195,16 +208,18 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
         // Message bubble
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(12.dp),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
-                        .padding(12.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
+                            .padding(12.dp),
                 ) {
                     Text(alert.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
                     Spacer(Modifier.height(4.dp))
@@ -241,19 +256,21 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
         item {
             if (indicators.isEmpty()) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
                 ) {
                     Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
                 }
             } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     indicators.forEach { indicator ->
@@ -273,10 +290,11 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
                             }
                             LinearProgressIndicator(
                                 progress = { indicator.weight.coerceIn(0.0, 1.0).toFloat() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp)),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
                                 color = Danger,
                                 trackColor = Color(0xFF2A2A2A),
                             )
@@ -289,10 +307,11 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
         // Classification summary card
         item {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(16.dp))
+                        .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
@@ -312,14 +331,19 @@ private fun SmishingAlertContent(alert: SmsApi.AlertSummary, indicators: List<Sm
     }
 }
 
-private fun formatFullTimestamp(iso: String): String = try {
-    Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
-} catch (_: Exception) {
-    ""
-}
+private fun formatFullTimestamp(iso: String): String =
+    try {
+        Instant
+            .parse(iso)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US))
+    } catch (_: Exception) {
+        ""
+    }
 
-private fun formatTimeOnly(iso: String): String = try {
-    Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a"))
-} catch (_: Exception) {
-    ""
-}
+private fun formatTimeOnly(iso: String): String =
+    try {
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
+    } catch (_: Exception) {
+        ""
+    }

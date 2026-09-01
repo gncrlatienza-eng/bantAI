@@ -119,9 +119,7 @@ def test_dataset_growth_alone_does_not_count_as_surging():
     previous = [cluster(1, 100, unit(1, 0, 0))]
     current = [cluster(1, 300, unit(1, 0, 0))]
     # Population tripled too -- this campaign's share of traffic is unchanged.
-    report = detect_evolution(
-        previous, current, previous_population=1000, current_population=3000
-    )
+    report = detect_evolution(previous, current, previous_population=1000, current_population=3000)
     c = report.continuing[0]
     assert c.growth_ratio == pytest.approx(3.0)  # raw growth is real...
     assert c.share_growth_ratio == pytest.approx(1.0)  # ...but share is flat
@@ -132,9 +130,7 @@ def test_share_growth_detects_a_real_surge():
     previous = [cluster(1, 100, unit(1, 0, 0))]
     current = [cluster(1, 400, unit(1, 0, 0))]
     # Population only doubled, so this campaign genuinely took over more traffic.
-    report = detect_evolution(
-        previous, current, previous_population=1000, current_population=2000
-    )
+    report = detect_evolution(previous, current, previous_population=1000, current_population=2000)
     c = report.continuing[0]
     assert c.share_growth_ratio == pytest.approx(2.0)
     assert c.is_surging()
@@ -143,9 +139,7 @@ def test_share_growth_detects_a_real_surge():
 def test_shrinking_share_is_not_surging_even_when_count_grows():
     previous = [cluster(1, 100, unit(1, 0, 0))]
     current = [cluster(1, 150, unit(1, 0, 0))]
-    report = detect_evolution(
-        previous, current, previous_population=1000, current_population=5000
-    )
+    report = detect_evolution(previous, current, previous_population=1000, current_population=5000)
     c = report.continuing[0]
     assert c.growth_ratio == pytest.approx(1.5)
     assert c.share_growth_ratio < 1.0
@@ -166,9 +160,7 @@ def test_falls_back_to_raw_growth_without_populations():
 def test_zero_population_does_not_divide_by_zero():
     previous = [cluster(1, 10, unit(1, 0, 0))]
     current = [cluster(1, 20, unit(1, 0, 0))]
-    report = detect_evolution(
-        previous, current, previous_population=0, current_population=0
-    )
+    report = detect_evolution(previous, current, previous_population=0, current_population=0)
     c = report.continuing[0]
     assert c.share_before is None
     assert c.share_growth_ratio is None
@@ -192,8 +184,8 @@ def test_surging_report_helper_filters_correctly():
         cluster(2, 10, unit(0, 1, 0)),
     ]
     current = [
-        cluster(1, 30, unit(1, 0, 0)),   # surging (3x)
-        cluster(2, 11, unit(0, 1, 0)),   # steady
+        cluster(1, 30, unit(1, 0, 0)),  # surging (3x)
+        cluster(2, 11, unit(0, 1, 0)),  # steady
     ]
     report = detect_evolution(previous, current)
     surging_ids = [c.current_id for c in report.surging()]
@@ -214,7 +206,9 @@ def test_new_domains_are_the_set_difference():
     previous = [cluster(1, 10, unit(1, 0, 0), domains=["gcash-scam.net"])]
     current = [
         cluster(
-            1, 12, unit(1, 0, 0),
+            1,
+            12,
+            unit(1, 0, 0),
             domains=["gcash-scam.net", "gcash-scam2.net", "bpi-verify.ph"],
         )
     ]
@@ -264,8 +258,8 @@ def test_one_campaign_fragmenting_is_a_split_not_two_new_campaigns():
     new-campaign counts spike every time an existing campaign mutated."""
     previous = [cluster(1, 20, unit(1, 0, 0))]
     current = [
-        cluster(5, 12, unit(1, 0, 0)),            # closest fragment
-        cluster(6, 9, near_unit(0.9995)),     # variant, still same campaign
+        cluster(5, 12, unit(1, 0, 0)),  # closest fragment
+        cluster(6, 9, near_unit(0.9995)),  # variant, still same campaign
     ]
     report = detect_evolution(previous, current)
 

@@ -32,15 +32,20 @@ private const val SEND_TIMEOUT_MS = 20_000L
  * when the message never actually reached anyone for a billing reason.
  */
 object SmsSender {
-
     @Suppress("DEPRECATION")
-    fun send(context: Context, to: String, body: String, onResult: (success: Boolean, error: String?) -> Unit) {
+    fun send(
+        context: Context,
+        to: String,
+        body: String,
+        onResult: (success: Boolean, error: String?) -> Unit,
+    ) {
         val appContext = context.applicationContext
-        val smsManager: SmsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            appContext.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
-        } else {
-            SmsManager.getDefault()
-        }
+        val smsManager: SmsManager =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                appContext.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
+            } else {
+                SmsManager.getDefault()
+            }
 
         val parts = smsManager.divideMessage(body)
         val action = "com.bantai.SMS_SENT_${requestCodeCounter.incrementAndGet()}_${System.currentTimeMillis()}"
@@ -61,14 +66,18 @@ object SmsSender {
             }
         }
 
-        receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                val error = describeResult(resultCode)
-                if (error != null && firstError == null) firstError = error
-                pending--
-                if (pending <= 0) finish(firstError == null, firstError)
+        receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    ctx: Context,
+                    intent: Intent,
+                ) {
+                    val error = describeResult(resultCode)
+                    if (error != null && firstError == null) firstError = error
+                    pending--
+                    if (pending <= 0) finish(firstError == null, firstError)
+                }
             }
-        }
 
         val filter = IntentFilter(action)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -87,7 +96,7 @@ object SmsSender {
                     requestCodeCounter.incrementAndGet(),
                     Intent(action).setPackage(appContext.packageName),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                )
+                ),
             )
         }
 
@@ -98,12 +107,13 @@ object SmsSender {
         }
     }
 
-    private fun describeResult(resultCode: Int): String? = when (resultCode) {
-        Activity.RESULT_OK -> null
-        SmsManager.RESULT_ERROR_NO_SERVICE -> "No signal — message not sent"
-        SmsManager.RESULT_ERROR_RADIO_OFF -> "Airplane mode is on — message not sent"
-        SmsManager.RESULT_ERROR_NULL_PDU -> "Message could not be sent"
-        SmsManager.RESULT_ERROR_GENERIC_FAILURE -> "Message failed to send"
-        else -> "Message failed to send"
-    }
+    private fun describeResult(resultCode: Int): String? =
+        when (resultCode) {
+            Activity.RESULT_OK -> null
+            SmsManager.RESULT_ERROR_NO_SERVICE -> "No signal — message not sent"
+            SmsManager.RESULT_ERROR_RADIO_OFF -> "Airplane mode is on — message not sent"
+            SmsManager.RESULT_ERROR_NULL_PDU -> "Message could not be sent"
+            SmsManager.RESULT_ERROR_GENERIC_FAILURE -> "Message failed to send"
+            else -> "Message failed to send"
+        }
 }

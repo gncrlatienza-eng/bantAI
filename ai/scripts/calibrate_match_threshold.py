@@ -125,9 +125,7 @@ def find_campaign_groups(masked: Sequence[str]) -> List[List[int]]:
     return [g for g in groups.values() if len(g) >= MIN_GROUP]
 
 
-def collect_scores(
-    vectors, groups: List[List[int]], seed: int = 0
-) -> Tuple[np.ndarray, np.ndarray]:
+def collect_scores(vectors, groups: List[List[int]], seed: int = 0) -> Tuple[np.ndarray, np.ndarray]:
     """Score held-out members and random strangers against each centroid."""
     rng = np.random.default_rng(seed)
     n = len(vectors)
@@ -163,8 +161,7 @@ def collect_scores(
 
 
 def sweep(positives: np.ndarray, negatives: np.ndarray) -> List[dict]:
-    grid = [0.85, 0.90, 0.95, 0.97, 0.98, 0.99, 0.995, 0.997, 0.998,
-            0.999, 0.9995, 0.9999]
+    grid = [0.85, 0.90, 0.95, 0.97, 0.98, 0.99, 0.995, 0.997, 0.998, 0.999, 0.9995, 0.9999]
     return [
         {
             "threshold": t,
@@ -181,7 +178,6 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     from preprocessing import preprocess
-
     from scripts.cluster_campaigns import dedupe_by_masked_text
 
     data = np.load(EMBEDDINGS, allow_pickle=True)
@@ -208,20 +204,16 @@ def main(argv=None) -> int:
     print("=" * 74)
     print("Campaign match threshold calibration (WBS 5.3.6)")
     print(f"Messages: {len(masked)}   approximate campaigns: {len(groups)}")
-    print(f"Held-out members scored: {len(positives)}   "
-          f"strangers scored: {len(negatives)}")
+    print(f"Held-out members scored: {len(positives)}   strangers scored: {len(negatives)}")
     print("=" * 74)
-    print(f"Member-to-centroid similarity  : mean {positives.mean():.4f}  "
-          f"p10 {np.percentile(positives, 10):.4f}")
-    print(f"Stranger-to-centroid similarity: mean {negatives.mean():.4f}  "
-          f"p90 {np.percentile(negatives, 90):.4f}")
+    print(f"Member-to-centroid similarity  : mean {positives.mean():.4f}  p10 {np.percentile(positives, 10):.4f}")
+    print(f"Stranger-to-centroid similarity: mean {negatives.mean():.4f}  p90 {np.percentile(negatives, 90):.4f}")
     print()
     print(f"{'threshold':>10} {'recall':>9} {'false-match':>13}")
     rows = sweep(positives, negatives)
     for row in rows:
         flag = "   <- manuscript" if row["threshold"] == 0.85 else ""
-        print(f"{row['threshold']:>10} {100*row['recall']:>8.1f}% "
-              f"{100*row['false_match_rate']:>12.1f}%{flag}")
+        print(f"{row['threshold']:>10} {100 * row['recall']:>8.1f}% {100 * row['false_match_rate']:>12.1f}%{flag}")
 
     os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
     with open(REPORT_PATH, "w", encoding="utf-8") as handle:

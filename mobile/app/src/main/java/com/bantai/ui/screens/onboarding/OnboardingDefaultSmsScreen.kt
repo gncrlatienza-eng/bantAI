@@ -53,11 +53,12 @@ import com.bantai.ui.theme.TextSecondary
 fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
     val context = LocalContext.current
 
-    val roleRequestLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        onNext()
-    }
+    val roleRequestLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) {
+            onNext()
+        }
 
     fun navigateForward() = onNext()
 
@@ -75,16 +76,17 @@ fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
     LaunchedEffect(Unit) { visible = true }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
-            .graphicsLayer {
-                alpha = slideAlpha
-                translationY = slideOffsetY
-            },
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .graphicsLayer {
+                    alpha = slideAlpha
+                    translationY = slideOffsetY
+                },
     ) {
         Spacer(Modifier.height(48.dp))
 
@@ -138,14 +140,15 @@ fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = ::navigateForward,
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = ::navigateForward,
+                    ),
             contentAlignment = Alignment.Center,
         ) {
             Text("Not now", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.Medium)

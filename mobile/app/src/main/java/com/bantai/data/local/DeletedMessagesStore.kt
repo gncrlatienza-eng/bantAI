@@ -14,7 +14,10 @@ import java.io.IOException
 
 private val Context.deletedMessagesDataStore by preferencesDataStore(name = "bantai_deleted_messages")
 
-data class DeletedEntry(val id: Long, val deletedAt: Long)
+data class DeletedEntry(
+    val id: Long,
+    val deletedAt: Long,
+)
 
 /**
  * Android's SMS provider has no trash/soft-delete concept, and only the default
@@ -23,17 +26,18 @@ data class DeletedEntry(val id: Long, val deletedAt: Long)
  * user permanently deletes them; this store just tracks which ids to hide from
  * the normal views and show under Recently Deleted instead.
  */
-class DeletedMessagesStore(private val context: Context) {
-
+class DeletedMessagesStore(
+    private val context: Context,
+) {
     private object Keys {
         val ENTRIES = stringPreferencesKey("entries")
     }
 
-    val deletedEntries: Flow<List<DeletedEntry>> = context.deletedMessagesDataStore.data
-        .catch { exception ->
-            if (exception is IOException) emit(emptyPreferences()) else throw exception
-        }
-        .map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "[]") }
+    val deletedEntries: Flow<List<DeletedEntry>> =
+        context.deletedMessagesDataStore.data
+            .catch { exception ->
+                if (exception is IOException) emit(emptyPreferences()) else throw exception
+            }.map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "[]") }
 
     suspend fun markDeleted(ids: Collection<Long>) {
         if (ids.isEmpty()) return
@@ -54,23 +58,26 @@ class DeletedMessagesStore(private val context: Context) {
         }
     }
 
-    private fun parseEntries(json: String): List<DeletedEntry> = try {
-        val array = JSONArray(json)
-        List(array.length()) { i ->
-            val obj = array.getJSONObject(i)
-            DeletedEntry(id = obj.getLong("id"), deletedAt = obj.getLong("deletedAt"))
+    private fun parseEntries(json: String): List<DeletedEntry> =
+        try {
+            val array = JSONArray(json)
+            List(array.length()) { i ->
+                val obj = array.getJSONObject(i)
+                DeletedEntry(id = obj.getLong("id"), deletedAt = obj.getLong("deletedAt"))
+            }
+        } catch (_: Exception) {
+            emptyList()
         }
-    } catch (_: Exception) {
-        emptyList()
-    }
 
     private fun serializeEntries(entries: List<DeletedEntry>): String {
         val array = JSONArray()
         entries.forEach { entry ->
-            array.put(JSONObject().apply {
-                put("id", entry.id)
-                put("deletedAt", entry.deletedAt)
-            })
+            array.put(
+                JSONObject().apply {
+                    put("id", entry.id)
+                    put("deletedAt", entry.deletedAt)
+                },
+            )
         }
         return array.toString()
     }

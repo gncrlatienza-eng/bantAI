@@ -43,9 +43,7 @@ csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 def main() -> None:
     if not os.path.isdir(settings.model_dir):
-        raise SystemExit(
-            f"No model at '{settings.model_dir}'. Train first (see colab/README.md)."
-        )
+        raise SystemExit(f"No model at '{settings.model_dir}'. Train first (see colab/README.md).")
 
     with open(LABELED, encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
@@ -72,8 +70,8 @@ def main() -> None:
         rate = done / elapsed if elapsed else 0
         remaining = (len(texts) - done) / rate if rate else 0
         print(
-            f"  {done}/{len(texts)}  ({100*done/len(texts):.1f}%)  "
-            f"{rate:.1f} msg/s  ~{remaining/60:.1f} min left",
+            f"  {done}/{len(texts)}  ({100 * done / len(texts):.1f}%)  "
+            f"{rate:.1f} msg/s  ~{remaining / 60:.1f} min left",
             flush=True,
         )
 
@@ -89,7 +87,7 @@ def main() -> None:
     )
 
     total = time.time() - start
-    print(f"\nDone in {total/60:.1f} min. Shape {embeddings.shape}", flush=True)
+    print(f"\nDone in {total / 60:.1f} min. Shape {embeddings.shape}", flush=True)
     print(f"Wrote {os.path.relpath(OUT, AI)}", flush=True)
 
 

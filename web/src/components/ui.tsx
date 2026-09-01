@@ -1,7 +1,12 @@
-import React, { type ReactNode, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import type { CampaignCard, Metric, NavSection, TableData } from "../mocks/referenceData";
-import { clearSession } from "../lib/auth";
+import React, { type ReactNode, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import type {
+  CampaignCard,
+  Metric,
+  NavSection,
+  TableData,
+} from '../mocks/referenceData';
+import { clearSession } from '../lib/auth';
 
 export function Brand({ subtitle }: { subtitle?: string }) {
   return (
@@ -24,37 +29,61 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   );
 }
 
-import { PublicHeader } from "./layout/PublicHeader";
+import { PublicHeader } from './layout/PublicHeader';
 export { PublicHeader };
-export function Eyebrow({ children, tone }: { children: ReactNode; tone?: "green" | "amber" }) {
-  return <span className={`eyebrow ${tone ?? ""}`.trim()}>{children}</span>;
+export function Eyebrow({
+  children,
+  tone,
+}: {
+  children: ReactNode;
+  tone?: 'green' | 'amber';
+}) {
+  return <span className={`eyebrow ${tone ?? ''}`.trim()}>{children}</span>;
 }
 
 export function Button({
   children,
   to,
-  className = "",
+  className = '',
   ghost,
   onClick,
   disabled,
-  type = "button",
+  type = 'button',
   style,
 }: {
   children: ReactNode;
   to?: string;
   className?: string;
   ghost?: boolean;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void;
+  onClick?: (
+    e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>,
+  ) => void;
   disabled?: boolean;
-  type?: "button" | "submit" | "reset";
+  type?: 'button' | 'submit' | 'reset';
   style?: React.CSSProperties;
   variant?: string;
   size?: string;
 }) {
-  const isGhost = ghost || className.includes("ghost");
-  const classes = `${isGhost ? "ghost-btn" : "primary-btn"} ${className}`.trim();
-  if (to) return <Link to={to} className={classes} style={style} onClick={onClick}>{children}</Link>;
-  return <button className={classes} type={type} onClick={onClick} disabled={disabled} style={style}>{children}</button>;
+  const isGhost = ghost || className.includes('ghost');
+  const classes =
+    `${isGhost ? 'ghost-btn' : 'primary-btn'} ${className}`.trim();
+  if (to)
+    return (
+      <Link to={to} className={classes} style={style} onClick={onClick}>
+        {children}
+      </Link>
+    );
+  return (
+    <button
+      className={classes}
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={style}
+    >
+      {children}
+    </button>
+  );
 }
 
 export function StatCards({ items }: { items: Metric[] }) {
@@ -63,7 +92,9 @@ export function StatCards({ items }: { items: Metric[] }) {
       {items.map((item) => (
         <article key={item.label} className="stat-card">
           <small>{item.label}</small>
-          <strong className={item.tone ? `tone-${item.tone}` : ""}>{item.value}</strong>
+          <strong className={item.tone ? `tone-${item.tone}` : ''}>
+            {item.value}
+          </strong>
           {item.meta ? <span>{item.meta}</span> : null}
         </article>
       ))}
@@ -76,7 +107,7 @@ export function Panel({
   subtitle,
   actions,
   children,
-  className = "",
+  className = '',
 }: {
   title?: string;
   subtitle?: string;
@@ -113,11 +144,11 @@ export function PortalShell({
   children,
   showPopup,
 }: {
-  role: "client" | "admin";
+  role: 'client' | 'admin';
   sidebar: NavSection[];
   title: string;
   tag: string;
-  tagTone?: "amber";
+  tagTone?: 'amber';
   userInitials: string;
   userName: string;
   userMeta: string;
@@ -131,20 +162,31 @@ export function PortalShell({
 
   return (
     <div className="dashboard-shell">
-      {navOpen ? <div className="nav-backdrop" onClick={() => setNavOpen(false)} /> : null}
-      <aside className={`sidebar ${navOpen ? "open" : ""}`.trim()}>
+      {navOpen ? (
+        <div className="nav-backdrop" onClick={() => setNavOpen(false)} />
+      ) : null}
+      <aside className={`sidebar ${navOpen ? 'open' : ''}`.trim()}>
         <div className="sidebar-brand">
-          <Brand subtitle={role === "admin" ? "System Administration" : "Client Portal"} />
+          <Brand
+            subtitle={
+              role === 'admin' ? 'System Administration' : 'Client Portal'
+            }
+          />
         </div>
         <nav className="sidebar-nav">
           {sidebar.map((section) => (
-            <div key={section.title ?? section.items[0].path} className="sidebar-section">
-              {section.title ? <span className="sidebar-title">{section.title}</span> : null}
+            <div
+              key={section.title ?? section.items[0].path}
+              className="sidebar-section"
+            >
+              {section.title ? (
+                <span className="sidebar-title">{section.title}</span>
+              ) : null}
               {section.items.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={location.pathname === item.path ? "active" : ""}
+                  className={location.pathname === item.path ? 'active' : ''}
                   onClick={() => setNavOpen(false)}
                 >
                   {item.label}
@@ -167,7 +209,7 @@ export function PortalShell({
             type="button"
             onClick={() => {
               clearSession();
-              navigate(role === "admin" ? "/admin-login" : "/login");
+              navigate(role === 'admin' ? '/admin-login' : '/login');
             }}
           >
             Log Out
@@ -177,15 +219,24 @@ export function PortalShell({
 
       <main className="dashboard-main">
         <header className="dashboard-topbar">
-          <button className="menu-toggle" type="button" onClick={() => setNavOpen((open: boolean) => !open)} aria-label="Toggle navigation">
+          <button
+            className="menu-toggle"
+            type="button"
+            onClick={() => setNavOpen((open: boolean) => !open)}
+            aria-label="Toggle navigation"
+          >
             <span />
             <span />
             <span />
           </button>
           <strong>{title}</strong>
           <div className="topbar-actions">
-            <button className="notif-dot" type="button">2</button>
-            <span className={`org-pill ${tagTone === "amber" ? "amber" : ""}`}>{tag}</span>
+            <button className="notif-dot" type="button">
+              2
+            </button>
+            <span className={`org-pill ${tagTone === 'amber' ? 'amber' : ''}`}>
+              {tag}
+            </span>
             <span className={`avatar top ${role}`}>{userInitials}</span>
           </div>
           {showPopup ? <NotificationPopover role={role} /> : null}
@@ -196,20 +247,60 @@ export function PortalShell({
   );
 }
 
-function NotificationPopover({ role }: { role: "client" | "admin" }) {
+function NotificationPopover({ role }: { role: 'client' | 'admin' }) {
   const items =
-    role === "admin"
+    role === 'admin'
       ? [
-          ["New Campaign Detected", "\"Operation Maya Wallet Clone #3\" --- 47 messages flagged targeting your subscribers", "2m ago", "red"],
-          ["Campaign Reactivated", "\"BDO OTP Harvester Wave #2\" has resurfaced after 18 days of inactivity", "38m ago", "amber"],
-          ["New Campaign Detected", "\"LBC Parcel Scam #9\" --- 31 messages detected in the last hour", "1h ago", "red"],
-          ["Daily Report --- May 13", "312 new reports today - 23 confirmed smishing - 8 suspicious", "6h ago", "blue"],
+          [
+            'New Campaign Detected',
+            '"Operation Maya Wallet Clone #3" --- 47 messages flagged targeting your subscribers',
+            '2m ago',
+            'red',
+          ],
+          [
+            'Campaign Reactivated',
+            '"BDO OTP Harvester Wave #2" has resurfaced after 18 days of inactivity',
+            '38m ago',
+            'amber',
+          ],
+          [
+            'New Campaign Detected',
+            '"LBC Parcel Scam #9" --- 31 messages detected in the last hour',
+            '1h ago',
+            'red',
+          ],
+          [
+            'Daily Report --- May 13',
+            '312 new reports today - 23 confirmed smishing - 8 suspicious',
+            '6h ago',
+            'blue',
+          ],
         ]
       : [
-          ["New Campaign Detected", "\"Operation Maya Wallet Clone #3\" is active --- 47 messages flagged targeting your subscribers", "2m ago", "red"],
-          ["Campaign Reactivated", "\"BDO OTP Harvester Wave #2\" has resurfaced after 18 days of inactivity", "38m ago", "amber"],
-          ["Daily Report --- May 13", "312 reports processed today - 23 confirmed smishing - 8 suspicious", "6h ago", "blue"],
-          ["Weekly Report Ready", "Your threat intelligence summary for May 7-13 is ready for download", "1d ago", "blue"],
+          [
+            'New Campaign Detected',
+            '"Operation Maya Wallet Clone #3" is active --- 47 messages flagged targeting your subscribers',
+            '2m ago',
+            'red',
+          ],
+          [
+            'Campaign Reactivated',
+            '"BDO OTP Harvester Wave #2" has resurfaced after 18 days of inactivity',
+            '38m ago',
+            'amber',
+          ],
+          [
+            'Daily Report --- May 13',
+            '312 reports processed today - 23 confirmed smishing - 8 suspicious',
+            '6h ago',
+            'blue',
+          ],
+          [
+            'Weekly Report Ready',
+            'Your threat intelligence summary for May 7-13 is ready for download',
+            '1d ago',
+            'blue',
+          ],
         ];
 
   return (
@@ -228,27 +319,32 @@ function NotificationPopover({ role }: { role: "client" | "admin" }) {
           </div>
         </div>
       ))}
-      <button className="mark-read" type="button">Mark all as read</button>
+      <button className="mark-read" type="button">
+        Mark all as read
+      </button>
     </div>
   );
 }
 
 export function BarChart() {
   const bars = [
-    { label: "Mon", value: 22 },
-    { label: "Tue", value: 38 },
-    { label: "Wed", value: 56 },
-    { label: "Thu", value: 83 },
-    { label: "Fri", value: 100, tone: "red" },
-    { label: "Sat", value: 72 },
-    { label: "Sun", value: 0 },
+    { label: 'Mon', value: 22 },
+    { label: 'Tue', value: 38 },
+    { label: 'Wed', value: 56 },
+    { label: 'Thu', value: 83 },
+    { label: 'Fri', value: 100, tone: 'red' },
+    { label: 'Sat', value: 72 },
+    { label: 'Sun', value: 0 },
   ];
 
   return (
     <div className="bars">
       {bars.map((bar) => (
         <div key={bar.label} className="bar-col">
-          <span className={`bar ${bar.tone ?? ""}`.trim()} style={{ height: `${bar.value}%` }} />
+          <span
+            className={`bar ${bar.tone ?? ''}`.trim()}
+            style={{ height: `${bar.value}%` }}
+          />
           <small>{bar.label}</small>
         </div>
       ))}
@@ -258,26 +354,32 @@ export function BarChart() {
 
 export function LineVisual({ green }: { green?: boolean }) {
   return (
-    <div className={`line-visual ${green ? "green" : ""}`.trim()}>
+    <div className={`line-visual ${green ? 'green' : ''}`.trim()}>
       <div className="line-guideline" />
       <div className="line-curve" />
       <div className="line-dots">
-        <span style={{ left: "0%", bottom: "25%" }} />
-        <span style={{ left: "16%", bottom: "25%" }} />
-        <span style={{ left: "33%", bottom: "28%" }} />
-        <span style={{ left: "50%", bottom: "40%" }} />
-        <span style={{ left: "66%", bottom: "31%" }} />
-        <span style={{ left: "82%", bottom: "26%" }} />
-        <span style={{ left: "100%", bottom: "22%" }} />
+        <span style={{ left: '0%', bottom: '25%' }} />
+        <span style={{ left: '16%', bottom: '25%' }} />
+        <span style={{ left: '33%', bottom: '28%' }} />
+        <span style={{ left: '50%', bottom: '40%' }} />
+        <span style={{ left: '66%', bottom: '31%' }} />
+        <span style={{ left: '82%', bottom: '26%' }} />
+        <span style={{ left: '100%', bottom: '22%' }} />
       </div>
     </div>
   );
 }
 
-export function Table({ data, compact }: { data: TableData; compact?: boolean }) {
+export function Table({
+  data,
+  compact,
+}: {
+  data: TableData;
+  compact?: boolean;
+}) {
   return (
     <div className="table-wrap">
-      <table className={compact ? "compact" : ""}>
+      <table className={compact ? 'compact' : ''}>
         <thead>
           <tr>
             {data.headers.map((header) => (
@@ -314,19 +416,28 @@ export function Table({ data, compact }: { data: TableData; compact?: boolean })
 }
 
 function Cell({ cell }: { cell: string }) {
-  if (["Smishing", "Rejected", "Critical", "Delete"].includes(cell)) {
+  if (['Smishing', 'Rejected', 'Critical', 'Delete'].includes(cell)) {
     return <span className="badge red">{cell}</span>;
   }
-  if (["Suspicious", "Pending", "Review", "FP", "Draft"].includes(cell)) {
+  if (['Suspicious', 'Pending', 'Review', 'FP', 'Draft'].includes(cell)) {
     return <span className="badge amber">{cell}</span>;
   }
-  if (["Complete", "Active", "Validated", "Resolved", "Operational", "Published"].includes(cell)) {
+  if (
+    [
+      'Complete',
+      'Active',
+      'Validated',
+      'Resolved',
+      'Operational',
+      'Published',
+    ].includes(cell)
+  ) {
     return <span className="badge green">{cell}</span>;
   }
-  if (["Inactive"].includes(cell)) {
+  if (['Inactive'].includes(cell)) {
     return <span className="badge gray">{cell}</span>;
   }
-  if (["Edit Delete", "Edit Publish Delete"].includes(cell)) {
+  if (['Edit Delete', 'Edit Publish Delete'].includes(cell)) {
     return <span className="inline-actions">{cell}</span>;
   }
   return <span>{cell}</span>;
@@ -337,7 +448,9 @@ export function CampaignTile({ item }: { item: CampaignCard }) {
     <article className="campaign-tile">
       <div className="tile-head">
         <strong>{item.title}</strong>
-        <span className={`badge ${item.tone === "green" ? "green" : "gray"}`}>{item.status}</span>
+        <span className={`badge ${item.tone === 'green' ? 'green' : 'gray'}`}>
+          {item.status}
+        </span>
       </div>
       <div className="tile-stats">
         <div>
@@ -362,17 +475,45 @@ export function CampaignTile({ item }: { item: CampaignCard }) {
   );
 }
 
-export function Stepper({ active, completed = 0 }: { active: number; completed?: number }) {
-  const steps = ["Submission", "Verification", "Proposal", "Payment", "Activation"];
+export function Stepper({
+  active,
+  completed = 0,
+}: {
+  active: number;
+  completed?: number;
+}) {
+  const steps = [
+    'Submission',
+    'Verification',
+    'Proposal',
+    'Payment',
+    'Activation',
+  ];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 680, margin: '0 auto 36px auto' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        maxWidth: 680,
+        margin: '0 auto 36px auto',
+      }}
+    >
       {steps.map((step, index) => {
         const current = index + 1;
         const isDone = current <= completed;
         const isActive = current === active;
         return (
           <React.Fragment key={step}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
               <div
                 style={{
                   width: 34,
@@ -383,10 +524,22 @@ export function Stepper({ active, completed = 0 }: { active: number; completed?:
                   justifyContent: 'center',
                   fontWeight: 800,
                   fontSize: '0.875rem',
-                  background: isDone ? '#10b981' : isActive ? '#2563eb' : 'var(--bg-surface-elevated)',
+                  background: isDone
+                    ? '#10b981'
+                    : isActive
+                      ? '#2563eb'
+                      : 'var(--bg-surface-elevated)',
                   color: isDone || isActive ? '#ffffff' : 'var(--text-muted)',
-                  border: isDone ? '1px solid #10b981' : isActive ? '2px solid #60a5fa' : '1px solid var(--border-default)',
-                  boxShadow: isActive ? '0 0 16px rgba(59, 130, 246, 0.45)' : isDone ? '0 0 12px rgba(16, 185, 129, 0.3)' : 'none',
+                  border: isDone
+                    ? '1px solid #10b981'
+                    : isActive
+                      ? '2px solid #60a5fa'
+                      : '1px solid var(--border-default)',
+                  boxShadow: isActive
+                    ? '0 0 16px rgba(59, 130, 246, 0.45)'
+                    : isDone
+                      ? '0 0 12px rgba(16, 185, 129, 0.3)'
+                      : 'none',
                   transition: 'all 0.3s ease',
                 }}
               >
@@ -396,7 +549,11 @@ export function Stepper({ active, completed = 0 }: { active: number; completed?:
                 style={{
                   fontSize: '0.75rem',
                   fontWeight: isActive || isDone ? 700 : 500,
-                  color: isDone ? '#10b981' : isActive ? '#60a5fa' : 'var(--text-muted)',
+                  color: isDone
+                    ? '#10b981'
+                    : isActive
+                      ? '#60a5fa'
+                      : 'var(--text-muted)',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -410,7 +567,12 @@ export function Stepper({ active, completed = 0 }: { active: number; completed?:
                   flex: 1,
                   minWidth: 24,
                   maxWidth: 50,
-                  background: current <= completed ? '#10b981' : current < active ? '#2563eb' : 'var(--border-default)',
+                  background:
+                    current <= completed
+                      ? '#10b981'
+                      : current < active
+                        ? '#2563eb'
+                        : 'var(--border-default)',
                   marginBottom: 20,
                   transition: 'all 0.3s ease',
                 }}
@@ -423,11 +585,21 @@ export function Stepper({ active, completed = 0 }: { active: number; completed?:
   );
 }
 
-export function Field({ label, value, area, eye }: { label: string; value: string; area?: boolean; eye?: boolean }) {
+export function Field({
+  label,
+  value,
+  area,
+  eye,
+}: {
+  label: string;
+  value: string;
+  area?: boolean;
+  eye?: boolean;
+}) {
   return (
     <label className="field">
       <span>{label}</span>
-      <div className={`input ${area ? "area" : ""}`.trim()}>
+      <div className={`input ${area ? 'area' : ''}`.trim()}>
         <span>{value}</span>
         {eye ? <i className="eye" /> : null}
       </div>
@@ -437,7 +609,7 @@ export function Field({ label, value, area, eye }: { label: string; value: strin
 
 export function Toggle({ on = true }: { on?: boolean }) {
   return (
-    <span className={`toggle ${on ? "on" : ""}`.trim()}>
+    <span className={`toggle ${on ? 'on' : ''}`.trim()}>
       <span />
     </span>
   );

@@ -22,35 +22,44 @@ import com.bantai.ui.theme.*
 
 @Composable
 fun HowItWorksScreen(navController: NavController) {
-    val sections = listOf(
-        "Step 1 — Receive SMS" to "When a message arrives, BantAI intercepts it as the default SMS app before it reaches your inbox.",
-        "Step 2 — Classify" to "XLM-RoBERTa, a multilingual AI model trained on Filipino smishing patterns, analyzes the message body for threats.",
-        "Step 3 — SHAP Explainability" to "SHAP values identify which words or phrases contributed most to the classification — giving you a transparent reason, not just a verdict.",
-        "Step 4 — Cluster" to "HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders.",
-        "Step 5 — Alert" to "High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review.",
-        "Your Privacy" to "All classification happens on-device. No message body is ever sent to a server without your explicit consent.",
-    )
+    val sections =
+        listOf(
+            "Step 1 — Receive SMS" to "When a message arrives, BantAI intercepts it as the default SMS app before it reaches your inbox.",
+            "Step 2 — Classify" to
+                "XLM-RoBERTa, a multilingual AI model trained on Filipino smishing patterns, analyzes the message body for threats.",
+            "Step 3 — SHAP Explainability" to
+                "SHAP values identify which words or phrases contributed most to the classification — giving you a transparent reason, not just a verdict.",
+            "Step 4 — Cluster" to
+                "HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders.",
+            "Step 5 — Alert" to
+                "High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review.",
+            "Your Privacy" to
+                "All classification happens on-device. No message body is ever sent to a server without your explicit consent.",
+        )
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Black)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Black)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 24.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 Icons.Default.ArrowBack,
                 contentDescription = "Back",
                 tint = White,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable { navController.popBackStack() },
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .clickable { navController.popBackStack() },
             )
             Spacer(Modifier.width(16.dp))
             Text("How BantAI Works", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -58,10 +67,11 @@ fun HowItWorksScreen(navController: NavController) {
 
         sections.forEach { (title, body) ->
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
+                        .padding(16.dp),
             ) {
                 Text(title, color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Spacer(Modifier.height(6.dp))

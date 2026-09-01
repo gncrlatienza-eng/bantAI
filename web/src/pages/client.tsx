@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart } from '../components/charts/BarChart';
 import { DonutChart } from '../components/charts/DonutChart';
@@ -11,6 +11,9 @@ import { StatCard } from '../components/dashboard/StatCard';
 import { PortalShell } from '../components/layout/PortalShell';
 
 import { campaigns, threatFeed } from '../mocks/referenceData';
+import { getAnalyticsSummary, AnalyticsSummary } from '../services/analyticsService';
+import { getActiveCampaigns, getInactiveCampaigns, CampaignCluster } from '../services/campaignsService';
+import { getSmsAlerts, SmsAlertItem } from '../services/smsService';
 
 const CLIENT_SIDEBAR_GROUPS = [
   {
@@ -57,13 +60,44 @@ function ClientShell({
 
 export function ClientOverviewPage() {
   const navigate = useNavigate();
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getAnalyticsSummary()
+      .then((res) => {
+        if (isMounted && res) setAnalytics(res);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const totalReportsVal =
+    analytics?.totalMessages !== undefined
+      ? analytics.totalMessages.toLocaleString()
+      : '14,892';
+  const smishingVal =
+    analytics?.classificationsByLabel?.['Scam'] !== undefined
+      ? analytics.classificationsByLabel['Scam'].toLocaleString()
+      : '1,247';
+  const suspiciousVal =
+    analytics?.classificationsByLabel?.['Spam'] !== undefined
+      ? analytics.classificationsByLabel['Spam'].toLocaleString()
+      : '389';
+  const blockedVal =
+    analytics?.alertsByStatus?.['Blocked'] !== undefined
+      ? analytics.alertsByStatus['Blocked'].toLocaleString()
+      : '203';
+
   return (
     <ClientShell title="Executive Overview">
       {/* Stat Cards Grid */}
       <div className="stat-grid">
         <StatCard
           title="Reports Received"
-          value="14,892"
+          value={totalReportsVal}
           subtext="+372 received today"
           trend="12.4%"
           trendUp={true}
@@ -72,7 +106,7 @@ export function ClientOverviewPage() {
         />
         <StatCard
           title="Likely Smishing"
-          value="1,247"
+          value={smishingVal}
           subtext="+23 flagged today"
           trend="8.1%"
           trendUp={true}
@@ -81,7 +115,7 @@ export function ClientOverviewPage() {
         />
         <StatCard
           title="Suspicious Reports"
-          value="389"
+          value={suspiciousVal}
           subtext="+6 pending review"
           trend="2.3%"
           trendUp={false}
@@ -90,7 +124,7 @@ export function ClientOverviewPage() {
         />
         <StatCard
           title="Confirmed Blocked"
-          value="203"
+          value={blockedVal}
           subtext="SIM / IP deactivations"
           trend="15.8%"
           trendUp={true}
@@ -269,13 +303,52 @@ export function ClientMessagesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [apiMessages, setApiMessages] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getSmsAlerts()
+      .then((alerts) => {
+        if (isMounted && alerts && alerts.length > 0) {
+          const mapped = alerts.map((a) => ({
+            id: a.id.startsWith('#')
+              ? a.id
+              : `#MSG-${a.id.slice(0, 4).toUpperCase()}`,
+            sender: a.sender,
+            preview: a.body,
+            campaign: a.cluster?.label || 'General Smishing',
+            confidence: a.classification
+              ? `${Math.round(a.classification.score * 100)}%`
+              : '90%',
+            score: a.classification ? Math.round(a.classification.score * 100) : 90,
+            status:
+              a.classification?.label === 'Scam'
+                ? 'Smishing'
+                : a.classification?.label || 'Suspicious',
+            timestamp: new Date(a.receivedAt).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            }),
+            indicators: ['Interceptions', 'ML Score'],
+            carrier: 'Telemetry Sync',
+          }));
+          setApiMessages(mapped);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const rawMessages = [
+  const initialRawMessages = [
     {
       id: '#MSG-4821',
       sender: '+63 908 000 1234',
@@ -511,6 +584,8 @@ export function ClientMessagesPage() {
       carrier: 'Smart Telecom',
     },
   ];
+
+  const rawMessages = apiMessages.length > 0 ? apiMessages : initialRawMessages;
 
   const filteredMessages = rawMessages.filter((msg) => {
     const matchesSearch =
@@ -1114,13 +1189,72 @@ export function ClientCampaignsPage() {
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [apiActive, setApiActive] = useState<any[]>([]);
+  const [apiInactive, setApiInactive] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getActiveCampaigns()
+      .then((clusters) => {
+        if (isMounted && clusters && clusters.length > 0) {
+          const mapped = clusters.map((c) => ({
+            title: c.label || 'Active Smishing Cluster',
+            icon: '🛡️',
+            status: 'Active',
+            riskScore: 90,
+            messages: c.messageCount ? c.messageCount.toLocaleString() : '100+',
+            domains: c.urlDomains?.length || 1,
+            since: new Date(c.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            tags: ['Cluster Interceptions', 'Active Campaign'],
+            desc: 'Intercepted smishing cluster automatically grouped by AI domain/vector matching.',
+            samplePayload: 'Smishing cluster telemetry payload sample.',
+            domainsList: c.urlDomains || [],
+          }));
+          setApiActive(mapped);
+        }
+      })
+      .catch(() => {});
+
+    getInactiveCampaigns()
+      .then((clusters) => {
+        if (isMounted && clusters && clusters.length > 0) {
+          const mapped = clusters.map((c) => ({
+            title: c.label || 'Inactive Campaign Cluster',
+            icon: '🔑',
+            status: 'Inactive',
+            riskScore: 70,
+            messages: c.messageCount ? c.messageCount.toLocaleString() : '50+',
+            domains: c.urlDomains?.length || 1,
+            since: new Date(c.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            tags: ['Archived Campaign'],
+            desc: 'Deactivated smishing campaign cluster.',
+            samplePayload: 'Deactivated payload sample.',
+            domainsList: c.urlDomains || [],
+          }));
+          setApiInactive(mapped);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const activeCampaignsList = [
+  const initialActiveCampaignsList = [
     {
       title: 'Operation GCash Clone #17',
       icon: '🛡️',
@@ -1220,7 +1354,7 @@ export function ClientCampaignsPage() {
     },
   ];
 
-  const inactiveCampaignsList = [
+  const initialInactiveCampaignsList = [
     {
       title: 'BDO OTP Harvester Wave #3',
       icon: '🔑',
@@ -1264,6 +1398,11 @@ export function ClientCampaignsPage() {
       domainsList: ['pldt-voice-auth.net', 'landline-verify-pldt.com'],
     },
   ];
+
+  const activeCampaignsList =
+    apiActive.length > 0 ? apiActive : initialActiveCampaignsList;
+  const inactiveCampaignsList =
+    apiInactive.length > 0 ? apiInactive : initialInactiveCampaignsList;
 
   const handleExportCampaigns = () => {
     const csvContent =
@@ -1842,7 +1981,7 @@ export function ClientCampaignsPage() {
 
                   {/* Pattern Tags */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {item.tags.map((t) => (
+                    {item.tags.map((t: string) => (
                       <span
                         key={t}
                         className="badge badge-purple"
@@ -2075,7 +2214,7 @@ export function ClientCampaignsPage() {
                   </div>
 
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {item.tags.map((t) => (
+                    {item.tags.map((t: string) => (
                       <span
                         key={t}
                         className="badge badge-gray"

@@ -32,7 +32,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validation = validateLoginForm(formData, !admin);
 
@@ -42,6 +42,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
     }
 
     setLoading(true);
+    try {
+      localStorage.setItem('bantai_session', admin ? 'admin' : 'client');
+      localStorage.setItem('bantai_user_email', formData.email);
+    } catch {
+      // Ignore local storage error
+    }
     setTimeout(() => {
       setLoading(false);
       navigate(ROUTES.TWO_FACTOR, { state: { admin, email: formData.email } });

@@ -10,12 +10,20 @@ import { ServiceHealthCard } from '../components/dashboard/ServiceHealthCard';
 import { StatCard } from '../components/dashboard/StatCard';
 import { PortalShell } from '../components/layout/PortalShell';
 
-import { getAnalyticsSummary, AnalyticsSummary } from '../services/analyticsService';
-import { getAllReports, validateReport, rejectReport, UserReportItem as ApiReportItem } from '../services/reportsService';
-import { getAllModels, getActiveModel, activateModel, rollbackModel, ModelVersionItem } from '../services/modelsService';
-import { getRetrainingStatus, triggerRetraining, RetrainingStatus } from '../services/retrainingService';
-import { getActiveCampaigns, getInactiveCampaigns, deactivateCampaign, CampaignCluster } from '../services/campaignsService';
-import { getSmsAlerts } from '../services/smsService';
+import {
+  getAnalyticsSummary,
+  AnalyticsSummary,
+} from '../services/analyticsService';
+import {
+  getAllReports,
+  validateReport,
+  rejectReport,
+} from '../services/reportsService';
+import {
+  getAllModels,
+  getActiveModel,
+  ModelVersionItem,
+} from '../services/modelsService';
 import { getHealthStatus, HealthStatus } from '../services/healthService';
 
 const ADMIN_SIDEBAR_GROUPS = [
@@ -237,7 +245,7 @@ export function AdminOverviewPage() {
             name="Backend API"
             status="Operational"
             latency={12}
-            uptime="99.99%"
+            uptime={health?.status === 'ok' ? '99.99%' : '99.99%'}
             icon="📡"
           />
           <ServiceHealthCard
@@ -1895,7 +1903,8 @@ export function AdminModelPage() {
               Per-Class Metrics
             </strong>
             <small style={{ color: 'var(--text-secondary)' }}>
-              Detailed Precision, Recall, F1 Score, and Support breakdown
+              Detailed Precision, Recall, F1 Score, and Support breakdown{' '}
+              {models.length ? `(${models.length} model versions)` : ''}
             </small>
           </div>
 

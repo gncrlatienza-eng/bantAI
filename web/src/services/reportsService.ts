@@ -6,7 +6,7 @@ export interface UserReportItem {
   messageId: string;
   originalLabel: string;
   reportedLabel: string;
-  status: 'Pending' | 'Validated' | 'Rejected' | string;
+  status: string;
   adminNote?: string | null;
   validatedAt?: string | null;
   createdAt: string;

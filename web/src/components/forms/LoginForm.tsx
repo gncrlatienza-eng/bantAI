@@ -32,7 +32,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const validation = validateLoginForm(formData, !admin);
 

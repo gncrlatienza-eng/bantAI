@@ -1,9 +1,10 @@
-const BASE_URL =
-  (import.meta.env && import.meta.env.VITE_API_URL) ||
-  'http://localhost:3000/api';
+const env = import.meta.env as Record<string, string | undefined> | undefined;
 
-const DEFAULT_API_KEY =
-  (import.meta.env && import.meta.env.VITE_INTERNAL_API_KEY) ||
+const BASE_URL: string =
+  (env && env.VITE_API_URL) || 'http://localhost:3000/api';
+
+const DEFAULT_API_KEY: string =
+  (env && env.VITE_INTERNAL_API_KEY) ||
   'change-me-shared-secret-for-ai-service-calls';
 
 export function getStoredToken(): string | null {
@@ -74,11 +75,13 @@ export async function fetchApi<T>(
   if (!response.ok) {
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
     try {
-      const errorData = await response.json();
+      const errorData = (await response.json()) as {
+        message?: string | string[];
+      };
       if (errorData && errorData.message) {
         errorMessage = Array.isArray(errorData.message)
           ? errorData.message.join(', ')
-          : errorData.message;
+          : String(errorData.message);
       }
     } catch {
       // Ignore JSON parse errors for error responses
@@ -90,5 +93,6 @@ export async function fetchApi<T>(
     return {} as T;
   }
 
-  return response.json();
+  const data = (await response.json()) as T;
+  return data;
 }

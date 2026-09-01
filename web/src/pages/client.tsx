@@ -11,9 +11,15 @@ import { StatCard } from '../components/dashboard/StatCard';
 import { PortalShell } from '../components/layout/PortalShell';
 
 import { campaigns, threatFeed } from '../mocks/referenceData';
-import { getAnalyticsSummary, AnalyticsSummary } from '../services/analyticsService';
-import { getActiveCampaigns, getInactiveCampaigns, CampaignCluster } from '../services/campaignsService';
-import { getSmsAlerts, SmsAlertItem } from '../services/smsService';
+import {
+  getAnalyticsSummary,
+  AnalyticsSummary,
+} from '../services/analyticsService';
+import {
+  getActiveCampaigns,
+  getInactiveCampaigns,
+} from '../services/campaignsService';
+import { getSmsAlerts } from '../services/smsService';
 
 const CLIENT_SIDEBAR_GROUPS = [
   {
@@ -320,7 +326,9 @@ export function ClientMessagesPage() {
             confidence: a.classification
               ? `${Math.round(a.classification.score * 100)}%`
               : '90%',
-            score: a.classification ? Math.round(a.classification.score * 100) : 90,
+            score: a.classification
+              ? Math.round(a.classification.score * 100)
+              : 90,
             status:
               a.classification?.label === 'Scam'
                 ? 'Smishing'

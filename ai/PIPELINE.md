@@ -1311,9 +1311,9 @@ so nobody — including future-Maxene — mistakes this for a real second sign-o
    old ones switched off (kept, not deleted). The same sync also stopped the
    backend hiding official links (`globe.com.ph`, `go.gcash.com`, `glbe.co`):
    the old clusters had copied Spam-cluster domains into link suppression.
-   Both files are gitignored and exist only on Maxene's machine:
-   `campaign_clusters.json` (contains real SMS text) and the backup
-   checkpoint below (over 1 GB).
+   Both files are gitignored: `campaign_clusters.json` (contains real SMS
+   text, regenerable) exists only on Maxene's machine; the backup checkpoint
+   below also has a copy in Google Drive (see the rollback note).
 4. **Embedding re-centering: left off, unchanged.** Claude's recommendation
    was explicitly to *not* flip this yet — the maintenance-cost objection
    from 2026-08-26 hasn't changed, only measured on one embedding space so
@@ -1335,6 +1335,17 @@ rename `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` back to
 re-run `embed_dataset.py` → `cluster_campaigns.py` against the restored
 checkpoint, then `sync_campaigns_to_backend.py --apply` and restart the AI
 service.
+
+**Off-machine copy of the rollback checkpoint (added 2026-09-13):** the
+backup directory above is gitignored, so until now it existed only on
+Maxene's laptop. Its six top-level files (everything needed to serve the
+model; the leftover `checkpoint-2091/` training state is excluded) are
+zipped at `MyDrive/bantai/xlm-roberta-smishing-v2026-07-29-run3-rollback.zip`
+(803 MB). To restore: unzip into `ai/models/xlm-roberta-smishing/`. Check
+that the sha256 of `model.safetensors` equals
+`cd46599c7beea1dd82241b8f72f61c572de3fa92b1f56f75bfbe1769a86d7f3f`, the value
+in the zipped `version.json`, verified when the zip was made. Ask Maxene for
+the share link; it's deliberately not in this public repo.
 
 #### Re-measured 2026-08-30 — full current picture, after promotion
 

@@ -201,11 +201,13 @@ Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.p
 
 ## Centroid refresh
 
-The AI service holds centroids in memory (`routers/classify.py:matcher`). They
-are replaced wholesale after each offline re-clustering pass via
-`CampaignMatcher.replace_centroids()`. Because a centroid is only meaningful in
-the embedding space that produced it, this refresh **must** also happen after
-any model retrain.
+The AI service holds centroids in memory (`routers/classify.py:matcher`),
+loaded **from the backend** at startup (`centroid_source = "backend"`), not
+from `campaign_clusters.json`. A new clustering run therefore reaches the live
+service only after it is pushed into the backend
+(`scripts/sync_campaigns_to_backend.py`) and the AI service is restarted.
+Because a centroid is only meaningful in the embedding space that produced it,
+this refresh **must** also happen after any model retrain.
 
 ---
 
@@ -219,9 +221,27 @@ one — similarity scores become meaningless, not merely shifted.
 
 ```bash
 cd ai
-python scripts/embed_dataset.py       # re-embed with the new checkpoint
-python scripts/cluster_campaigns.py   # rebuild clusters + centroids
+python scripts/embed_dataset.py                    # re-embed with the new checkpoint
+python scripts/cluster_campaigns.py                # rebuild clusters + centroids
+python scripts/sync_campaigns_to_backend.py        # dry run: check the plan
+python scripts/sync_campaigns_to_backend.py --apply  # push to the backend
+# then restart the AI service so it loads them
 ```
+
+**Don't skip the sync.** The live service reads centroids from the backend, so
+the first two steps alone change nothing it uses. That is exactly what
+happened after the 2026-08-30 promotion: the clusters were rebuilt locally, but
+the backend kept the old model's 221 clusters until 2026-09-12. The sync
+creates the new clusters before switching off (not deleting) the old ones, and
+waits out the backend's 120-requests-per-minute limit (a full sync takes about
+5 minutes).
+
+**Link suppression.** The backend hides any link whose domain belongs to an
+active cluster. The sync sends a cluster's domains only if the cluster is
+mostly Scam, and never sends official brand domains, link shorteners (the
+backend already hides those), or shared platforms like `facebook.com`.
+Spam clusters are honest marketing, and copying their domains used to hide
+official Globe/GCash links.
 
 `embeddings.npz` records the `model_dir` it was built from so a stale cache is
 detectable. Note that re-clustering alone is cheap and safe to repeat any time

@@ -1302,6 +1302,18 @@ so nobody — including future-Maxene — mistakes this for a real second sign-o
    for real against the promoted checkpoint (`scripts/embed_dataset.py` →
    `scripts/cluster_campaigns.py`), since campaign centroids are meaningless
    against a different embedding space (`RETRAINING.md` § Rollback).
+   ⚠️ **But not pushed to the backend until 2026-09-12.** The live service
+   reads centroids from the backend, which kept the old checkpoint's 221
+   clusters (seeded 2026-08-04), so for 13 days campaign matching compared
+   new-model embeddings against old-model centroids. Found when Gio asked
+   where the regenerated clusters were. Fixed with the new
+   `scripts/sync_campaigns_to_backend.py`: 299 new clusters active, the 221
+   old ones switched off (kept, not deleted). The same sync also stopped the
+   backend hiding official links (`globe.com.ph`, `go.gcash.com`, `glbe.co`):
+   the old clusters had copied Spam-cluster domains into link suppression.
+   Both files are gitignored and exist only on Maxene's machine:
+   `campaign_clusters.json` (contains real SMS text) and the backup
+   checkpoint below (over 1 GB).
 4. **Embedding re-centering: left off, unchanged.** Claude's recommendation
    was explicitly to *not* flip this yet — the maintenance-cost objection
    from 2026-08-26 hasn't changed, only measured on one embedding space so
@@ -1320,8 +1332,9 @@ actual view might differ from what got shipped. If the adviser disagrees with
 any of the above, rollback is: rename `xlm-roberta-smishing/` back out,
 rename `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` back to
 `xlm-roberta-smishing/`, revert `service/campaign.py`'s threshold to 0.999,
-and re-run `embed_dataset.py` → `cluster_campaigns.py` again against the
-restored checkpoint.
+re-run `embed_dataset.py` → `cluster_campaigns.py` against the restored
+checkpoint, then `sync_campaigns_to_backend.py --apply` and restart the AI
+service.
 
 #### Re-measured 2026-08-30 — full current picture, after promotion
 

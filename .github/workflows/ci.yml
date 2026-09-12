@@ -36,7 +36,20 @@ jobs:
       # warmup_ratio usage (transformers>=5.0 dropped it in the 5.0.x line);
       # bumping past these CVEs needs real Colab compatibility testing before
       # trusting it, not a same-day version jump. Revisit if that's done.
-      - run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2025-217 --ignore-vuln PYSEC-2026-2288 --ignore-vuln PYSEC-2026-2289 --ignore-vuln PYSEC-2026-2290 --ignore-vuln PYSEC-2026-3716
+      #
+      # 2026-09-12: two more, same class, same reasoning (verified via
+      # repo-wide grep of ai/*.py):
+      #   PYSEC-2026-3929 (transformers <5.10.0) -- path traversal in
+      #     tokenizer/processor save_pretrained() via malicious chat_template
+      #     keys from an attacker-controlled Hub repo. Our only
+      #     save_pretrained() call is training/train.py, saving our own
+      #     fine-tuned tokenizer locally; chat_template is never used
+      #     (XLM-RoBERTa-base ships none).
+      #   PYSEC-2026-3804 (accelerate <=1.14.0) -- path traversal / DoS in
+      #     load_checkpoint_in_model / load_checkpoint_and_dispatch via a
+      #     malicious sharded-checkpoint weight_map. Neither function is
+      #     called anywhere in this codebase.
+      - run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2025-217 --ignore-vuln PYSEC-2026-2288 --ignore-vuln PYSEC-2026-2289 --ignore-vuln PYSEC-2026-2290 --ignore-vuln PYSEC-2026-3716 --ignore-vuln PYSEC-2026-3929 --ignore-vuln PYSEC-2026-3804
 
   backend:
     name: Backend (eslint, prettier, jest, build)

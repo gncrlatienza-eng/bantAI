@@ -502,6 +502,26 @@ trained from this point forward — which, depending on the adviser's
 decision on the 2026-08-17 candidate (see § "Stage 5b — measured limits"),
 may be sooner than it sounds.
 
+#### Holdout results for the promoted model (`v2026-08-27T09-46-20Z`)
+
+The 2026-08-27 candidate is the first model trained after the freeze, so the
+first one this holdout can grade honestly. Two layers, both on the same 3,236
+rows:
+
+- **Raw label** (`scripts/evaluate_holdout.py`, WBS 6.4.6): macro-F1
+  **0.9592**; Scam recall 92.4% (38/498 missed).
+  `evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`.
+- **What users see after routing** (`scripts/evaluate_holdout_buckets.py`,
+  added 2026-09-13): **17/498 real scams shown as safe (3.41%)**, **3/1,785
+  legitimate messages blocked (0.17%)**, 20/3,236 left as unknown (0.62%).
+  `evaluation/holdout_buckets_2026-09-12T16-47-44Z.json`. Its raw predictions
+  reproduce the 6.4.6 confusion matrix exactly, so both files describe the
+  same model on the same rows.
+
+Quote the post-routing script in the thesis, not `evaluate_buckets.py`: that
+one draws a fresh split from `datasets/labeled/`, so its numbers move as the
+dataset changes.
+
 #### `build_dataset.py` did not know the holdout carve-out existed — 2026-08-26
 
 Found while folding a new phone-export batch (nine more `Raw/PHONE-SMS-INBOX_*.csv`

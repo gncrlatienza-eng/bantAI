@@ -243,7 +243,7 @@ def main(argv=None) -> int:
         print(f"{floor:>8} {100 * r:>8.1f}% {100 * f:>12.1f}%")
 
     # --- full three-tier rule ----------------------------------------------
-    print("\nFull rule: domain(floor=0.90) OR hybrid(gate,lex) OR embedding(0.999)")
+    print(f"\nFull rule: domain(floor=0.90) OR hybrid(gate,lex) OR embedding({DEFAULT_SIMILARITY_THRESHOLD})")
     print(f"{'emb gate':>9} {'lex gate':>9} {'recall':>9} {'false-match':>13} {'vs baseline':>12}")
     rows = []
     for hg in HYBRID_GATE_GRID:

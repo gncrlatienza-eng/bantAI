@@ -9,10 +9,11 @@ Implements the manuscript's Stage 5b (campaign-level branch):
     with min_cluster_size = 5."
 
 The mechanism is implemented as specified. The **threshold** is not: 0.85 was
-measured to attach 54.5% of unrelated messages on this embedding space and has
-been re-calibrated to 0.999 (Sprint 5, WBS 5.3.6 -- "re-evaluate thresholds
-against real campaign data"). See ``DEFAULT_SIMILARITY_THRESHOLD`` below for
-the measurement and why the gap is structural.
+measured to attach 54.5% of unrelated messages on this embedding space and was
+re-calibrated to 0.999 (Sprint 5, WBS 5.3.6 -- "re-evaluate thresholds
+against real campaign data"), then to 0.998 when the model was promoted on
+2026-08-30. See ``DEFAULT_SIMILARITY_THRESHOLD`` below for the measurement and
+why the gap is structural.
 
 This module is the **fast path** -- it runs per message, in-process, during
 /classify. The slow path (offline HDBSCAN over the buffer) is
@@ -105,7 +106,7 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.998
 #
 #   tier "domain"    shares a blasted domain, embedding >= 0.90
 #   tier "hybrid"    embedding >= 0.99  AND  lexical >= 0.45
-#   tier "embedding" embedding >= 0.999                    (the calibrated bar)
+#   tier "embedding" embedding >= DEFAULT_SIMILARITY_THRESHOLD (0.998, the calibrated bar)
 #
 # Because the third tier is exactly the pre-hybrid rule, the hybrid path can
 # only *add* matches -- recall rises, and every added match carries

@@ -68,7 +68,8 @@ class Settings(BaseSettings):
     # (manuscript Stage 5b). The manuscript specifies 0.85; measured against
     # real data that attaches 54.5% of *unrelated* messages, because the
     # classifier embedding this reuses encodes class rather than campaign.
-    # Re-calibrated to 0.999 in Sprint 5 (WBS 5.3.6) -- see
+    # Re-calibrated to 0.999 in Sprint 5 (WBS 5.3.6), then 0.998 after the
+    # 2026-08-30 model promotion -- see
     # service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD for the full sweep.
     # Sourced from that constant rather than re-declared here, so the two
     # cannot silently drift apart if the calibrated value ever changes.

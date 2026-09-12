@@ -138,12 +138,14 @@ pattern is a legitimate Colab convention, not a violation).
     [`PIPELINE.md`](PIPELINE.md) for the full training/evaluation record and
     [`colab/README.md`](colab/README.md) to reproduce a run).
 - **Sprint 3 (done):**
-  - ✅ Cosine-similarity campaign matching, threshold 0.85 (`service/campaign.py`).
+  - ✅ Cosine-similarity campaign matching (`service/campaign.py`). The manuscript's
+    0.85 was re-calibrated to 0.999 in Sprint 5 and to 0.998 after the 2026-08-30
+    promotion, with a lexical second signal (see Sprint 5 below).
   - ✅ HDBSCAN offline re-clustering, `min_cluster_size = 5` (`scripts/cluster_campaigns.py`).
   - ✅ SHAP explainability + curated indicator tag dictionary, incl. Tagalog/Taglish
     coverage (`service/explainer.py`, `service/indicator_tags.py`).
   - ✅ Scam awareness tip lookup by cluster (`service/tips.py`).
-- **Sprint 4 (Track B — 7/8 done):**
+- **Sprint 4 (done):**
   - ✅ Retraining trigger thresholds — sample count, macro-F1 floor, Page-Hinkley
     drift (`retraining/triggers.py`).
   - ✅ Reservoir sampling, Vitter's Algorithm R (`retraining/sampling.py`).
@@ -151,12 +153,22 @@ pattern is a legitimate Colab convention, not a violation).
   - ✅ TF-IDF thread summarization, `POST /summarize` (`service/summarize.py`).
   - ✅ Campaign evolution tracking — new/dissolved/growing/merged/split
     campaigns between clustering snapshots (`campaign_evolution.py`).
-  - 🟡 **Automated retraining pipeline** — built and dry-run verified end-to-end
-    (`retraining/snapshot.py`, `retraining/reports.py`, `retraining/pipeline.py`,
-    `scripts/retrain.py`). All three report sources are live:
-    `NullReportSource` (still the default), `FileReportSource`, and
-    `DatabaseReportSource`, which reads Track A's `UserReport` table via
-    `GET /reports`. See [`RETRAINING.md`](RETRAINING.md). **One thing left:** a
-    real (non-dry) GPU fine-tune, so the train → score → gate path has actually
-    run once — no local GPU, so use
-    [`colab/BantAI_Retrain_Colab.ipynb`](colab/README.md).
+  - ✅ **Automated retraining pipeline** (`retraining/snapshot.py`,
+    `retraining/reports.py`, `retraining/pipeline.py`, `scripts/retrain.py`).
+    Report sources: `NullReportSource` (default), `FileReportSource`, and
+    `DatabaseReportSource` (Track A's `UserReport` table via `GET /reports`).
+    Three real GPU runs on Colab (2026-08-17, 08-26, 08-27); the 08-27 candidate
+    was promoted on 2026-08-30. See [`RETRAINING.md`](RETRAINING.md).
+- **Sprint 5 (Track B done):**
+  - ✅ Campaign-match threshold re-evaluated against real data (0.85 → 0.999,
+    adviser-approved 2026-08-26), plus a lexical second signal (`service/lexical.py`).
+  - ✅ SHAP tag dictionary polished from observed outputs.
+  - ✅ Refinement retrain on S2–S4 data; candidate promoted 2026-08-30
+    (`v2026-08-27T09-46-20Z`, clean holdout macro-F1 0.9592). Threshold moved to 0.998.
+- **Sprint 6:** ✅ holdout confusion matrix (`scripts/evaluate_holdout.py`);
+  precision/recall in real use waits on the deployment.
+
+**After every promotion or rollback:** `scripts/embed_dataset.py` →
+`scripts/cluster_campaigns.py` → `scripts/sync_campaigns_to_backend.py --apply` →
+restart the AI service. The live service reads campaign centroids from the
+backend, so skipping the sync leaves it matching against the old model's clusters.

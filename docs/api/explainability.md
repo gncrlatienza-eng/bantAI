@@ -57,10 +57,25 @@ not require a mobile release.
 ```
 
 - `tag` — display string, human-readable as-is.
-- `weight` — `0.0–1.0`, **relative within this message only.** Normalized so
-  the strongest indicator is `1.0`. Absolute Shapley magnitudes vary with
-  message length and are not comparable across messages; the ordering is the
-  meaningful part.
+- `weight` — `0.0–1.0`, **relative within this message only** — not
+  comparable across messages, and the exact ceiling depends on which of two
+  paths computed it (the response never says which; see below):
+  - **Real SHAP ran** (the common case — `shap` installed, attribution
+    succeeded): normalized so the strongest indicator is exactly `1.0`.
+  - **Keyword fallback ran** (`shap` unavailable, or attribution failed on
+    this input): weights are capped at **`0.9`** by design
+    (`ai/service/indicator_tags.py`) — the strongest indicator on a
+    fallback-explained message will never show `1.0`. This is deliberate
+    (so a fallback weight can never be mistaken for a genuine Shapley score
+    if the two were ever compared side by side), but it means a client
+    should not assume "the top indicator renders as a full bar" — treat the
+    ordering as authoritative, not the absolute number.
+
+  The service internally tracks which path ran (`method: "shap" |
+  "keyword-fallback"` on `Explanation`, `ai/service/explainer.py`), but that
+  field is **not** included in what reaches this endpoint —
+  `to_indicator_dicts()` strips it down to `{tag, weight}` only. A client
+  cannot distinguish the two paths from the response alone.
 
 **Sorted most-influential-first.** Clients should render in array order and may
 truncate to the top 2–3 without losing the important ones.

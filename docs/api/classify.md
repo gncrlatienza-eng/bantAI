@@ -48,9 +48,11 @@ part of this service so that training and inference see identical text.
   "masked_text": "Your GCash account is locked. Verify now: <URL>",
   "campaign": {
     "cluster_id": "7",
-    "similarity": 0.913,
+    "similarity": 0.9991,
     "matched": true,
-    "should_buffer": false
+    "should_buffer": false,
+    "lexical_similarity": 0.0,
+    "match_reason": "embedding"
   }
 }
 ```
@@ -64,14 +66,36 @@ part of this service so that training and inference see identical text.
 | `masked_text` | string | PII-masked text actually fed to the model |
 | `campaign` | object \| null | Campaign-clustering result (Sprint 3). `null` when no centroids are loaded — see below. |
 
-### `campaign` (Sprint 3, WBS 3.3.4)
+### `campaign` (Sprint 3, WBS 3.3.4; matching logic re-tuned Sprint 5, WBS 5.3.6)
 
 | Field | Type | Description |
 |---|---|---|
-| `cluster_id` | string \| null | Matched `CampaignCluster` id, or `null` when nothing cleared the threshold |
+| `cluster_id` | string \| null | Matched `CampaignCluster` id, or `null` when nothing cleared any tier |
 | `similarity` | float −1–1 | Cosine similarity to the closest active centroid |
-| `matched` | bool | Whether `similarity ≥ 0.85` (manuscript Stage 5b threshold) |
+| `matched` | bool | Whether the message cleared **any** of the three tiers below — not a single fixed threshold |
 | `should_buffer` | bool | `true` when unmatched — hold the embedding for the next offline HDBSCAN pass |
+| `lexical_similarity` | float 0–1 | Word-overlap (Dice coefficient) with the matched campaign's template. `0.0` when the campaign has no lexical profile or nothing matched |
+| `match_reason` | string \| null | Which tier matched — `"domain"` \| `"hybrid"` \| `"embedding"`, see below. `null` when unmatched |
+
+**The manuscript specifies a single 0.85 cosine threshold here.** Measured
+against real data that attaches 54.5% of unrelated messages to a campaign
+they don't belong to (`ai/PIPELINE.md` § "Stage 5b — measured limits"), so
+the shipped system uses three tiers instead, checked in order of how much
+evidence each carries — adviser-approved 2026-08-26:
+
+| `match_reason` | Rule | Rationale |
+|---|---|---|
+| `domain` | shares a blasted domain **and** cosine ≥ 0.90 | link identity is near-conclusive on its own |
+| `hybrid` | cosine ≥ 0.99 **and** `lexical_similarity` ≥ 0.45 | a coarse embedding filter wording then has to confirm |
+| `embedding` | cosine ≥ **0.998** | the calibrated bar alone — no wording needed |
+
+The embedding-only bar moves when the underlying model is retrained and
+promoted (it was 0.999 under the checkpoint live through 2026-08-29, 0.998
+since the 2026-08-30 promotion — see `ai/service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD`
+for the current value); the three-tier mechanism itself does not change.
+Because the `embedding` tier is exactly the pre-hybrid rule, the tiers are
+additive — the `domain` and `hybrid` tiers can only add matches the
+old single-threshold system would have missed, never remove ones it caught.
 
 The AI service **decides** the match; the backend **persists** it (writes
 `clusterId` on the message, increments `messageCount`). The AI service has no

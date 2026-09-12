@@ -99,8 +99,8 @@ attach explainability data to an already-classified message. No JWT guard
 ```json
 {
   "indicators": [
-    { "tag": "suspicious-link", "weight": 0.42 },
-    { "tag": "urgency-language", "weight": 0.31 }
+    { "tag": "Suspicious URL", "weight": 0.7 },
+    { "tag": "Urgency Cue", "weight": 0.42 }
   ]
 }
 ```
@@ -108,6 +108,14 @@ attach explainability data to an already-classified message. No JWT guard
 | Field | Type | Description |
 |---|---|---|
 | `indicators` | `{ tag: string, weight: number }[]` | SHAP-derived indicator tags for the message, most-influential first by convention (not enforced) |
+
+`tag` is one of nine fixed display strings (Title Case, e.g. `"Prize Lure"`,
+`"OTP / Account Phishing"`) — see
+[`explainability.md`](explainability.md) for the full vocabulary and what
+`weight`'s scale actually means (it differs depending on which explanation
+path produced it). The example above previously showed placeholder strings
+(`suspicious-link`, `urgency-language`) that don't match any tag the service
+actually emits — corrected 2026-09-11 to real values.
 
 Upserts an `ExplainableIndicator` row keyed on the message's `Classification`
 id — a message must already have a `Classification` (i.e. `POST /sms/ingest`

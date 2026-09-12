@@ -75,6 +75,11 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
     }
 
     setLoading(true);
+    try {
+      localStorage.setItem('bantai_session', admin ? 'admin' : 'client');
+    } catch {
+      // Ignore local storage error
+    }
     setTimeout(() => {
       setLoading(false);
       navigate(admin ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW);

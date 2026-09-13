@@ -416,9 +416,12 @@ Two properties this depends on:
    Retraining changes how embeddings are computed, so centroids from the old
    model are not comparable to embeddings from the new one — similarity
    scores become meaningless, not merely shifted. **Any promotion or
-   rollback must be followed by re-embedding and re-clustering**
-   (`scripts/embed_dataset.py`, then `scripts/cluster_campaigns.py`). See
-   `docs/api/campaigns.md` § Retraining invalidates clusters.
+   rollback must be followed by re-embedding, re-clustering, and pushing the
+   result to the backend** (`scripts/embed_dataset.py`, then
+   `scripts/cluster_campaigns.py`, then `scripts/sync_campaigns_to_backend.py
+   --apply`, then restart the AI service). The live service reads centroids
+   from the backend, so skipping the last two steps changes nothing it uses.
+   See `docs/api/campaigns.md` § Retraining invalidates clusters.
 
 ---
 

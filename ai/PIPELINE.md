@@ -502,6 +502,26 @@ trained from this point forward — which, depending on the adviser's
 decision on the 2026-08-17 candidate (see § "Stage 5b — measured limits"),
 may be sooner than it sounds.
 
+#### Holdout results for the promoted model (`v2026-08-27T09-46-20Z`)
+
+The 2026-08-27 candidate is the first model trained after the freeze, so the
+first one this holdout can grade honestly. Two layers, both on the same 3,236
+rows:
+
+- **Raw label** (`scripts/evaluate_holdout.py`, WBS 6.4.6): macro-F1
+  **0.9592**; Scam recall 92.4% (38/498 missed).
+  `evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`.
+- **What users see after routing** (`scripts/evaluate_holdout_buckets.py`,
+  added 2026-09-13): **17/498 real scams shown as safe (3.41%)**, **3/1,785
+  legitimate messages blocked (0.17%)**, 20/3,236 left as unknown (0.62%).
+  `evaluation/holdout_buckets_2026-09-12T16-47-44Z.json`. Its raw predictions
+  reproduce the 6.4.6 confusion matrix exactly, so both files describe the
+  same model on the same rows.
+
+Quote the post-routing script in the thesis, not `evaluate_buckets.py`: that
+one draws a fresh split from `datasets/labeled/`, so its numbers move as the
+dataset changes.
+
 #### `build_dataset.py` did not know the holdout carve-out existed — 2026-08-26
 
 Found while folding a new phone-export batch (nine more `Raw/PHONE-SMS-INBOX_*.csv`
@@ -776,16 +796,20 @@ different semantic spaces.
 |---|---|---|
 | Decides | join a *known* campaign | discover a *new* campaign |
 | Method | cosine vs. active centroids, corroborated by wording | HDBSCAN over the buffer |
-| Parameter | similarity ≥ **0.999** ⚠️, or a corroborated relaxed bar | `min_cluster_size` = **5** |
+| Parameter | similarity ≥ **0.998** ⚠️, or a corroborated relaxed bar | `min_cluster_size` = **5** |
 | Cost | microseconds | seconds–minutes |
 
 ⚠️ The manuscript specifies **0.85** here. That value was measured to attach
-54.5% of *unrelated* messages and has been re-calibrated to 0.999 under WBS
-5.3.6 ("re-evaluate thresholds against real campaign data"). Because 0.999
-leaves only ~0.0008 of usable margin, the same WBS item added an independent
-**lexical** second signal that can corroborate a relaxed embedding score — see
+54.5% of *unrelated* messages and was re-calibrated to 0.999 under WBS 5.3.6
+("re-evaluate thresholds against real campaign data"), then to **0.998** on
+2026-08-30 when the underlying model was promoted (the mechanism and
+rationale are unchanged; only the checkpoint the number is calibrated against
+changed). Because that bar leaves only a fraction of a percent of usable
+margin, the same WBS item added an independent **lexical** second signal that
+can corroborate a relaxed embedding score — see
 [Stage 5b — measured limits](#stage-5b--measured-limits--sprint-5-wbs-536)
-below for both. `min_cluster_size` is unchanged. HDBSCAN comes from
+below for both, including the 2026-08-30 re-measurement. `min_cluster_size`
+is unchanged. HDBSCAN comes from
 `sklearn.cluster.HDBSCAN` (scikit-learn ≥ 1.3) rather than the standalone
 `hdbscan` package — same algorithm, one less dependency, and sklearn was
 already required for the train/val split. Clustering uses euclidean distance on
@@ -900,12 +924,35 @@ random strangers, both scored against that campaign's centroid:
 |---|---|---|
 | **0.85** (manuscript) | 100.0% | **54.5%** |
 | 0.99 | 100.0% | 30.5% |
-| **0.999** (adopted) | **93.8%** | **2.6%** |
+| **0.999** (adopted 2026-08-26) | **93.8%** | **2.6%** |
 | 0.9995 | 87.9% | 0.5% |
 
 At the manuscript's value the fast path attached a **majority of unrelated
-messages** to existing campaigns. `DEFAULT_SIMILARITY_THRESHOLD` is now
-`0.999`; the mechanism is unchanged, only the constant.
+messages** to existing campaigns. This table was measured against the
+`v2026-07-29-run3` checkpoint, live at the time of the 2026-08-26 adviser
+sign-off below — see the 2026-08-30 addendum for the currently-deployed
+model's numbers.
+
+> **⚠️ Stale as of 2026-08-30 — re-measured, not updated in place.** The
+> 2026-08-30 model promotion (§ "Candidate promoted") re-embedded the entire
+> corpus against a new checkpoint, which silently invalidated this table —
+> `ai/evaluation/match_threshold_calibration.json` was overwritten in place
+> with the new checkpoint's numbers rather than saved under a new filename,
+> so the table above no longer matches the file it cites. Caught and
+> corrected 2026-09-11 (fact-check pass ahead of the adviser/panel email).
+> `DEFAULT_SIMILARITY_THRESHOLD` is now **0.998**, not 0.999 — re-tuned to
+> reproduce the same approved trade-off under the new embedding space.
+> Re-measured, not assumed: **94.8% recall / 2.8% false-match** at 0.998
+> against the current checkpoint (`ai/service/campaign.py`'s own inline
+> comment already carried this correctly; only this narrative section had
+> drifted). Close to the 2026-08-26 approval, not identical — worth a line
+> in any adviser follow-up rather than treated as a silent continuation.
+> **Lesson for next time:** evaluation artifacts that get compared across
+> model versions should be saved under timestamped filenames (as
+> `retraining_run_*.json` and `holdout_confusion_*.json` already do), not
+> overwritten in place — this is the same "silent overwrite loses history"
+> failure mode already fixed once for campaign-cluster snapshots (Stage 9b),
+> recurring here in a different file.
 
 #### No layer of this model does better
 
@@ -1098,6 +1145,16 @@ wording, so it cannot be rigged in the lexical gate's favour. It still shows
 **+5.2pp recall for +0.6pp false matches**, so the gain is real rather than an
 artifact of how ground truth was built.
 
+> **⚠️ Stale as of 2026-08-30.** Table above is `v2026-07-29-run3`, live at
+> the time of the 2026-08-26 sign-off. Re-measured against the promoted
+> checkpoint (`v2026-08-27T09-46-20Z`) at the current 0.998 threshold: `lexical`
+> baseline 94.8% recall / 2.8% false → 99.6% / 3.2% with hybrid; `hdbscan`
+> baseline 59.5% / 3.0% → 63.1% / 3.6% with hybrid, i.e. **+3.6pp recall for
+> +0.7pp false matches** — smaller than the +5.2pp measured here, but the
+> mechanism held rather than needing retuning. See "Re-measured 2026-08-30"
+> below the promotion note for the full current picture; this table is kept
+> as the historical record of what the 2026-08-26 sign-off actually approved.
+
 Gate choices, all measured:
 
 - **0.99 hybrid gate** — 0.95/0.97/0.98/0.99 produce *identical* recall once
@@ -1118,8 +1175,9 @@ recalibration.
 
 The two baseline rows above differ by ~50pp, and that gap is a finding in its
 own right. Under `hdbscan` grouping, only **44.4%** of a cluster's own held-out
-members re-match their own centroid at 0.999. The offline pass is producing
-clusters the fast path then cannot recognise.
+members re-match their own centroid at 0.999 — **59.5% at 0.998 under the
+promoted checkpoint** (re-measured 2026-08-30, still well short of 100%). The
+offline pass is producing clusters the fast path then cannot recognise.
 
 This is consistent with the diffuse "generic scam" region documented above: at
 `min_cluster_size = 5` on de-duplicated data, HDBSCAN groups messages that are
@@ -1223,9 +1281,13 @@ conversation (`Retrain Candidate Review`) — summary here for the repo record:
   is an explicit open question for the adviser if promotion happens, not an
   assumption that item 3 of the 08-26 sign-off still holds as-is.
 
-**Status: informational only.** No threshold, no cluster file, no service
-config changed as a result of this pass — see the promotion note above for
-why that stays a separate, deliberate decision.
+**Status at the time: informational only** — no threshold, no cluster file,
+no service config changed as a result of this pass on its own. **Superseded
+two days later:** the 2026-08-30 promotion below acted on these exact
+findings (the 0.998 threshold, the re-embedded clusters) — so this section is
+no longer purely exploratory in hindsight, it's the measurement that
+preceded the decision. Left worded in the past tense it was written in
+rather than rewritten as if foreseeing that outcome.
 
 #### ⚠️ Candidate promoted — 2026-08-30, not on adviser sign-off
 
@@ -1260,6 +1322,18 @@ so nobody — including future-Maxene — mistakes this for a real second sign-o
    for real against the promoted checkpoint (`scripts/embed_dataset.py` →
    `scripts/cluster_campaigns.py`), since campaign centroids are meaningless
    against a different embedding space (`RETRAINING.md` § Rollback).
+   ⚠️ **But not pushed to the backend until 2026-09-12.** The live service
+   reads centroids from the backend, which kept the old checkpoint's 221
+   clusters (seeded 2026-08-04), so for 13 days campaign matching compared
+   new-model embeddings against old-model centroids. Found when Gio asked
+   where the regenerated clusters were. Fixed with the new
+   `scripts/sync_campaigns_to_backend.py`: 299 new clusters active, the 221
+   old ones switched off (kept, not deleted). The same sync also stopped the
+   backend hiding official links (`globe.com.ph`, `go.gcash.com`, `glbe.co`):
+   the old clusters had copied Spam-cluster domains into link suppression.
+   Both files are gitignored: `campaign_clusters.json` (contains real SMS
+   text, regenerable) exists only on Maxene's machine; the backup checkpoint
+   below also has a copy in Google Drive (see the rollback note).
 4. **Embedding re-centering: left off, unchanged.** Claude's recommendation
    was explicitly to *not* flip this yet — the maintenance-cost objection
    from 2026-08-26 hasn't changed, only measured on one embedding space so
@@ -1278,17 +1352,68 @@ actual view might differ from what got shipped. If the adviser disagrees with
 any of the above, rollback is: rename `xlm-roberta-smishing/` back out,
 rename `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` back to
 `xlm-roberta-smishing/`, revert `service/campaign.py`'s threshold to 0.999,
-and re-run `embed_dataset.py` → `cluster_campaigns.py` again against the
-restored checkpoint.
+re-run `embed_dataset.py` → `cluster_campaigns.py` against the restored
+checkpoint, then `sync_campaigns_to_backend.py --apply` and restart the AI
+service.
+
+**Off-machine copy of the rollback checkpoint (added 2026-09-13):** the
+backup directory above is gitignored, so until now it existed only on
+Maxene's laptop. Its six top-level files (everything needed to serve the
+model; the leftover `checkpoint-2091/` training state is excluded) are
+zipped at `MyDrive/bantai/xlm-roberta-smishing-v2026-07-29-run3-rollback.zip`
+(803 MB). To restore: unzip into `ai/models/xlm-roberta-smishing/`. Check
+that the sha256 of `model.safetensors` equals
+`cd46599c7beea1dd82241b8f72f61c572de3fa92b1f56f75bfbe1769a86d7f3f`, the value
+in the zipped `version.json`, verified when the zip was made. Ask Maxene for
+the share link; it's deliberately not in this public repo.
+
+#### Re-measured 2026-08-30 — full current picture, after promotion
+
+Consolidates the individual stale-flags above into one place. Everything
+below is re-measured against the promoted checkpoint (`v2026-08-27T09-46-20Z`)
+and its `DEFAULT_SIMILARITY_THRESHOLD = 0.998`; sourced from
+`ai/service/campaign.py`'s own inline comment (which was updated correctly at
+promotion time) and the regenerated `ai/evaluation/match_threshold_calibration.json`
+/ `hybrid_match_calibration_{lexical,hdbscan}.json` — the narrative sections
+above this point were not, until this fact-check pass (2026-09-11):
+
+| grouping | embedding-only @ 0.998 | with hybrid (0.99 / 0.45) |
+|---|---|---|
+| `lexical` (friendly referee) | 94.8% recall / 2.8% false | 99.6% / 3.2% |
+| `hdbscan` (hostile referee) | 59.5% recall / 3.0% false | 63.1% / 3.6% |
+
+The hdbscan row is still the one that counts, for the same reason as before.
+**+3.6pp recall for +0.7pp false matches** — smaller than the +5.2pp
+originally measured (2026-08-26, against `v2026-07-29-run3`), but the
+mechanism held rather than needing retuning after the model changed
+underneath it, which was exactly the risk the hybrid signal was added to
+guard against.
+
+Production gate constants (`HYBRID_EMBEDDING_GATE = 0.99`, `LEXICAL_GATE =
+0.45`) were **not** re-tuned for the new embedding space — the numbers above
+measure how the *existing* gates perform against the new checkpoint, not a
+fresh calibration sweep. Whether re-tuning them would do better is an open
+question, not yet measured.
+
+**Why this fell out of sync:** the 2026-08-30 promotion re-ran the
+calibration scripts (to know what to expect) and separately overwrote the
+evaluation JSON files those scripts write to — but nothing re-generates this
+narrative section from those files automatically, so the prose kept
+describing the pre-promotion model until this pass caught it. Same
+root cause as the threshold-table staleness above: evaluation artifacts
+compared across model versions need timestamped filenames, not in-place
+overwrites, so a change like this can't silently take the surrounding prose
+out of date again.
 
 #### Open: centroid drift is uncalibrated
 
 `campaign_evolution.py` deliberately shares this threshold, so that "same
-campaign" means one thing everywhere. Raising it to 0.999 tightens continuity
-matching between snapshots too — and **that use was not calibrated**, because
-no archived snapshots existed to measure real centroid drift against. If
-campaigns begin reporting as *dissolved + new* rather than *continuing*, this
-is the first thing to check; the fix is a separate constant there.
+campaign" means one thing everywhere. The threshold move (0.999 → 0.998,
+2026-08-30) tightens continuity matching between snapshots too — and **that
+use was not calibrated**, because no archived snapshots existed to measure
+real centroid drift against, at either value. If campaigns begin reporting as
+*dissolved + new* rather than *continuing*, this is the first thing to check;
+the fix is a separate constant there.
 
 ---
 

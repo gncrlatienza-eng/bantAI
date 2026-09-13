@@ -22,11 +22,12 @@ setting can drive noise to zero by merging everything, and purity is what
 catches that. Reported as a weighted mean over clustered messages.
 
 **Cohesion** -- mean cosine similarity of members to their own centroid. The
-live matcher admits a message to a campaign at 0.999 (``service/campaign.py``,
-re-calibrated from the manuscript's original 0.85 -- see Stage 5b in
-``PIPELINE.md``), so cohesion well above that says the offline clusters and
-the online threshold agree about what "same campaign" means. If cohesion
-drifted toward 0.999, the two paths would be describing different things.
+live matcher admits a message to a campaign at 0.998 (``service/campaign.py``,
+re-calibrated from the manuscript's original 0.85, via 0.999 on the previous
+checkpoint -- see Stage 5b in ``PIPELINE.md``), so cohesion well above that
+says the offline clusters and the online threshold agree about what "same
+campaign" means. If cohesion drifted toward that bar, the two paths would be
+describing different things.
 
 Purity needs labels, so it is only computable offline against the labeled
 dataset -- which is exactly what this script is for. Nothing here runs in

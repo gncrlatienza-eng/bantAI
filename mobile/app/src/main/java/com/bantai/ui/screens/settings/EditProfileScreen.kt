@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.ui.theme.*
+import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.SettingsViewModel
 
 @Composable
@@ -30,8 +31,9 @@ fun EditProfileScreen(
     val firstName by viewModel.editFirstName.collectAsState()
     val lastName by viewModel.editLastName.collectAsState()
     val avatarColor by viewModel.editAvatarColor.collectAsState()
+    val firstNameError by viewModel.firstNameError.collectAsState()
+    val lastNameError by viewModel.lastNameError.collectAsState()
 
-    var firstNameError by remember { mutableStateOf("") }
     var showSaved by remember { mutableStateOf(false) }
 
     val parsedColor =
@@ -93,15 +95,10 @@ fun EditProfileScreen(
         Spacer(Modifier.height(6.dp))
         OutlinedTextField(
             value = firstName,
-            onValueChange = {
-                if (it.length <= 30) {
-                    viewModel.updateEditFirstName(it)
-                    firstNameError = ""
-                }
-            },
+            onValueChange = { if (it.length <= NAME_MAX_LENGTH) viewModel.updateEditFirstName(it) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            isError = firstNameError.isNotEmpty(),
+            isError = firstNameError != null,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             colors =
                 OutlinedTextFieldDefaults.colors(
@@ -117,12 +114,12 @@ fun EditProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            if (firstNameError.isNotEmpty()) {
-                Text(firstNameError, color = Color(0xFFFF3B30), fontSize = 11.sp)
+            if (firstNameError != null) {
+                Text(firstNameError ?: "", color = Color(0xFFFF3B30), fontSize = 11.sp)
             } else {
                 Spacer(Modifier.weight(1f))
             }
-            Text("${firstName.length}/30", color = TextSecondary, fontSize = 11.sp)
+            Text("${firstName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = 11.sp)
         }
 
         Spacer(Modifier.height(16.dp))
@@ -131,9 +128,10 @@ fun EditProfileScreen(
         Spacer(Modifier.height(6.dp))
         OutlinedTextField(
             value = lastName,
-            onValueChange = { if (it.length <= 30) viewModel.updateEditLastName(it) },
+            onValueChange = { if (it.length <= NAME_MAX_LENGTH) viewModel.updateEditLastName(it) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            isError = lastNameError != null,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             colors =
                 OutlinedTextFieldDefaults.colors(
@@ -141,11 +139,20 @@ fun EditProfileScreen(
                     unfocusedBorderColor = Color(0xFF2A2A2A),
                     focusedTextColor = White,
                     unfocusedTextColor = White,
+                    errorBorderColor = Color(0xFFFF3B30),
                     cursorColor = Color(0xFF5B4FE8),
                 ),
         )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text("${lastName.length}/30", color = TextSecondary, fontSize = 11.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            if (lastNameError != null) {
+                Text(lastNameError ?: "", color = Color(0xFFFF3B30), fontSize = 11.sp)
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            Text("${lastName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = 11.sp)
         }
 
         Spacer(Modifier.weight(1f))
@@ -165,15 +172,6 @@ fun EditProfileScreen(
 
         Button(
             onClick = {
-                val trimmed = firstName.trim()
-                if (trimmed.isEmpty()) {
-                    firstNameError = "First name is required"
-                    return@Button
-                }
-                if (!trimmed.all { it.isLetter() || it.isWhitespace() }) {
-                    firstNameError = "Name should only contain letters"
-                    return@Button
-                }
                 viewModel.saveProfile {
                     showSaved = true
                 }

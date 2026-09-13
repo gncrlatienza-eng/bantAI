@@ -46,13 +46,17 @@ private suspend fun loadContactPhoto(
     sender: String,
 ): ImageBitmap? {
     contactPhotoCache[sender]?.let { return it.value }
-    val result =
+    // Checked before touching the cache, and never cached itself: permission can
+    // be granted later in the same process, and this check is cheap — caching a
+    // null here would stick every already-looked-up sender at "no photo" forever
+    // even after the user grants Contacts access.
+    val hasContactsPermission =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+            PackageManager.PERMISSION_GRANTED
+    return if (!hasContactsPermission) {
+        null
+    } else {
         withContext(Dispatchers.IO) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                return@withContext null
-            }
             try {
                 val lookupUri =
                     Uri.withAppendedPath(
@@ -78,9 +82,8 @@ private suspend fun loadContactPhoto(
             } catch (e: Exception) {
                 null
             }
-        }
-    contactPhotoCache[sender] = Optional(result)
-    return result
+        }.also { contactPhotoCache[sender] = Optional(it) }
+    }
 }
 
 /**

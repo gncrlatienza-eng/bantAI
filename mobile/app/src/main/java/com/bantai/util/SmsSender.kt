@@ -15,6 +15,15 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private val requestCodeCounter = AtomicInteger(0)
 
+// Pre-API-33 has no RECEIVER_NOT_EXPORTED equivalent for dynamic receivers, so
+// without this, any app on the device could forge a broadcast matching the
+// per-send action below and spoof a fake "sent successfully" result. A
+// signature-level permission (declared in AndroidManifest.xml) closes that —
+// only an app signed with the same key can hold it, and PendingIntent.send()
+// from the telephony service still carries our own app's identity, so the real
+// result delivery is unaffected.
+private const val SEND_RESULT_PERMISSION = "com.bantai.permission.SMS_SEND_RESULT"
+
 // If the carrier/radio never fires the sentIntent at all (seen on some devices/OEM
 // firmware in degraded radio states), the UI would otherwise show "Sending…"
 // forever with no way to know it failed. This bounds that wait.
@@ -83,8 +92,7 @@ object SmsSender {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             appContext.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            appContext.registerReceiver(receiver, filter)
+            appContext.registerReceiver(receiver, filter, SEND_RESULT_PERMISSION, null)
         }
         handler.postDelayed({ finish(false, "Message failed to send") }, SEND_TIMEOUT_MS)
 

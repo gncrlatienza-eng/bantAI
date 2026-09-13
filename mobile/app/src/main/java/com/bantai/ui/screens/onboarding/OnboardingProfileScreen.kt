@@ -59,6 +59,7 @@ import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
+import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.OnboardingViewModel
 
 private const val STAGGER_DURATION_MS = 420
@@ -66,7 +67,6 @@ private const val AVATAR_COLOR_TWEEN_MS = 280
 private const val SLIDE_OFFSET_DIVISOR = 6
 private const val AVATAR_PULSE_SCALE = 1.12f
 private const val AVATAR_REST_SCALE = 1f
-private const val NAME_MAX_LENGTH = 30
 private const val AVATAR_SIZE_DP = 96
 
 private const val DELAY_HEADER_MS = 0

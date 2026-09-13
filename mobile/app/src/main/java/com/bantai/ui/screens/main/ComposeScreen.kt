@@ -76,7 +76,7 @@ fun ComposeScreen(
     // preserve unsent text as a draft instead of silently discarding it.
     DisposableEffect(Unit) {
         onDispose {
-            if (!justSent) viewModel.saveDraft(recipient, messageBody)
+            if (!justSent) viewModel.saveDraft(recipient, messageBody, previousRecipient = initialRecipient)
         }
     }
 

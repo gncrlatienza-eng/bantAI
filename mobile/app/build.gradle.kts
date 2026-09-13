@@ -35,6 +35,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Deliberately not localhost: a production backend doesn't exist yet
+            // (WBS 6.3.2), and defaultConfig's dev URL must never ship in a
+            // release build — src/debug's network_security_config.xml already
+            // makes cleartext-to-localhost debug-only, but this closes the gap
+            // structurally too. Replace with the real HTTPS backend URL once
+            // 6.3.2 lands.
+            buildConfigField("String", "BACKEND_BASE_URL", "\"https://api.bantai.invalid/api\"")
         }
     }
 
@@ -84,6 +91,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.accompanist.permissions)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    // 1.0.0 is the last stable release — the 1.1.0-alpha* line has never
+    // graduated past alpha, and SecureTokenStore's whole job is protecting the
+    // one credential this app has, which shouldn't rest on a pre-release build.
+    implementation("androidx.security:security-crypto:1.0.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     debugImplementation(libs.androidx.ui.tooling)
 }

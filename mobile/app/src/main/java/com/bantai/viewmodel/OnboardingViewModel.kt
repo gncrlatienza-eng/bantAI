@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.AuthApi
+import com.bantai.util.isValidName
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -80,8 +81,6 @@ class OnboardingViewModel(
         _lastNameError.value = false
         _lastNameErrorMessage.value = ""
     }
-
-    fun isValidName(name: String): Boolean = name.trim().all { it.isLetter() || it.isWhitespace() }
 
     fun cycleAvatarColor() {
         val colors = listOf("#FF6B35", "#5B4FE8", "#00C896", "#0A84FF", "#E91E8C")

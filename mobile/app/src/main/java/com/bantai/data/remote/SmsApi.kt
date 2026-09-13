@@ -1,11 +1,7 @@
 package com.bantai.data.remote
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.Instant
 
 /**
@@ -31,10 +27,6 @@ object SmsApi {
         val suppressedLinks: List<String> = emptyList(),
     )
 
-    class ApiException(
-        message: String,
-    ) : Exception(message)
-
     data class AlertSummary(
         val id: String,
         val status: String,
@@ -46,6 +38,7 @@ object SmsApi {
         val label: String?,
         val score: Double?,
         val bucket: String?,
+        val clusterId: String?,
     )
 
     data class IndicatorTag(
@@ -63,21 +56,18 @@ object SmsApi {
         body: String,
         receivedAtMillis: Long,
         timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
-    ): Result<IngestResult> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val payload =
-                    JSONObject()
-                        .put("sender", sender)
-                        .put("body", body)
-                        .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
+    ): Result<IngestResult> {
+        val payload =
+            JSONObject()
+                .put("sender", sender)
+                .put("body", body)
+                .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
 
-                parseIngestResponse(post("/sms/ingest", payload, token, timeoutMs))
-            }
-        }
+        return HttpClient.post("/sms/ingest", payload, token, timeoutMs).mapCatching { parseIngestResponse(it) }
+    }
 
     /** GET /sms/alerts — all alerts for the signed-in user, newest first. */
-    suspend fun getAlerts(token: String): Result<List<AlertSummary>> = get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
+    suspend fun getAlerts(token: String): Result<List<AlertSummary>> = HttpClient.get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
 
     /**
      * GET /sms/:messageId/indicators — SHAP-derived tags for one message.
@@ -87,7 +77,8 @@ object SmsApi {
         token: String,
         messageId: String,
     ): Result<List<IndicatorTag>> =
-        get("/sms/${java.net.URLEncoder.encode(messageId, "UTF-8")}/indicators", token)
+        HttpClient
+            .get("/sms/${java.net.URLEncoder.encode(messageId, "UTF-8")}/indicators", token)
             .mapCatching { body -> parseIndicators(JSONObject(body)) }
 
     private fun parseAlerts(json: JSONArray): List<AlertSummary> = List(json.length()) { i -> parseAlert(json.getJSONObject(i)) }
@@ -106,6 +97,7 @@ object SmsApi {
             label = classification?.optString("label")?.takeIf { it.isNotEmpty() },
             score = classification?.takeIf { it.has("score") }?.optDouble("score"),
             bucket = classification?.optString("bucket")?.takeIf { it.isNotEmpty() },
+            clusterId = message.optString("clusterId").takeIf { it.isNotEmpty() },
         )
     }
 
@@ -116,33 +108,6 @@ object SmsApi {
             IndicatorTag(tag = tag.optString("tag"), weight = tag.optDouble("weight", 0.0))
         }
     }
-
-    private suspend fun get(
-        path: String,
-        token: String,
-    ): Result<String> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
-                try {
-                    connection.requestMethod = "GET"
-                    connection.setRequestProperty("Authorization", "Bearer $token")
-                    connection.connectTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
-                    connection.readTimeout = ApiConfig.DEFAULT_TIMEOUT_MS
-
-                    val status = connection.responseCode
-                    val text =
-                        (if (status in 200..299) connection.inputStream else connection.errorStream)
-                            ?.bufferedReader()
-                            ?.use { it.readText() }
-                            .orEmpty()
-                    if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
-                    text
-                } finally {
-                    connection.disconnect()
-                }
-            }
-        }
 
     private fun parseIngestResponse(raw: String): IngestResult {
         val json = JSONObject(raw)
@@ -177,47 +142,5 @@ object SmsApi {
             "blocked" -> Action.BLOCKED
             "alert" -> Action.ALERT
             else -> Action.INBOX
-        }
-
-    private fun post(
-        path: String,
-        body: JSONObject,
-        token: String,
-        timeoutMs: Int,
-    ): String {
-        val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
-        try {
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Authorization", "Bearer $token")
-            connection.connectTimeout = timeoutMs
-            connection.readTimeout = timeoutMs
-            connection.doOutput = true
-            connection.outputStream.use { it.write(body.toString().toByteArray()) }
-
-            val status = connection.responseCode
-            val text =
-                (if (status in 200..299) connection.inputStream else connection.errorStream)
-                    ?.bufferedReader()
-                    ?.use { it.readText() }
-                    .orEmpty()
-            if (status !in 200..299) throw ApiException(parseErrorMessage(text, status))
-            return text
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun parseErrorMessage(
-        body: String,
-        status: Int,
-    ): String =
-        try {
-            when (val message = JSONObject(body).get("message")) {
-                is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
-                else -> message.toString()
-            }
-        } catch (_: Exception) {
-            "Request failed (HTTP $status)"
         }
 }

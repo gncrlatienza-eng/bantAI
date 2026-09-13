@@ -65,7 +65,8 @@ private fun PermissionRationaleScreen(onRequest: () -> Unit) {
         Text(
             text =
                 "BantAI needs access to your SMS messages to detect smishing threats. " +
-                    "Messages are analyzed locally on your device and never uploaded.",
+                    "Messages are sent to BantAI's backend for AI-based analysis; if that's " +
+                    "unavailable, on-device pattern matching is used instead.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )

@@ -34,14 +34,18 @@ class SmsReceiver : BroadcastReceiver() {
 
         // Group multipart SMS by normalised sender address so parts from the same
         // sender are always assembled into one message regardless of address format.
+        // A single broadcast can carry PDUs from more than one sender, so each
+        // sender's own timestamp is tracked alongside its body rather than reusing
+        // whichever message happened to be first in the array.
         val grouped = mutableMapOf<String, StringBuilder>()
+        val sentAtBySender = mutableMapOf<String, Long>()
         for (msg in messages) {
             val sender = normalizeAddress(msg.displayOriginatingAddress)
             grouped.getOrPut(sender) { StringBuilder() }.append(msg.messageBody)
+            sentAtBySender.getOrPut(sender) { msg.timestampMillis }
         }
 
         val receivedAt = System.currentTimeMillis()
-        val sentAt = messages.first().timestampMillis
 
         // Persist to the inbox before any network work, so a message still lands
         // locally when the backend is slow or unreachable. Row ids are kept so the
@@ -49,6 +53,7 @@ class SmsReceiver : BroadcastReceiver() {
         val insertedIds = mutableMapOf<String, Long>()
         if (isDefaultSmsApp) {
             for ((sender, bodyBuilder) in grouped) {
+                val sentAt = sentAtBySender.getValue(sender)
                 val id = SmsIngestPipeline.storeMessage(context, sender, bodyBuilder.toString(), receivedAt, sentAt)
                 if (id != null) insertedIds[sender] = id
             }

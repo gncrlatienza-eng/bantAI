@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- Release builds get no cleartext exception at all — the dev-only
+         localhost/10.0.2.2 allowance lives in src/debug/res/xml/ instead, so
+         it can never ship in a release build regardless of what
+         BACKEND_BASE_URL happens to be set to. -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system"/>
         </trust-anchors>
     </base-config>
-    <!-- Dev-only: plain HTTP to the backend on the development machine.
-         localhost = USB device via `adb reverse`; 10.0.2.2 = emulator host alias. -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">10.0.2.2</domain>
-    </domain-config>
 </network-security-config>

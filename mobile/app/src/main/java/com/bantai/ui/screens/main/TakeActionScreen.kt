@@ -1,5 +1,7 @@
 package com.bantai.ui.screens.main
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,16 +41,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.data.local.UserPreferences
+import com.bantai.data.remote.ReportsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
@@ -58,16 +64,56 @@ import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 private val reportTypes = listOf("Smishing / Phishing", "Spam", "Wrong classification", "Other")
 
+// Maps a report-type selection to the backend's SubmitReportDto.reportedLabel
+// (Ham/Spam/Scam only, no free-text reason field exists). Only the two
+// unambiguous mappings are wired to the real POST /reports call; "Wrong
+// classification" and "Other" don't imply a specific corrected label, so
+// submitting one would just be a guess written into data that feeds AI
+// retraining — those two keep the pre-existing (no-op) confirmation flow
+// until there's a real design for what they should report.
+private fun reportedLabelFor(reportTypeIndex: Int): String? =
+    when (reportTypeIndex) {
+        0 -> "Scam" // Smishing / Phishing
+        1 -> "Spam"
+        else -> null // Wrong classification / Other — ambiguous, not wired
+    }
+
+private suspend fun submitReport(
+    context: Context,
+    messageId: String,
+    reportedLabel: String,
+): Result<Unit> {
+    val token = UserPreferences(context).userData.first().authToken
+    if (token.isEmpty()) return Result.failure(Exception("Sign in to submit a report"))
+    return ReportsApi.submit(token, messageId, reportedLabel)
+}
+
+/**
+ * @param messageId backend `SmsMessage` UUID for the message being reported — required
+ *   for a real submission. Blank when the caller doesn't have one (see NavGraph.kt),
+ *   in which case Report falls back to the old confirm-only, no-op behavior rather
+ *   than submitting a fabricated id.
+ * @param sender shown in the confirmation dialog; blank falls back to a generic label.
+ */
 @Composable
-fun TakeActionScreen(navController: NavController) {
+fun TakeActionScreen(
+    navController: NavController,
+    messageId: String = "",
+    sender: String = "",
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var reportSelected by remember { mutableStateOf(false) }
     var blockSelected by remember { mutableStateOf(false) }
     var selectedReportType by remember { mutableStateOf(0) }
     var notes by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     val dialogType =
         when {
@@ -77,17 +123,68 @@ fun TakeActionScreen(navController: NavController) {
             else -> "none"
         }
 
+    fun proceedAfterConfirm() {
+        showDialog = false
+        navController.navigate(Screen.ReportSent.createRoute(dialogType))
+    }
+
     if (showDialog && dialogType != "none") {
         ConfirmationDialog(
             type = dialogType,
+            sender = sender,
+            isSubmitting = isSubmitting,
             onDismiss = { showDialog = false },
             onConfirm = {
-                showDialog = false
-                navController.navigate(Screen.ReportSent.createRoute(dialogType))
+                val reportedLabel = reportedLabelFor(selectedReportType)
+                if (!reportSelected || reportedLabel == null || messageId.isBlank()) {
+                    // Nothing submittable (Block-only, or an ambiguous/unwireable
+                    // report type) — same no-op confirmation flow as before.
+                    proceedAfterConfirm()
+                    return@ConfirmationDialog
+                }
+                isSubmitting = true
+                coroutineScope.launch {
+                    val result = submitReport(context, messageId, reportedLabel)
+                    isSubmitting = false
+                    result
+                        .onSuccess { proceedAfterConfirm() }
+                        .onFailure { error ->
+                            Toast
+                                .makeText(context, error.message ?: "Could not submit report", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                }
             },
         )
     }
 
+    TakeActionContent(
+        reportSelected = reportSelected,
+        blockSelected = blockSelected,
+        selectedReportType = selectedReportType,
+        notes = notes,
+        onToggleReport = { reportSelected = !reportSelected },
+        onToggleBlock = { blockSelected = !blockSelected },
+        onSelectReportType = { selectedReportType = it },
+        onNotesChange = { notes = it },
+        onSubmit = { showDialog = true },
+        onBack = navController::popBackStack,
+    )
+}
+
+@Composable
+private fun TakeActionContent(
+    reportSelected: Boolean,
+    blockSelected: Boolean,
+    selectedReportType: Int,
+    notes: String,
+    onToggleReport: () -> Unit,
+    onToggleBlock: () -> Unit,
+    onSelectReportType: (Int) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onBack: () -> Unit,
+) {
     Column(
         modifier =
             Modifier
@@ -102,7 +199,7 @@ fun TakeActionScreen(navController: NavController) {
                     .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
-                onClick = { navController.popBackStack() },
+                onClick = onBack,
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
@@ -139,7 +236,7 @@ fun TakeActionScreen(navController: NavController) {
                     selectedBg = Color(0xFF2A0A0A),
                     selectedBorder = Danger,
                     checkColor = Indigo,
-                    onClick = { reportSelected = !reportSelected },
+                    onClick = onToggleReport,
                 )
                 ActionToggleCard(
                     modifier = Modifier.weight(1f),
@@ -151,25 +248,25 @@ fun TakeActionScreen(navController: NavController) {
                     selectedBg = Color(0xFF0A2A0A),
                     selectedBorder = Safe,
                     checkColor = Safe,
-                    onClick = { blockSelected = !blockSelected },
+                    onClick = onToggleBlock,
                 )
             }
 
             when {
                 reportSelected && blockSelected -> {
-                    ReportTypeSection(selectedReportType) { selectedReportType = it }
-                    NotesSection(notes) { notes = it }
+                    ReportTypeSection(selectedReportType, onSelectReportType)
+                    NotesSection(notes, onNotesChange)
                     BlockInfoRow()
-                    ActionButton(text = "Submit report & block number", enabled = true) { showDialog = true }
+                    ActionButton(text = "Submit report & block number", enabled = true, onClick = onSubmit)
                 }
                 reportSelected -> {
-                    ReportTypeSection(selectedReportType) { selectedReportType = it }
-                    NotesSection(notes) { notes = it }
-                    ActionButton(text = "Submit report", enabled = true) { showDialog = true }
+                    ReportTypeSection(selectedReportType, onSelectReportType)
+                    NotesSection(notes, onNotesChange)
+                    ActionButton(text = "Submit report", enabled = true, onClick = onSubmit)
                 }
                 blockSelected -> {
                     BlockInfoRow()
-                    ActionButton(text = "Block number", enabled = true) { showDialog = true }
+                    ActionButton(text = "Block number", enabled = true, onClick = onSubmit)
                 }
                 else -> {
                     ActionButton(text = "Submit report", enabled = false) {}
@@ -265,6 +362,8 @@ private fun ReportTypeSection(
     }
 }
 
+private const val NOTES_MAX_LENGTH = 500
+
 @Composable
 private fun NotesSection(
     notes: String,
@@ -274,7 +373,7 @@ private fun NotesSection(
         Text("Additional notes (optional)", color = TextSecondary, fontSize = 12.sp)
         OutlinedTextField(
             value = notes,
-            onValueChange = onNotesChange,
+            onValueChange = { if (it.length <= NOTES_MAX_LENGTH) onNotesChange(it) },
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -289,6 +388,13 @@ private fun NotesSection(
                     unfocusedContainerColor = Surface,
                     cursorColor = Indigo,
                 ),
+        )
+        Text(
+            "${notes.length}/$NOTES_MAX_LENGTH",
+            color = TextSecondary,
+            fontSize = 11.sp,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.End,
         )
     }
 }
@@ -350,9 +456,12 @@ private data class DialogData(
 @Composable
 private fun ConfirmationDialog(
     type: String,
+    sender: String,
+    isSubmitting: Boolean,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val safeSender = sender.ifBlank { "This number" }
     val data =
         when (type) {
             "report_only" ->
@@ -366,7 +475,8 @@ private fun ConfirmationDialog(
                 DialogData(
                     Icons.Default.Block,
                     "Block this number?",
-                    "BDO Online will be added to your blocked list and can no longer send you messages. You can unblock it anytime in Settings.",
+                    "$safeSender will be added to your blocked list and can no longer send you messages. " +
+                        "You can unblock it anytime in Settings.",
                     "Yes, block",
                 )
             else ->
@@ -391,10 +501,11 @@ private fun ConfirmationDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
+                enabled = !isSubmitting,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Danger),
             ) {
-                Text(data.confirmText, color = White)
+                Text(if (isSubmitting) "Submitting…" else data.confirmText, color = White)
             }
         },
         dismissButton = {

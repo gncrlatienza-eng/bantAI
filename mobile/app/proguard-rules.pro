@@ -25,3 +25,19 @@
 # Kotlin metadata needed by reflection
 -keep class kotlin.Metadata { *; }
 -keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+
+# androidx.security:security-crypto (SecureTokenStore) is backed by Google Tink,
+# which registers its AEAD/key-manager implementations via reflection over
+# generated protobuf classes. Without these, EncryptedSharedPreferences.create()
+# throws at runtime in a minified build only — release-only, never seen in the
+# debug builds this project has actually been tested on — the exact kind of
+# failure that would surface as "login/OTP is broken" for every UAT participant
+# on first launch, not something we've been able to catch without a signed,
+# minified build to actually install and exercise.
+-keep class com.google.crypto.tink.** { *; }
+-keep class com.google.crypto.tink.proto.** { *; }
+-keepclassmembers class * extends com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite {
+    <fields>;
+}
+-dontwarn com.google.crypto.tink.**
+-dontwarn com.google.errorprone.annotations.**

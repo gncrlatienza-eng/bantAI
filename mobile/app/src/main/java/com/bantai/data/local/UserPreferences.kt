@@ -7,7 +7,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.io.IOException
 
 private const val TAG = "UserPreferences"
@@ -40,41 +40,52 @@ class UserPreferences(
         val SUSPICIOUS_ALERTS = booleanPreferencesKey("suspicious_alerts")
         val AUTO_BLOCK_NOTICE = booleanPreferencesKey("auto_block_notice")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
-        val AUTH_TOKEN = stringPreferencesKey("auth_token")
     }
 
+    // The JWT is a bearer credential, not just text, so it's kept out of
+    // DataStore's plain file — see SecureTokenStore.
+    private val secureTokenStore = SecureTokenStore(context)
+
     val userData: Flow<UserData> =
-        context.dataStore.data
-            .catch { exception ->
-                if (exception is IOException) {
-                    Log.e(TAG, "DataStore read failed, resetting to defaults", exception)
-                    emit(emptyPreferences())
-                } else {
-                    throw exception
-                }
-            }.map { prefs ->
-                UserData(
-                    firstName = prefs[Keys.FIRST_NAME] ?: "",
-                    lastName = prefs[Keys.LAST_NAME] ?: "",
-                    avatarColor = prefs[Keys.AVATAR_COLOR] ?: "#FF6B35",
-                    onboardingComplete = prefs[Keys.ONBOARDING_COMPLETE] ?: false,
-                    scanPeriod = prefs[Keys.SCAN_PERIOD] ?: "daily",
-                    smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
-                    suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
-                    autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
-                    phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
-                    authToken = prefs[Keys.AUTH_TOKEN] ?: "",
-                )
-            }
+        combine(
+            context.dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        Log.e(TAG, "DataStore read failed, resetting to defaults", exception)
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                },
+            secureTokenStore.tokenFlow,
+        ) { prefs, token ->
+            UserData(
+                firstName = prefs[Keys.FIRST_NAME] ?: "",
+                lastName = prefs[Keys.LAST_NAME] ?: "",
+                avatarColor = prefs[Keys.AVATAR_COLOR] ?: "#FF6B35",
+                onboardingComplete = prefs[Keys.ONBOARDING_COMPLETE] ?: false,
+                scanPeriod = prefs[Keys.SCAN_PERIOD] ?: "daily",
+                smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
+                suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
+                autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
+                phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
+                authToken = token,
+            )
+        }
 
     suspend fun saveAuth(
         token: String,
         phoneNumber: String,
     ) {
+        secureTokenStore.saveToken(token)
         context.dataStore.edit { prefs ->
-            prefs[Keys.AUTH_TOKEN] = token
             prefs[Keys.PHONE_NUMBER] = phoneNumber
         }
+    }
+
+    /** Clears only the session token — used when the backend rejects it (401), not a full sign-out. */
+    fun clearAuthToken() {
+        secureTokenStore.clear()
     }
 
     suspend fun saveProfile(
@@ -122,6 +133,7 @@ class UserPreferences(
     }
 
     suspend fun clearAll() {
+        secureTokenStore.clear()
         context.dataStore.edit { it.clear() }
     }
 }

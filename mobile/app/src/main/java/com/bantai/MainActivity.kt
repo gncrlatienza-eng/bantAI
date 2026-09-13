@@ -2,6 +2,7 @@ package com.bantai
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,6 +22,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The whole app renders SMS content (including forwarded OTPs) and, on the
+        // OTP-entry screen, the code itself — FLAG_SECURE blocks screenshots, screen
+        // recording, and the Recents/App-Switcher thumbnail for the entire window.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // Tapjacking protection: Compose has no reliable per-composable equivalent
+        // to View.filterTouchesWhenObscured, so it's set on the decor view instead —
+        // covers every screen (OTP entry included) rather than just one.
+        window.decorView.filterTouchesWhenObscured = true
         enableEdgeToEdge()
         NotificationHelper.createNotificationChannels(this)
         requestedTab.value = resolveTabIndex(intent)

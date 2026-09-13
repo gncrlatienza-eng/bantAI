@@ -24,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.bantai.data.AuthEventBus
 import com.bantai.data.local.UserPreferences
 import com.bantai.ui.screens.main.BlockedNumbersScreen
 import com.bantai.ui.screens.main.CampaignDetailScreen
@@ -73,7 +74,12 @@ sealed class Screen(
         fun createRoute(messageId: String = "") = "threat_analysis?messageId=${Uri.encode(messageId)}"
     }
 
-    data object TakeAction : Screen("take_action")
+    data object TakeAction : Screen("take_action?messageId={messageId}&sender={sender}") {
+        fun createRoute(
+            messageId: String = "",
+            sender: String = "",
+        ) = "take_action?messageId=${Uri.encode(messageId)}&sender=${Uri.encode(sender)}"
+    }
 
     data object ReportSent : Screen("report_sent/{type}") {
         fun createRoute(type: String) = "report_sent/$type"
@@ -134,6 +140,20 @@ sealed class Screen(
 private const val SCREEN_TRANSITION_MS = 320
 private const val SCREEN_SLIDE_OFFSET_DIVISOR = 5
 
+// Hoisted out of NavGraph() so the nested navArgument{} builder lambdas don't
+// count toward that function's own cyclomatic complexity.
+private val takeActionArguments =
+    listOf(
+        navArgument("messageId") {
+            type = NavType.StringType
+            defaultValue = ""
+        },
+        navArgument("sender") {
+            type = NavType.StringType
+            defaultValue = ""
+        },
+    )
+
 @Composable
 fun NavGraph(
     requestedTab: Int? = null,
@@ -150,6 +170,18 @@ fun NavGraph(
         val prefs = UserPreferences(context)
         val userData = prefs.userData.first()
         startDestination = if (userData.onboardingComplete) "main" else "splash"
+    }
+
+    // A 401 from any backend call means the stored token is dead. Without this,
+    // nothing ever clears it or gives the user a way back to re-authenticate —
+    // every call just keeps failing the same generic way forever.
+    LaunchedEffect(Unit) {
+        AuthEventBus.sessionExpired.collect {
+            UserPreferences(context).clearAuthToken()
+            navController.navigate("onboarding_confirm_number") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
     }
 
     if (startDestination == null) {
@@ -271,7 +303,16 @@ fun NavGraph(
             val messageId = backStackEntry.arguments?.getString("messageId") ?: ""
             ThreatAnalysisScreen(messageId = messageId, navController = navController)
         }
-        composable(Screen.TakeAction.route) { TakeActionScreen(navController) }
+        composable(
+            route = Screen.TakeAction.route,
+            arguments = takeActionArguments,
+        ) { backStackEntry ->
+            TakeActionScreen(
+                navController = navController,
+                messageId = backStackEntry.arguments?.getString("messageId") ?: "",
+                sender = backStackEntry.arguments?.getString("sender") ?: "",
+            )
+        }
         composable(
             route = Screen.ReportSent.route,
             arguments = listOf(navArgument("type") { type = NavType.StringType }),

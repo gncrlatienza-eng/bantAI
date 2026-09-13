@@ -7,10 +7,12 @@ import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.SmsApi
+import com.bantai.util.isValidName
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
@@ -32,6 +34,12 @@ class SettingsViewModel(
 
     private val _profileSaved = MutableStateFlow(false)
     val profileSaved: StateFlow<Boolean> = _profileSaved.asStateFlow()
+
+    private val _firstNameError = MutableStateFlow<String?>(null)
+    val firstNameError: StateFlow<String?> = _firstNameError.asStateFlow()
+
+    private val _lastNameError = MutableStateFlow<String?>(null)
+    val lastNameError: StateFlow<String?> = _lastNameError.asStateFlow()
 
     private val _smishingAlerts = MutableStateFlow(true)
     val smishingAlerts: StateFlow<Boolean> = _smishingAlerts.asStateFlow()
@@ -69,23 +77,35 @@ class SettingsViewModel(
                 _scanPeriod.value = data.scanPeriod
             }
         }
+        // Reacts to the token itself rather than reading it once — this ViewModel
+        // is hoisted at NavGraph's top level, constructed before the user may
+        // have logged in, so a one-shot check would permanently see an empty
+        // token and never retry once a real session exists.
         viewModelScope.launch {
-            val token = userPreferences.userData.first().authToken
-            if (token.isEmpty()) {
-                _alertsLoading.value = false
-                return@launch
-            }
-            SmsApi.getAlerts(token).onSuccess { _recentAlerts.value = it }
-            _alertsLoading.value = false
+            userPreferences.userData
+                .map { it.authToken }
+                .distinctUntilChanged()
+                .collect { token ->
+                    if (token.isEmpty()) {
+                        _recentAlerts.value = emptyList()
+                        _alertsLoading.value = false
+                        return@collect
+                    }
+                    _alertsLoading.value = true
+                    SmsApi.getAlerts(token).onSuccess { _recentAlerts.value = it }
+                    _alertsLoading.value = false
+                }
         }
     }
 
     fun updateEditFirstName(name: String) {
         _editFirstName.value = name
+        _firstNameError.value = null
     }
 
     fun updateEditLastName(name: String) {
         _editLastName.value = name
+        _lastNameError.value = null
     }
 
     fun cycleAvatarColor() {
@@ -108,13 +128,33 @@ class SettingsViewModel(
         return "$first$last".ifEmpty { "?" }
     }
 
+    // Mirrors OnboardingViewModel.validateAndSaveProfile's rules exactly (shared
+    // isValidName) — previously this only checked first name for non-empty and
+    // never validated either field's characters, so last name in particular
+    // could be saved here with digits/symbols/emoji even though onboarding
+    // would have rejected the exact same input.
     fun saveProfile(onSuccess: () -> Unit) {
-        val trimmed = _editFirstName.value.trim()
-        if (trimmed.isEmpty()) return
+        val trimmedFirst = _editFirstName.value.trim()
+        val trimmedLast = _editLastName.value.trim()
+
+        val firstError =
+            when {
+                trimmedFirst.isEmpty() -> "First name is required"
+                !isValidName(trimmedFirst) -> "Name should only contain letters"
+                else -> null
+            }
+        if (firstError != null) {
+            _firstNameError.value = firstError
+            return
+        }
+        if (trimmedLast.isNotEmpty() && !isValidName(trimmedLast)) {
+            _lastNameError.value = "Name should only contain letters"
+            return
+        }
         viewModelScope.launch {
             userPreferences.saveProfile(
-                firstName = trimmed,
-                lastName = _editLastName.value.trim(),
+                firstName = trimmedFirst,
+                lastName = trimmedLast,
                 avatarColor = _editAvatarColor.value,
             )
             _profileSaved.value = true

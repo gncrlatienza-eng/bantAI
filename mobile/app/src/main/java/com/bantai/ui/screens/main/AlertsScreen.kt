@@ -26,7 +26,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,15 +50,11 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertsViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
-private const val ALERTS_POLL_INTERVAL_MS = 5_000L
 
 @Composable
 fun AlertsScreen(
@@ -71,17 +66,9 @@ fun AlertsScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
-    // The ViewModel is scoped to the nav backstack, not this composable, so it
-    // only loads once per app session on its own — poll while this screen is
-    // actually on screen so new alerts (e.g. a message just ingested) show up
-    // without needing to relaunch the app. Cancels/restarts automatically as
-    // this composable leaves/re-enters composition.
-    LaunchedEffect(Unit) {
-        while (isActive) {
-            delay(ALERTS_POLL_INTERVAL_MS)
-            viewModel.loadAlerts(silent = true)
-        }
-    }
+    // Polling itself now lives in AlertsViewModel (viewModelScope), so the tab
+    // badge stays live even while this screen isn't the one on screen — this
+    // composable just observes whatever the ViewModel already has.
 
     LazyColumn(
         modifier =

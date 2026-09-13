@@ -178,17 +178,26 @@ fun MessageDetailScreen(
         summaryText = null
     }
 
-    // Fetched lazily on first open, once per thread — not on every recomposition.
-    LaunchedEffect(showAISummary, conversation) {
+    // Fetched lazily on first open, once per thread — keyed on showAISummary and
+    // sender only, not on `conversation` itself: a new message arriving mid-fetch
+    // used to make this a different key (a longer list), restarting the effect
+    // and leaving isSummaryLoading stuck true forever with no finally to reset
+    // it. Reading `conversation`'s current value inside the effect (rather than
+    // keying on it) still summarizes the latest messages without re-triggering
+    // just because one more arrived while the sheet was open.
+    LaunchedEffect(showAISummary, sender) {
         if (showAISummary && summaryText == null && !isSummaryLoading && conversation.isNotEmpty()) {
             isSummaryLoading = true
-            val token = UserPreferences(context).userData.first().authToken
-            if (token.isNotEmpty()) {
-                SummarizeApi
-                    .summarize(token, conversation.map { it.body })
-                    .onSuccess { summaryText = it.summary }
+            try {
+                val token = UserPreferences(context).userData.first().authToken
+                if (token.isNotEmpty()) {
+                    SummarizeApi
+                        .summarize(token, conversation.map { it.body })
+                        .onSuccess { summaryText = it.summary }
+                }
+            } finally {
+                isSummaryLoading = false
             }
-            isSummaryLoading = false
         }
     }
 
@@ -334,7 +343,7 @@ fun MessageDetailScreen(
                     Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF2A1A00))
-                        .clickable { navController.navigate(Screen.TakeAction.route) }
+                        .clickable { navController.navigate(Screen.TakeAction.createRoute(sender = sender)) }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),

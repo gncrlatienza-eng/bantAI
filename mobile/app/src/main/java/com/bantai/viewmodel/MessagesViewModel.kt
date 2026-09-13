@@ -15,12 +15,14 @@ import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val TAG = "MessagesViewModel"
@@ -105,6 +107,25 @@ class MessagesViewModel(
 
     private var scanPeriod = "daily"
 
+    companion object {
+        // Real SMS provider row ids are always positive autoincrement values, so
+        // forcing this negative guarantees a draft id can never collide with a
+        // real message's id, not just with another draft's. A 64-bit FNV-1a hash
+        // (rather than String.hashCode()'s 32 bits) also makes a collision
+        // between two different drafts astronomically less likely.
+        private const val FNV_OFFSET_BASIS = -3750763034362895579L
+        private const val FNV_PRIME = 1099511628211L
+
+        private fun stableDraftId(key: String): Long {
+            var hash = FNV_OFFSET_BASIS
+            for (c in key) {
+                hash = hash xor c.code.toLong()
+                hash *= FNV_PRIME
+            }
+            return -(hash and Long.MAX_VALUE) - 1
+        }
+    }
+
     // The SMS provider gives no push signal on its own — without this, the thread
     // list would only pick up a new message after leaving and re-entering the screen.
     private val contentObserver =
@@ -137,7 +158,7 @@ class MessagesViewModel(
                 draftRows.value =
                     entries.sortedByDescending { it.updatedAt }.map { entry ->
                         SmsMessage(
-                            id = entry.address.hashCode().toLong(),
+                            id = stableDraftId(normalizeSenderKey(entry.address)),
                             sender = entry.address,
                             body = entry.body,
                             timestamp = entry.updatedAt,
@@ -184,11 +205,20 @@ class MessagesViewModel(
                             .filterNot { it.id in deletedIds }
                     recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
                     filterMessages(_searchQuery.value)
+                } catch (e: CancellationException) {
+                    // A newer loadMessages() call cancelled this one (see the comment
+                    // above) — not a real failure, so it must not surface as one, and
+                    // it must be rethrown for structured concurrency to see the job as
+                    // actually cancelled rather than swallowed.
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to load messages", e)
                     _errorMessage.value = "Couldn't load messages"
                 } finally {
-                    _isLoading.value = false
+                    // Only touch shared state if this run wasn't the one cancelled —
+                    // otherwise a superseded job's finally can flip isLoading back to
+                    // false after the newer job already set it true.
+                    if (isActive) _isLoading.value = false
                 }
             }
     }
@@ -305,16 +335,30 @@ class MessagesViewModel(
         _selectedIds.value = emptySet()
     }
 
-    /** Soft-deletes the current selection. Not valid from the Recently Deleted filter. */
+    /** Soft-deletes the current selection. Not valid from the Recently Deleted or Drafts filters. */
     fun deleteSelected() {
         val selectedRows = _visibleMessages.value.filter { it.id in _selectedIds.value }
         if (selectedRows.isEmpty()) return
+        val filter = _selectedFilter.value
         viewModelScope.launch(Dispatchers.IO) {
-            // Each selected row represents a whole conversation (its latest message) —
-            // expand back out to every message id currently in that sender's thread.
+            // Each selected row represents a conversation (its latest message) — expand
+            // back out to every message id in that sender's thread that actually
+            // belongs to the filter being viewed, not the sender's entire history.
+            // Deleting a row from Spam, for example, must not silently also delete
+            // that same sender's unrelated Safe messages the user never saw or
+            // selected — Messages/Unread are the exception since they already show
+            // the full non-suspicious/non-blocked thread.
             val idsToDelete = mutableSetOf<Long>()
             for (row in selectedRows) {
-                idsToDelete += smsRepository.getConversationBySender(row.sender).map { it.id }
+                val conversation = smsRepository.getConversationBySender(row.sender)
+                val matching =
+                    when (filter) {
+                        MessageFilter.SPAM -> conversation.filter { it.classification == "suspicious" }
+                        MessageFilter.BLOCKED -> conversation.filter { it.classification == "blocked" }
+                        MessageFilter.UNKNOWN -> conversation.filter { it.classification == "unknown" }
+                        else -> conversation
+                    }
+                idsToDelete += matching.map { it.id }
                 idsToDelete += row.id
             }
             deletedMessagesStore.markDeleted(idsToDelete)

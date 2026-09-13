@@ -250,7 +250,10 @@ private fun ThreatAnalysisContent(
         item {
             SectionLabel("ACTIONS")
             Button(
-                onClick = { navController.navigate(Screen.TakeAction.route) },
+                onClick = {
+                    val route = Screen.TakeAction.createRoute(messageId = alert.messageId, sender = alert.sender)
+                    navController.navigate(route)
+                },
                 modifier =
                     Modifier
                         .fillMaxWidth()

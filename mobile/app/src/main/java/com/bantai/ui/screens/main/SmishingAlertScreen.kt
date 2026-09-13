@@ -1,6 +1,7 @@
 package com.bantai.ui.screens.main
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -39,10 +41,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.SmsApi
+import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertDetailViewModel
@@ -107,7 +111,7 @@ fun SmishingAlertScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No alert details available", color = TextSecondary, fontSize = 14.sp)
                 }
-            else -> SmishingAlertContent(alert!!, indicators)
+            else -> SmishingAlertContent(alert!!, indicators, navController)
         }
     }
 }
@@ -116,6 +120,7 @@ fun SmishingAlertScreen(
 private fun SmishingAlertContent(
     alert: SmsApi.AlertSummary,
     indicators: List<SmsApi.IndicatorTag>,
+    navController: NavController,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -175,6 +180,35 @@ private fun SmishingAlertContent(
                     }
                     alert.score?.let { score ->
                         Text("${(score * 100).roundToInt()}% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+                // Real campaign association (backend-sourced clusterId) — dropped back
+                // in August when this screen still showed mock content with no real
+                // link target; the data has been available in GET /sms/alerts all
+                // along, just never parsed on the mobile side until now.
+                alert.clusterId?.let { clusterId ->
+                    HorizontalDivider(color = Color(0xFF2A2A2A))
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Hub,
+                            contentDescription = null,
+                            tint = Suspicious,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Text(
+                            "Part of a tracked campaign",
+                            color = Suspicious,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text("View campaign →", color = Indigo, fontSize = 12.sp)
                     }
                 }
             }

@@ -4,10 +4,10 @@
   <CurrentIssues>
     <ID>ComplexCondition:MessageDetailScreen.kt$showAISummary &amp;&amp; summaryText == null &amp;&amp; !isSummaryLoading &amp;&amp; conversation.isNotEmpty()</ID>
     <ID>CyclomaticComplexMethod:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
-    <ID>CyclomaticComplexMethod:HomeScreen.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun HomeScreen( navController: NavController, innerPadding: PaddingValues, onNavigateToMessages: () -&gt; Unit = {}, viewModel: HomeViewModel = viewModel(), )</ID>
     <ID>CyclomaticComplexMethod:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
     <ID>CyclomaticComplexMethod:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
     <ID>CyclomaticComplexMethod:MessagesViewModel.kt$MessagesViewModel$private fun filterMessages(query: String)</ID>
+    <ID>CyclomaticComplexMethod:NavGraph.kt$@Composable fun NavGraph( requestedTab: Int? = null, requestedConversationSender: String? = null, )</ID>
     <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
     <ID>LongMethod:AISummaryBottomSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AISummaryBottomSheet( onDismiss: () -&gt; Unit, onViewFullAnalysis: () -&gt; Unit, isSuspicious: Boolean = true, summary: String? = null, isLoadingSummary: Boolean = false, )</ID>
     <ID>LongMethod:AlertsScreen.kt$@Composable fun AlertsScreen( navController: NavController, innerPadding: PaddingValues, viewModel: AlertsViewModel = viewModel(), )</ID>
@@ -16,8 +16,6 @@
     <ID>LongMethod:CampaignsScreen.kt$@Composable private fun CampaignRow( campaign: CampaignsApi.CampaignSummary, onClick: () -&gt; Unit, )</ID>
     <ID>LongMethod:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
     <ID>LongMethod:EditProfileScreen.kt$@Composable fun EditProfileScreen( navController: NavController, viewModel: SettingsViewModel, )</ID>
-    <ID>LongMethod:HomeScreen.kt$@Composable private fun HomeMessageRow( item: MessageItem, onClick: () -&gt; Unit, )</ID>
-    <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalPermissionsApi::class) @Composable fun HomeScreen( navController: NavController, innerPadding: PaddingValues, onNavigateToMessages: () -&gt; Unit = {}, viewModel: HomeViewModel = viewModel(), )</ID>
     <ID>LongMethod:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
     <ID>LongMethod:MessagesScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun MessageListRow( item: MessageItem, selectionMode: Boolean, isSelected: Boolean, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, )</ID>
     <ID>LongMethod:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
@@ -35,26 +33,24 @@
     <ID>LongMethod:ReportSentScreen.kt$@Composable fun ReportSentScreen( type: String, navController: NavController, )</ID>
     <ID>LongMethod:ScamAwarenessScreen.kt$@Composable fun ScamAwarenessScreen( navController: NavController, viewModel: ScamAwarenessViewModel = viewModel(), )</ID>
     <ID>LongMethod:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
-    <ID>LongMethod:SmishingAlertScreen.kt$@Composable private fun SmishingAlertContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, )</ID>
+    <ID>LongMethod:SmishingAlertScreen.kt$@Composable private fun SmishingAlertContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, navController: NavController, )</ID>
     <ID>LongMethod:SmsRepository.kt$SmsRepository$private fun classifyMessage( sender: String, body: String, ): String</ID>
     <ID>LongMethod:SplashScreen.kt$@Composable fun SplashScreen(onFinished: () -&gt; Unit)</ID>
     <ID>LongMethod:SuspiciousDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SuspiciousDetailScreen( sender: String, navController: NavController, )</ID>
-    <ID>LongMethod:TakeActionScreen.kt$@Composable fun TakeActionScreen(navController: NavController)</ID>
+    <ID>LongMethod:TakeActionScreen.kt$@Composable private fun TakeActionContent( reportSelected: Boolean, blockSelected: Boolean, selectedReportType: Int, notes: String, onToggleReport: () -&gt; Unit, onToggleBlock: () -&gt; Unit, onSelectReportType: (Int) -&gt; Unit, onNotesChange: (String) -&gt; Unit, onSubmit: () -&gt; Unit, onBack: () -&gt; Unit, )</ID>
     <ID>LongMethod:ThreatAnalysisScreen.kt$@Composable private fun ThreatAnalysisContent( alert: SmsApi.AlertSummary, indicators: List&lt;SmsApi.IndicatorTag&gt;, navController: NavController, )</ID>
     <ID>LongMethod:TipDetailScreen.kt$@Composable fun TipDetailScreen( tip: String, navController: NavController, )</ID>
     <ID>LongMethod:TipDetailScreen.kt$private fun tipContent(tip: String): TipContent</ID>
     <ID>LongMethod:UnsafeLinkScreen.kt$@Composable fun UnsafeLinkScreen(navController: NavController)</ID>
-    <ID>LongParameterList:HomeScreen.kt$( modifier: Modifier = Modifier, icon: ImageVector, iconTint: Color, value: String, valueColor: Color, label: String, subtitle: String? = null, )</ID>
     <ID>LongParameterList:MessagesScreen.kt$( selectedCount: Int, isRecentlyDeleted: Boolean, onCancel: () -&gt; Unit, onSelectAll: () -&gt; Unit, onDelete: () -&gt; Unit, onRestore: () -&gt; Unit, onPermanentDelete: () -&gt; Unit, )</ID>
     <ID>LongParameterList:NotificationsScreen.kt$( smishingAlerts: Boolean, onSmishingAlertsChanged: (Boolean) -&gt; Unit, suspiciousAlerts: Boolean, onSuspiciousAlertsChanged: (Boolean) -&gt; Unit, autoBlockNotice: Boolean, onAutoBlockNoticeChanged: (Boolean) -&gt; Unit, recentAlerts: List&lt;SmsApi.AlertSummary&gt;, alertsLoading: Boolean, )</ID>
     <ID>LongParameterList:SmsIngestPipeline.kt$SmsIngestPipeline$( context: Context, repository: SmsRepository, sender: String, body: String, notifId: Int, messageId: Long?, )</ID>
     <ID>LongParameterList:SmsIngestPipeline.kt$SmsIngestPipeline$( context: Context, repository: SmsRepository, token: String, sender: String, body: String, receivedAt: Long, messageId: Long?, timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS, )</ID>
     <ID>LongParameterList:SmsIngestPipeline.kt$SmsIngestPipeline$( context: Context, result: SmsApi.IngestResult, sender: String, body: String, notifId: Int, messageId: Long?, )</ID>
     <ID>LongParameterList:TakeActionScreen.kt$( modifier: Modifier = Modifier, title: String, description: String, icon: ImageVector, iconColor: Color, selected: Boolean, selectedBg: Color, selectedBorder: Color, checkColor: Color, onClick: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:TakeActionScreen.kt$( reportSelected: Boolean, blockSelected: Boolean, selectedReportType: Int, notes: String, onToggleReport: () -&gt; Unit, onToggleBlock: () -&gt; Unit, onSelectReportType: (Int) -&gt; Unit, onNotesChange: (String) -&gt; Unit, onSubmit: () -&gt; Unit, onBack: () -&gt; Unit, )</ID>
     <ID>MagicNumber:AISummaryBottomSheet.kt$0xFF16163A</ID>
     <ID>MagicNumber:AISummaryBottomSheet.kt$0xFF666666</ID>
-    <ID>MagicNumber:AuthApi.kt$AuthApi$200</ID>
-    <ID>MagicNumber:AuthApi.kt$AuthApi$299</ID>
     <ID>MagicNumber:AvatarHelper.kt$0xFF00BCD4</ID>
     <ID>MagicNumber:AvatarHelper.kt$0xFF4CAF50</ID>
     <ID>MagicNumber:AvatarHelper.kt$0xFF5B4FE8</ID>
@@ -70,9 +66,6 @@
     <ID>MagicNumber:AvatarHelper.kt$7</ID>
     <ID>MagicNumber:AvatarHelper.kt$86400000</ID>
     <ID>MagicNumber:BantAILogo.kt$0xFF1A1A2E</ID>
-    <ID>MagicNumber:BlockedNumbersApi.kt$BlockedNumbersApi$200</ID>
-    <ID>MagicNumber:BlockedNumbersApi.kt$BlockedNumbersApi$299</ID>
-    <ID>MagicNumber:BlockedNumbersApi.kt$BlockedNumbersApi$404</ID>
     <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF1A1A1A</ID>
     <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF4A4A4A</ID>
     <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF5B4FE8</ID>
@@ -81,8 +74,6 @@
     <ID>MagicNumber:CampaignDetailScreen.kt$0xFF2A1A00</ID>
     <ID>MagicNumber:CampaignDetailScreen.kt$0xFF666666</ID>
     <ID>MagicNumber:CampaignDetailScreen.kt$10</ID>
-    <ID>MagicNumber:CampaignsApi.kt$CampaignsApi$200</ID>
-    <ID>MagicNumber:CampaignsApi.kt$CampaignsApi$299</ID>
     <ID>MagicNumber:Color.kt$0xFF000000</ID>
     <ID>MagicNumber:Color.kt$0xFF00BCD4</ID>
     <ID>MagicNumber:Color.kt$0xFF0A84FF</ID>
@@ -112,14 +103,6 @@
     <ID>MagicNumber:EditProfileScreen.kt$0xFF5B4FE8</ID>
     <ID>MagicNumber:EditProfileScreen.kt$0xFFFF3B30</ID>
     <ID>MagicNumber:EditProfileScreen.kt$0xFFFF6B35</ID>
-    <ID>MagicNumber:HomeScreen.kt$0xFF1A1A1A</ID>
-    <ID>MagicNumber:HomeScreen.kt$0xFF5B4FE8</ID>
-    <ID>MagicNumber:HomeScreen.kt$0xFFFF6B35</ID>
-    <ID>MagicNumber:HomeScreen.kt$100</ID>
-    <ID>MagicNumber:HomeScreen.kt$1000</ID>
-    <ID>MagicNumber:HomeViewModel.kt$HomeViewModel$12</ID>
-    <ID>MagicNumber:HomeViewModel.kt$HomeViewModel$18</ID>
-    <ID>MagicNumber:HomeViewModel.kt$HomeViewModel$6</ID>
     <ID>MagicNumber:HowItWorksScreen.kt$0xFF1A1A1A</ID>
     <ID>MagicNumber:HowItWorksScreen.kt$0xFF5B4FE8</ID>
     <ID>MagicNumber:MainScreen.kt$0x21FFFFFF</ID>
@@ -183,12 +166,8 @@
     <ID>MagicNumber:SmishingAlertScreen.kt$0xFF2A2A2A</ID>
     <ID>MagicNumber:SmishingAlertScreen.kt$0xFF666666</ID>
     <ID>MagicNumber:SmishingAlertScreen.kt$100</ID>
-    <ID>MagicNumber:SmsApi.kt$SmsApi$200</ID>
-    <ID>MagicNumber:SmsApi.kt$SmsApi$299</ID>
     <ID>MagicNumber:SmsIngestPipeline.kt$SmsIngestPipeline$10</ID>
     <ID>MagicNumber:SplashScreen.kt$2000</ID>
-    <ID>MagicNumber:SummarizeApi.kt$SummarizeApi$200</ID>
-    <ID>MagicNumber:SummarizeApi.kt$SummarizeApi$299</ID>
     <ID>MagicNumber:SuspiciousDetailScreen.kt$0.85f</ID>
     <ID>MagicNumber:SuspiciousDetailScreen.kt$0xFF2A0000</ID>
     <ID>MagicNumber:SuspiciousDetailScreen.kt$0xFF2A1A00</ID>
@@ -228,9 +207,6 @@
     <ID>MaxLineLength:ComposeScreen.kt$Icon(Icons.Default.PersonAdd, contentDescription = "Add contact", tint = Indigo, modifier = Modifier.size(20.dp))</ID>
     <ID>MaxLineLength:ComposeScreen.kt$NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))</ID>
     <ID>MaxLineLength:DeletedMessagesStore.kt$DeletedMessagesStore$/** Also used after a permanent delete succeeds — the soft-delete record is meaningless once the row is truly gone. */</ID>
-    <ID>MaxLineLength:HomeScreen.kt$Icon(Icons.Filled.VerifiedUser, contentDescription = null, tint = Safe, modifier = Modifier.size(24.dp))</ID>
-    <ID>MaxLineLength:HomeScreen.kt$Text("See all", color = Indigo, fontSize = 13.sp, modifier = Modifier.clickable { onNavigateToMessages() })</ID>
-    <ID>MaxLineLength:HomeScreen.kt$Text(userData.firstName.ifEmpty { "..." }, color = White, fontWeight = FontWeight.Bold, fontSize = 22.sp)</ID>
     <ID>MaxLineLength:HowItWorksScreen.kt$"All classification happens on-device. No message body is ever sent to a server without your explicit consent."</ID>
     <ID>MaxLineLength:HowItWorksScreen.kt$"HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders."</ID>
     <ID>MaxLineLength:HowItWorksScreen.kt$"High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review."</ID>
@@ -282,7 +258,6 @@
     <ID>MaxLineLength:SmsRepository.kt$SmsRepository$fun getMessagesByClassification(classification: String): List&lt;SmsMessage&gt;</ID>
     <ID>MaxLineLength:SmsRepository.kt$SmsRepository$fun hasReadSmsPermission(): Boolean</ID>
     <ID>MaxLineLength:SuspiciousDetailScreen.kt$Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))</ID>
-    <ID>MaxLineLength:TakeActionScreen.kt$"BDO Online will be added to your blocked list and can no longer send you messages. You can unblock it anytime in Settings."</ID>
     <ID>MaxLineLength:TakeActionScreen.kt$"This number will be added to your blocked list and can no longer send you messages. You can unblock anytime in Settings."</ID>
     <ID>MaxLineLength:TakeActionScreen.kt$"Your report will be sent to the PhishNet team and the number will be blocked from sending you messages."</ID>
     <ID>MaxLineLength:TakeActionScreen.kt$Text(data.title, color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp, textAlign = TextAlign.Center)</ID>
@@ -314,14 +289,11 @@
     <ID>ReturnCount:OnboardingViewModel.kt$OnboardingViewModel$fun validateAndSaveProfile(onSuccess: () -&gt; Unit)</ID>
     <ID>ReturnCount:SmsRepository.kt$SmsRepository$fun getMessageById(id: Long): SmsMessage?</ID>
     <ID>SwallowedException:EditProfileScreen.kt$e: Exception</ID>
-    <ID>SwallowedException:HomeScreen.kt$e: Exception</ID>
     <ID>SwallowedException:SenderAvatar.kt$e: Exception</ID>
     <ID>SwallowedException:SettingsScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:BlockHelper.kt$BlockHelper$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ComposeScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:EditProfileScreen.kt$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:HomeScreen.kt$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:HomeViewModel.kt$HomeViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:MessageDetailScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:MessageDetailViewModel.kt$MessageDetailViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:MessagesViewModel.kt$MessagesViewModel$e: Exception</ID>
@@ -333,7 +305,6 @@
     <ID>TooManyFunctions:MessagesViewModel.kt$MessagesViewModel : AndroidViewModel</ID>
     <ID>TooManyFunctions:OnboardingViewModel.kt$OnboardingViewModel : AndroidViewModel</ID>
     <ID>TooManyFunctions:SettingsViewModel.kt$SettingsViewModel : AndroidViewModel</ID>
-    <ID>TooManyFunctions:SmsApi.kt$SmsApi</ID>
     <ID>TooManyFunctions:SmsRepository.kt$SmsRepository</ID>
     <ID>WildcardImport:BlockedNumbersScreen.kt$import androidx.compose.foundation.layout.*</ID>
     <ID>WildcardImport:BlockedNumbersScreen.kt$import androidx.compose.material3.*</ID>

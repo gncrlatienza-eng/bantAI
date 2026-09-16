@@ -2,14 +2,31 @@
   "backup_of_original": "datasets/labeled\\bantai_labeled.csv.pre-holdout-backup-20260818T130821Z",
   "created_at": "2026-08-18T13:08:21.735140+00:00",
   "fraction": 0.2,
-  "holdout_csv_sha256": "19d4e1a429e84b72e7a271cfc1df2fea7fa6952afe9b2906bd33e5940a2d9125",
+  "holdout_csv_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
   "label_counts": {
-    "Ham": 1785,
-    "Scam": 498,
-    "Spam": 953
+    "Ham": 1787,
+    "Scam": 491,
+    "Spam": 958
   },
   "n_groups": 2986,
   "n_rows": 3236,
+  "revisions": [
+    {
+      "backup": "datasets/holdout_backups/holdout.pre-institutional-review-20260916.csv",
+      "date": "2026-09-16T07:38:28.206887+00:00",
+      "note": "Numbers published before this date (e.g. macro-F1 0.9592, Scam recall 92.4%) were measured against the previous labels and are not directly comparable to numbers measured after it.",
+      "previous_label_counts": {
+        "Ham": 1785,
+        "Scam": 498,
+        "Spam": 953
+      },
+      "previous_sha256": "19d4e1a429e84b72e7a271cfc1df2fea7fa6952afe9b2906bd33e5940a2d9125",
+      "review_sheet": "datasets/holdout/review_sheet_holdout_institutional_2026-09-16.csv",
+      "rows_changed": 7,
+      "what": "Relabelled 7 rows after blind human review of Scam-labelled messages carrying institutional/telco wording (5 Scam->Spam, 2 Scam->Ham). All 7 came from the raw phone inbox and were real messages from a school or telco that the rule cascade had labelled Scam.",
+      "why": "Evaluating against labels known to be wrong reports a wrong number in both directions. The review was blind: the reviewer did not see which rows the model had predicted correctly, so the corrections cannot have been tuned to flatter the score."
+    }
+  ],
   "seed": 20260618,
   "source_file": "datasets/labeled\\bantai_labeled.csv",
   "warning": "This holdout set only protects models trained AFTER it was created. The checkpoint deployed 2026-07-29 and the 2026-08-17 retraining candidate were both trained on the full pool before this split existed and were almost certainly trained on some of these rows -- do not evaluate either of them against this holdout and report the result as a clean, never-seen test. The first model this is valid for is the next one trained from this point on."

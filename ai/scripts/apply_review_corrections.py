@@ -74,6 +74,11 @@ def apply_corrections(labeled_path: str = LABELED, audit_dir: str = AUDIT, quiet
         by_norm.setdefault(norm(r["text"]), []).append(r)
 
     applied = already = unresolved = ambiguous = 0
+    #: text -> (sheet, label) for rows some sheet has already decided this run,
+    #: so a later sheet contradicting it can be reported rather than silently
+    #: overwriting.
+    decided_by: dict = {}
+    conflicts: list = []
     per_sheet: Counter = Counter()
     moves: Counter = Counter()
 
@@ -109,6 +114,18 @@ def apply_corrections(labeled_path: str = LABELED, audit_dir: str = AUDIT, quiet
             if row["label"] == want:
                 already += 1
             else:
+                # Two sheets disagreeing about the same message is a human
+                # question (which review was right?), and the answer here is
+                # currently "whichever file sorts last" -- not "whichever is
+                # newer". Silently resolving it by filename is how a superseded
+                # verdict quietly wins, so say it out loud. Found 2026-09-16:
+                # review_sheet_2026-08-26 said Scam, the institutional sheet
+                # said Ham, and the newer one only won because of alphabetical
+                # order.
+                claimed = decided_by.get(row["text"])
+                if claimed and claimed[1] != want:
+                    conflicts.append((claimed[0], sheet, claimed[1], want, e.get("id", "")))
+                decided_by[row["text"]] = (sheet, want)
                 moves[f"{row['label']} -> {want}"] += 1
                 row["label"] = want
                 applied += 1
@@ -134,6 +151,14 @@ def apply_corrections(labeled_path: str = LABELED, audit_dir: str = AUDIT, quiet
         print(f"  already ok   {already:5}   (rules now agree -- no change needed)")
         print(f"  unresolved   {unresolved:5}   (reviewed text not in dataset)")
         print(f"  ambiguous    {ambiguous:5}   (matched >1 row, skipped)")
+        if conflicts:
+            print("-" * 68)
+            print(f"  ⚠ {len(conflicts)} row(s) where two sheets disagree. The later filename won,")
+            print("    which is alphabetical order, NOT recency -- confirm these by hand:")
+            for first, second, first_label, second_label, entry_id in conflicts:
+                print(
+                    f"      {entry_id or '(no id)'}: {first} said {first_label}, {second} said {second_label} (applied)"
+                )
         print("-" * 68)
         print(f"  final: {Counter(r['label'] for r in rows)}  total {len(rows)}")
         print("=" * 68)
@@ -144,6 +169,7 @@ def apply_corrections(labeled_path: str = LABELED, audit_dir: str = AUDIT, quiet
         "unresolved": unresolved,
         "ambiguous": ambiguous,
         "moves": dict(moves),
+        "conflicts": conflicts,
         "final_counts": dict(Counter(r["label"] for r in rows)),
     }
 

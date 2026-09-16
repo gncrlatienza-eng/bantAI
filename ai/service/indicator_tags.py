@@ -274,6 +274,16 @@ def _keyword_tags(text: str) -> List[IndicatorTag]:
     return out
 
 
+def is_official_domain(host: str) -> bool:
+    """True for a whitelisted brand domain or any subdomain of one."""
+    host = host.lower()
+    return any(host == d or host.endswith(f".{d}") for d in _OFFICIAL_DOMAINS)
+
+
+def is_shortener(host: str) -> bool:
+    return host.lower() in _SHORTENER_HOSTS
+
+
 def _domain_tags(raw_text: str) -> List[IndicatorTag]:
     """Suspicious URL + Brand Impersonation -- both need the real link, not
     the <URL> placeholder, so this runs on raw (pre-masking) text."""
@@ -288,9 +298,9 @@ def _domain_tags(raw_text: str) -> List[IndicatorTag]:
         host = host.lower()
         if host.startswith("www."):
             host = host[4:]
-        if host in _SHORTENER_HOSTS:
+        if is_shortener(host):
             suspicious = True
-        elif not any(host == d or host.endswith(f".{d}") for d in _OFFICIAL_DOMAINS):
+        elif not is_official_domain(host):
             suspicious = True
     if suspicious:
         out.append(IndicatorTag(tag="Suspicious URL", weight=0.7))

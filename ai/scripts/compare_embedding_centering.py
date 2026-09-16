@@ -78,7 +78,8 @@ EMBEDDINGS = os.path.join(AI, "datasets", "processed", "embeddings.npz")
 REPORT_TEMPLATE = os.path.join(AI, "evaluation", "embedding_centering_{groups}.json")
 
 #: Operating points to compare at, as share of strangers admitted. 0.026 is
-#: today's measured false-match rate at the 0.999 threshold.
+#: the false-match rate the adviser approved on 2026-08-26 (0.999 on the old
+#: checkpoint; the current 0.998 bar measures 0.028 on the promoted one).
 TARGET_FMRS = [0.026, 0.010]
 
 

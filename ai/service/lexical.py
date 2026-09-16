@@ -12,7 +12,7 @@ embedding, per the manuscript's "one embedding, two branches". Measurement
 A classifier is trained to collapse each class toward one prototype, so within
 the Scam class every vector is nearly parallel. The usable gap between "same
 campaign" and "random stranger" is ~0.0008 wide. A threshold can be placed in
-it -- 0.999, see ``campaign.DEFAULT_SIMILARITY_THRESHOLD`` -- but two things
+it -- 0.998 today, see ``campaign.DEFAULT_SIMILARITY_THRESHOLD`` -- but two things
 follow from a margin that thin:
 
 1. It already costs recall: 6.2% of genuine members fall below it.

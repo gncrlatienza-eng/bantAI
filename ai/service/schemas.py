@@ -34,8 +34,11 @@ class CampaignMatch(BaseModel):
     similarity: float = Field(..., ge=-1.0, le=1.0, description="Cosine similarity to the closest active centroid")
     matched: bool = Field(
         ...,
-        description="Whether similarity met the campaign match threshold "
-        "(0.999, re-calibrated in WBS 5.3.6 from the manuscript's 0.85)",
+        description="Whether the message cleared any of the three match tiers "
+        "(see match_reason) — not a single cosine threshold. The embedding-only "
+        "bar is 0.998 as of the 2026-08-30 model promotion (0.999 under the prior "
+        "checkpoint; re-calibrated in WBS 5.3.6 from the manuscript's 0.85 — the "
+        "bar moves with the model, the mechanism does not).",
     )
     should_buffer: bool = Field(
         ...,
@@ -50,9 +53,11 @@ class CampaignMatch(BaseModel):
     )
     match_reason: Optional[Literal["domain", "hybrid", "embedding"]] = Field(
         None,
-        description="Which route produced the match — 'domain' (shared scam link), "
-        "'hybrid' (relaxed embedding corroborated by wording), or "
-        "'embedding' (the calibrated 0.999 bar alone). Null when unmatched.",
+        description="Which route produced the match — 'domain' (shared scam link, "
+        "embedding >= 0.90), 'hybrid' (embedding >= 0.99 corroborated by wording "
+        "similarity >= 0.45), or 'embedding' (the calibrated bar alone — 0.998 "
+        "as of 2026-08-30, see DEFAULT_SIMILARITY_THRESHOLD in campaign.py). "
+        "Null when unmatched.",
     )
 
 

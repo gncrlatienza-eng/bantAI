@@ -11,7 +11,7 @@ const PIPELINE_STEPS = [
     subtitle: 'User and system report ingestion',
     desc: 'Suspicious SMS messages are received from the mobile app or telecom feeds. Raw text is sanitized, phone identifiers are masked, and links are prepared for downstream analysis.',
     tags: ['Mobile Sync', 'PII Masking', 'URL Sanitization'],
-    icon: '📲',
+    icon: '',
     color: '#3b82f6',
   },
   {
@@ -20,7 +20,7 @@ const PIPELINE_STEPS = [
     subtitle: 'Code-switching and typo normalization',
     desc: 'Tagalog, English, and Taglish text is normalized to handle homoglyphs, spacing tricks, and obfuscated brand names before tokenization.',
     tags: ['Taglish NLP', 'Homoglyph Removal', 'Tokenization'],
-    icon: '⚙️',
+    icon: '',
     color: '#8b5cf6',
   },
   {
@@ -29,7 +29,7 @@ const PIPELINE_STEPS = [
     subtitle: 'Language and structure signals',
     desc: 'The pipeline extracts n-grams, lure keywords, urgency markers, zero-width character patterns, and domain metadata that help separate legitimate traffic from fraud.',
     tags: ['TF-IDF', 'Brand Recognition', 'Urgency Index'],
-    icon: '🔍',
+    icon: '',
     color: '#06b6d4',
   },
   {
@@ -38,7 +38,7 @@ const PIPELINE_STEPS = [
     subtitle: 'Transformer-based prediction',
     desc: 'A fine-tuned multilingual transformer scores each message against localized Philippine SMS samples to classify it as smishing, suspicious, or safe.',
     tags: ['XLM-RoBERTa', 'Deep Learning', 'Localized Model'],
-    icon: '🧠',
+    icon: '',
     color: '#10b981',
   },
   {
@@ -47,7 +47,7 @@ const PIPELINE_STEPS = [
     subtitle: 'Human-readable alert justification',
     desc: 'SHAP attribution highlights which words, phrases, and structures pushed the classifier toward a smishing verdict so analysts can inspect the reasoning.',
     tags: ['SHAP Values', 'Token Attribution', 'Audit Trail'],
-    icon: '📊',
+    icon: '',
     color: '#f59e0b',
   },
   {
@@ -56,7 +56,7 @@ const PIPELINE_STEPS = [
     subtitle: 'Density-based threat grouping',
     desc: 'Threat embeddings are grouped with HDBSCAN so separately reported messages can be surfaced as a single coordinated campaign.',
     tags: ['HDBSCAN', 'Embedding Clustering', 'Threat Grouping'],
-    icon: '🌐',
+    icon: '',
     color: '#ef4444',
   },
   {
@@ -65,7 +65,7 @@ const PIPELINE_STEPS = [
     subtitle: 'False positive and drift control',
     desc: 'High-volume or ambiguous cases are reviewed in the admin portal, where analyst feedback is used to track drift and improve model quality over time.',
     tags: ['Analyst Review', 'Feedback Loop', 'Drift Control'],
-    icon: '🛡️',
+    icon: '',
     color: '#60a5fa',
   },
   {
@@ -74,7 +74,7 @@ const PIPELINE_STEPS = [
     subtitle: 'Portal feeds and reporting',
     desc: 'Verified campaign intelligence is published to client dashboards, exports, and scheduled reports so partner teams can act quickly.',
     tags: ['Portal Feed', 'Exports', 'Reporting'],
-    icon: '🚀',
+    icon: '',
     color: '#34d399',
   },
 ];
@@ -399,7 +399,7 @@ export const HowItWorksPage: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                ⚡
+                
               </div>
               <div>
                 <strong
@@ -450,7 +450,7 @@ export const HowItWorksPage: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                🧠
+                
               </div>
               <div>
                 <strong
@@ -501,7 +501,7 @@ export const HowItWorksPage: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                🛡️
+                
               </div>
               <div>
                 <strong
@@ -849,7 +849,7 @@ export const HowItWorksPage: React.FC = () => {
                 marginBottom: 14,
               }}
             >
-              📖 Peer-Reviewed Methodology & Publication
+              Peer-Reviewed Methodology & Publication
             </div>
 
             <h2

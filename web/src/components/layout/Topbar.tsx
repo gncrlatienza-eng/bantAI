@@ -24,7 +24,7 @@ interface NotificationItem {
 const ADMIN_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n1',
-    title: '🚨 Critical Campaign Outbreak',
+    title: 'Critical Campaign Outbreak',
     body: 'Operation GCash Clone #17 spiked +380% in last hour.',
     time: '2m ago',
     tone: 'red',
@@ -33,7 +33,7 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: 'n2',
-    title: '⚠️ Concept Drift Alert',
+    title: 'Concept Drift Alert',
     body: 'False negative rate increased 1.4% over 7 days.',
     time: '38m ago',
     tone: 'amber',
@@ -42,7 +42,7 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: 'n3',
-    title: '📄 Daily Report Ready',
+    title: 'Daily Report Ready',
     body: '312 user reports classified today - 23 confirmed smishing.',
     time: '2h ago',
     tone: 'blue',
@@ -51,7 +51,7 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: 'n4',
-    title: '🖥️ High API Latency Peak',
+    title: 'High API Latency Peak',
     body: 'Peak latency reached 312ms at 12:00 PST.',
     time: '4h ago',
     tone: 'amber',
@@ -63,7 +63,7 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
 const CLIENT_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n1',
-    title: '🚨 Critical Campaign Outbreak',
+    title: 'Critical Campaign Outbreak',
     body: 'Operation GCash Clone #17 spiked +380% in last hour.',
     time: '2m ago',
     tone: 'red',
@@ -72,7 +72,7 @@ const CLIENT_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: 'n2',
-    title: '⚠️ System Telemetry Update',
+    title: 'System Telemetry Update',
     body: 'Telemetry sync completed successfully for 1,420 devices.',
     time: '38m ago',
     tone: 'amber',
@@ -81,7 +81,7 @@ const CLIENT_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: 'n3',
-    title: '📄 Intelligence Feed Export Ready',
+    title: 'Intelligence Feed Export Ready',
     body: '312 threat records generated for CSV export download.',
     time: '2h ago',
     tone: 'blue',
@@ -90,7 +90,7 @@ const CLIENT_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: 'n4',
-    title: '💬 API Consumption Normal',
+    title: 'API Consumption Normal',
     body: '8,241 total API requests processed cleanly today.',
     time: '4h ago',
     tone: 'amber',
@@ -199,7 +199,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               fontSize: '0.875rem',
             }}
           >
-            🔍
+            
           </span>
         </div>
 
@@ -221,7 +221,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             color: 'var(--text-primary)',
           }}
         >
-          🔔
+          
           {unreadCount > 0 && (
             <span
               style={{
@@ -266,7 +266,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                   : '0 0 10px rgba(124, 58, 237, 0.2)',
             }}
           >
-            <span>{role === 'admin' ? '👑' : '🛡️'}</span>
+            <span>{role === 'admin' ? '' : ''}</span>
             <span>{tag}</span>
           </span>
 
@@ -299,7 +299,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                 }}
               >
                 <span style={{ fontSize: '1.1rem' }}>
-                  {role === 'admin' ? '👑' : '🛡️'}
+                  {role === 'admin' ? '' : ''}
                 </span>
                 <strong
                   style={{
@@ -410,7 +410,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  ✕
+                  
                 </button>
               </div>
             </div>

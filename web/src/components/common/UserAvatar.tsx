@@ -62,7 +62,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
             transform: 'translateY(-1px)',
           }}
         >
-          {avatar?.presetIcon || '👤'}
+          {avatar?.presetIcon || ''}
         </span>
       )}
 

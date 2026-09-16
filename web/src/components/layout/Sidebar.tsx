@@ -1,9 +1,7 @@
 import React, { useRef, useLayoutEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ROUTES } from '../../constants/routes';
 import { ShieldLogo } from '../common/ShieldLogo';
-import { useUserAvatar } from '../../context/UserAvatarContext';
-import { UserAvatar } from '../common/UserAvatar';
 
 // Module-level in-memory cache for fast scroll position restoration across component unmount/remount
 const sidebarScrollPositions: Record<string, number> = {};
@@ -11,7 +9,7 @@ const sidebarScrollPositions: Record<string, number> = {};
 interface NavItem {
   path: string;
   label: string;
-  icon: string;
+  icon?: string;
 }
 
 interface NavGroup {
@@ -24,10 +22,19 @@ interface SidebarProps {
   groups: NavGroup[];
   collapsed: boolean;
   onToggleCollapse: () => void;
-  userInitials: string;
-  userName: string;
-  userMeta: string;
-  org: string;
+  userInitials?: string;
+  userName?: string;
+  userMeta?: string;
+  org?: string;
+}
+
+function getShortCode(label: string): string {
+  if (!label) return '';
+  const words = label.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return label.slice(0, 2).toUpperCase();
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,15 +42,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   groups,
   collapsed,
   onToggleCollapse,
-  userInitials,
-  userName,
-  userMeta,
-  org,
 }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { adminAvatar, clientAvatar } = useUserAvatar();
-  const currentAvatar = role === 'admin' ? adminAvatar : clientAvatar;
   const navRef = useRef<HTMLElement>(null);
 
   const scrollKey = `sidebar_scroll_${role}`;
@@ -150,88 +150,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={saveScrollPos}
                   style={{
                     justifyContent: collapsed ? 'center' : 'flex-start',
-                    padding: collapsed ? '12px' : '10px 12px',
+                    padding: collapsed ? '10px 12px' : '8px 12px 8px 24px',
                   }}
                   title={collapsed ? item.label : undefined}
                 >
-                  <span style={{ fontSize: '1.125rem' }}>{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
+                  {collapsed ? (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        fontFamily: 'var(--font-mono, monospace)',
+                        letterSpacing: '0.05em',
+                        color: isActive ? '#a78bfa' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {getShortCode(item.label)}
+                    </span>
+                  ) : (
+                    <span>{item.label}</span>
+                  )}
                 </Link>
               );
             })}
           </div>
         ))}
       </nav>
-
-      {/* Sidebar Footer User Card */}
-      <div
-        className="sidebar-foot"
-        onClick={() => {
-          saveScrollPos();
-          navigate(
-            role === 'admin' ? ROUTES.ADMIN.SETTINGS : ROUTES.CLIENT.SETTINGS,
-          );
-        }}
-        style={{
-          cursor: 'pointer',
-          borderRadius: 8,
-          padding: '10px 12px',
-          transition: 'background 0.2s ease',
-        }}
-        title="View Profile & Contact Settings"
-      >
-        {!collapsed && (
-          <small
-            style={{
-              color: 'var(--text-muted)',
-              fontSize: '0.6875rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-            }}
-          >
-            {org}
-          </small>
-        )}
-        <div
-          className="account-row"
-          style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
-        >
-          <UserAvatar
-            avatar={currentAvatar}
-            role={role}
-            size={36}
-            fallbackInitials={userInitials}
-          />
-          {!collapsed && (
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong
-                style={{
-                  display: 'block',
-                  fontSize: '0.8125rem',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                {userName}
-              </strong>
-              <small
-                style={{
-                  display: 'block',
-                  color: 'var(--accent-light)',
-                  fontSize: '0.6875rem',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {userMeta}
-              </small>
-            </div>
-          )}
-        </div>
-      </div>
     </aside>
   );
 };

@@ -7,18 +7,18 @@ const CLIENT_SIDEBAR_GROUPS = [
   {
     title: 'Threat Intelligence',
     items: [
-      { path: '/client/overview', label: 'Overview', icon: '📊' },
-      { path: '/client/messages', label: 'Messages', icon: '💬' },
-      { path: '/client/campaigns', label: 'Campaigns', icon: '🛡️' },
-      { path: '/client/analytics', label: 'Analytics', icon: '📈' },
+      { path: '/client/overview', label: 'Overview' },
+      { path: '/client/messages', label: 'Messages' },
+      { path: '/client/campaigns', label: 'Campaigns' },
+      { path: '/client/analytics', label: 'Analytics' },
     ],
   },
   {
     title: 'Operations',
     items: [
-      { path: '/client/export', label: 'Export Reports', icon: '📄' },
-      { path: '/client/help', label: 'Help & Docs', icon: '❓' },
-      { path: '/client/settings', label: 'Account Settings', icon: '⚙️' },
+      { path: '/client/export', label: 'Export Reports' },
+      { path: '/client/help', label: 'Help & Docs' },
+      { path: '/client/settings', label: 'Account Settings' },
     ],
   },
 ];
@@ -113,7 +113,7 @@ export const SettingsPage: React.FC = () => {
               gap: 10,
             }}
           >
-            <span>✓</span>
+            <span></span>
             <span>
               All account settings and security preferences saved successfully.
             </span>
@@ -141,7 +141,7 @@ export const SettingsPage: React.FC = () => {
               }}
             >
               <strong style={{ fontSize: '1.125rem' }}>
-                👤 Profile Information
+                Profile Information
               </strong>
               <span className="badge badge-purple">Verified Analyst</span>
             </div>
@@ -239,7 +239,7 @@ export const SettingsPage: React.FC = () => {
               }}
             >
               <strong style={{ fontSize: '1.125rem' }}>
-                🔔 Notification Preferences
+                Notification Preferences
               </strong>
               <small
                 style={{ color: 'var(--text-secondary)', display: 'block' }}
@@ -397,7 +397,7 @@ export const SettingsPage: React.FC = () => {
               }}
             >
               <strong style={{ fontSize: '1.125rem' }}>
-                🔐 Security & Authentication
+                Security & Authentication
               </strong>
               <small
                 style={{ color: 'var(--text-secondary)', display: 'block' }}
@@ -467,7 +467,7 @@ export const SettingsPage: React.FC = () => {
                   Enforced for corporate analyst accounts.
                 </small>
               </div>
-              <span className="badge badge-green">🟢 Enabled</span>
+              <span className="badge badge-green">Enabled</span>
             </div>
 
             <div className="form-group">
@@ -496,7 +496,7 @@ export const SettingsPage: React.FC = () => {
               }}
             >
               <strong style={{ fontSize: '1.125rem' }}>
-                ⚙️ Preferences & Localization
+                Preferences & Localization
               </strong>
               <small
                 style={{ color: 'var(--text-secondary)', display: 'block' }}
@@ -619,7 +619,7 @@ export const SettingsPage: React.FC = () => {
               }}
             >
               <strong style={{ fontSize: '1.125rem' }}>
-                📄 Automated Report Settings
+                Automated Report Settings
               </strong>
               <small
                 style={{ color: 'var(--text-secondary)', display: 'block' }}
@@ -677,7 +677,7 @@ export const SettingsPage: React.FC = () => {
               }}
             >
               <strong style={{ fontSize: '1.125rem' }}>
-                🔑 Threat Intelligence API Token
+                Threat Intelligence API Token
               </strong>
               <small
                 style={{ color: 'var(--text-secondary)', display: 'block' }}
@@ -702,7 +702,7 @@ export const SettingsPage: React.FC = () => {
                   alert('API Key copied to clipboard!');
                 }}
               >
-                📋 Copy Token
+                Copy Token
               </Button>
 
               <Button
@@ -713,7 +713,7 @@ export const SettingsPage: React.FC = () => {
                   setApiKey(newKey);
                 }}
               >
-                🔄 Regenerate Token
+                Regenerate Token
               </Button>
             </div>
           </div>

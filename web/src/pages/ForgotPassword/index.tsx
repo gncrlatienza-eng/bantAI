@@ -108,7 +108,7 @@ export const ForgotPasswordPage: React.FC = () => {
               <span
                 style={{ fontSize: '2rem', display: 'block', marginBottom: 8 }}
               >
-                🔑
+                
               </span>
               <strong
                 style={{
@@ -145,7 +145,7 @@ export const ForgotPasswordPage: React.FC = () => {
               onClick={() => setSubmitted(false)}
               style={{ borderRadius: 10, padding: '10px 0' }}
             >
-              🔄 Resend Reset Email
+              Resend Reset Email
             </Button>
 
             <Link

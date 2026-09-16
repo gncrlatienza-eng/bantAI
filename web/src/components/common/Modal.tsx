@@ -111,7 +111,7 @@ export const Modal: React.FC<ModalProps> = ({
               (e.currentTarget.style.color = 'var(--text-muted)')
             }
           >
-            ✕
+            
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>

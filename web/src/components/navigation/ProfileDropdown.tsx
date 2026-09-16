@@ -124,7 +124,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         className="dropdown-item"
         onClick={() => handleNavigate(settingsRoute)}
       >
-        <span style={{ fontSize: '1rem' }}>⚙️</span>
+        <span style={{ fontSize: '1rem' }}></span>
         <span>Account Settings</span>
       </button>
 
@@ -144,7 +144,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           handleNavigate(role === 'admin' ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN)
         }
       >
-        <span style={{ fontSize: '1rem' }}>🚪</span>
+        <span style={{ fontSize: '1rem' }}></span>
         <span>Sign Out ({userEmail})</span>
       </button>
     </div>

@@ -202,7 +202,7 @@ function LicensingStage({ onNext }: { onNext: () => void }) {
                     fontSize: '1.125rem',
                   }}
                 >
-                  📡
+                  
                 </div>
                 <div>
                   <strong
@@ -251,7 +251,7 @@ function LicensingStage({ onNext }: { onNext: () => void }) {
                     fontSize: '1.125rem',
                   }}
                 >
-                  🛡️
+                  
                 </div>
                 <div>
                   <strong
@@ -322,7 +322,7 @@ function LicensingStage({ onNext }: { onNext: () => void }) {
                     color: 'var(--text-secondary)',
                   }}
                 >
-                  <span style={{ color: '#3b82f6', fontWeight: 800 }}>✓</span>
+                  <span style={{ color: '#3b82f6', fontWeight: 800 }}></span>
                   <span>{item}</span>
                 </div>
               ))}
@@ -653,7 +653,7 @@ function SubmissionStage({ onNext }: { onNext: () => void }) {
                     fontSize: '1rem',
                   }}
                 >
-                  📡
+                  
                 </div>
                 <div>
                   <strong
@@ -702,7 +702,7 @@ function SubmissionStage({ onNext }: { onNext: () => void }) {
                     fontSize: '1rem',
                   }}
                 >
-                  🛡️
+                  
                 </div>
                 <div>
                   <strong
@@ -785,8 +785,8 @@ function SubmissionStage({ onNext }: { onNext: () => void }) {
               }}
             >
               {isValid
-                ? '🟢 Form status: Ready for review'
-                : '⚠️ Please complete all required fields'}
+                ? 'Form status: Ready for review'
+                : 'Please complete all required fields'}
             </span>
           </div>
 
@@ -860,7 +860,7 @@ function PendingStage({ onNext }: { onNext: () => void }) {
             boxShadow: '0 0 25px rgba(245, 158, 11, 0.35)',
           }}
         >
-          ⏳
+          
         </div>
 
         <small
@@ -950,7 +950,7 @@ function PendingStage({ onNext }: { onNext: () => void }) {
                   fontSize: '0.875rem',
                 }}
               >
-                ✉️
+                
               </div>
               <div>
                 <strong
@@ -994,7 +994,7 @@ function PendingStage({ onNext }: { onNext: () => void }) {
                   fontSize: '0.875rem',
                 }}
               >
-                🔔
+                
               </div>
               <div>
                 <strong
@@ -1172,7 +1172,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
             gap: 8,
           }}
         >
-          <span>✓</span> {toastMsg}
+          <span></span> {toastMsg}
         </div>
       )}
 
@@ -1208,7 +1208,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
             boxShadow: '0 0 25px rgba(16, 185, 129, 0.35)',
           }}
         >
-          ✓
+          
         </div>
 
         <small
@@ -1295,7 +1295,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
                   flexShrink: 0,
                 }}
               >
-                📄
+                
               </div>
               <div style={{ minWidth: 0 }}>
                 <strong
@@ -1320,7 +1320,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  PDF (3.4 MB) • Signed by BantAI Research Team ✓
+                  PDF (3.4 MB) • Signed by BantAI Research Team 
                 </small>
               </div>
             </div>
@@ -1388,7 +1388,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
                   flexShrink: 0,
                 }}
               >
-                💳
+                
               </div>
               <div style={{ minWidth: 0 }}>
                 <strong
@@ -1592,7 +1592,7 @@ function PaymentStage({ onNext }: { onNext: () => void }) {
                   fontSize: '1.125rem',
                 }}
               >
-                🏛️
+                
               </div>
               <div>
                 <strong
@@ -1671,7 +1671,7 @@ function PaymentStage({ onNext }: { onNext: () => void }) {
                 fontSize: '1.125rem',
               }}
             >
-              💳
+              
             </div>
             <div>
               <strong
@@ -1753,7 +1753,7 @@ function GrantedStage({ onNext }: { onNext: () => void }) {
             boxShadow: '0 0 30px rgba(16, 185, 129, 0.45)',
           }}
         >
-          🎉
+          
         </div>
 
         <small
@@ -1834,7 +1834,7 @@ function GrantedStage({ onNext }: { onNext: () => void }) {
                   color: '#ffffff',
                 }}
               >
-                <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                <span style={{ color: '#10b981', fontWeight: 800 }}></span>
                 <span>{feature}</span>
               </div>
             ))}

@@ -30,52 +30,51 @@ const ADMIN_SIDEBAR_GROUPS = [
   {
     title: 'Overview',
     items: [
-      { path: '/admin/overview', label: 'System Overview', icon: '📊' },
-      { path: '/admin/reports', label: 'User Reports', icon: '📩' },
+      { path: '/admin/overview', label: 'System Overview' },
+      { path: '/admin/reports', label: 'User Reports' },
     ],
   },
   {
     title: 'AI Model & Dataset',
     items: [
-      { path: '/admin/model', label: 'Model Performance', icon: '🤖' },
-      { path: '/admin/concept-drift', label: 'Concept Drift', icon: '⚡' },
-      { path: '/admin/dataset', label: 'Dataset Mgmt', icon: '🗄️' },
+      { path: '/admin/model', label: 'Model Performance' },
+      { path: '/admin/concept-drift', label: 'Concept Drift' },
+      { path: '/admin/dataset', label: 'Dataset Mgmt' },
       {
         path: '/admin/classification',
         label: 'Classification Log',
-        icon: '📋',
       },
-      { path: '/admin/fpfn', label: 'FP/FN Review', icon: '⚖️' },
+      { path: '/admin/fpfn', label: 'FP/FN Review' },
     ],
   },
   {
     title: 'Threat Clusters',
     items: [
-      { path: '/admin/campaigns', label: 'All Campaigns', icon: '🛡️' },
-      { path: '/admin/timeline', label: 'Campaign Timeline', icon: '📅' },
+      { path: '/admin/campaigns', label: 'All Campaigns' },
+      { path: '/admin/timeline', label: 'Campaign Timeline' },
     ],
   },
   {
     title: 'Clients & System',
     items: [
-      { path: '/admin/users', label: 'Registered Users', icon: '👥' },
-      { path: '/admin/server', label: 'Server Monitoring', icon: '🖥️' },
+      { path: '/admin/users', label: 'Registered Users' },
+      { path: '/admin/server', label: 'Server Monitoring' },
     ],
   },
   {
     title: 'Exports',
-    items: [{ path: '/admin/export', label: 'Export Hub', icon: '📄' }],
+    items: [{ path: '/admin/export', label: 'Export Hub' }],
   },
   {
     title: 'System',
     items: [
-      { path: '/admin/api-logs', label: 'API Logs', icon: '🔌' },
-      { path: '/admin/db-storage', label: 'DB Storage', icon: '💾' },
+      { path: '/admin/api-logs', label: 'API Logs' },
+      { path: '/admin/db-storage', label: 'DB Storage' },
     ],
   },
   {
     title: 'Content',
-    items: [{ path: '/admin/tips', label: 'Scam Tips', icon: '💡' }],
+    items: [{ path: '/admin/tips', label: 'Scam Tips' }],
   },
 ];
 
@@ -159,7 +158,7 @@ export function AdminOverviewPage() {
           className="animate-slide-up"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>⚠️</span>
+            <span></span>
             <span>
               FN rate has risen 1.4% over 7 days — potential concept drift
               detected. Review model performance.
@@ -190,7 +189,7 @@ export function AdminOverviewPage() {
                 fontSize: '1rem',
               }}
             >
-              ✕
+              
             </button>
           </div>
         </div>
@@ -203,14 +202,14 @@ export function AdminOverviewPage() {
           value={reportsVal}
           subtext="+312 today"
           trend="12.4%"
-          icon="📬"
+          icon=""
         />
         <StatCard
           title="Likely Smishing"
           value={smishingVal}
           subtext="+23 today"
           trend="8.1%"
-          icon="🚨"
+          icon=""
           iconBg="rgba(239, 68, 68, 0.15)"
         />
         <StatCard
@@ -219,7 +218,7 @@ export function AdminOverviewPage() {
           subtext="Awaiting validation"
           trend="3.2%"
           trendUp={false}
-          icon="⏳"
+          icon=""
           iconBg="rgba(245, 158, 11, 0.15)"
         />
         <StatCard
@@ -227,7 +226,7 @@ export function AdminOverviewPage() {
           value="8,421"
           subtext="Mobile app telemetry users"
           trend="4.8%"
-          icon="👥"
+          icon=""
           iconBg="rgba(59, 130, 246, 0.15)"
         />
       </div>
@@ -246,42 +245,42 @@ export function AdminOverviewPage() {
             status="Operational"
             latency={12}
             uptime={health?.status === 'ok' ? '99.99%' : '99.99%'}
-            icon="📡"
+            icon=""
           />
           <ServiceHealthCard
             name="Classification Engine"
             status="Operational"
             latency={28}
             uptime="99.95%"
-            icon="🤖"
+            icon=""
           />
           <ServiceHealthCard
             name="Database (PostgreSQL)"
             status="Operational"
             latency={8}
             uptime="100%"
-            icon="🗄️"
+            icon=""
           />
           <ServiceHealthCard
             name="Campaign Clustering"
             status="Operational"
             latency={45}
             uptime="99.90%"
-            icon="🕸️"
+            icon=""
           />
           <ServiceHealthCard
             name="Mobile App Sync"
             status="Operational"
             latency={18}
             uptime="99.97%"
-            icon="📱"
+            icon=""
           />
           <ServiceHealthCard
             name="Web Dashboard"
             status="Operational"
             latency={6}
             uptime="100%"
-            icon="🖥️"
+            icon=""
           />
         </div>
       </div>
@@ -969,7 +968,7 @@ export function AdminReportsPage() {
                 fontSize: '0.875rem',
               }}
             >
-              🔍
+              
             </span>
           </div>
         </div>
@@ -1011,7 +1010,7 @@ export function AdminReportsPage() {
                 className="badge badge-amber"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                ⏳ Action Needed
+                Action Needed
               </span>
             </div>
             <strong
@@ -1059,7 +1058,7 @@ export function AdminReportsPage() {
                 className="badge badge-green"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                🛡️ Confirmed
+                Confirmed
               </span>
             </div>
             <strong
@@ -1107,7 +1106,7 @@ export function AdminReportsPage() {
                 className="badge badge-red"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                ✕ Benign
+                Benign
               </span>
             </div>
             <strong
@@ -1155,7 +1154,7 @@ export function AdminReportsPage() {
                 className="badge badge-blue"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                ⚡ Analyst SLA
+                Analyst SLA
               </span>
             </div>
             <strong
@@ -1206,97 +1205,69 @@ export function AdminReportsPage() {
         {/* Main Detailed Reports Table */}
         <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="table-wrap">
-            <table>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th>REPORT ID</th>
-                  <th>USER</th>
-                  <th>PREVIEW</th>
-                  <th>CAMPAIGN</th>
-                  <th>CATEGORY</th>
-                  <th>SUBMITTED AT</th>
-                  <th>STATUS</th>
-                  <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                  <th style={{ padding: '14px 20px', width: '22%' }}>REPORT ID</th>
+                  <th style={{ padding: '14px 20px', width: '25%' }}>USER</th>
+                  <th style={{ padding: '14px 20px', width: '23%' }}>SUBMITTED AT</th>
+                  <th style={{ padding: '14px 20px', width: '15%' }}>STATUS</th>
+                  <th style={{ padding: '14px 20px', width: '15%', textAlign: 'right' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedReports.map((item) => (
                   <tr key={item.id}>
-                    <td>
+                    <td style={{ padding: '16px 20px' }}>
                       <code
                         style={{
                           color: 'var(--accent-light)',
                           fontWeight: 700,
+                          fontSize: '0.875rem',
                           fontFamily: 'var(--font-mono)',
                         }}
                       >
                         {item.id}
                       </code>
                     </td>
-                    <td>
+                    <td style={{ padding: '16px 20px' }}>
                       <span
                         style={{
                           color: 'var(--text-primary)',
                           fontWeight: 500,
+                          fontSize: '0.875rem',
                         }}
                       >
                         {item.user}
                       </span>
                     </td>
-                    <td style={{ maxWidth: 280 }}>
-                      <span
-                        style={{
-                          color: 'var(--text-secondary)',
-                          fontSize: '0.8125rem',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                        title={item.preview}
-                      >
-                        {item.preview}
-                      </span>
-                    </td>
-                    <td>
+                    <td style={{ padding: '16px 20px' }}>
                       <span
                         style={{
                           fontSize: '0.8125rem',
-                          color: 'var(--text-primary)',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {item.campaign}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className="badge badge-purple"
-                        style={{ fontSize: '0.6875rem' }}
-                      >
-                        {item.category}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontSize: '0.75rem',
                           color: 'var(--text-muted)',
                         }}
                       >
                         {item.submittedAt}
                       </span>
                     </td>
-                    <td>
-                      {item.status === 'Pending' ? (
-                        <span className="badge badge-amber">Pending</span>
-                      ) : item.status === 'Validated' ? (
-                        <span className="badge badge-green">Validated</span>
-                      ) : (
-                        <span className="badge badge-red">Rejected</span>
-                      )}
+                    <td style={{ padding: '16px 20px' }}>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.875rem',
+                          color:
+                            item.status === 'Pending'
+                              ? '#f59e0b'
+                              : item.status === 'Validated'
+                              ? '#10b981'
+                              : '#ef4444',
+                        }}
+                      >
+                        {item.status}
+                      </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                       <Button
                         variant={
                           item.status === 'Pending' ? 'primary' : 'ghost'
@@ -1316,7 +1287,7 @@ export function AdminReportsPage() {
           {/* Table Footer Pagination Bar */}
           <div
             style={{
-              padding: '12px 20px',
+              padding: '14px 20px',
               borderTop: '1px solid var(--border-subtle)',
               display: 'flex',
               justifyContent: 'space-between',
@@ -1405,7 +1376,7 @@ export function AdminReportsPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 background: 'var(--bg-surface-elevated)',
-                padding: 12,
+                padding: 14,
                 borderRadius: 8,
               }}
             >
@@ -1413,13 +1384,13 @@ export function AdminReportsPage() {
                 <small style={{ color: 'var(--text-muted)', display: 'block' }}>
                   Reported By
                 </small>
-                <strong>{selectedReport.user}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>{selectedReport.user}</strong>
               </div>
               <div>
                 <small style={{ color: 'var(--text-muted)', display: 'block' }}>
                   Submitted At
                 </small>
-                <strong>{selectedReport.submittedAt}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>{selectedReport.submittedAt}</strong>
               </div>
               <div>
                 <small style={{ color: 'var(--text-muted)', display: 'block' }}>
@@ -1433,32 +1404,7 @@ export function AdminReportsPage() {
               </div>
             </div>
 
-            <div>
-              <small
-                style={{
-                  color: 'var(--text-muted)',
-                  display: 'block',
-                  marginBottom: 4,
-                }}
-              >
-                Full Message Text
-              </small>
-              <div
-                style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 8,
-                  padding: 14,
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8125rem',
-                  lineHeight: 1.5,
-                }}
-              >
-                "{selectedReport.fullMessage || selectedReport.preview}"
-              </div>
-            </div>
-
+            {/* Campaign & Category Details */}
             <div
               style={{
                 display: 'grid',
@@ -1469,59 +1415,101 @@ export function AdminReportsPage() {
               <div
                 style={{
                   background: 'var(--bg-surface-elevated)',
-                  padding: 12,
+                  padding: 14,
                   borderRadius: 8,
                 }}
               >
-                <small style={{ color: 'var(--text-muted)', display: 'block' }}>
-                  AI Model Confidence
+                <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>
+                  Campaign
                 </small>
                 <strong
-                  style={{ fontSize: '1.25rem', color: 'var(--accent-light)' }}
+                  style={{ fontSize: '0.9375rem', color: 'var(--text-primary)' }}
                 >
-                  {selectedReport.confidence || '94.2%'}
+                  {selectedReport.campaign}
                 </strong>
-                <small
-                  style={{ display: 'block', color: 'var(--text-secondary)' }}
-                >
-                  XLM-RoBERTa High Confidence
-                </small>
               </div>
 
               <div
                 style={{
                   background: 'var(--bg-surface-elevated)',
-                  padding: 12,
+                  padding: 14,
                   borderRadius: 8,
                 }}
               >
-                <small style={{ color: 'var(--text-muted)', display: 'block' }}>
-                  Campaign Group
+                <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+                  Category
                 </small>
-                <strong
-                  style={{ fontSize: '1rem', color: 'var(--text-primary)' }}
+                <span
+                  className="badge badge-purple"
+                  style={{ fontSize: '0.75rem', fontWeight: 600 }}
                 >
-                  {selectedReport.campaign}
-                </strong>
-                <small
-                  style={{ display: 'block', color: 'var(--text-secondary)' }}
-                >
-                  Category: {selectedReport.category}
-                </small>
+                  {selectedReport.category}
+                </span>
               </div>
+            </div>
+
+            {/* Full Message / Preview Content */}
+            <div>
+              <small
+                style={{
+                  color: 'var(--text-muted)',
+                  display: 'block',
+                  marginBottom: 6,
+                  fontWeight: 600,
+                }}
+              >
+                SMS Message Preview &amp; Full Content
+              </small>
+              <div
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 8,
+                  padding: 16,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                "{selectedReport.fullMessage || selectedReport.preview}"
+              </div>
+            </div>
+
+            {/* AI Confidence */}
+            <div
+              style={{
+                background: 'var(--bg-surface-elevated)',
+                padding: 14,
+                borderRadius: 8,
+              }}
+            >
+              <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                AI Classification Confidence
+              </small>
+              <strong
+                style={{ fontSize: '1.25rem', color: 'var(--accent-light)' }}
+              >
+                {selectedReport.confidence || '94.2%'}
+              </strong>
+              <small
+                style={{ display: 'block', color: 'var(--text-secondary)', marginTop: 2 }}
+              >
+                XLM-RoBERTa High Confidence Classification
+              </small>
             </div>
 
             {selectedReport.url && (
               <div
                 style={{
-                  padding: 10,
+                  padding: 12,
                   background: 'rgba(239,68,68,0.1)',
                   border: '1px solid var(--red-border)',
                   borderRadius: 8,
                   color: 'var(--red-text)',
                 }}
               >
-                <strong>🚨 Intercepted Malicious URL:</strong>{' '}
+                <strong>Intercepted Malicious URL:</strong>{' '}
                 <code style={{ fontFamily: 'var(--font-mono)' }}>
                   {selectedReport.url}
                 </code>
@@ -1636,7 +1624,7 @@ export function AdminModelPage() {
             subtext="+0.8% vs last run"
             trend="0.8%"
             trendUp={true}
-            icon="🎯"
+            icon=""
             iconBg="rgba(16, 185, 129, 0.15)"
           />
           <StatCard
@@ -1645,16 +1633,16 @@ export function AdminModelPage() {
             subtext="+0.1% (stable)"
             trend="0.1%"
             trendUp={false}
-            icon="📈"
+            icon=""
             iconBg="rgba(245, 158, 11, 0.15)"
           />
           <StatCard
             title="False Negative Rate"
             value="2.1%"
-            subtext="+1.4% ⚠️ drift alert"
+            subtext="+1.4% drift alert"
             trend="1.4%"
             trendUp={false}
-            icon="⚠️"
+            icon=""
             iconBg="rgba(239, 68, 68, 0.15)"
           />
           <StatCard
@@ -1663,225 +1651,48 @@ export function AdminModelPage() {
             subtext="+0.012 vs last"
             trend="0.012"
             trendUp={true}
-            icon="📊"
+            icon=""
             iconBg="rgba(124, 58, 237, 0.15)"
           />
         </div>
 
-        {/* Charts & Breakdown Row */}
-        <div
-          style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}
-        >
-          {/* Accuracy Over Time Graph */}
-          <div className="panel">
-            <div className="panel-head">
-              <div>
-                <strong>ACCURACY OVER TIME — APR 14 TO MAY 13</strong>
-                <small>
-                  Post-retrain improvement: +1.2% accuracy · +0.8% F1 · FN rate
-                  recovering
-                </small>
-              </div>
-            </div>
-
-            {/* Custom SVG Line Chart with Target & Retrain Line */}
-            <div style={{ position: 'relative', marginTop: 10 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 16,
-                  fontSize: '0.75rem',
-                  marginBottom: 12,
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span
-                    style={{
-                      width: 12,
-                      height: 3,
-                      background: 'var(--accent-primary)',
-                      borderRadius: 2,
-                    }}
-                  />{' '}
-                  Accuracy %
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span
-                    style={{
-                      width: 12,
-                      height: 2,
-                      background: 'var(--amber-text)',
-                      borderStyle: 'dashed',
-                    }}
-                  />{' '}
-                  Target (90%)
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span
-                    style={{ width: 12, height: 2, background: '#60a5fa' }}
-                  />{' '}
-                  Retrain Event (May 8)
-                </span>
-              </div>
-
-              <LineAreaChart />
+        {/* Accuracy Over Time Graph - Maximized Full Width */}
+        <div className="panel" style={{ width: '100%' }}>
+          <div className="panel-head">
+            <div>
+              <strong>ACCURACY OVER TIME — APR 14 TO MAY 13</strong>
+              <small>
+                Post-retrain improvement: +1.2% accuracy · +0.8% F1 · FN rate
+                recovering
+              </small>
             </div>
           </div>
 
-          {/* Classification Breakdown Progress Bars */}
-          <div className="panel">
-            <div className="panel-head">
-              <div>
-                <strong>CLASSIFICATION BREAKDOWN</strong>
-                <small>Distribution of 14,892 test dataset samples</small>
-              </div>
-            </div>
-
+          {/* Custom SVG Line Chart */}
+          <div style={{ position: 'relative', marginTop: 10 }}>
             <div
               style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: 18,
-                marginTop: 10,
+                gap: 16,
+                fontSize: '0.75rem',
+                marginBottom: 12,
+                color: 'var(--text-muted)',
               }}
             >
-              <div>
-                <div
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '0.875rem',
-                    marginBottom: 6,
+                    width: 12,
+                    height: 3,
+                    background: 'var(--accent-primary)',
+                    borderRadius: 2,
                   }}
-                >
-                  <span style={{ color: 'var(--red-text)', fontWeight: 600 }}>
-                    Likely Smishing
-                  </span>
-                  <strong style={{ color: 'var(--text-primary)' }}>
-                    1,247
-                  </strong>
-                </div>
-                <div
-                  style={{
-                    height: 8,
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: '15%',
-                      background: 'var(--red-text)',
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <small
-                  style={{
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    marginTop: 2,
-                    display: 'block',
-                  }}
-                >
-                  8.4% of total volume
-                </small>
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '0.875rem',
-                    marginBottom: 6,
-                  }}
-                >
-                  <span style={{ color: 'var(--amber-text)', fontWeight: 600 }}>
-                    Suspicious
-                  </span>
-                  <strong style={{ color: 'var(--text-primary)' }}>389</strong>
-                </div>
-                <div
-                  style={{
-                    height: 8,
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: '8%',
-                      background: 'var(--amber-text)',
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <small
-                  style={{
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    marginTop: 2,
-                    display: 'block',
-                  }}
-                >
-                  2.6% of total volume
-                </small>
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '0.875rem',
-                    marginBottom: 6,
-                  }}
-                >
-                  <span style={{ color: 'var(--green-text)', fontWeight: 600 }}>
-                    Unknown / Safe
-                  </span>
-                  <strong style={{ color: 'var(--text-primary)' }}>
-                    13,256
-                  </strong>
-                </div>
-                <div
-                  style={{
-                    height: 8,
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: '89%',
-                      background: 'var(--green-text)',
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <small
-                  style={{
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    marginTop: 2,
-                    display: 'block',
-                  }}
-                >
-                  89.0% of total volume
-                </small>
-              </div>
+                />{' '}
+                Accuracy %
+              </span>
             </div>
+
+            <LineAreaChart />
           </div>
         </div>
 
@@ -1922,7 +1733,9 @@ export function AdminModelPage() {
               <tbody>
                 <tr>
                   <td>
-                    <span className="badge badge-red">Likely Smishing</span>
+                    <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.875rem' }}>
+                      Likely Smishing
+                    </span>
                   </td>
                   <td>
                     <code style={{ fontFamily: 'var(--font-mono)' }}>
@@ -1950,7 +1763,9 @@ export function AdminModelPage() {
 
                 <tr>
                   <td>
-                    <span className="badge badge-amber">Suspicious</span>
+                    <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.875rem' }}>
+                      Suspicious
+                    </span>
                   </td>
                   <td>
                     <code style={{ fontFamily: 'var(--font-mono)' }}>
@@ -1978,7 +1793,9 @@ export function AdminModelPage() {
 
                 <tr>
                   <td>
-                    <span className="badge badge-green">Unknown / Safe</span>
+                    <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.875rem' }}>
+                      Unknown / Safe
+                    </span>
                   </td>
                   <td>
                     <code style={{ fontFamily: 'var(--font-mono)' }}>
@@ -2617,7 +2434,7 @@ function InteractiveConceptDriftChart() {
                 fontWeight: 700,
               }}
             >
-              📅 {activePoint.date} DRIFT AUDIT
+              {activePoint.date} DRIFT AUDIT
             </div>
             <div
               style={{
@@ -2656,7 +2473,7 @@ function InteractiveConceptDriftChart() {
                   paddingTop: 4,
                 }}
               >
-                ⚠️ {activePoint.note}
+                {activePoint.note}
               </div>
             )}
           </div>
@@ -2715,7 +2532,7 @@ export function AdminConceptDriftPage() {
               gap: 10,
             }}
           >
-            <span>⚠️</span>
+            <span></span>
             <span>
               FN Rate crossed the 3.0% threshold on May 10 and has continued
               rising over the last 4 days.
@@ -3005,7 +2822,7 @@ export function AdminConceptDriftPage() {
                     color: 'var(--green-text)',
                   }}
                 >
-                  <span>✓</span>
+                  <span></span>
                   <span>
                     <strong>312 new validated reports</strong> available
                   </span>
@@ -3018,7 +2835,7 @@ export function AdminConceptDriftPage() {
                     color: 'var(--green-text)',
                   }}
                 >
-                  <span>✓</span>
+                  <span></span>
                   <span>
                     FN rate above threshold for{' '}
                     <strong>4 consecutive days</strong>
@@ -3032,7 +2849,7 @@ export function AdminConceptDriftPage() {
                     color: 'var(--green-text)',
                   }}
                 >
-                  <span>✓</span>
+                  <span></span>
                   <span>
                     <strong>14 unclassified messages</strong> with no cluster
                     match
@@ -3046,7 +2863,7 @@ export function AdminConceptDriftPage() {
                     color: 'var(--amber-text)',
                   }}
                 >
-                  <span>⚠️</span>
+                  <span></span>
                   <span>
                     Last retrain: <strong>5 days ago</strong> (within acceptable
                     window)
@@ -3087,10 +2904,10 @@ export function AdminConceptDriftPage() {
                 disabled={isRetraining || retrainingTriggered}
               >
                 {isRetraining
-                  ? '⏳ Initializing Pipeline...'
+                  ? 'Initializing Pipeline...'
                   : retrainingTriggered
-                    ? '✓ Retraining Scheduled'
-                    : '🔄 Trigger Model Retraining'}
+                    ? 'Retraining Scheduled'
+                    : 'Trigger Model Retraining'}
               </Button>
               <small
                 style={{
@@ -3436,14 +3253,14 @@ export function AdminDatasetPage() {
               size="md"
               onClick={() => setShowDownloadModal(true)}
             >
-              📥 Download Full Dataset
+              Download Full Dataset
             </Button>
             <Button
               variant="primary"
               size="md"
               onClick={() => setShowUploadModal(true)}
             >
-              📤 Upload New Samples
+              Upload New Samples
             </Button>
           </div>
         </div>
@@ -3923,7 +3740,7 @@ export function AdminDatasetPage() {
                 color: 'var(--text-muted)',
               }}
             >
-              🔍
+              
             </span>
           </div>
         </div>
@@ -4243,7 +4060,7 @@ export function AdminDatasetPage() {
               onClick={handleDownloadDataset}
               disabled={isExporting}
             >
-              {isExporting ? '⏳ Exporting...' : '📥 Start Download'}
+              {isExporting ? 'Exporting...' : 'Start Download'}
             </Button>
           </div>
         </div>
@@ -4294,11 +4111,11 @@ export function AdminDatasetPage() {
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
-              <span style={{ fontSize: '2rem' }}>📁</span>
+              <span style={{ fontSize: '2rem' }}></span>
               {selectedFile ? (
                 <div>
                   <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>
-                    ✓ Selected: {selectedFile.name}
+                    Selected: {selectedFile.name}
                   </strong>
                   <div
                     style={{
@@ -4384,7 +4201,7 @@ export function AdminDatasetPage() {
               onClick={handleUploadSamples}
               disabled={isUploading}
             >
-              {isUploading ? '⏳ Ingesting...' : '📤 Ingest Samples'}
+              {isUploading ? 'Ingesting...' : 'Ingest Samples'}
             </Button>
           </div>
         </div>
@@ -4876,7 +4693,7 @@ export function AdminClassificationPage() {
                   cursor: 'pointer',
                 }}
               >
-                <span>📅</span>
+                <span></span>
                 <span>{selectedDate}</span>
                 <span style={{ fontSize: '0.7rem' }}>▼</span>
               </button>
@@ -4936,7 +4753,7 @@ export function AdminClassificationPage() {
                         fontWeight: selectedDate === d ? 700 : 400,
                       }}
                     >
-                      {selectedDate === d ? `✓ ${d}` : d}
+                      {selectedDate === d ? `${d}` : d}
                     </button>
                   ))}
                   <div
@@ -5008,7 +4825,7 @@ export function AdminClassificationPage() {
                   fontSize: '0.875rem',
                 }}
               >
-                🔍
+                
               </span>
             </div>
 
@@ -5018,7 +4835,7 @@ export function AdminClassificationPage() {
               onClick={handleExportCSV}
               disabled={isExporting}
             >
-              {isExporting ? '⏳ Exporting...' : '📥 Export CSV'}
+              {isExporting ? 'Exporting...' : 'Export CSV'}
             </Button>
           </div>
         </div>
@@ -5867,7 +5684,7 @@ export function AdminFpFnPage() {
                 className="badge badge-amber"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                ⚠️ Over-Blocked
+                Over-Blocked
               </span>
             </div>
             <strong
@@ -5915,7 +5732,7 @@ export function AdminFpFnPage() {
                 className="badge badge-red"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                🚨 Missed Threats
+                Missed Threats
               </span>
             </div>
             <strong
@@ -5963,7 +5780,7 @@ export function AdminFpFnPage() {
                 className="badge badge-green"
                 style={{ padding: '4px 10px', fontSize: '0.75rem' }}
               >
-                ✓ Reviewed
+                Reviewed
               </span>
             </div>
             <strong
@@ -6037,7 +5854,7 @@ export function AdminFpFnPage() {
             fontWeight: 500,
           }}
         >
-          <span>{activeTab === 'FP' ? '🟦' : '🔴'}</span>
+          <span>{activeTab === 'FP' ? '' : ''}</span>
           <span>
             {activeTab === 'FP'
               ? 'False Positives are legitimate messages incorrectly flagged as smishing. Resolving these prevents good messages from entering the smishing training set.'
@@ -6183,7 +6000,7 @@ export function AdminFpFnPage() {
           <Modal
             isOpen={Boolean(selectedCaseId && selectedCase)}
             onClose={() => setSelectedCaseId(null)}
-            title={`📋 REVIEW PANEL — ${selectedCase.id}`}
+            title={`REVIEW PANEL — ${selectedCase.id}`}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div
@@ -6542,9 +6359,9 @@ export function AdminFpFnPage() {
                     }}
                   >
                     {isSubmitting
-                      ? '⏳ Submitting Resolution...'
+                      ? 'Submitting Resolution...'
                       : selectedCase.status === 'Resolved'
-                        ? '✓ Resolution Submitted'
+                        ? 'Resolution Submitted'
                         : 'Submit Resolution'}
                   </Button>
                 </div>
@@ -7051,7 +6868,7 @@ export function AdminCampaignsPage() {
             disabled={isExporting}
             style={{ height: 46, padding: '0 20px' }}
           >
-            {isExporting ? '⏳ Exporting...' : '📥 Export All'}
+            {isExporting ? 'Exporting...' : 'Export All'}
           </Button>
         </div>
 
@@ -7124,7 +6941,7 @@ export function AdminCampaignsPage() {
                 fontSize: '0.875rem',
               }}
             >
-              🔍
+              
             </span>
           </div>
         </div>
@@ -7165,7 +6982,7 @@ export function AdminCampaignsPage() {
                 fontWeight: 700,
               }}
             >
-              ⚡ Merge Selected ({selectedIds.length})
+              Merge Selected ({selectedIds.length})
             </Button>
           )}
         </div>
@@ -7735,7 +7552,7 @@ export function AdminCampaignsPage() {
                     }}
                   >
                     <span style={{ color: 'var(--red-text)' }}>
-                      🚨 {domain}
+                      {domain}
                     </span>
                     <span
                       className="badge badge-red"
@@ -7798,7 +7615,7 @@ export function AdminCampaignsPage() {
                 size="md"
                 onClick={() => handleExportClusterReport(selectedCluster)}
               >
-                📥 Export Cluster Report
+                Export Cluster Report
               </Button>
             </div>
           </div>
@@ -7902,7 +7719,7 @@ export function AdminCampaignsPage() {
               Cancel
             </Button>
             <Button variant="primary" size="md" onClick={handleExecuteMerge}>
-              ⚡ Confirm & Merge Clusters
+              Confirm & Merge Clusters
             </Button>
           </div>
         </div>
@@ -8252,7 +8069,7 @@ export function AdminTimelinePage() {
                 flexShrink: 0,
               }}
             >
-              🛡️
+              
             </div>
             <div>
               <div
@@ -8717,7 +8534,7 @@ export function AdminTimelinePage() {
                         color: '#f87171',
                       }}
                     >
-                      <span>🔗</span>
+                      <span></span>
                       <span>{dom}</span>
                     </div>
 
@@ -8735,7 +8552,7 @@ export function AdminTimelinePage() {
                         fontWeight: 600,
                       }}
                     >
-                      {copiedDomain === dom ? '✓ Copied' : 'Copy'}
+                      {copiedDomain === dom ? 'Copied' : 'Copy'}
                     </button>
                   </div>
                 ))}
@@ -9398,7 +9215,7 @@ export function AdminUsersPage() {
                 fontSize: '0.875rem',
               }}
             >
-              🔍
+              
             </span>
           </div>
         </div>
@@ -9905,7 +9722,7 @@ export function AdminUsersPage() {
                     setSelectedUser(null);
                   }}
                 >
-                  📥 Export Activity Log
+                  Export Activity Log
                 </Button>
               </div>
             </div>
@@ -10026,7 +9843,7 @@ export function AdminUsersPage() {
                   setSelectedOrg(null);
                 }}
               >
-                📥 Export API Usage Log
+                Export API Usage Log
               </Button>
             </div>
           </div>
@@ -10159,7 +9976,7 @@ export function AdminExportPage() {
     URL.revokeObjectURL(url);
 
     setTimeout(() => {
-      setDownloadToast(`✓ Downloaded ${filename} successfully!`);
+      setDownloadToast(`Downloaded ${filename} successfully!`);
       setTimeout(() => setDownloadToast(null), 3000);
     }, 400);
   };
@@ -10232,7 +10049,7 @@ export function AdminExportPage() {
               gap: 10,
             }}
           >
-            <span>💾</span>
+            <span></span>
             <span>{downloadToast}</span>
           </div>
         )}
@@ -10285,7 +10102,7 @@ export function AdminExportPage() {
                   flexShrink: 0,
                 }}
               >
-                📄
+                
               </div>
               <div style={{ flex: 1 }}>
                 <h4
@@ -10354,7 +10171,7 @@ export function AdminExportPage() {
                   flexShrink: 0,
                 }}
               >
-                🤖
+                
               </div>
               <div style={{ flex: 1 }}>
                 <h4
@@ -10423,7 +10240,7 @@ export function AdminExportPage() {
                   flexShrink: 0,
                 }}
               >
-                🛡️
+                
               </div>
               <div style={{ flex: 1 }}>
                 <h4
@@ -10491,7 +10308,7 @@ export function AdminExportPage() {
                   flexShrink: 0,
                 }}
               >
-                👥
+                
               </div>
               <div style={{ flex: 1 }}>
                 <h4
@@ -11047,36 +10864,36 @@ export function AdminServerPage({
   ];
 
   const microservicesList = [
-    { name: 'Backend API', status: 'Operational', latency: '14ms', icon: '🔌' },
+    { name: 'Backend API', status: 'Operational', latency: '14ms', icon: '' },
     {
       name: 'Classification Engine',
       status: 'Operational',
       latency: '82ms',
-      icon: '🤖',
+      icon: '',
     },
     {
       name: 'Database (PostgreSQL)',
       status: 'Operational',
       latency: '6ms',
-      icon: '🗄️',
+      icon: '',
     },
     {
       name: 'Campaign Clustering',
       status: 'Operational',
       latency: '24ms',
-      icon: '🔗',
+      icon: '',
     },
     {
       name: 'Mobile App Sync',
       status: 'Operational',
       latency: '18ms',
-      icon: '📱',
+      icon: '',
     },
     {
       name: 'Web Dashboard',
       status: 'Operational',
       latency: '12ms',
-      icon: '💻',
+      icon: '',
     },
   ];
 
@@ -11115,7 +10932,7 @@ export function AdminServerPage({
                 transition: 'transform 0.6s ease',
               }}
             >
-              🔄
+              
             </span>
             <span>Last checked {lastChecked}</span>
           </button>
@@ -11135,7 +10952,7 @@ export function AdminServerPage({
               fontSize: '0.8125rem',
             }}
           >
-            💻 Server Monitoring
+            Server Monitoring
           </button>
           <button
             className={`btn ${activeSubTab === 'api' ? 'btn-primary' : 'btn-ghost'}`}
@@ -11149,7 +10966,7 @@ export function AdminServerPage({
               fontSize: '0.8125rem',
             }}
           >
-            💬 API Logs
+            API Logs
           </button>
           <button
             className={`btn ${activeSubTab === 'db' ? 'btn-primary' : 'btn-ghost'}`}
@@ -11163,7 +10980,7 @@ export function AdminServerPage({
               fontSize: '0.8125rem',
             }}
           >
-            🗄️ DB Storage
+            DB Storage
           </button>
         </div>
 
@@ -11178,7 +10995,7 @@ export function AdminServerPage({
           {[
             {
               id: 'resp',
-              icon: '⚡',
+              icon: '',
               title: 'API Response Time',
               val: '142ms',
               valColor: '#10b981',
@@ -11189,7 +11006,7 @@ export function AdminServerPage({
             },
             {
               id: 'upt',
-              icon: '📶',
+              icon: '',
               title: 'Backend Uptime',
               val: '99.97%',
               valColor: '#10b981',
@@ -11200,7 +11017,7 @@ export function AdminServerPage({
             },
             {
               id: 'conn',
-              icon: '🔌',
+              icon: '',
               title: 'Active Connections',
               val: '47',
               valColor: 'var(--text-primary)',
@@ -11527,7 +11344,7 @@ export function AdminServerPage({
                 fontWeight: 600,
               }}
             >
-              ✓ All requests within acceptable thresholds
+              All requests within acceptable thresholds
             </div>
           </div>
 
@@ -12061,7 +11878,7 @@ export function AdminApiLogsPage() {
               fontSize: '0.8125rem',
             }}
           >
-            💻 Server Monitoring
+            Server Monitoring
           </button>
           <button
             className="btn btn-primary"
@@ -12072,7 +11889,7 @@ export function AdminApiLogsPage() {
               fontSize: '0.8125rem',
             }}
           >
-            💬 API Logs
+            API Logs
           </button>
           <button
             className="btn btn-ghost"
@@ -12083,7 +11900,7 @@ export function AdminApiLogsPage() {
               fontSize: '0.8125rem',
             }}
           >
-            🗄️ DB Storage
+            DB Storage
           </button>
         </div>
 
@@ -12098,7 +11915,7 @@ export function AdminApiLogsPage() {
           {[
             {
               id: 'req',
-              icon: '📈',
+              icon: '',
               title: 'Requests Today',
               val: '8,241',
               valColor: 'var(--text-primary)',
@@ -12109,7 +11926,7 @@ export function AdminApiLogsPage() {
             },
             {
               id: 'lat',
-              icon: '⚡',
+              icon: '',
               title: 'Avg Latency',
               val: '142ms',
               valColor: '#10b981',
@@ -12827,7 +12644,7 @@ export function AdminDbStoragePage() {
               fontSize: '0.8125rem',
             }}
           >
-            💻 Server Monitoring
+            Server Monitoring
           </button>
           <button
             className="btn btn-ghost"
@@ -12838,7 +12655,7 @@ export function AdminDbStoragePage() {
               fontSize: '0.8125rem',
             }}
           >
-            💬 API Logs
+            API Logs
           </button>
           <button
             className="btn btn-primary"
@@ -12849,7 +12666,7 @@ export function AdminDbStoragePage() {
               fontSize: '0.8125rem',
             }}
           >
-            🗄️ DB Storage
+            DB Storage
           </button>
         </div>
 
@@ -12864,7 +12681,7 @@ export function AdminDbStoragePage() {
           {[
             {
               id: 'used',
-              icon: '💾',
+              icon: '',
               title: 'Storage Used',
               val: '27.6 GB',
               valColor: '#a855f7',
@@ -12875,7 +12692,7 @@ export function AdminDbStoragePage() {
             },
             {
               id: 'avail',
-              icon: '🗄️',
+              icon: '',
               title: 'Storage Available',
               val: '52.4 GB',
               valColor: '#10b981',
@@ -12886,7 +12703,7 @@ export function AdminDbStoragePage() {
             },
             {
               id: 'recs',
-              icon: '⚡',
+              icon: '',
               title: 'Total Records',
               val: '18,420',
               valColor: 'var(--text-primary)',
@@ -12897,7 +12714,7 @@ export function AdminDbStoragePage() {
             },
             {
               id: 'bkp',
-              icon: '🛡️',
+              icon: '',
               title: 'Last Full Backup',
               val: '1 day ago',
               valColor: '#10b981',
@@ -13934,7 +13751,7 @@ export function AdminTipsPage() {
                   fontSize: '1rem',
                 }}
               >
-                🟢
+                
               </div>
             </div>
             <div>
@@ -14006,7 +13823,7 @@ export function AdminTipsPage() {
                   fontSize: '1rem',
                 }}
               >
-                🟡
+                
               </div>
             </div>
             <div>
@@ -14078,7 +13895,7 @@ export function AdminTipsPage() {
                   fontSize: '1rem',
                 }}
               >
-                🕒
+                
               </div>
             </div>
             <div>
@@ -14119,7 +13936,7 @@ export function AdminTipsPage() {
             {
               cat: 'OTP Safety',
               count: tips.filter((t) => t.category === 'OTP Safety').length,
-              icon: '🔑',
+              icon: '',
               color: '#a855f7',
               bgIcon: 'rgba(168, 85, 247, 0.15)',
               borderIcon: 'rgba(168, 85, 247, 0.3)',
@@ -14127,7 +13944,7 @@ export function AdminTipsPage() {
             {
               cat: 'Link Safety',
               count: tips.filter((t) => t.category === 'Link Safety').length,
-              icon: '🔗',
+              icon: '',
               color: '#3b82f6',
               bgIcon: 'rgba(59, 130, 246, 0.15)',
               borderIcon: 'rgba(59, 130, 246, 0.3)',
@@ -14135,7 +13952,7 @@ export function AdminTipsPage() {
             {
               cat: 'Fake Domains',
               count: tips.filter((t) => t.category === 'Fake Domains').length,
-              icon: '🌐',
+              icon: '',
               color: '#f59e0b',
               bgIcon: 'rgba(245, 158, 11, 0.15)',
               borderIcon: 'rgba(245, 158, 11, 0.3)',
@@ -14143,7 +13960,7 @@ export function AdminTipsPage() {
             {
               cat: 'General',
               count: tips.filter((t) => t.category === 'General').length,
-              icon: '💡',
+              icon: '',
               color: '#10b981',
               bgIcon: 'rgba(16, 185, 129, 0.15)',
               borderIcon: 'rgba(16, 185, 129, 0.3)',
@@ -14294,7 +14111,7 @@ export function AdminTipsPage() {
           <input
             type="text"
             className="form-input"
-            placeholder="🔍 Search scam tips..."
+            placeholder="Search scam tips..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: 260, borderRadius: 8, fontSize: '0.8125rem' }}
@@ -14399,7 +14216,7 @@ export function AdminTipsPage() {
                             padding: '4px 8px',
                           }}
                         >
-                          👁️ Mobile
+                          Mobile
                         </Button>
                         <Button
                           variant="ghost"
@@ -14727,8 +14544,8 @@ export function AdminTipsPage() {
                   <div
                     style={{ display: 'flex', gap: 6, alignItems: 'center' }}
                   >
-                    <span>📶 5G</span>
-                    <span>🔋 98%</span>
+                    <span>5G</span>
+                    <span>98%</span>
                   </div>
                 </div>
               </div>
@@ -14758,7 +14575,7 @@ export function AdminTipsPage() {
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                   >
-                    <span style={{ fontSize: '0.9375rem' }}>🛡️</span>
+                    <span style={{ fontSize: '0.9375rem' }}></span>
                     <strong style={{ fontSize: '0.8125rem', color: '#ffffff' }}>
                       BantAI Mobile
                     </strong>
@@ -14815,7 +14632,7 @@ export function AdminTipsPage() {
                         className="badge badge-gray"
                         style={{ fontSize: '0.6875rem', padding: '3px 8px' }}
                       >
-                        🌐 {previewTip.language}
+                        {previewTip.language}
                       </span>
                     </div>
 
@@ -14851,7 +14668,7 @@ export function AdminTipsPage() {
                       boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
                     }}
                   >
-                    Mark as Helpful 👍
+                    Mark as Helpful 
                   </button>
                 </div>
               </div>
@@ -14954,7 +14771,7 @@ export function AdminSettingsPage({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('✓ Admin account settings saved successfully!');
+    showToast('Admin account settings saved successfully!');
   };
 
   const handleReset = () => {
@@ -14970,22 +14787,22 @@ export function AdminSettingsPage({
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currPass) {
-      showToast('⚠️ Please enter your current password.');
+      showToast('Please enter your current password.');
       return;
     }
     if (newPass.length < 8) {
-      showToast('⚠️ New password must be at least 8 characters long.');
+      showToast('New password must be at least 8 characters long.');
       return;
     }
     if (newPass !== confirmPass) {
-      showToast('⚠️ New password and confirmation do not match.');
+      showToast('New password and confirmation do not match.');
       return;
     }
     setCurrPass('');
     setNewPass('');
     setConfirmPass('');
     showToast(
-      '✓ Password updated successfully! Next required rotation in 90 days.',
+      'Password updated successfully! Next required rotation in 90 days.',
     );
   };
 
@@ -15099,7 +14916,7 @@ export function AdminSettingsPage({
             className="badge badge-amber"
             style={{ padding: '6px 14px', fontSize: '0.8125rem' }}
           >
-            👑 Super Administrator Control Center
+            Super Administrator Control Center
           </span>
         </div>
 
@@ -15114,10 +14931,10 @@ export function AdminSettingsPage({
           }}
         >
           {[
-            { id: 'profile', label: '👤 Profile & Contact' },
-            { id: 'security', label: '🔐 Password & 2FA' },
-            { id: 'notifications', label: '🔔 Alert Preferences' },
-            { id: 'access', label: '🛡️ Access & Permissions' },
+            { id: 'profile', label: 'Profile & Contact' },
+            { id: 'security', label: 'Password & 2FA' },
+            { id: 'notifications', label: 'Alert Preferences' },
+            { id: 'access', label: 'Access & Permissions' },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -15220,14 +15037,14 @@ export function AdminSettingsPage({
                   onClick={() => setIsAvatarModalOpen(true)}
                   className="btn btn-secondary btn-md"
                 >
-                  📷 Customize Avatar
+                  Customize Avatar
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsActivityModalOpen(true)}
                   className="btn btn-ghost btn-md"
                 >
-                  📜 Activity Audit Log
+                  Activity Audit Log
                 </button>
               </div>
             </div>
@@ -15603,7 +15420,7 @@ export function AdminSettingsPage({
                   size="md"
                   style={{ padding: '12px 24px' }}
                 >
-                  💾 Save Profile Changes
+                  Save Profile Changes
                 </Button>
                 <button
                   type="button"
@@ -15623,7 +15440,7 @@ export function AdminSettingsPage({
                   fontSize: '0.8125rem',
                 }}
               >
-                <span>🟢 All changes remain frontend-only.</span>
+                <span>All changes remain frontend-only.</span>
               </div>
             </div>
           </form>
@@ -15697,7 +15514,7 @@ export function AdminSettingsPage({
                       cursor: 'pointer',
                     }}
                   >
-                    {showPass ? '👁️' : '🙈'}
+                    {showPass ? '' : ''}
                   </button>
                 </div>
               </div>
@@ -15789,7 +15606,7 @@ export function AdminSettingsPage({
                 size="md"
                 style={{ marginTop: 8 }}
               >
-                🔑 Update Password
+                Update Password
               </Button>
             </form>
 
@@ -15899,7 +15716,7 @@ export function AdminSettingsPage({
                     <div
                       style={{ display: 'flex', alignItems: 'center', gap: 10 }}
                     >
-                      <span style={{ fontSize: '1.25rem' }}>📱</span>
+                      <span style={{ fontSize: '1.25rem' }}></span>
                       <div>
                         <strong
                           style={{
@@ -16120,9 +15937,9 @@ export function AdminSettingsPage({
             >
               <Button
                 variant="primary"
-                onClick={() => showToast('✓ Notification preferences saved!')}
+                onClick={() => showToast('Notification preferences saved!')}
               >
-                💾 Save Alert Settings
+                Save Alert Settings
               </Button>
             </div>
           </div>
@@ -16172,7 +15989,7 @@ export function AdminSettingsPage({
                 type="text"
                 className="form-input"
                 style={{ maxWidth: 280, height: 38 }}
-                placeholder="🔍 Search permission module..."
+                placeholder="Search permission module..."
                 value={permissionsFilter}
                 onChange={(e) => setPermissionsFilter(e.target.value)}
               />
@@ -16229,7 +16046,7 @@ export function AdminSettingsPage({
                         color: isGranted ? '#60a5fa' : 'var(--text-muted)',
                       }}
                     >
-                      {isGranted ? '✓ GRANTED' : '✕ RESTRICTED'}
+                      {isGranted ? 'GRANTED' : 'RESTRICTED'}
                     </span>
                   </div>
                 ))}
@@ -16278,68 +16095,68 @@ export function AdminSettingsPage({
               {[
                 {
                   id: 'analyst_female',
-                  icon: '👩‍💻',
+                  icon: '‍',
                   label: 'Security Analyst',
                   role: 'Glasses',
                 },
                 {
                   id: 'intel_lead',
-                  icon: '👩‍💼',
+                  icon: '‍',
                   label: 'Threat Intel Lead',
                   role: 'Blazer',
                 },
                 {
                   id: 'engineer_male',
-                  icon: '👨‍💻',
+                  icon: '‍',
                   label: 'Cyber Engineer',
                   role: 'Scarf',
                 },
                 {
                   id: 'responder',
-                  icon: '😷',
+                  icon: '',
                   label: 'Incident Responder',
                   role: 'Mask',
                 },
                 {
                   id: 'soc_sunglasses',
-                  icon: '😎',
+                  icon: '',
                   label: 'SOC Analyst',
                   role: 'Sunglasses',
                 },
                 {
                   id: 'researcher_hoodie',
-                  icon: '👨‍🔬',
+                  icon: '‍',
                   label: 'AI Researcher',
                   role: 'Hoodie',
                 },
                 {
                   id: 'investigator',
-                  icon: '🕵️',
+                  icon: '',
                   label: 'Investigator',
                   role: 'Fedora',
                 },
-                { id: 'ai_bot', icon: '🤖', label: 'AI Guardian', role: 'Bot' },
+                { id: 'ai_bot', icon: '', label: 'AI Guardian', role: 'Bot' },
                 {
                   id: 'super_admin',
-                  icon: '👑',
+                  icon: '',
                   label: 'Super Admin',
                   role: 'Crown',
                 },
                 {
                   id: 'shield_sentinel',
-                  icon: '🛡️',
+                  icon: '',
                   label: 'Shield Sentinel',
                   role: 'Defense',
                 },
                 {
                   id: 'red_team',
-                  icon: '🥷',
+                  icon: '',
                   label: 'Red Team',
                   role: 'Ninja',
                 },
                 {
                   id: 'scholar',
-                  icon: '🎓',
+                  icon: '',
                   label: 'Scholar Lead',
                   role: 'Research',
                 },
@@ -16357,7 +16174,7 @@ export function AdminSettingsPage({
                     });
                     setIsAvatarModalOpen(false);
                     showToast(
-                      `✓ Avatar updated to ${item.label} (${item.role})!`,
+                      `Avatar updated to ${item.label} (${item.role})!`,
                     );
                   }}
                   style={{
@@ -16512,7 +16329,7 @@ export function AdminSettingsPage({
                 variant="primary"
                 onClick={() => {
                   if (!customImageUrl) {
-                    showToast('⚠️ Please enter an image URL first.');
+                    showToast('Please enter an image URL first.');
                     return;
                   }
                   setAdminAvatar({
@@ -16522,7 +16339,7 @@ export function AdminSettingsPage({
                     initials: 'GA',
                   });
                   setIsAvatarModalOpen(false);
-                  showToast('✓ Custom photo avatar applied successfully!');
+                  showToast('Custom photo avatar applied successfully!');
                 }}
               >
                 Apply Image
@@ -16595,7 +16412,7 @@ export function AdminSettingsPage({
                       fontSize: '0.75rem',
                     }}
                   >
-                    ✓ {log.status}
+                    {log.status}
                   </span>
                 </div>
               </div>

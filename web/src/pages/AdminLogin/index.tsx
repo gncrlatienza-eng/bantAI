@@ -39,7 +39,7 @@ export const AdminLoginPage: React.FC = () => {
         <h1>BantAI Admin</h1>
         <p>System Administration Portal</p>
         <div className="warning-strip">
-          <span>⚠️ Super Admin Access — Authorized Personnel Only</span>
+          <span>Super Admin Access — Authorized Personnel Only</span>
         </div>
         <LoginForm admin={true} />
       </div>

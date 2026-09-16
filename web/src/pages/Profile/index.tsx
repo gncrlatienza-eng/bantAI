@@ -5,18 +5,18 @@ const CLIENT_SIDEBAR_GROUPS = [
   {
     title: 'Threat Intelligence',
     items: [
-      { path: '/client/overview', label: 'Overview', icon: '📊' },
-      { path: '/client/messages', label: 'Messages', icon: '💬' },
-      { path: '/client/campaigns', label: 'Campaigns', icon: '🛡️' },
-      { path: '/client/analytics', label: 'Analytics', icon: '📈' },
+      { path: '/client/overview', label: 'Overview' },
+      { path: '/client/messages', label: 'Messages' },
+      { path: '/client/campaigns', label: 'Campaigns' },
+      { path: '/client/analytics', label: 'Analytics' },
     ],
   },
   {
     title: 'Operations',
     items: [
-      { path: '/client/export', label: 'Export Reports', icon: '📄' },
-      { path: '/client/help', label: 'Help & Docs', icon: '❓' },
-      { path: '/client/settings', label: 'Account Settings', icon: '⚙️' },
+      { path: '/client/export', label: 'Export Reports' },
+      { path: '/client/help', label: 'Help & Docs' },
+      { path: '/client/settings', label: 'Account Settings' },
     ],
   },
 ];

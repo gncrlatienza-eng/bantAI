@@ -17,8 +17,25 @@ Label = Literal["Ham", "Spam", "Scam"]
 Bucket = Literal["safe", "unknown", "spam", "blocked"]
 
 
+#: Longest message accepted. A concatenated SMS tops out near 1,600 characters
+#: (10 segments of 160), so this is generous for real traffic while refusing
+#: the megabyte body that would otherwise be normalised, regex-masked and
+#: tokenised before the 128-token truncation ever discards it (audit item 8).
+MAX_MESSAGE_CHARS = 4000
+
+#: Messages one summarize call may cover. A thread this long already
+#: summarises to the same few sentences; past it the cost is the caller's to
+#: split, not this service's to absorb (audit item 9).
+MAX_SUMMARIZE_MESSAGES = 200
+
+
 class ClassifyRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="Raw SMS body to classify")
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_MESSAGE_CHARS,
+        description=f"Raw SMS body to classify (max {MAX_MESSAGE_CHARS} characters)",
+    )
 
 
 class CampaignMatch(BaseModel):
@@ -82,7 +99,12 @@ class SummarizeRequest(BaseModel):
     30 messages" rather than implying the user has seen everything.
     """
 
-    messages: List[str] = Field(..., min_length=1, description="Message bodies in the thread, oldest first")
+    messages: List[str] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_SUMMARIZE_MESSAGES,
+        description=f"Message bodies in the thread, oldest first (max {MAX_SUMMARIZE_MESSAGES})",
+    )
     max_sentences: int = Field(3, ge=1, le=10, description="Upper bound on sentences in the summary")
 
 
@@ -130,15 +152,28 @@ class HealthResponse(BaseModel):
 RetrainTrigger = str
 
 
+#: Longest trigger name accepted. Each distinct trigger is a row the dedupe
+#: cannot collapse, so an unbounded string is an unbounded file (audit item 10).
+MAX_TRIGGER_CHARS = 200
+
+
 class RetrainRequest(BaseModel):
-    trigger: RetrainTrigger = Field(..., min_length=1, description="Why the backend fired this request")
+    trigger: RetrainTrigger = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_TRIGGER_CHARS,
+        description="Why the backend fired this request",
+    )
 
 
 class RetrainJobResponse(BaseModel):
     job_id: str = Field(..., description="Opaque id for this queued request")
     trigger: RetrainTrigger
-    status: Literal["queued"] = "queued"
+    status: Literal["queued", "completed"] = "queued"
     requested_at: str = Field(..., description="ISO-8601 UTC timestamp the request was recorded")
+    completed_at: Optional[str] = Field(
+        None, description="ISO-8601 UTC timestamp the job was drained; null while queued"
+    )
 
 
 class RetrainJobList(BaseModel):

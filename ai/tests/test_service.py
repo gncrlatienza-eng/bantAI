@@ -128,3 +128,59 @@ def test_campaign_reports_buffering_when_unmatched(monkeypatch):
     assert campaign["matched"] is False
     assert campaign["cluster_id"] is None
     assert campaign["should_buffer"] is True
+
+
+# --- inbound authentication (Reymark's audit, item 7) ------------------------
+def test_routes_are_open_when_no_service_key_is_configured():
+    """The documented local default: only the backend can reach the port, and
+    every existing dev setup relies on this still working."""
+    from service import auth
+
+    assert auth.settings.service_api_key == ""
+    assert client.post("/classify", json={"message": "hi"}).status_code != 401
+
+
+def test_a_configured_key_is_required(monkeypatch):
+    from service import auth
+
+    monkeypatch.setattr(auth.settings, "service_api_key", "s3cret")
+
+    assert client.post("/classify", json={"message": "hi"}).status_code == 401
+    assert client.post("/summarize", json={"messages": ["hi"]}).status_code == 401
+    assert client.post("/retrain", json={"trigger": "f1_drop"}).status_code == 401
+    assert client.post("/classify", json={"message": "hi"}, headers={"x-api-key": "wrong"}).status_code == 401
+    # Correct key gets through to the route itself (503 here = no model loaded).
+    assert client.post("/classify", json={"message": "hi"}, headers={"x-api-key": "s3cret"}).status_code != 401
+
+
+def test_health_stays_open_even_with_a_key_configured(monkeypatch):
+    """A health check that needs a secret is useless to whatever is deciding
+    whether this process is alive."""
+    from service import auth
+
+    monkeypatch.setattr(auth.settings, "service_api_key", "s3cret")
+    assert client.get("/health").status_code == 200
+    assert client.get("/").status_code == 200
+
+
+# --- request size limits (audit items 8, 9, 10) ------------------------------
+def test_an_oversized_message_is_rejected_before_any_work():
+    from service.schemas import MAX_MESSAGE_CHARS
+
+    resp = client.post("/classify", json={"message": "x" * (MAX_MESSAGE_CHARS + 1)})
+    assert resp.status_code == 422
+
+
+def test_too_many_messages_to_summarize_are_rejected():
+    from service.schemas import MAX_SUMMARIZE_MESSAGES
+
+    resp = client.post("/summarize", json={"messages": ["hi"] * (MAX_SUMMARIZE_MESSAGES + 1)})
+    assert resp.status_code == 422
+
+
+def test_an_overlong_trigger_is_rejected():
+    """Each distinct trigger is a queue row the dedupe cannot collapse."""
+    from service.schemas import MAX_TRIGGER_CHARS
+
+    resp = client.post("/retrain", json={"trigger": "t" * (MAX_TRIGGER_CHARS + 1)})
+    assert resp.status_code == 422

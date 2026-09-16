@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+from datetime import datetime, timezone
 
 import pytest
 
@@ -102,6 +103,36 @@ def test_later_report_wins_over_an_earlier_one_for_the_same_message():
     assert manifest.n_reports == 1
     assert rows[0].label == "Scam"
     assert manifest.report_ids == ["r2"]
+
+
+def test_most_recently_validated_report_wins_even_when_it_arrives_first():
+    """``DatabaseReportSource`` preserves the backend's newest-first order.
+
+    Last-write-wins over that order kept the *oldest* label, so the winner is
+    decided by ``validated_at``, never by arrival order.
+    """
+    rows, manifest = build_snapshot(
+        dataset_rows=[],
+        reports=[
+            ValidatedReport(text="you won", label="Scam", report_id="new", validated_at=datetime(2026, 9, 1)),
+            ValidatedReport(
+                text="you won", label="Ham", report_id="old", validated_at=datetime(2026, 8, 1, tzinfo=timezone.utc)
+            ),
+        ],
+    )
+    assert rows[0].label == "Scam"
+    assert manifest.report_ids == ["new"]
+
+
+def test_a_dated_report_beats_an_undated_one():
+    rows, _ = build_snapshot(
+        dataset_rows=[],
+        reports=[
+            ValidatedReport(text="you won", label="Scam", validated_at=datetime(2026, 8, 1, tzinfo=timezone.utc)),
+            ValidatedReport(text="you won", label="Ham"),
+        ],
+    )
+    assert rows[0].label == "Scam"
 
 
 # --- de-duplication ---------------------------------------------------------

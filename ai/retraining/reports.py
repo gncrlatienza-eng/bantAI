@@ -1,7 +1,7 @@
 """Validated-report sources for retraining snapshots (Sprint 4, WBS 4.3.5).
 
-Retraining trains on the existing labeled dataset **plus** the user reports an
-admin has marked Validated since the last run. Those reports are the entire
+Retraining trains on the existing labeled dataset **plus** every user report an
+admin has marked Validated. Those reports are the entire
 point of the exercise -- they are confirmed mistakes, the one source of signal
 that says where the deployed model is actually wrong.
 
@@ -69,11 +69,8 @@ class ReportSourceError(RuntimeError):
     indistinguishable from "no corrections were filed", so a 401 or a typo in
     the URL would quietly produce a retrain that learned from none of the
     mistakes that triggered it, and a manifest saying so in a way no reader
-    would question.
-
-    Same failure shape as the dry-run watermark bug in
-    :func:`retraining.pipeline.last_run_time`: not a crash, just corrections
-    that vanish without anyone being told.
+    would question. Not a crash, just corrections that vanish without anyone
+    being told.
     """
 
 

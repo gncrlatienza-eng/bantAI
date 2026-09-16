@@ -303,9 +303,22 @@ the model sees different text at inference than it learned on.
 
 1. **NFKC normalization** — folds full-width characters, look-alike Unicode,
    collapses whitespace.
-2. **Regex PII masking** — replaces `<EMAIL>`, `<URL>`, `<PHONE>`, `<AMOUNT>`,
-   `<OTP>` in that order. Tuned for Philippine formats (`₱5k` shorthand,
-   `hxxp` de-fanged links, PH mobile/landline formats).
+2. **Regex masking of structured identifiers** — replaces `<EMAIL>`, `<URL>`,
+   `<PHONE>`, `<AMOUNT>`, `<OTP>` in that order. Tuned for Philippine formats
+   (`₱5k` shorthand, `hxxp` de-fanged links, PH mobile/landline formats).
+
+**⚠️ Masked is not anonymous** (Reymark's audit, items 17-18, 2026-09-16).
+Reviewer probes confirmed what the regexes imply: **names, addresses, and 9+
+digit identifiers that aren't phone-shaped (TINs, reference numbers) pass
+through untouched**, as does anything identifying expressed in words. `<OTP>`
+covers 4-8 digit runs only. So masked text is *reduced-risk*, not
+de-identified, and every downstream artifact built from it — snapshot CSVs,
+the holdout set, `disagreements.json`, Colab/Drive exports — stays personal
+data and must be handled as such. Wherever this project's docs previously said
+"PII masked", read it as this narrower claim. Widening coverage (a `<NUMBER>`
+placeholder, or NER for names) changes the model's input distribution, so it
+cannot be switched on under a deployed checkpoint without retraining and
+re-measuring — future work, deliberately not done quietly.
 
 **Why this stage matters beyond privacy:** it also caused the most serious bug
 found in this pipeline — see Bug History §1.
@@ -1404,6 +1417,33 @@ root cause as the threshold-table staleness above: evaluation artifacts
 compared across model versions need timestamped filenames, not in-place
 overwrites, so a change like this can't silently take the surrounding prose
 out of date again.
+
+#### ⚠️ The promoted candidate would fail the gate as it stands now — 2026-09-14
+
+Reymark's 2026-09-14 audit (item 11) pointed out that the promotion gate
+checked only macro-F1 and McNemar, so a candidate could get worse at catching
+scams and still pass. That had already happened. The 2026-08-27 candidate's
+own gate run (`models/retraining_runs/2026-08-27T09-46-20Z/decision.json`)
+records 19 validation scams it newly missed and 8 it newly caught — **11 fewer
+of the 357 validation scams than the incumbent, -3.1pp Scam recall** — inside a
+decisive 193-vs-76 overall win. (357 recomputed by rebuilding that run's
+validation split from its snapshot with the same seed.)
+
+The gate now has a third check, a Scam-recall floor (`RETRAINING.md` Stage 4):
+the candidate may not lose more than 1pp of Scam recall. **Under it, this
+candidate would have been rejected.** It stays live — the gate change is not
+retroactive, and whether to keep the promotion is the adviser's call, still
+pending — but two things change for that conversation:
+- The clean-holdout Scam recall of 92.4% (§ holdout evaluation above) was
+  previously described as a limitation *without a clean baseline to compare
+  against*. There is now a same-rows comparison on the gate's split, and on it
+  the candidate is worse at Scam than the model it replaced.
+- Caveat, pointing the other way: the incumbent may have trained on some of
+  those validation rows (`pipeline.py` module docstring), which flatters it.
+  How much of the -3.1pp is that advantage is unmeasured.
+
+Also not in the manuscript, which specifies McNemar + F1 floor only — a
+Category B addition for the deviation log.
 
 #### Open: centroid drift is uncalibrated
 

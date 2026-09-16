@@ -126,8 +126,9 @@ Every run writes a self-contained directory under `models/retraining_runs/`:
 
 ### Snapshot assembly
 
-Existing labeled dataset **+** validated reports since the last retrain.
-Three decisions where the obvious implementation is wrong:
+Existing labeled dataset **+** every validated report (see "Every run reads
+every report" below). Three decisions where the obvious implementation is
+wrong:
 
 **Reports are never sampled away.** The natural reading of "combine, then
 reservoir-sample" is to pool everything and draw uniformly — which would let a
@@ -138,7 +139,11 @@ uniform, not rationing corrections.
 
 **Report labels win on collision.** A validated report contradicting a dataset
 row is a human correction of that row. Keeping both would train on two readings
-of the same text and learn nothing from the correction.
+of the same text and learn nothing from the correction. When two *reports*
+disagree about the same message, the most recently validated one wins —
+decided by `validated_at`, not arrival order, because the backend returns
+reports newest first (a 2026-09-14 fix: last-write-wins over that order had
+been keeping the oldest label).
 
 **De-duplication compares masked text; the snapshot stores raw text.**
 `...libre 1q2w3e7.ca` and `...libre 1q2w3e8.ca` are one model input once
@@ -180,9 +185,11 @@ side, not paging from here against an API with no cursor.
 **`validated_at` is really `updatedAt`.** Prisma's `@updatedAt` moves on any
 write to the row, including a later `adminNote` edit, so it is a proxy for the
 validation time rather than the thing itself. A dedicated `validatedAt` column
-would be exact. The only cost meanwhile is that a re-touched report can look
-newer than it is and be re-consumed by a later run — harmless, since the
-snapshot de-duplicates.
+would be exact — the column now exists (Sprint 5 hardening migration), but
+`GET /reports` does not return it yet. The cost meanwhile: an old report whose
+note is edited later looks newer than it is, which matters only when two
+reports disagree about the same message (see "Report labels win on collision"
+above) or when `--since` is used.
 
 **Failures raise; they do not degrade.** This is the deliberate opposite of
 `service/centroid_source.py`, which swallows every error. An empty centroid
@@ -207,13 +214,17 @@ python colab/build_retrain_package.py     # picks up datasets/reports/
 The export writes exactly the columns `FileReportSource` reads, so the two
 sources round-trip.
 
-### The `since` watermark
+### Every run reads every report
 
-A run consumes only reports validated after the previous run's timestamp,
-read from that run's manifest. **Dry runs are skipped** when computing it: a
-dry run trains nothing, so letting it advance the watermark would make the next
-real run silently skip every report the dry run merely looked at. `--since all`
-overrides the watermark entirely.
+Each run fine-tunes from the base `xlm-roberta-base` checkpoint, not from the
+previous candidate, so a correction absent from a snapshot is absent from the
+model that snapshot produces. Until 2026-09-14 a run consumed only reports
+validated after the previous real run's timestamp — which meant every
+correction was learned by exactly one run and then silently dropped from all
+later ones, contradicting the manuscript's "the validated sample is appended to
+the training dataset." (No correction was actually lost: no report had yet been
+validated.) The `UserReport` table is the durable record, and every run now
+reads all of it. `--since` still exists to narrow the set on purpose.
 
 ### What the gate records, and what it does not
 
@@ -259,9 +270,9 @@ fix if this ever becomes the deciding factor.
 
 ## Stage 4 — Promotion gate (WBS 4.2.3 / 4.3.7)
 
-**Code:** `retraining/promotion.py` · **Tests:** `tests/test_promotion.py` (11)
+**Code:** `retraining/promotion.py` · **Tests:** `tests/test_promotion.py` (20)
 
-A candidate is **never** promoted on a headline metric alone. Two independent
+A candidate is **never** promoted on a headline metric alone. Three independent
 checks, in this order:
 
 ### 1. F1 floor — absolute safety
@@ -270,7 +281,25 @@ Candidate macro-F1 must not fall more than `F1_FLOOR_TOLERANCE` (1pp) below
 the incumbent. Checked *first*, because a catastrophically worse candidate
 must be rejected regardless of what any significance test says.
 
-### 2. McNemar's test — is the difference real?
+### 2. Scam-recall floor — the error that matters most
+
+Candidate recall on Scam must not fall more than `SCAM_RECALL_TOLERANCE` (1pp)
+below the incumbent. Macro-F1 averages three classes, so gains on Ham/Spam can
+outweigh fewer scams caught — and a missed scam is the costliest error this
+system makes. Skipped only when the validation rows contain no Scam at all.
+
+Added 2026-09-14 from Reymark's audit (item 11), and **not** in the manuscript,
+which specifies McNemar + F1 floor only. It is not hypothetical: the
+2026-08-27 candidate — promoted 2026-08-30 — passed the two original checks
+(193 fixes vs 76 regressions) while catching **11 fewer of the 357 validation
+scams** than the incumbent (19 newly missed, 8 newly caught: -3.1pp). Under
+this floor it would have been rejected. One caveat cuts the other way: the
+incumbent may have trained on some of those validation rows (see the
+validation caveat in `pipeline.py`), which flatters the incumbent, so part of
+that gap may be the incumbent's advantage rather than the candidate's
+weakness.
+
+### 3. McNemar's test — is the difference real?
 
 On a ~3,350-row validation split, a 0.4pp macro-F1 gain is easily sampling
 luck. Promoting on noise makes the model random-walk between checkpoints
@@ -299,8 +328,8 @@ where the approximation is unreliable.
   regresses more than it fixes while staying inside the F1 floor.
   Significance alone must never imply promotion.
 
-Every decision carries its full numbers — both F1s, fix/regression counts,
-p-value — because this is what gets written to `ModelVersions` (WBS 4.3.4)
+Every decision carries its full numbers — both F1s, both Scam recalls,
+fix/regression counts, p-value — because this is what gets written to `ModelVersions` (WBS 4.3.4)
 and read back months later when someone asks why a checkpoint was or was not
 promoted.
 
@@ -312,7 +341,7 @@ promoted.
 `retraining/registry.py`, `retraining/version_file.py`, `retraining/checksum.py`
 · **CLI:** `scripts/retrain.py --register/--activate` ·
 **Live demo:** `scripts/round_trip.py` ·
-**Tests:** `tests/test_round_trip.py` (21)
+**Tests:** `tests/test_round_trip.py` (24)
 
 *Integration test: full retraining round trip (report → validate → retrain →
 deploy).* Before this, two links in that chain did not exist, both on the AI
@@ -343,7 +372,75 @@ reads it back. A repeat of the same trigger while a job for it is still
 conditions stay true until a model is actually promoted, so an undeduped
 queue would grow one row per hour, forever, from day one.
 
-A human drains the queue with `scripts/retrain.py`, same as today.
+**Draining a job is what makes that dedupe safe** (added 2026-09-16, Reymark's
+audit items 4-6). Until then `queued` was the only status the queue could
+write: the "human drains it by hand" step recorded nothing, so the first job
+for a trigger stayed queued forever and the dedupe handed that stale job to
+every later request — a genuinely new trigger scheduled no new work, and the
+backend saw a `202` each time as if it had. Now:
+
+| | |
+|---|---|
+| `scripts/retrain.py --complete-queue` | After a real (non-dry) run, marks every queued job completed — one retrain answers every trigger outstanding at the time. Without the flag a real run prints what is still waiting rather than leaving it silent |
+| `POST /retrain/jobs/{id}/complete` | The same thing for a drain running on a different host than the queue file |
+
+The file stays append-only: completing a job appends a second row, and
+`list_jobs` folds rows by `job_id` keeping the last, so history is preserved
+and status still moves.
+
+**The queue is bounded.** `trigger` is a string the backend chooses, and each
+distinct value is a row the dedupe cannot collapse, so arbitrary triggers meant
+an unbounded file that every read parses whole (audit item 10). `trigger` is
+now capped at 200 characters, and at most `MAX_QUEUED_JOBS` (50) jobs may be
+outstanding — past that `POST /retrain` answers `503` rather than accepting
+work nobody is draining. A refusal costs nothing: the cron re-fires hourly and
+the trigger condition is still true next hour.
+
+### Reproducing an evaluation from a clean checkout
+
+A fresh clone cannot reproduce any published number, because three inputs are
+deliberately not in git (Reymark's audit, item 16). That is the right call —
+they are model weights too large for a repo and real SMS bodies that must not
+be published — but "can't be reproduced" and "can't be reproduced *by you,
+without asking*" are different problems, and only the second one is intended.
+What you need, and where it comes from:
+
+| Input | In git? | How to get it |
+|---|---|---|
+| `models/xlm-roberta-smishing/` (checkpoint) | No (`ai/models/*/`) | Ask Maxene for the Drive link. The previous checkpoint is at `MyDrive/bantai/xlm-roberta-smishing-v2026-07-29-run3-rollback.zip`; the live one is the `candidate/` directory of the run that produced it |
+| `datasets/holdout/holdout.csv` (3,236 frozen rows) | No (`ai/datasets/holdout/*.csv`) | Ask Maxene. Real message bodies — do not commit, do not paste into an issue |
+| `datasets/labeled/bantai_labeled.csv` | No (`ai/datasets/labeled/*.csv`) | Ask Maxene. Only needed to *retrain*, not to grade a checkpoint |
+| `datasets/holdout/manifest.json` | **Yes** | Already there — it carries `holdout_csv_sha256`, which is how you confirm the CSV you were handed is the frozen one |
+| `evaluation/*.json` (published results) | **Yes** | Already there — what a reproduction is checked against |
+
+Then:
+
+```bash
+cd ai
+.venv/Scripts/python.exe scripts/evaluate_holdout.py          # per-class metrics
+.venv/Scripts/python.exe scripts/evaluate_holdout_buckets.py  # what users see + release gate
+```
+
+Both verify two digests before producing a number and **refuse to grade** on a
+mismatch (`--allow-drift` overrides, and the mismatch is recorded in the output
+either way):
+
+- the holdout CSV against `holdout_csv_sha256` in its manifest — an evaluation
+  set edited after it was frozen yields scores that look like every other
+  score and mean something else (audit item 15);
+- the checkpoint against the digests in its own `version.json` — weights,
+  tokenizer, config and label mapping, not just weights (audit items 13-14),
+  since a tokenizer swap changes predictions completely while leaving the
+  weights byte-identical.
+
+`version.json` files written before 2026-09-16 carry only the weights digest;
+those still verify, just with narrower coverage. A checkpoint with no
+`version.json` at all — the one deployed before WBS 4.4.3 — reports
+`unverifiable`, which is deliberately not the same as `ok`.
+
+The serving path checks the same thing at startup but only *logs* it: a model
+whose files changed under it is still a working classifier on a user's phone,
+and refusing to serve would turn a bookkeeping problem into an outage.
 
 ### `--register` / `--activate` — two flags, not one
 
@@ -457,7 +554,7 @@ unrecoverable step this document exists to prevent.
 | 4.2.2 | Retraining workflow architecture | ✅ This document |
 | 4.2.3 | Model promotion + rollback design | ✅ This document |
 | 4.3.6 | Reservoir sampling (Vitter's Algorithm R) | ✅ Done |
-| 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done |
+| 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done (Scam-recall floor added 2026-09-14, beyond the manuscript — see Stage 4) |
 | 4.3.9 | TF-IDF summarization pipeline | ✅ Done (`service/summarize.py` + `POST /summarize`) |
 | 4.4.2 | Unit test: trigger evaluation logic | ✅ Done |
 | 4.3.5 | Automated retraining pipeline | ✅ Done. `DatabaseReportSource` reads WBS 4.3.1's table (verified against a live backend); first real GPU fine-tune ran 2026-08-17 (Colab T4, `evaluation/retraining_run_2026-08-17.json`), gate says promote — not acted on, see `PIPELINE.md` § Stage 5b. Second run 2026-08-26 (Colab T4, `evaluation/retraining_run_2026-08-26.json`), on the pool grown to 18,938 rows after folding in a new raw phone-export batch — gate again says promote (macro-F1 0.9186→0.9451, 181 fixes/58 regressions, p≈0) — also not acted on yet, same reasoning as the first run plus the adviser sign-off that just closed on the same date, see `PIPELINE.md`. Third run 2026-08-27 (Colab T4, `evaluation/retraining_run_2026-08-27.json`) — run after fixing two silent data-corruption bugs a pre-flight audit found in the second run's data (163 missing human review corrections, plus a hardcoded review-sheet filename list that silently skipped two newly-reviewed sheets) and locking exact dependency versions — gate again says promote (macro-F1 0.9225→0.9461, 193 fixes/76 regressions, p≈0). Also the first model to clear a genuinely clean WBS 6.4.6 holdout evaluation: macro-F1 0.9592 on 3,236 never-seen rows, Scam recall 92.4% (7.6% miss rate — the honest weak point), Ham false-positive rate 0.22% (`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`). **Promoted 2026-08-30** — `models/xlm-roberta-smishing/` now serves this checkpoint (`v2026-08-27T09-46-20Z`); prior checkpoint kept as `models/xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` for rollback. ⚠️ This was Maxene's own decision, not the adviser's — see `PIPELINE.md` § Stage 5b "Candidate promoted — 2026-08-30, not on adviser sign-off" for exactly what changed and why that distinction matters. `ModelVersions` registered and activated the same day (`603554f0-6563-4507-8037-108f7dccf386`) |

@@ -37,7 +37,7 @@ from retraining import pipeline as pl
 from retraining.pipeline import evaluate_candidate
 from retraining.registry import ModelRegistry, ModelRegistryError
 from retraining.reports import DatabaseReportSource
-from retraining.version_file import read_version, write_version
+from retraining.version_file import read_version, verify_version, write_version
 from service import retrain_queue
 from service.main import app
 from service.routers import retrain as retrain_router
@@ -118,6 +118,36 @@ def test_jobs_endpoint_lists_what_was_queued(queue_path):
 def test_empty_trigger_is_rejected(queue_path):
     resp = client.post("/retrain", json={"trigger": ""})
     assert resp.status_code == 422
+
+
+def test_completing_a_job_over_http_frees_the_trigger(queue_path):
+    """The drain a caller on a different host than the queue file uses."""
+    first = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
+
+    done = client.post(f"/retrain/jobs/{first['job_id']}/complete")
+    assert done.status_code == 200
+    assert done.json()["status"] == "completed"
+    assert done.json()["completed_at"]
+
+    # The trigger can schedule real work again, instead of being handed the
+    # stale job forever.
+    second = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
+    assert second["job_id"] != first["job_id"]
+
+
+def test_completing_an_unknown_job_is_a_404(queue_path):
+    assert client.post("/retrain/jobs/nope/complete").status_code == 404
+
+
+def test_a_full_queue_is_refused_rather_than_grown(queue_path):
+    """503, not 500: the trigger condition is still true next hour, so a
+    refusal costs nothing -- an unbounded file would cost every later read."""
+    for i in range(retrain_queue.MAX_QUEUED_JOBS):
+        client.post("/retrain", json={"trigger": f"trigger-{i}"})
+
+    resp = client.post("/retrain", json={"trigger": "one-too-many"})
+    assert resp.status_code == 503
+    assert "queued" in resp.json()["detail"]
 
 
 def test_enqueue_helper_is_reusable_outside_the_http_layer(tmp_path):
@@ -318,3 +348,78 @@ def test_the_whole_round_trip_with_everything_stubbed(monkeypatch, tmp_path):
     monkeypatch.setattr(health_router.settings, "model_dir", str(candidate_dir))
     resp = client.get("/health")
     assert resp.json()["version_tag"] == version_tag
+
+
+# --- checkpoint integrity (Reymark's audit, items 13-14) ---------------------
+def _fake_checkpoint(tmp_path):
+    (tmp_path / "model.safetensors").write_bytes(b"pretend weights")
+    (tmp_path / "config.json").write_text('{"model_type": "xlm-roberta"}', encoding="utf-8")
+    (tmp_path / "tokenizer.json").write_text('{"vocab": []}', encoding="utf-8")
+    return str(tmp_path)
+
+
+def test_version_records_tokenizer_and_config_not_just_weights(tmp_path):
+    """A tokenizer change alters predictions as completely as a weight change
+    while leaving the weights byte-identical (audit item 14)."""
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    artifacts = json.loads((tmp_path / "version.json").read_text(encoding="utf-8"))["artifacts"]
+    assert set(artifacts) == {"model.safetensors", "config.json", "tokenizer.json"}
+
+
+def test_verify_passes_on_an_untouched_checkpoint(tmp_path):
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    result = verify_version(str(tmp_path))
+    assert result.status == "ok"
+    assert bool(result)
+    assert set(result.checked) == {"model.safetensors", "config.json", "tokenizer.json"}
+
+
+def test_verify_catches_swapped_weights(tmp_path):
+    """The failure the digest existed for: different weights, same version tag."""
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    (tmp_path / "model.safetensors").write_bytes(b"different weights")
+
+    result = verify_version(str(tmp_path))
+    assert result.status == "mismatch"
+    assert result.changed == ("model.safetensors",)
+    assert read_version(str(tmp_path)) == "v1"  # still claims to be v1
+
+
+def test_verify_catches_a_changed_tokenizer(tmp_path):
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    (tmp_path / "tokenizer.json").write_text('{"vocab": ["changed"]}', encoding="utf-8")
+    assert verify_version(str(tmp_path)).changed == ("tokenizer.json",)
+
+
+def test_verify_reports_a_recorded_file_that_has_gone_missing(tmp_path):
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    (tmp_path / "tokenizer.json").unlink()
+    result = verify_version(str(tmp_path))
+    assert result.status == "mismatch"
+    assert result.missing == ("tokenizer.json",)
+
+
+def test_verify_still_checks_pre_2026_09_16_version_files(tmp_path):
+    """Older files carry only the weights digest under "sha256"."""
+    (tmp_path / "model.safetensors").write_bytes(b"pretend weights")
+    (tmp_path / "version.json").write_text(
+        json.dumps(
+            {
+                "version_tag": "v2026-07-29-run3",
+                "sha256": __import__("hashlib").sha256(b"pretend weights").hexdigest(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert verify_version(str(tmp_path)).status == "ok"
+
+    (tmp_path / "model.safetensors").write_bytes(b"swapped")
+    assert verify_version(str(tmp_path)).status == "mismatch"
+
+
+def test_unverifiable_is_not_ok(tmp_path):
+    """ "Nothing was recorded to check" and "everything matched" are the same
+    boolean and very different facts."""
+    result = verify_version(str(tmp_path))
+    assert result.status == "unverifiable"
+    assert not bool(result)

@@ -45,7 +45,9 @@ from datetime import datetime, timezone
 sys.path.insert(0, ".")
 
 from preprocessing import preprocess  # noqa: E402
+from retraining.checksum import verify_against_manifest  # noqa: E402
 from retraining.pipeline import _predict  # noqa: E402
+from retraining.version_file import read_version, verify_version  # noqa: E402
 from training.config import ID2LABEL, LABEL2ID  # noqa: E402
 
 HOLDOUT_CSV = "datasets/holdout/holdout.csv"
@@ -155,6 +157,16 @@ def main() -> int:
     parser.add_argument(
         "--output-dir", default=DEFAULT_OUTPUT_DIR, help="Where to write the results JSON (default: %(default)s)."
     )
+    parser.add_argument(
+        "--allow-drift",
+        action="store_true",
+        help=(
+            "Grade anyway when the holdout file or the checkpoint no longer "
+            "matches its recorded digest. The mismatch is recorded in the "
+            "results JSON either way, so a number produced this way stays "
+            "identifiable as one."
+        ),
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(os.path.join(args.model_dir, "config.json")):
@@ -167,6 +179,27 @@ def main() -> int:
         print("HOLDOUT SET WARNING (from datasets/holdout/manifest.json):")
         print(manifest.get("warning", ""))
         print("=" * 78)
+
+    # Two integrity checks before any number is produced, because a score is
+    # only meaningful as a pair: *this* checkpoint against *this* frozen set.
+    # Unlike the service, which logs and keeps serving, this refuses -- a
+    # published number nobody can attribute is worse than no number.
+    holdout_status, holdout_detail, holdout_digest = verify_against_manifest(
+        args.holdout_csv, HOLDOUT_MANIFEST, "holdout_csv_sha256"
+    )
+    integrity = verify_version(args.model_dir)
+    for label, status, detail in (
+        ("HOLDOUT", holdout_status, holdout_detail),
+        ("CHECKPOINT", integrity.status, integrity.detail),
+    ):
+        if status == "mismatch" and not args.allow_drift:
+            sys.exit(
+                f"error: {label} INTEGRITY -- {detail}.\n"
+                "Refusing to grade: the result could not be attributed to a known "
+                "checkpoint and a known test set. Re-run with --allow-drift only if "
+                "you know why it changed, and say so wherever the number is quoted."
+            )
+        print(f"{label} integrity: {status} -- {detail}")
 
     texts, labels = load_holdout(args.holdout_csv)
     print(f"\nScoring {args.model_dir} against {len(texts)} held-out rows...")
@@ -184,6 +217,12 @@ def main() -> int:
         "model_dir": args.model_dir,
         "holdout_csv": args.holdout_csv,
         "n_total": len(texts),
+        # Provenance, so a result read months later says what it graded and
+        # whether either side had drifted at the time.
+        "holdout_sha256": holdout_digest,
+        "holdout_integrity": holdout_status,
+        "checkpoint_integrity": integrity.status,
+        "version_tag": read_version(args.model_dir),
         "confusion_matrix": matrix,
         "per_class_metrics": metrics,
         "macro_f1": round(sum(metrics[label]["f1"] for label in LABELS) / len(LABELS), 4),

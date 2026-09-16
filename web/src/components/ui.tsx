@@ -138,9 +138,6 @@ export function PortalShell({
   tag,
   tagTone,
   userInitials,
-  userName,
-  userMeta,
-  org,
   children,
   showPopup,
 }: {
@@ -150,9 +147,9 @@ export function PortalShell({
   tag: string;
   tagTone?: 'amber';
   userInitials: string;
-  userName: string;
-  userMeta: string;
-  org: string;
+  userName?: string;
+  userMeta?: string;
+  org?: string;
   children: ReactNode;
   showPopup?: boolean;
 }) {

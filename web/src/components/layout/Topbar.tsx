@@ -198,9 +198,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               color: 'var(--text-muted)',
               fontSize: '0.875rem',
             }}
-          >
-            
-          </span>
+          ></span>
         </div>
 
         {/* Notifications Button */}
@@ -221,7 +219,6 @@ export const Topbar: React.FC<TopbarProps> = ({
             color: 'var(--text-primary)',
           }}
         >
-          
           {unreadCount > 0 && (
             <span
               style={{
@@ -409,9 +406,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                     color: 'var(--text-muted)',
                     cursor: 'pointer',
                   }}
-                >
-                  
-                </button>
+                ></button>
               </div>
             </div>
 

@@ -107,9 +107,7 @@ export const ForgotPasswordPage: React.FC = () => {
             >
               <span
                 style={{ fontSize: '2rem', display: 'block', marginBottom: 8 }}
-              >
-                
-              </span>
+              ></span>
               <strong
                 style={{
                   color: '#34d399',

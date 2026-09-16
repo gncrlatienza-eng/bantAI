@@ -1515,9 +1515,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1572,9 +1570,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1629,9 +1625,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1686,9 +1680,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -3015,9 +3007,7 @@ export function ClientExportPage() {
                     color: '#60a5fa',
                     marginBottom: 16,
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <strong
                   style={{
                     fontSize: '1.125rem',
@@ -3085,9 +3075,7 @@ export function ClientExportPage() {
                     color: '#60a5fa',
                     marginBottom: 16,
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <strong
                   style={{
                     fontSize: '1.125rem',
@@ -3155,9 +3143,7 @@ export function ClientExportPage() {
                     color: '#60a5fa',
                     marginBottom: 16,
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <strong
                   style={{
                     fontSize: '1.125rem',
@@ -3529,9 +3515,7 @@ export function ClientHelpPage() {
                       >
                         <span
                           style={{ color: '#60a5fa', fontSize: '1.125rem' }}
-                        >
-                          
-                        </span>
+                        ></span>
                         <strong
                           style={{ fontSize: '0.9375rem', color: '#ffffff' }}
                         >

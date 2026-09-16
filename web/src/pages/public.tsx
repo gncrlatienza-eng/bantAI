@@ -201,9 +201,7 @@ function LicensingStage({ onNext }: { onNext: () => void }) {
                     justifyContent: 'center',
                     fontSize: '1.125rem',
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <div>
                   <strong
                     style={{
@@ -250,9 +248,7 @@ function LicensingStage({ onNext }: { onNext: () => void }) {
                     justifyContent: 'center',
                     fontSize: '1.125rem',
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <div>
                   <strong
                     style={{
@@ -652,9 +648,7 @@ function SubmissionStage({ onNext }: { onNext: () => void }) {
                     justifyContent: 'center',
                     fontSize: '1rem',
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <div>
                   <strong
                     style={{
@@ -701,9 +695,7 @@ function SubmissionStage({ onNext }: { onNext: () => void }) {
                     justifyContent: 'center',
                     fontSize: '1rem',
                   }}
-                >
-                  
-                </div>
+                ></div>
                 <div>
                   <strong
                     style={{
@@ -859,9 +851,7 @@ function PendingStage({ onNext }: { onNext: () => void }) {
             marginBottom: 12,
             boxShadow: '0 0 25px rgba(245, 158, 11, 0.35)',
           }}
-        >
-          
-        </div>
+        ></div>
 
         <small
           style={{
@@ -949,9 +939,7 @@ function PendingStage({ onNext }: { onNext: () => void }) {
                   justifyContent: 'center',
                   fontSize: '0.875rem',
                 }}
-              >
-                
-              </div>
+              ></div>
               <div>
                 <strong
                   style={{
@@ -993,9 +981,7 @@ function PendingStage({ onNext }: { onNext: () => void }) {
                   justifyContent: 'center',
                   fontSize: '0.875rem',
                 }}
-              >
-                
-              </div>
+              ></div>
               <div>
                 <strong
                   style={{
@@ -1207,9 +1193,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
             marginBottom: 12,
             boxShadow: '0 0 25px rgba(16, 185, 129, 0.35)',
           }}
-        >
-          
-        </div>
+        ></div>
 
         <small
           style={{
@@ -1294,9 +1278,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
                   fontSize: '1.125rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div style={{ minWidth: 0 }}>
                 <strong
                   style={{
@@ -1320,7 +1302,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  PDF (3.4 MB) • Signed by BantAI Research Team 
+                  PDF (3.4 MB) • Signed by BantAI Research Team
                 </small>
               </div>
             </div>
@@ -1387,9 +1369,7 @@ function ProposalStage({ onNext }: { onNext: () => void }) {
                   fontSize: '1.125rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div style={{ minWidth: 0 }}>
                 <strong
                   style={{
@@ -1591,9 +1571,7 @@ function PaymentStage({ onNext }: { onNext: () => void }) {
                   justifyContent: 'center',
                   fontSize: '1.125rem',
                 }}
-              >
-                
-              </div>
+              ></div>
               <div>
                 <strong
                   style={{
@@ -1670,9 +1648,7 @@ function PaymentStage({ onNext }: { onNext: () => void }) {
                 justifyContent: 'center',
                 fontSize: '1.125rem',
               }}
-            >
-              
-            </div>
+            ></div>
             <div>
               <strong
                 style={{
@@ -1752,9 +1728,7 @@ function GrantedStage({ onNext }: { onNext: () => void }) {
             marginBottom: 12,
             boxShadow: '0 0 30px rgba(16, 185, 129, 0.45)',
           }}
-        >
-          
-        </div>
+        ></div>
 
         <small
           style={{

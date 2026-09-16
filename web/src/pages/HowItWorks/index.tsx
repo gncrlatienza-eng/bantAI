@@ -398,9 +398,7 @@ export const HowItWorksPage: React.FC = () => {
                   fontSize: '1.2rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div>
                 <strong
                   style={{
@@ -449,9 +447,7 @@ export const HowItWorksPage: React.FC = () => {
                   fontSize: '1.2rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div>
                 <strong
                   style={{
@@ -500,9 +496,7 @@ export const HowItWorksPage: React.FC = () => {
                   fontSize: '1.2rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div>
                 <strong
                   style={{

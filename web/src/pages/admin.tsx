@@ -188,9 +188,7 @@ export function AdminOverviewPage() {
                 cursor: 'pointer',
                 fontSize: '1rem',
               }}
-            >
-              
-            </button>
+            ></button>
           </div>
         </div>
       )}
@@ -967,9 +965,7 @@ export function AdminReportsPage() {
                 color: 'var(--text-muted)',
                 fontSize: '0.875rem',
               }}
-            >
-              
-            </span>
+            ></span>
           </div>
         </div>
 
@@ -1208,11 +1204,23 @@ export function AdminReportsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '14px 20px', width: '22%' }}>REPORT ID</th>
+                  <th style={{ padding: '14px 20px', width: '22%' }}>
+                    REPORT ID
+                  </th>
                   <th style={{ padding: '14px 20px', width: '25%' }}>USER</th>
-                  <th style={{ padding: '14px 20px', width: '23%' }}>SUBMITTED AT</th>
+                  <th style={{ padding: '14px 20px', width: '23%' }}>
+                    SUBMITTED AT
+                  </th>
                   <th style={{ padding: '14px 20px', width: '15%' }}>STATUS</th>
-                  <th style={{ padding: '14px 20px', width: '15%', textAlign: 'right' }}>ACTIONS</th>
+                  <th
+                    style={{
+                      padding: '14px 20px',
+                      width: '15%',
+                      textAlign: 'right',
+                    }}
+                  >
+                    ACTIONS
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1260,8 +1268,8 @@ export function AdminReportsPage() {
                             item.status === 'Pending'
                               ? '#f59e0b'
                               : item.status === 'Validated'
-                              ? '#10b981'
-                              : '#ef4444',
+                                ? '#10b981'
+                                : '#ef4444',
                         }}
                       >
                         {item.status}
@@ -1384,13 +1392,17 @@ export function AdminReportsPage() {
                 <small style={{ color: 'var(--text-muted)', display: 'block' }}>
                   Reported By
                 </small>
-                <strong style={{ color: 'var(--text-primary)' }}>{selectedReport.user}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>
+                  {selectedReport.user}
+                </strong>
               </div>
               <div>
                 <small style={{ color: 'var(--text-muted)', display: 'block' }}>
                   Submitted At
                 </small>
-                <strong style={{ color: 'var(--text-primary)' }}>{selectedReport.submittedAt}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>
+                  {selectedReport.submittedAt}
+                </strong>
               </div>
               <div>
                 <small style={{ color: 'var(--text-muted)', display: 'block' }}>
@@ -1419,11 +1431,20 @@ export function AdminReportsPage() {
                   borderRadius: 8,
                 }}
               >
-                <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>
+                <small
+                  style={{
+                    color: 'var(--text-muted)',
+                    display: 'block',
+                    marginBottom: 2,
+                  }}
+                >
                   Campaign
                 </small>
                 <strong
-                  style={{ fontSize: '0.9375rem', color: 'var(--text-primary)' }}
+                  style={{
+                    fontSize: '0.9375rem',
+                    color: 'var(--text-primary)',
+                  }}
                 >
                   {selectedReport.campaign}
                 </strong>
@@ -1436,7 +1457,13 @@ export function AdminReportsPage() {
                   borderRadius: 8,
                 }}
               >
-                <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+                <small
+                  style={{
+                    color: 'var(--text-muted)',
+                    display: 'block',
+                    marginBottom: 4,
+                  }}
+                >
                   Category
                 </small>
                 <span
@@ -1493,7 +1520,11 @@ export function AdminReportsPage() {
                 {selectedReport.confidence || '94.2%'}
               </strong>
               <small
-                style={{ display: 'block', color: 'var(--text-secondary)', marginTop: 2 }}
+                style={{
+                  display: 'block',
+                  color: 'var(--text-secondary)',
+                  marginTop: 2,
+                }}
               >
                 XLM-RoBERTa High Confidence Classification
               </small>
@@ -1733,7 +1764,13 @@ export function AdminModelPage() {
               <tbody>
                 <tr>
                   <td>
-                    <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.875rem' }}>
+                    <span
+                      style={{
+                        color: '#ef4444',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                      }}
+                    >
                       Likely Smishing
                     </span>
                   </td>
@@ -1763,7 +1800,13 @@ export function AdminModelPage() {
 
                 <tr>
                   <td>
-                    <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.875rem' }}>
+                    <span
+                      style={{
+                        color: '#f59e0b',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                      }}
+                    >
                       Suspicious
                     </span>
                   </td>
@@ -1793,7 +1836,13 @@ export function AdminModelPage() {
 
                 <tr>
                   <td>
-                    <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.875rem' }}>
+                    <span
+                      style={{
+                        color: '#10b981',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                      }}
+                    >
                       Unknown / Safe
                     </span>
                   </td>
@@ -3739,9 +3788,7 @@ export function AdminDatasetPage() {
                 top: 8,
                 color: 'var(--text-muted)',
               }}
-            >
-              
-            </span>
+            ></span>
           </div>
         </div>
 
@@ -4824,9 +4871,7 @@ export function AdminClassificationPage() {
                   color: 'var(--text-muted)',
                   fontSize: '0.875rem',
                 }}
-              >
-                
-              </span>
+              ></span>
             </div>
 
             <Button
@@ -6940,9 +6985,7 @@ export function AdminCampaignsPage() {
                 color: 'var(--text-muted)',
                 fontSize: '0.875rem',
               }}
-            >
-              
-            </span>
+            ></span>
           </div>
         </div>
 
@@ -7551,9 +7594,7 @@ export function AdminCampaignsPage() {
                       fontSize: '0.8125rem',
                     }}
                   >
-                    <span style={{ color: 'var(--red-text)' }}>
-                      {domain}
-                    </span>
+                    <span style={{ color: 'var(--red-text)' }}>{domain}</span>
                     <span
                       className="badge badge-red"
                       style={{ fontSize: '0.6875rem' }}
@@ -8068,9 +8109,7 @@ export function AdminTimelinePage() {
                 fontSize: '1.35rem',
                 flexShrink: 0,
               }}
-            >
-              
-            </div>
+            ></div>
             <div>
               <div
                 style={{
@@ -9214,9 +9253,7 @@ export function AdminUsersPage() {
                 color: 'var(--text-muted)',
                 fontSize: '0.875rem',
               }}
-            >
-              
-            </span>
+            ></span>
           </div>
         </div>
 
@@ -10101,9 +10138,7 @@ export function AdminExportPage() {
                   fontSize: '1.25rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div style={{ flex: 1 }}>
                 <h4
                   style={{
@@ -10170,9 +10205,7 @@ export function AdminExportPage() {
                   fontSize: '1.25rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div style={{ flex: 1 }}>
                 <h4
                   style={{
@@ -10239,9 +10272,7 @@ export function AdminExportPage() {
                   fontSize: '1.25rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div style={{ flex: 1 }}>
                 <h4
                   style={{
@@ -10307,9 +10338,7 @@ export function AdminExportPage() {
                   fontSize: '1.25rem',
                   flexShrink: 0,
                 }}
-              >
-                
-              </div>
+              ></div>
               <div style={{ flex: 1 }}>
                 <h4
                   style={{
@@ -10931,9 +10960,7 @@ export function AdminServerPage({
                 transform: isRefreshing ? 'rotate(360deg)' : 'none',
                 transition: 'transform 0.6s ease',
               }}
-            >
-              
-            </span>
+            ></span>
             <span>Last checked {lastChecked}</span>
           </button>
         </div>
@@ -13750,9 +13777,7 @@ export function AdminTipsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <div>
               <strong
@@ -13822,9 +13847,7 @@ export function AdminTipsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <div>
               <strong
@@ -13894,9 +13917,7 @@ export function AdminTipsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                
-              </div>
+              ></div>
             </div>
             <div>
               <strong
@@ -14668,7 +14689,7 @@ export function AdminTipsPage() {
                       boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
                     }}
                   >
-                    Mark as Helpful 
+                    Mark as Helpful
                   </button>
                 </div>
               </div>

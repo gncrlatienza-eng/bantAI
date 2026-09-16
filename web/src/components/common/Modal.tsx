@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -92,6 +93,7 @@ export const Modal: React.FC<ModalProps> = ({
           </strong>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -110,7 +112,9 @@ export const Modal: React.FC<ModalProps> = ({
             onMouseLeave={(e) =>
               (e.currentTarget.style.color = 'var(--text-muted)')
             }
-          ></button>
+          >
+            <X size={16} />
+          </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
           {children}

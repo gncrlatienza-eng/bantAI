@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Bell, Search, X } from 'lucide-react';
 import { ProfileDropdown } from '../navigation/ProfileDropdown';
 import { useUserAvatar } from '../../context/UserAvatarContext';
 import { UserAvatar } from '../common/UserAvatar';
@@ -194,17 +195,21 @@ export const Topbar: React.FC<TopbarProps> = ({
             style={{
               position: 'absolute',
               left: 10,
-              top: 8,
+              top: 10,
               color: 'var(--text-muted)',
-              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
             }}
-          ></span>
+          >
+            <Search size={14} />
+          </span>
         </div>
 
         {/* Notifications Button */}
         <button
           type="button"
           onClick={() => setShowNotifications(!showNotifications)}
+          aria-label="Open notifications"
           style={{
             position: 'relative',
             background: 'var(--bg-surface-elevated)',
@@ -219,8 +224,10 @@ export const Topbar: React.FC<TopbarProps> = ({
             color: 'var(--text-primary)',
           }}
         >
+          <Bell size={18} />
           {unreadCount > 0 && (
             <span
+              aria-label={`${unreadCount} unread notifications`}
               style={{
                 position: 'absolute',
                 top: -2,
@@ -400,13 +407,20 @@ export const Topbar: React.FC<TopbarProps> = ({
                 )}
                 <button
                   onClick={() => setShowNotifications(false)}
+                  aria-label="Close notifications"
                   style={{
                     background: 'none',
                     border: 'none',
                     color: 'var(--text-muted)',
                     cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 4,
                   }}
-                ></button>
+                >
+                  <X size={16} />
+                </button>
               </div>
             </div>
 

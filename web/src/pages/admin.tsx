@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { BarChart } from '../components/charts/BarChart';
 import { LineAreaChart } from '../components/charts/LineAreaChart';
 import { Button } from '../components/common/Button';
@@ -181,14 +182,20 @@ export function AdminOverviewPage() {
             </button>
             <button
               onClick={() => setShowAlert(false)}
+              aria-label="Dismiss alert"
               style={{
                 background: 'none',
                 border: 'none',
                 color: 'var(--text-muted)',
                 cursor: 'pointer',
                 fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            ></button>
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
       )}

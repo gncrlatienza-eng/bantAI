@@ -12,15 +12,16 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 # Absolute, not relative: these live in the sibling `retraining` package, not
 # under `service`. Reading the backend's `/models/active` from here is the
 # one place `service/` depends on `retraining/` -- read-only, plain stdlib,
 # no pydantic crossing the boundary. See `registry.py`'s module docstring.
 from retraining.registry import ModelRegistry, ModelRegistryError
-from retraining.version_file import read_version
+from retraining.version_file import read_version, verify_version
 
+from .auth import require_api_key
 from .campaign import CampaignMatcher
 from .centroid_source import load_centroids
 from .config import settings
@@ -89,6 +90,24 @@ def check_served_version() -> None:
     """
     served = read_version(settings.model_dir)
 
+    # Does the checkpoint on disk still hash to what version.json recorded?
+    # Logged, never fatal: a model whose files changed under it is still a
+    # working classifier on a user's phone, and refusing to serve would turn a
+    # bookkeeping problem into an outage. But it must be visible, or every
+    # number this service produces is attributed to a checkpoint that may not
+    # be the one that produced it (Reymark's audit, item 13).
+    integrity = verify_version(settings.model_dir)
+    if integrity.status == "mismatch":
+        logger.error(
+            "CHECKPOINT INTEGRITY: %s no longer matches the digests recorded for %s -- %s. "
+            "The served model is not the one this version tag was written for.",
+            settings.model_dir,
+            served or "(untracked)",
+            integrity.detail,
+        )
+    elif integrity.status == "unverifiable":
+        logger.info("Checkpoint integrity not verifiable: %s.", integrity.detail)
+
     if not settings.version_check_enabled:
         return
     if not settings.backend_api_key:
@@ -130,6 +149,13 @@ def check_served_version() -> None:
 async def lifespan(_app: FastAPI):
     """Load campaign centroids and verify the served model version once,
     before the service accepts traffic."""
+    if not settings.service_api_key:
+        logger.warning(
+            "No inbound authentication: BANTAI_AI_SERVICE_API_KEY is unset, so "
+            "/classify, /summarize and /retrain accept any caller that can "
+            "reach this port. Fine on a laptop; set it before exposing this "
+            "service beyond the backend."
+        )
     load_campaign_centroids()
     check_served_version()
     yield
@@ -142,10 +168,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# /health and / stay open: a health check that needs a secret is useless to
+# whatever is deciding whether this process is alive. Everything else does
+# real work per request and is gated -- see service/auth.py.
 app.include_router(health.router)
-app.include_router(classify.router)
-app.include_router(summarize.router)
-app.include_router(retrain.router)
+app.include_router(classify.router, dependencies=[Depends(require_api_key)])
+app.include_router(summarize.router, dependencies=[Depends(require_api_key)])
+app.include_router(retrain.router, dependencies=[Depends(require_api_key)])
 
 
 @app.get("/", tags=["health"])

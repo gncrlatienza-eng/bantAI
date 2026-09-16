@@ -23,6 +23,22 @@ queue grows one row per hour, forever, from the first day this ships. A
 repeat of the same trigger while a job for it is still ``queued`` returns the
 existing job instead of writing a new one.
 
+**Jobs can be completed, and that is what makes the dedupe safe.** Until
+2026-09-16 ``queued`` was the only status this module could ever write, so a
+"drain the queue by hand" that nothing could record left the first job for a
+trigger queued forever -- and the dedupe above then returned that stale job to
+every later request, so a genuinely new trigger scheduled no new work
+(Reymark's audit, items 4-6). :func:`complete` appends a second row for the
+job; :func:`list_jobs` folds rows by ``job_id`` keeping the last one, so the
+file stays append-only and the status still moves. ``scripts/retrain.py
+--complete-queue`` is the drain that calls it.
+
+**The queue is bounded.** A trigger string the backend can choose freely is
+one unique value per request away from an unbounded file, and every read
+parses the whole thing (item 10). ``MAX_QUEUED_JOBS`` caps how many jobs may
+be outstanding at once; past it :func:`enqueue` raises :class:`QueueFullError`
+rather than accepting work nobody is draining.
+
 **The dedup check is locked, not just sequential.** ``enqueue`` reads the
 file, decides whether a matching job already exists, and only then appends --
 three separate steps. Without a lock around them, two ``POST /retrain`` calls
@@ -38,9 +54,10 @@ import json
 import os
 import time
 import uuid
-from dataclasses import asdict, dataclass
+from collections import OrderedDict
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 
 class _FileLock:
@@ -121,26 +138,52 @@ class _FileLock:
                 pass
 
 
+#: Where the queue lives, relative to ``ai/``. Defined here rather than in
+#: ``service/config.py`` so ``scripts/retrain.py`` can drain the queue without
+#: importing pydantic into the training path.
+DEFAULT_QUEUE_PATH = "models/retrain_queue/queue.jsonl"
+
+#: Outstanding jobs allowed before :func:`enqueue` refuses new work. Reached
+#: only if nobody is draining the queue, which is the condition worth
+#: surfacing as an error rather than absorbing into an ever-growing file.
+MAX_QUEUED_JOBS = 50
+
+QUEUED = "queued"
+COMPLETED = "completed"
+
+
+class QueueFullError(RuntimeError):
+    """Too many jobs are outstanding; the queue is not being drained."""
+
+
 @dataclass(frozen=True)
 class RetrainJob:
     job_id: str
     trigger: str
-    status: str  # "queued" is the only status written here; a human resolves
-    #             the job out-of-band and the row is not updated in place --
-    #             see the module docstring on why this stays append-only.
+    status: str  # QUEUED or COMPLETED
     requested_at: str
+    #: When :func:`complete` recorded the job as drained. ``None`` while queued.
+    completed_at: Optional[str] = None
 
 
 def _read_jobs(path: str) -> List[RetrainJob]:
+    """Every job, folded to its latest row, in first-seen order.
+
+    The file is append-only, so a completed job appears twice: once as queued,
+    once as completed. Folding here means every caller -- the dedupe,
+    ``GET /retrain/jobs``, the drain -- sees one row per job with its current
+    status, and none of them has to know the file's shape.
+    """
     if not os.path.isfile(path):
         return []
-    jobs: List[RetrainJob] = []
+    latest: "OrderedDict[str, RetrainJob]" = OrderedDict()
     with open(path, encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
             if line:
-                jobs.append(RetrainJob(**json.loads(line)))
-    return jobs
+                job = RetrainJob(**json.loads(line))
+                latest[job.job_id] = job
+    return list(latest.values())
 
 
 def _append_job(path: str, job: RetrainJob) -> None:
@@ -169,17 +212,56 @@ def enqueue(path: str, trigger: str) -> RetrainJob:
         os.makedirs(parent, exist_ok=True)
 
     with _FileLock(path):
-        for job in _read_jobs(path):
-            if job.trigger == trigger and job.status == "queued":
+        jobs = _read_jobs(path)
+        queued = [j for j in jobs if j.status == QUEUED]
+        for job in queued:
+            if job.trigger == trigger:
                 return job
+        if len(queued) >= MAX_QUEUED_JOBS:
+            raise QueueFullError(
+                f"{len(queued)} jobs are already queued (limit {MAX_QUEUED_JOBS}). "
+                "Drain them with `scripts/retrain.py --complete-queue` after a retrain."
+            )
         job = RetrainJob(
             job_id=str(uuid.uuid4()),
             trigger=trigger,
-            status="queued",
+            status=QUEUED,
             requested_at=datetime.now(timezone.utc).isoformat(),
         )
         _append_job(path, job)
         return job
+
+
+def complete(path: str, job_id: str) -> Optional[RetrainJob]:
+    """Mark one queued job completed. ``None`` if it is unknown or already done.
+
+    Appends rather than rewriting: the queued row stays in the file as the
+    record of when the request arrived.
+    """
+    with _FileLock(path):
+        for job in _read_jobs(path):
+            if job.job_id == job_id and job.status == QUEUED:
+                done = replace(job, status=COMPLETED, completed_at=datetime.now(timezone.utc).isoformat())
+                _append_job(path, done)
+                return done
+    return None
+
+
+def complete_all_queued(path: str) -> List[RetrainJob]:
+    """Mark every queued job completed; returns the jobs that were drained.
+
+    What a human draining the queue actually does: one retrain answers every
+    trigger outstanding at the time, because they all asked for the same thing.
+    """
+    with _FileLock(path):
+        drained = []
+        now = datetime.now(timezone.utc).isoformat()
+        for job in _read_jobs(path):
+            if job.status == QUEUED:
+                done = replace(job, status=COMPLETED, completed_at=now)
+                _append_job(path, done)
+                drained.append(done)
+        return drained
 
 
 def list_jobs(path: str) -> List[RetrainJob]:

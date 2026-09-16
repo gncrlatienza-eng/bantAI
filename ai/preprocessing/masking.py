@@ -1,11 +1,35 @@
 """Regex privacy-masking layer (Sprint 2 — completed).
 
-Replaces personally identifiable / volatile tokens with stable placeholders so
-that (a) we never persist raw PII in features or logs, and (b) the classifier
+Replaces volatile, structured tokens with stable placeholders so that (a)
+those specific values do not reach features or logs, and (b) the classifier
 learns the *shape* of a scam ("click <URL> to claim <AMOUNT>") rather than
 memorizing specific links, numbers or one-time codes.
 
 Placeholders: ``<EMAIL>``, ``<URL>``, ``<PHONE>``, ``<AMOUNT>``, ``<OTP>``.
+
+**⚠️ Masked is not anonymous. What this does NOT remove** (Reymark's audit,
+items 17-18) — confirmed by reviewer probes against the live regexes:
+
+- **Names.** "Hi NEMIA, your GCash is locked" keeps the name. Nothing here
+  does named-entity recognition, and a regex cannot.
+- **Addresses.** Street and place names survive as ordinary words.
+- **TINs, account numbers, reference numbers.** ``OTP_RE`` matches runs of
+  **4-8** digits; ``PHONE_RE`` matches phone shapes. A 9+ digit identifier
+  that is not phone-shaped (a TIN, a long reference number) matches neither
+  and passes through intact.
+- **Anything identifying expressed in words** — employer, barangay, "your
+  daughter Maria".
+
+So masked text is **reduced-risk, not de-identified**, and every downstream
+use has to keep treating it as personal data: the snapshot CSVs, the holdout
+set, ``disagreements.json``, anything exported to Colab or Drive, and
+anything pasted into an issue or the manuscript. The de-duplication key is
+masked text, which is exactly why the snapshot still stores the raw body.
+
+Extending coverage (a ``<NUMBER>`` placeholder for long digit runs, or NER
+for names) would change the model's input distribution, so it cannot be
+switched on under a deployed checkpoint without retraining and re-measuring.
+Documented as future work rather than done quietly.
 
 Masking order matters and is deliberate:
     1. EMAIL   — consume addresses first (they contain '@' + a domain-like tail).

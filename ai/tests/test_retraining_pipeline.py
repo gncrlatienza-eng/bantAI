@@ -17,7 +17,6 @@ from retraining.pipeline import (
     DECISION_JSON,
     RetrainingRun,
     evaluate_candidate,
-    last_run_time,
     run_retraining,
 )
 from retraining.reports import (
@@ -166,80 +165,18 @@ def test_run_directory_name_is_filesystem_portable(labeled_dir, tmp_path):
     assert ":" not in os.path.basename(run.run_dir)
 
 
-# --- `since` bookkeeping ----------------------------------------------------
-def test_last_run_time_is_none_when_nothing_has_run(tmp_path):
-    assert last_run_time(str(tmp_path / "missing")) is None
+# --- which reports a run consumes -------------------------------------------
+def test_an_earlier_correction_survives_a_later_real_run(labeled_dir, tmp_path):
+    """Every run fine-tunes from the base model, so a correction must be in
+    every snapshot, not only the first one after it was validated.
 
-
-def test_last_run_time_reads_the_newest_manifest(tmp_path):
-    runs_root = tmp_path / "runs"
-    for name, stamp in [
-        ("run-a", "2026-08-01T00:00:00+00:00"),
-        ("run-b", "2026-08-09T00:00:00+00:00"),
-    ]:
-        run_dir = runs_root / name
-        run_dir.mkdir(parents=True)
-        (run_dir / MANIFEST_JSON).write_text(json.dumps({"created_at": stamp}), encoding="utf-8")
-
-    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
-
-
-def test_a_corrupt_manifest_does_not_block_a_retrain(tmp_path):
-    """Re-consuming reports is harmless; refusing to retrain is not."""
-    runs_root = tmp_path / "runs"
-    (runs_root / "broken").mkdir(parents=True)
-    (runs_root / "broken" / MANIFEST_JSON).write_text("{not json", encoding="utf-8")
-    (runs_root / "good").mkdir(parents=True)
-    (runs_root / "good" / MANIFEST_JSON).write_text(
-        json.dumps({"created_at": "2026-08-09T00:00:00+00:00"}), encoding="utf-8"
-    )
-
-    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
-
-
-def test_a_dry_run_does_not_advance_the_report_watermark(labeled_dir, tmp_path):
-    """A dry run trains nothing, so it consumed no reports.
-
-    Letting it move the watermark would make the next *real* run silently skip
-    every report the dry run merely looked at -- invisible until the retrained
-    model inexplicably fails to learn a correction.
+    Previously the default ``since`` was the last real run's timestamp, which
+    dropped this report from every run after the one that first used it.
     """
-    runs_root = str(tmp_path / "runs")
-    reports_dir = tmp_path / "reports"
-    reports_dir.mkdir()
-    (reports_dir / "batch.csv").write_text(
-        "text,label,validated_at\nold report,Scam,2026-01-01T00:00:00+00:00\n",
-        encoding="utf-8",
-    )
-
-    for _ in range(2):
-        run = run_retraining(
-            labeled_dir=labeled_dir,
-            report_source=FileReportSource(str(reports_dir)),
-            runs_root=runs_root,
-            dry_run=True,
-        )
-        assert run.manifest.n_reports == 1
-
-    assert last_run_time(runs_root) is None
-
-
-def test_a_real_run_does_advance_the_watermark(labeled_dir, tmp_path):
     runs_root = tmp_path / "runs"
-    run_dir = runs_root / "real"
-    run_dir.mkdir(parents=True)
-    (run_dir / MANIFEST_JSON).write_text(
-        json.dumps({"created_at": "2026-08-09T00:00:00+00:00", "dry_run": False}),
-        encoding="utf-8",
-    )
-    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
-
-
-def test_explicit_since_overrides_the_watermark(labeled_dir, tmp_path):
-    runs_root = tmp_path / "runs"
-    run_dir = runs_root / "real"
-    run_dir.mkdir(parents=True)
-    (run_dir / MANIFEST_JSON).write_text(
+    earlier = runs_root / "2026-08-09T00-00-00Z"
+    earlier.mkdir(parents=True)
+    (earlier / MANIFEST_JSON).write_text(
         json.dumps({"created_at": "2026-08-09T00:00:00+00:00", "dry_run": False}),
         encoding="utf-8",
     )
@@ -254,7 +191,26 @@ def test_explicit_since_overrides_the_watermark(labeled_dir, tmp_path):
         labeled_dir=labeled_dir,
         report_source=FileReportSource(str(reports_dir)),
         runs_root=str(runs_root),
-        since=datetime.min,
+        dry_run=True,
+    )
+    assert run.manifest.n_reports == 1
+
+
+def test_explicit_since_still_narrows_the_reports(labeled_dir, tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "batch.csv").write_text(
+        "text,label,validated_at\n"
+        "old report,Scam,2026-01-01T00:00:00+00:00\n"
+        "new report,Scam,2026-09-01T00:00:00+00:00\n",
+        encoding="utf-8",
+    )
+
+    run = run_retraining(
+        labeled_dir=labeled_dir,
+        report_source=FileReportSource(str(reports_dir)),
+        runs_root=str(tmp_path / "runs"),
+        since=datetime(2026, 8, 1, tzinfo=timezone.utc),
         dry_run=True,
     )
     assert run.manifest.n_reports == 1
@@ -282,6 +238,24 @@ def test_evaluate_candidate_scores_both_models_on_the_same_rows(monkeypatch):
     assert decision.promote
     assert decision.n_fixes == 20
     assert decision.n_regressions == 0
+
+
+def test_evaluate_candidate_applies_the_scam_floor_to_label_ids(monkeypatch):
+    """evaluate_candidate passes label ids; the Scam floor must see id 2 as
+    Scam, or it would silently evaluate nothing and never fire."""
+
+    def fake_predict(model_dir, masked_texts, batch_size=32):
+        # Candidate fixes 40 Ham rows but lets 5 of 20 scams through.
+        if model_dir == "baseline":
+            return [1] * 40 + [0] * 40 + [2] * 20
+        return [0] * 80 + [2] * 15 + [0] * 5
+
+    monkeypatch.setattr(pl, "_predict", fake_predict)
+
+    decision = evaluate_candidate("baseline", "candidate", [f"row {i}" for i in range(100)], [0] * 80 + [2] * 20)
+    assert not decision.promote
+    assert decision.baseline_scam_recall == 1.0
+    assert decision.candidate_scam_recall == 0.75
 
 
 def test_evaluate_candidate_rejects_a_worse_model(monkeypatch):

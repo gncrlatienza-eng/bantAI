@@ -74,6 +74,12 @@ from retraining.reports import (  # noqa: E402
     NullReportSource,
     ReportSourceError,
 )
+from service.retrain_queue import (  # noqa: E402
+    DEFAULT_QUEUE_PATH,
+    QUEUED,
+    complete_all_queued,
+    list_jobs,
+)
 from training.config import TrainingConfig  # noqa: E402
 
 #: Read from the environment so one ``ai/.env``-style export serves both this
@@ -170,8 +176,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Only consume reports validated after this ISO-8601 timestamp. "
-            "Defaults to the previous non-dry run's timestamp. Pass 'all' to "
-            "consume every report regardless of when it was validated."
+            "Default: every validated report. Each run fine-tunes from the base "
+            "model, so a correction left out of a run is lost from that run's "
+            "model -- narrow this only for a deliberate experiment. 'all' is "
+            "accepted and means the same as the default."
         ),
     )
     parser.add_argument(
@@ -220,6 +228,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--models-api-key",
         default=None,
         help=f"Key for the backend's ModelVersions routes. Defaults to ${ENV_BACKEND_API_KEY}.",
+    )
+    parser.add_argument(
+        "--complete-queue",
+        action="store_true",
+        help=(
+            "After a successful non-dry run, mark every queued retrain job "
+            "completed -- this run is what they were asking for. Without it "
+            "the queue keeps returning the same stale job to the backend's "
+            "hourly trigger and no new work is ever scheduled. Only works on "
+            "the host holding the queue file (see --queue-path)."
+        ),
+    )
+    parser.add_argument(
+        "--queue-path",
+        default=DEFAULT_QUEUE_PATH,
+        help="Queue file --complete-queue drains (default: %(default)s).",
     )
     return parser
 
@@ -285,6 +309,32 @@ def _resolve_models_registry(args) -> tuple:
             f"${ENV_BACKEND_API_KEY} (must match the backend's INTERNAL_API_KEY)."
         )
     return ModelRegistry(url, key), None
+
+
+def _reconcile_queue(args, run) -> None:
+    """Drain the retrain queue, or say why it was left alone.
+
+    A dry run trains nothing, so it answers no trigger and never drains. A
+    real run does, and leaving the queue untouched afterwards is what kept
+    every later trigger returning the same stale job (Reymark's audit, item 5).
+    """
+    if run.dry_run:
+        return
+
+    queued = [j for j in list_jobs(args.queue_path) if j.status == QUEUED]
+    if not queued:
+        return
+
+    if not args.complete_queue:
+        print(
+            f"\n{len(queued)} retrain job(s) still queued in {args.queue_path}. "
+            "Re-run with --complete-queue to mark them done -- until then the "
+            "backend's hourly trigger keeps getting handed the same stale job."
+        )
+        return
+
+    drained = complete_all_queued(args.queue_path)
+    print(f"\nMarked {len(drained)} queued retrain job(s) completed in {args.queue_path}.")
 
 
 def _register_candidate(args, run) -> int:
@@ -395,12 +445,8 @@ def main(argv=None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 1
 
-    # ``datetime.min`` rather than None: None means "fall back to the previous
-    # run's watermark", which is the opposite of what --since all asks for.
     since = None
-    if args.since == "all":
-        since = datetime.min
-    elif args.since:
+    if args.since and args.since != "all":
         try:
             since = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
         except ValueError:
@@ -442,6 +488,8 @@ def main(argv=None) -> int:
             "     -- campaign centroids are tied to the checkpoint that made them\n"
             "        and are meaningless against a different model's embeddings."
         )
+
+    _reconcile_queue(args, run)
 
     if args.register or args.activate:
         return _register_candidate(args, run)

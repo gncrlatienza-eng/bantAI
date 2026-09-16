@@ -9,6 +9,7 @@ from __future__ import annotations
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .campaign import DEFAULT_SIMILARITY_THRESHOLD
+from .retrain_queue import DEFAULT_QUEUE_PATH
 
 
 class Settings(BaseSettings):
@@ -75,6 +76,16 @@ class Settings(BaseSettings):
     # cannot silently drift apart if the calibrated value ever changes.
     campaign_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
 
+    # Shared secret callers must present as ``x-api-key`` on /classify,
+    # /summarize and /retrain. Empty (the default) leaves the service open,
+    # which is fine on a laptop where only the local backend can reach it and
+    # is what every existing dev setup assumes -- but it is not safe once the
+    # service is reachable beyond that boundary, so `main.py` logs a warning
+    # at startup while it is unset (audit item 7). /health stays open either
+    # way: a health check that needs a secret cannot be used by the thing
+    # deciding whether this process is alive.
+    service_api_key: str = ""
+
     # --- Retraining round trip (Sprint 4, WBS 4.4.3) --------------------- #
     # Where POST /retrain records the backend's trigger requests. Training
     # itself does not happen here -- there is no GPU on the serving host --
@@ -83,7 +94,7 @@ class Settings(BaseSettings):
     # `models/`) so `ai/models/*/` in .gitignore covers it automatically --
     # that pattern only ignores directories, not files placed straight in
     # `models/`.
-    retrain_queue_path: str = "models/retrain_queue/queue.jsonl"
+    retrain_queue_path: str = DEFAULT_QUEUE_PATH
 
     # Where `main.py`'s startup check reads the currently active model from,
     # to compare against the version this service is actually serving (see

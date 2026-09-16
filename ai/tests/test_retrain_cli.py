@@ -9,10 +9,12 @@ since both mistakes produce a run that looks entirely normal afterwards.
 import importlib.util
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 
 from retraining.reports import DatabaseReportSource, FileReportSource, NullReportSource
+from service.retrain_queue import QUEUED, enqueue, list_jobs
 
 # scripts/ is not a package (the scripts insert "." on sys.path and are run as
 # files), so load retrain.py by path rather than importing it.
@@ -249,3 +251,53 @@ def test_main_exits_1_when_the_report_store_is_unreachable(monkeypatch, tmp_path
 def test_main_rejects_an_unparseable_since(bad, capsys):
     assert retrain.main(["--since", bad, "--dry-run"]) == 2
     assert "ISO-8601" in capsys.readouterr().err
+
+
+# --- draining the retrain queue (Reymark's audit, item 5) --------------------
+class _Run:
+    def __init__(self, dry_run):
+        self.dry_run = dry_run
+
+
+def _args(queue_path, complete_queue):
+    return SimpleNamespace(queue_path=queue_path, complete_queue=complete_queue)
+
+
+def test_complete_queue_drains_after_a_real_run(tmp_path, capsys):
+    """A real retrain is what every outstanding trigger was asking for."""
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop")
+    enqueue(path, "page_hinkley")
+
+    retrain._reconcile_queue(_args(path, complete_queue=True), _Run(dry_run=False))
+
+    assert not [j for j in list_jobs(path) if j.status == QUEUED]
+    assert "Marked 2 queued retrain job(s) completed" in capsys.readouterr().out
+
+
+def test_a_dry_run_never_drains_the_queue(tmp_path):
+    """A dry run trains nothing, so it answers no trigger."""
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop")
+
+    retrain._reconcile_queue(_args(path, complete_queue=True), _Run(dry_run=True))
+
+    assert len([j for j in list_jobs(path) if j.status == QUEUED]) == 1
+
+
+def test_a_real_run_without_the_flag_says_the_queue_is_still_waiting(tmp_path, capsys):
+    """Silence here is what let the backlog sit unnoticed."""
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop")
+
+    retrain._reconcile_queue(_args(path, complete_queue=False), _Run(dry_run=False))
+
+    out = capsys.readouterr().out
+    assert "1 retrain job(s) still queued" in out
+    assert "--complete-queue" in out
+    assert len([j for j in list_jobs(path) if j.status == QUEUED]) == 1
+
+
+def test_nothing_is_printed_when_the_queue_is_empty(tmp_path, capsys):
+    retrain._reconcile_queue(_args(str(tmp_path / "queue.jsonl"), complete_queue=False), _Run(dry_run=False))
+    assert capsys.readouterr().out == ""

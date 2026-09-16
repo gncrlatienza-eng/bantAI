@@ -16,7 +16,19 @@ import os
 import threading
 import time
 
-from service.retrain_queue import _FileLock, enqueue, list_jobs
+import pytest
+
+from service.retrain_queue import (
+    COMPLETED,
+    MAX_QUEUED_JOBS,
+    QUEUED,
+    QueueFullError,
+    _FileLock,
+    complete,
+    complete_all_queued,
+    enqueue,
+    list_jobs,
+)
 
 
 def test_concurrent_enqueue_of_the_same_trigger_produces_one_job(tmp_path):
@@ -103,3 +115,72 @@ def test_stale_lock_self_heals_instead_of_blocking_every_future_call(tmp_path):
     with _FileLock(path, timeout=1.0, poll_interval=0.01, stale_after=0.03) as lock:
         assert lock._fd is not None  # self-healed: acquired for real, not fail-open
     assert not os.path.isfile(stale_lock)  # released cleanly afterward too
+
+
+# --- job lifecycle (Reymark's audit, items 4-6, 10) --------------------------
+def test_completing_a_job_lets_the_same_trigger_queue_again(tmp_path):
+    """The dedupe is only safe because a job can leave ``queued``.
+
+    While ``queued`` was the only status this module could write, the first
+    job for a trigger stayed queued forever and every later trigger was handed
+    that stale job -- so a genuinely new request scheduled no new work.
+    """
+    path = str(tmp_path / "queue.jsonl")
+    first = enqueue(path, "f1_drop")
+    assert enqueue(path, "f1_drop").job_id == first.job_id  # deduped while queued
+
+    done = complete(path, first.job_id)
+    assert done.status == COMPLETED
+    assert done.completed_at is not None
+
+    second = enqueue(path, "f1_drop")
+    assert second.job_id != first.job_id
+    assert second.status == QUEUED
+
+
+def test_list_jobs_folds_each_job_to_its_latest_status(tmp_path):
+    """The file is append-only, so a completed job has two rows in it."""
+    path = str(tmp_path / "queue.jsonl")
+    job = enqueue(path, "page_hinkley")
+    complete(path, job.job_id)
+
+    jobs = list_jobs(path)
+    assert len(jobs) == 1
+    assert jobs[0].job_id == job.job_id
+    assert jobs[0].status == COMPLETED
+
+
+def test_completing_an_unknown_or_finished_job_returns_none(tmp_path):
+    path = str(tmp_path / "queue.jsonl")
+    job = enqueue(path, "f1_drop")
+    complete(path, job.job_id)
+    assert complete(path, job.job_id) is None  # already done
+    assert complete(path, "no-such-id") is None
+
+
+def test_complete_all_queued_drains_everything_outstanding(tmp_path):
+    """One retrain answers every trigger outstanding at the time."""
+    path = str(tmp_path / "queue.jsonl")
+    for trigger in ("f1_drop", "page_hinkley", "validated_report_count"):
+        enqueue(path, trigger)
+
+    drained = complete_all_queued(path)
+
+    assert len(drained) == 3
+    assert not [j for j in list_jobs(path) if j.status == QUEUED]
+    assert complete_all_queued(path) == []  # nothing left to drain
+
+
+def test_queue_refuses_new_work_once_the_backlog_is_unbounded(tmp_path):
+    """A trigger string the backend picks freely is one unique value per
+    request away from an unbounded file, and every read parses all of it."""
+    path = str(tmp_path / "queue.jsonl")
+    for i in range(MAX_QUEUED_JOBS):
+        enqueue(path, f"trigger-{i}")
+
+    with pytest.raises(QueueFullError):
+        enqueue(path, "one-too-many")
+
+    # Draining makes room again -- the cap is backlog, not a lifetime total.
+    complete_all_queued(path)
+    assert enqueue(path, "one-too-many").status == QUEUED

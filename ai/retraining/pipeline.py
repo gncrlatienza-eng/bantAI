@@ -43,12 +43,11 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import List, Optional, Sequence
 
-from training.config import ID2LABEL, TrainingConfig
+from training.config import ID2LABEL, LABEL2ID, TrainingConfig
 
 from .promotion import PromotionDecision, discordant_indices, evaluate_promotion
 from .reports import NullReportSource, ReportSource
 from .snapshot import (
-    MANIFEST_JSON,
     SnapshotManifest,
     build_snapshot,
     read_labeled_dataset,
@@ -126,6 +125,10 @@ class RetrainingRun:
             verdict = "PROMOTE" if self.decision.promote else "REJECT"
             lines.append(f"result:    {verdict} -- {self.decision.reason}")
             lines.append(f"macro-F1:  {self.decision.baseline_macro_f1:.4f} -> {self.decision.candidate_macro_f1:.4f}")
+            if self.decision.baseline_scam_recall is not None:
+                lines.append(
+                    f"Scam rec.: {self.decision.baseline_scam_recall:.4f} -> {self.decision.candidate_scam_recall:.4f}"
+                )
             # Printed because "97 fixes vs 44 regressions" invites exactly one
             # follow-up question, and it should not require opening a file.
             if self.decision.regression_transitions:
@@ -135,44 +138,6 @@ class RetrainingRun:
                 better = ", ".join(f"{k} x{v}" for k, v in self.decision.fix_transitions.items())
                 lines.append(f"better:    {better}")
         return "\n".join(lines)
-
-
-def last_run_time(runs_root: str = DEFAULT_RUNS_ROOT) -> Optional[datetime]:
-    """When the most recent retraining run assembled its snapshot.
-
-    Used as the ``since`` bound so a run consumes only reports validated after
-    the previous one -- the "since the last retrain" in ``RETRAINING.md``
-    Stage 3. Reads the manifest rather than the directory mtime, because a
-    directory can be copied or touched and the manifest cannot lie about when
-    its snapshot was built.
-
-    **Dry runs are skipped.** A dry run assembles a snapshot and stops; no
-    model ever consumed those reports. Letting it advance the watermark would
-    make the next real run skip every report the dry run merely looked at --
-    which is exactly the kind of silent data loss that is invisible until the
-    retrained model inexplicably fails to learn a correction.
-    """
-    if not os.path.isdir(runs_root):
-        return None
-    stamps: List[datetime] = []
-    for entry in sorted(os.listdir(runs_root)):
-        manifest_path = os.path.join(runs_root, entry, MANIFEST_JSON)
-        if not os.path.isfile(manifest_path):
-            continue
-        try:
-            with open(manifest_path, encoding="utf-8") as handle:
-                payload = json.load(handle)
-            if payload.get("dry_run"):
-                continue
-            created = payload.get("created_at")
-            if created:
-                stamps.append(datetime.fromisoformat(created))
-        except (ValueError, OSError, json.JSONDecodeError):
-            # A corrupt manifest must not stop a retrain; it only costs this
-            # run its `since` bound, and re-consuming reports is harmless
-            # (the snapshot de-duplicates).
-            continue
-    return max(stamps) if stamps else None
 
 
 def _predict(model_dir: str, masked_texts: Sequence[str], batch_size: int = 32) -> List[int]:
@@ -310,7 +275,7 @@ def evaluate_candidate(
     """
     baseline_pred = _predict(baseline_dir, val_texts)
     candidate_pred = _predict(candidate_dir, val_texts)
-    decision = evaluate_promotion(val_labels, baseline_pred, candidate_pred)
+    decision = evaluate_promotion(val_labels, baseline_pred, candidate_pred, scam_label=LABEL2ID["Scam"])
 
     fix_idx, reg_idx = discordant_indices(val_labels, baseline_pred, candidate_pred)
     decision = replace(
@@ -357,8 +322,11 @@ def run_retraining(
         seed: Reservoir + training seed. Defaults to ``TrainingConfig.seed``.
         dry_run: Assemble and write the snapshot, then stop. Exercises
             everything except the fine-tune, which needs a GPU to be practical.
-        since: Only consume reports validated after this. Defaults to the
-            previous run's timestamp.
+        since: Only consume reports validated after this. ``None`` (the
+            default) consumes every validated report. Each run fine-tunes from
+            the base model, so a correction left out of a later snapshot is
+            lost from the model that snapshot produces -- the report store is
+            the durable record, and every run reads all of it.
         config: Training hyperparameters. ``dataset_path`` and ``output_dir``
             are overridden to point at this run's directories.
 
@@ -371,16 +339,13 @@ def run_retraining(
     seed = config.seed if seed is None else seed
     source = report_source or NullReportSource()
 
-    if since is None:
-        since = last_run_time(runs_root)
-
     run_dir = os.path.join(runs_root, datetime.now(timezone.utc).strftime(_RUN_STAMP))
 
     # Assemble before creating the directory. A report source that cannot reach
     # its store raises here (see ``reports.ReportSourceError``), and creating
     # the directory first would leave an empty, manifest-less run behind on
-    # every such failure -- harmless to ``last_run_time``, which skips them,
-    # but it accumulates directories that look like runs and are not.
+    # every such failure, accumulating directories that look like runs and
+    # are not.
     rows, manifest = build_snapshot(
         dataset_rows=read_labeled_dataset(labeled_dir),
         reports=source.fetch(since),
@@ -468,6 +433,8 @@ def _write_decision(run: RetrainingRun) -> None:
                 "n_fixes": run.decision.n_fixes,
                 "n_regressions": run.decision.n_regressions,
                 "p_value": run.decision.p_value,
+                "baseline_scam_recall": run.decision.baseline_scam_recall,
+                "candidate_scam_recall": run.decision.candidate_scam_recall,
                 # Which class confusions the counts consist of. Text-free, so
                 # this file stays safe to commit and quote -- "Scam->Spam: 20"
                 # answers "what got worse" without reproducing a message.

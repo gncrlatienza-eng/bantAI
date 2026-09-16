@@ -240,7 +240,7 @@ def test_read_labeled_dataset_skips_the_sample_reference_file(tmp_path):
     """sample.csv is the format reference in ai/README.md, not real data."""
     (tmp_path / "sample.csv").write_text("text,label\ndummy,Ham\n", encoding="utf-8")
     (tmp_path / "real.csv").write_text("text,label\nreal row,Scam\n", encoding="utf-8")
-    assert list(read_labeled_dataset(str(tmp_path))) == [("real row", "Scam")]
+    assert list(read_labeled_dataset(str(tmp_path))) == [("real row", "Scam", "dataset")]
 
 
 def test_read_labeled_dataset_raises_on_an_empty_directory(tmp_path):
@@ -250,4 +250,54 @@ def test_read_labeled_dataset_raises_on_an_empty_directory(tmp_path):
 
 def test_read_labeled_dataset_ignores_extra_columns(tmp_path):
     (tmp_path / "real.csv").write_text("text,label,language,source\nkumusta,Ham,tl,inbox\n", encoding="utf-8")
-    assert list(read_labeled_dataset(str(tmp_path))) == [("kumusta", "Ham")]
+    assert list(read_labeled_dataset(str(tmp_path))) == [("kumusta", "Ham", "dataset")]
+
+
+def test_read_labeled_dataset_preserves_a_synthetic_origin(tmp_path):
+    """Dropping this column would silently re-admit generated rows to the
+    validation split -- see SYNTHETIC_ORIGINS in training/config.py."""
+    (tmp_path / "aug.csv").write_text(
+        "text,label,category,origin,seed_id\nyou won,Scam,Prize Lure,authored,\n", encoding="utf-8"
+    )
+    assert list(read_labeled_dataset(str(tmp_path))) == [("you won", "Scam", "authored")]
+
+
+def test_snapshot_carries_origin_through_to_the_csv(tmp_path):
+    rows, _ = build_snapshot(
+        dataset_rows=[("real one", "Ham", "dataset"), ("generated one", "Scam", "authored")],
+        reports=[],
+    )
+    assert {r.text: r.origin for r in rows} == {"real one": "dataset", "generated one": "authored"}
+
+
+def test_build_snapshot_still_accepts_two_element_rows():
+    """Hand-built callers and older tests pass bare (text, label)."""
+    rows, _ = build_snapshot(dataset_rows=[("plain row", "Ham")], reports=[])
+    assert rows[0].origin == "dataset"
+
+
+# --- dataset fingerprint (2026-09-16) ----------------------------------------
+def test_dataset_digest_is_stable_under_row_order():
+    """Two snapshots of the same data must hash the same, or the digest tracks
+    file ordering rather than content."""
+    a, _ = build_snapshot(dataset_rows=[("first msg", "Ham"), ("second msg", "Scam")], reports=[])
+    b, manifest_b = build_snapshot(dataset_rows=[("second msg", "Scam"), ("first msg", "Ham")], reports=[])
+    _, manifest_a = build_snapshot(dataset_rows=[("first msg", "Ham"), ("second msg", "Scam")], reports=[])
+    assert manifest_a.dataset_sha256 == manifest_b.dataset_sha256
+    assert len(a) == len(b) == 2
+
+
+def test_dataset_digest_changes_when_one_label_changes():
+    """The case row counts cannot catch: on 2026-09-16 a review moved 99 rows
+    out of Scam, leaving the pool the same size and a different dataset."""
+    _, before = build_snapshot(dataset_rows=[("a msg", "Ham"), ("b msg", "Scam")], reports=[])
+    _, after = build_snapshot(dataset_rows=[("a msg", "Ham"), ("b msg", "Spam")], reports=[])
+    assert before.n_total == after.n_total
+    assert before.dataset_sha256 != after.dataset_sha256
+
+
+def test_dataset_digest_ignores_masked_away_differences():
+    """Two rows differing only in a tracking URL are the same training input."""
+    _, one = build_snapshot(dataset_rows=[("claim now at 1q2w3e7.ca", "Scam")], reports=[])
+    _, two = build_snapshot(dataset_rows=[("claim now at 1q2w3e8.ca", "Scam")], reports=[])
+    assert one.dataset_sha256 == two.dataset_sha256

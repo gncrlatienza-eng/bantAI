@@ -145,6 +145,27 @@ decided by `validated_at`, not arrival order, because the backend returns
 reports newest first (a 2026-09-14 fix: last-write-wins over that order had
 been keeping the oldest label).
 
+**Synthetic rows train, they never validate** (2026-09-16). Rows whose
+`origin` is `authored` or `variant` — the output of
+`scripts/augment_scam_dataset.py` — are placed in the training half of the
+80/20 split unconditionally, never the validation half
+(`training/dataset.py:load_split`, `SYNTHETIC_ORIGINS` in `training/config.py`).
+
+This is not tidiness. The split is stratified and random, so roughly 20% of any
+generated rows would otherwise land in validation — the same validation the
+promotion gate scores both models on. A candidate trained on generated text
+classifies more generated text from the same templates easily, while the
+incumbent it is measured against has never seen any. The gate would report
+"learned our templates" as "better at detecting scams", inflating the very
+numbers (macro-F1, Scam recall, fix/regression counts) that justify a
+promotion. Measured on a 40-real/20-synthetic fixture before the fix: 6 of 20
+synthetic rows reached validation.
+
+The frozen holdout is unaffected — it is 100% real and the generator refuses
+to seed from it — so the headline evaluation stays honest either way. This
+protects the *gate*, which runs first and decides whether a candidate is even
+considered.
+
 **De-duplication compares masked text; the snapshot stores raw text.**
 `...libre 1q2w3e7.ca` and `...libre 1q2w3e8.ca` are one model input once
 masked — the same leakage `training/dataset.py` guards against on the split.

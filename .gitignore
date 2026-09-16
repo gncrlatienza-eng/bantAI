@@ -75,6 +75,13 @@ ai/datasets/labeled/*.csv
 !ai/datasets/labeled/sample.csv
 ai/datasets/audit/
 
+# Synthetic Scam rows from scripts/augment_scam_dataset.py. Ignored for the
+# same reason the labeled pool is: roughly half of each batch is wording-level
+# variants of real user messages, so the file carries real SMS content even
+# though the rest of it is authored. The per-batch summary JSON beside it is
+# counts only and is kept, since that is what the manuscript cites.
+ai/datasets/augmented/*.csv
+
 # Dated backups of bantai_labeled.csv taken outside create_holdout_set.py's own
 # backup mechanism (which already writes its dated backups directly beside the
 # file, no trailing .csv, matching the pattern below at line ~92). Kept OUTSIDE

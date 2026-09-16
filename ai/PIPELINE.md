@@ -522,14 +522,28 @@ first one this holdout can grade honestly. Two layers, both on the same 3,236
 rows:
 
 - **Raw label** (`scripts/evaluate_holdout.py`, WBS 6.4.6): macro-F1
-  **0.9592**; Scam recall 92.4% (38/498 missed).
-  `evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`.
+  **0.9614**; Scam recall 93.5% (32/491 missed).
+  `evaluation/holdout_confusion_2026-09-16T07-45-54Z.json`.
 - **What users see after routing** (`scripts/evaluate_holdout_buckets.py`,
-  added 2026-09-13): **17/498 real scams shown as safe (3.41%)**, **3/1,785
-  legitimate messages blocked (0.17%)**, 20/3,236 left as unknown (0.62%).
-  `evaluation/holdout_buckets_2026-09-12T16-47-44Z.json`. Its raw predictions
-  reproduce the 6.4.6 confusion matrix exactly, so both files describe the
-  same model on the same rows.
+  added 2026-09-13): **15/491 real scams shown as safe (3.05%)**, **4/1,787
+  legitimate messages blocked (0.22%)**, 20/3,236 left as unknown (0.62%).
+  `evaluation/holdout_buckets_2026-09-16T07-57-15Z.json`. Both runs report
+  `HOLDOUT integrity: ok` and `CHECKPOINT integrity: ok`, so they are pinned
+  to a known test set and a known checkpoint.
+
+**⚠️ These replace the figures first reported on 2026-08-27** (macro-F1
+0.9592, Scam recall 92.4%, 17/498 shown as safe, 3/1,785 blocked). The model
+did not change — the labels did. A blind review on 2026-09-16 of every
+holdout message carrying institutional or telco wording found **7 mislabelled
+rows** (5 Scam→Spam, 2 Scam→Ham): real messages from a school and from telcos
+that the rule cascade had called fraud. Six of the 38 scams the model was
+credited with "missing" were therefore never scams. **The correction did not
+only flatter the model** — legitimate messages wrongly blocked rose from 3 to
+4, a true false positive the old label had concealed. Original labels, review
+sheet, dated backup and the reasoning are recorded in
+`datasets/holdout/manifest.json` under `revisions`; the same pass corrected 99
+rows in the training pool, which the next retrain will pick up. This is a
+better estimate of the same model, not a better model.
 
 Quote the post-routing script in the thesis, not `evaluate_buckets.py`: that
 one draws a fresh split from `datasets/labeled/`, so its numbers move as the

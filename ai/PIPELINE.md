@@ -766,6 +766,36 @@ resolved them locally alongside `transformers==4.57.6` independent of
 Colab, and they matched what the live session reported for those two
 packages specifically — only its transformers reading was stale.
 
+**Upgraded to transformers 5.x — 2026-09-16.** The `<5.0` pin above was a
+hold, not a verdict, and holding it indefinitely meant carrying seven
+security advisories that only applied to the pinned versions. Now
+`transformers==5.17.0`, `datasets==5.0.1`, `accelerate==1.15.0`,
+`huggingface-hub==1.31.0` in `requirements.txt` and both `colab/*.ipynb`.
+
+`warmup_ratio` is gone from `TrainingArguments` for good in 5.x, so
+`training/train.py` computes the equivalent step count itself
+(`warmup_steps_for`), mirroring what Trainer's own arithmetic did: steps per
+epoch = ceil(rows / (batch × devices)), total = ceil(epochs × that), warmup =
+ceil(total × ratio). `config.warmup_ratio` stays the knob; only the way it
+reaches Trainer changed. The one test that asserted `warmup_ratio` is
+accepted now skips under 5.x, with that as its stated reason rather than
+being deleted.
+
+Verified before this landed: the full suite passes under 5.17
+(441 passed, 1 skipped — the one above); `pip-audit -r requirements.txt`
+with **no ignore flags** reports no known vulnerabilities, so CI's seven
+`--ignore-vuln` suppressions were dropped rather than carried forward; and —
+the check that actually matters for a dependency bump — the deployed
+checkpoint scored against the frozen holdout under 5.17 reproduces the
+committed 2026-08-27 result **exactly**: same macro-F1 (0.9592), same
+per-class metrics, same confusion matrix cell for cell
+(`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`, produced under
+4.57.6). A library upgrade that quietly shifted predictions would be far
+worse than one that failed loudly, so this was compared rather than assumed. The
+argument behind them (all needed an attacker-controlled Hub repo, and this
+codebase only loads its own local checkpoint) was sound but is now moot; a
+stale ignore list is where a genuinely relevant CVE would eventually hide.
+
 #### Two more silent data-corruption bugs, found in a pre-flight audit — 2026-08-27
 
 Maxene asked for everything to be checked before what was meant to be the

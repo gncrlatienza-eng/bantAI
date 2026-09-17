@@ -27,13 +27,21 @@ pydantic-settings>=2.2
 # session reported for those two packages specifically (only its transformers
 # reading was the stale one). All four pinned exactly so nothing is left for
 # pip to re-resolve differently on the next install.
-transformers==4.57.6        # 4.46+ renamed Trainer(tokenizer=) -> processing_class;
+#
+# 2026-09-13: upgraded to transformers 5.x. warmup_ratio is permanently gone in
+# 5.x, so training/train.py now computes the same step count itself
+# (warmup_steps_for, tested against 4.x's own arithmetic). Verified before
+# pinning: full test suite passes, and the deployed checkpoint's probabilities
+# and [CLS] embeddings are bit-for-bit identical to 4.57.6 on 500 holdout
+# messages, with the holdout confusion matrix unchanged. This clears 4 of the 7
+# pip-audit findings; the other 3 have no fixed release yet (see ci.yml).
+transformers==5.17.0        # processing_class, not tokenizer= (removed in 5.x);
                             # see the exact-pin rationale above for why ==, not >=.
 torch>=2.2
 sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
-datasets==4.0.0
-accelerate==1.14.0
-huggingface-hub==0.36.2      # transitive via transformers/datasets, declared and
+datasets==5.0.1
+accelerate==1.15.0
+huggingface-hub==1.31.0      # transitive via transformers/datasets, declared and
                             # pinned exactly for the same reason as the scipy pin
                             # below -- a transitive pin is free to disappear, and
                             # this is the version that actually resolved alongside

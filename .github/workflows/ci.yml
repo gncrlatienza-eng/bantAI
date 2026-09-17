@@ -24,32 +24,22 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
-      # 5 CVEs currently flagged in transformers==4.57.6 / datasets==4.0.0, all
-      # remote-code-execution / path-traversal bugs that trigger only when
-      # loading an attacker-controlled Hub repo (malicious config.json,
-      # malicious checkpoint, trust_remote_code bypass) or calling
-      # save_to_disk/push_to_hub on an untrusted folder-based dataset builder.
-      # This codebase never does either -- every from_pretrained() call here
-      # loads only our own locally-trained checkpoint (verified via repo-wide
-      # grep, 2026-08-27), and trust_remote_code is never set. Versions are
-      # pinned to what's verified to work with training/train.py's
-      # warmup_ratio usage (transformers>=5.0 dropped it in the 5.0.x line);
-      # bumping past these CVEs needs real Colab compatibility testing before
-      # trusting it, not a same-day version jump. Revisit if that's done.
+      # No ignores. Every one this step used to carry (PYSEC-2025-217,
+      # -2026-2288, -2289, -2290, -3716, -3929, -3804) was an advisory against
+      # transformers 4.57.6 / datasets 4.0.0 / accelerate <=1.14.0, each argued
+      # inapplicable because it needs an attacker-controlled Hub repo and this
+      # codebase only ever loads its own locally-trained checkpoint. The
+      # 2026-09-16 upgrade (transformers 5.17.0 / datasets 5.0.1 / accelerate
+      # 1.15.0 / huggingface-hub 1.31.0) fixes all seven, so the argument is no
+      # longer needed and the suppressions are gone with it: verified with
+      # `pip-audit -r requirements.txt` and no flags, which reports no known
+      # vulnerabilities.
       #
-      # 2026-09-12: two more, same class, same reasoning (verified via
-      # repo-wide grep of ai/*.py):
-      #   PYSEC-2026-3929 (transformers <5.10.0) -- path traversal in
-      #     tokenizer/processor save_pretrained() via malicious chat_template
-      #     keys from an attacker-controlled Hub repo. Our only
-      #     save_pretrained() call is training/train.py, saving our own
-      #     fine-tuned tokenizer locally; chat_template is never used
-      #     (XLM-RoBERTa-base ships none).
-      #   PYSEC-2026-3804 (accelerate <=1.14.0) -- path traversal / DoS in
-      #     load_checkpoint_in_model / load_checkpoint_and_dispatch via a
-      #     malicious sharded-checkpoint weight_map. Neither function is
-      #     called anywhere in this codebase.
-      - run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2025-217 --ignore-vuln PYSEC-2026-2288 --ignore-vuln PYSEC-2026-2289 --ignore-vuln PYSEC-2026-2290 --ignore-vuln PYSEC-2026-3716 --ignore-vuln PYSEC-2026-3929 --ignore-vuln PYSEC-2026-3804
+      # Keep it flagless. An ignore list is a standing claim that someone has
+      # read each advisory and decided it does not apply -- cheap to add during
+      # an upgrade crunch and easy to leave behind afterwards, at which point a
+      # genuinely relevant CVE hides among the stale entries.
+      - run: pip-audit -r requirements.txt
 
   backend:
     name: Backend (eslint, prettier, jest, build)

@@ -14,11 +14,24 @@ the Philippine smishing dataset and, realistically, a GPU.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from .config import TrainingConfig
 from .dataset import build_hf_datasets
 from .tokenizer import assert_vocab_size, get_tokenizer
+
+
+def warmup_steps_for(n_train: int, batch_size: int, n_devices: int, epochs: float, ratio: float) -> int:
+    """The step count transformers 4.x derived from ``warmup_ratio``; 5.x removed that argument.
+
+    Mirrors Trainer's own arithmetic (no gradient accumulation): steps per
+    epoch = ceil(rows / (batch x devices)), total = ceil(epochs x that),
+    warmup = ceil(total x ratio).
+    """
+    steps_per_epoch = max(math.ceil(n_train / (batch_size * max(1, n_devices))), 1)
+    return math.ceil(math.ceil(epochs * steps_per_epoch) * ratio)
 
 
 def compute_metrics(eval_pred):
@@ -90,7 +103,13 @@ def main(config: TrainingConfig | None = None) -> None:
         per_device_train_batch_size=config.train_batch_size,
         per_device_eval_batch_size=config.eval_batch_size,
         num_train_epochs=config.num_epochs,
-        warmup_ratio=config.warmup_ratio,
+        warmup_steps=warmup_steps_for(
+            len(train_ds),
+            config.train_batch_size,
+            torch.cuda.device_count(),
+            config.num_epochs,
+            config.warmup_ratio,
+        ),
         seed=config.seed,
         eval_strategy="epoch",
         save_strategy="epoch",

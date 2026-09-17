@@ -120,3 +120,36 @@ def test_a_dataset_without_an_origin_column_splits_as_before(tmp_path):
     train_texts, val_texts, _, _ = load_split(_write(tmp_path, rows))
     assert len(val_texts) == 8  # 20% of 40, unchanged
     assert len(train_texts) == 32
+# --- warm-up steps (transformers 5 removed TrainingArguments(warmup_ratio=)) ---
+def test_warmup_steps_match_the_real_training_runs():
+    """Checkpoint names prove steps/epoch: 2026-08-27 run 947 (checkpoint-2841 = 3x947), 07-29 run 697."""
+    from training.train import warmup_steps_for
+
+    assert warmup_steps_for(15150, 16, 1, 4, 0.1) == 379  # ceil(0.1 * 4 * 947)
+    assert warmup_steps_for(11140, 16, 1, 4, 0.1) == 279  # ceil(0.1 * 4 * 697)
+
+
+def test_warmup_steps_edge_cases():
+    from training.train import warmup_steps_for
+
+    assert warmup_steps_for(5, 16, 1, 4, 0.1) == 1  # fewer rows than one batch is still one step
+    assert warmup_steps_for(15150, 16, 0, 4, 0.1) == 379  # CPU (0 GPUs) counts as one device
+    assert warmup_steps_for(15150, 16, 2, 4, 0.1) == 190  # ceil(0.1 * 4 * ceil(15150 / 32))
+
+
+def test_warmup_steps_equal_transformers_own_warmup_ratio_math():
+    """Only runnable on transformers 4.x, which still has warmup_ratio: proves the replacement is exact."""
+    import math
+
+    import pytest
+
+    transformers = pytest.importorskip("transformers")
+    from training.train import warmup_steps_for
+
+    try:
+        args = transformers.TrainingArguments(output_dir="unused", warmup_ratio=0.1, report_to="none")
+    except TypeError:
+        pytest.skip("this transformers version no longer accepts warmup_ratio")
+    for n_train in (1, 16, 17, 11140, 15150):
+        total = math.ceil(4 * max(math.ceil(n_train / 16), 1))
+        assert warmup_steps_for(n_train, 16, 1, 4, 0.1) == args.get_warmup_steps(total)

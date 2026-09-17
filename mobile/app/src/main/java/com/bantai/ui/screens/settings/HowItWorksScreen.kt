@@ -80,6 +80,8 @@ fun HowItWorksScreen(navController: NavController) {
             Spacer(Modifier.height(10.dp))
         }
 
-        Spacer(Modifier.height(24.dp))
+        // Bottom clearance matches the floating tab bar's footprint (see
+        // MainScreen) -- this screen now renders behind that persistent bar.
+        Spacer(Modifier.height(116.dp))
     }
 }

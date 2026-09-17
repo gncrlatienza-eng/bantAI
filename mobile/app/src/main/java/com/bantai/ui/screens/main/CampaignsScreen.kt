@@ -31,7 +31,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -138,8 +137,7 @@ private fun LoadingRow() {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(SurfaceElevated)
+                .background(SurfaceElevated, RoundedCornerShape(18.dp))
                 .padding(20.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
@@ -157,8 +155,7 @@ private fun InfoRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(SurfaceElevated)
+                .background(SurfaceElevated, RoundedCornerShape(18.dp))
                 .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -177,15 +174,13 @@ private fun GroupedList(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(SurfaceElevated),
+                .background(SurfaceElevated, RoundedCornerShape(18.dp)),
     ) {
         items.forEachIndexed { index, campaign ->
             CampaignRow(campaign = campaign, onClick = { onClick(campaign) })
             if (index < items.lastIndex) {
                 HorizontalDivider(
                     color = Hairline,
-                    thickness = 0.5.dp,
                     modifier = Modifier.padding(start = 66.dp),
                 )
             }

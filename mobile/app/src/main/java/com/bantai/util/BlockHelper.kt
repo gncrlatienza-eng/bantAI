@@ -28,6 +28,17 @@ object BlockHelper {
         }
     }
 
+    fun isBlocked(
+        context: Context,
+        number: String,
+    ): Boolean =
+        try {
+            BlockedNumberContract.isBlocked(context, number)
+        } catch (e: Exception) {
+            Log.e(TAG, "isBlocked failed for $number", e)
+            false
+        }
+
     fun unblockNumberSystem(
         context: Context,
         number: String,

@@ -166,7 +166,7 @@ fun MessageDetailScreen(
         }
     }
 
-    val hasSuspicious = conversation.any { it.classification == "suspicious" }
+    val hasSuspicious = conversation.any { it.classification == "blocked" }
     val hasUnknown = conversation.any { it.classification == "unknown" }
     var showAISummary by remember { mutableStateOf(false) }
     var summaryText by remember { mutableStateOf<String?>(null) }
@@ -426,7 +426,7 @@ fun MessageDetailScreen(
                                         Modifier
                                             .widthIn(max = bubbleMaxWidth)
                                             .background(
-                                                color = if (msg.classification == "suspicious") Color(0xFF2A1A00) else Surface,
+                                                color = if (msg.classification == "blocked") Color(0xFF2A1A00) else Surface,
                                                 shape =
                                                     RoundedCornerShape(
                                                         topStart = 4.dp,
@@ -443,7 +443,7 @@ fun MessageDetailScreen(
                                             getRelativeTime(msg.timestamp),
                                             color =
                                                 if (msg.classification ==
-                                                    "suspicious"
+                                                    "blocked"
                                                 ) {
                                                     Suspicious.copy(alpha = 0.7f)
                                                 } else {

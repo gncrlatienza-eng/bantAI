@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.provider.Telephony
 import android.util.Log
+import com.bantai.BuildConfig
 import com.bantai.data.local.ClassificationStore
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.ApiConfig
@@ -78,7 +79,7 @@ object SmsIngestPipeline {
             val uri = context.contentResolver.insert(Telephony.Sms.Inbox.CONTENT_URI, values)
             uri?.let { ContentUris.parseId(it) }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to insert message from $sender", e)
+            if (BuildConfig.DEBUG) Log.e(TAG, "Failed to insert message from $sender", e)
             null
         }
     }
@@ -105,13 +106,14 @@ object SmsIngestPipeline {
 
         val result =
             if (token.isEmpty()) {
-                Log.w(TAG, "No auth token stored — classifying $sender locally")
+                if (BuildConfig.DEBUG) Log.w(TAG, "No auth token stored — classifying $sender locally")
                 null
             } else {
                 SmsApi
                     .ingest(token, sender, body, receivedAt, timeoutMs)
-                    .onFailure { Log.w(TAG, "Backend ingest failed for $sender — classifying locally", it) }
-                    .getOrNull()
+                    .onFailure {
+                        if (BuildConfig.DEBUG) Log.w(TAG, "Backend ingest failed for $sender — classifying locally", it)
+                    }.getOrNull()
             }
 
         if (result != null) {
@@ -152,13 +154,13 @@ object SmsIngestPipeline {
 
         when (result.action) {
             SmsApi.Action.BLOCKED -> {
-                persistClassification(context, messageId, "suspicious")
+                persistClassification(context, messageId, "blocked")
                 BlockHelper.blockNumberSystem(context, sender)
                 NotificationHelper.sendSmishingAlert(context, sender, notifId)
             }
             SmsApi.Action.ALERT -> {
-                persistClassification(context, messageId, "unknown")
-                NotificationHelper.sendSuspiciousAlert(context, sender, notifId)
+                persistClassification(context, messageId, "spam")
+                NotificationHelper.sendSpamAlert(context, sender, notifId)
             }
             // A normal, non-threatening message — BantAI is standing in for the
             // user's regular texting app, so this still needs an ordinary notification.
@@ -177,17 +179,20 @@ object SmsIngestPipeline {
         notifId: Int,
         messageId: Long?,
     ) {
+        // The offline heuristic is a keyword/pattern score, not a confident AI
+        // verdict — it can only ever land on "unknown" (reviewable) or
+        // "unverified" (nothing suspicious found, but the backend never actually
+        // checked it — deliberately not "safe", which is reserved for a genuine
+        // backend verdict in applyBackendAction below). Never "blocked" (that
+        // requires a real backend result) or "spam" (it has no way to detect
+        // promotional content at all).
         val classification = repository.classifyMessagePublic(sender, body)
         persistClassification(context, messageId, classification)
         when (classification) {
-            "suspicious" -> {
-                BlockHelper.blockNumberSystem(context, sender)
-                NotificationHelper.sendSmishingAlert(context, sender, notifId)
-            }
             "unknown" -> {
                 NotificationHelper.sendSuspiciousAlert(context, sender, notifId)
             }
-            // "safe" — still a normal incoming message, still needs a notification
+            // "unverified" — still a normal incoming message, still needs a notification
             else -> NotificationHelper.sendMessageNotification(context, sender, body, notifId)
         }
     }

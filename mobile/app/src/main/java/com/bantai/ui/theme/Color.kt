@@ -24,3 +24,9 @@ val AvatarRed = Color(0xFFFF4444)
 val AvatarPink = Color(0xFFE91E8C)
 val AvatarGreen = Color(0xFF4CAF50)
 val AvatarPurple = Color(0xFF9C27B0)
+
+// Shared translucent "glass" material — the same dark scrim + hairline stroke
+// used by the floating nav pill (MainScreen), reused wherever else a surface
+// should read as glass rather than a flat opaque card.
+val GlassFill = Color(0xE61A1A1F)
+val GlassStroke = Color(0x21FFFFFF)

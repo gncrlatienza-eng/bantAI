@@ -32,7 +32,6 @@ enum class MessageFilter(
 ) {
     MESSAGES("Messages"),
     SPAM("Spam"),
-    BLOCKED("Blocked"),
     UNKNOWN("Unknown"),
     RECENTLY_DELETED("Recently Deleted"),
     UNREAD("Unread"),
@@ -261,19 +260,20 @@ class MessagesViewModel(
 
         _inboxMessages.value = filtered
 
-        val suspicious = filtered.filter { it.classification == "suspicious" }
-        _suspiciousMessages.value = suspicious
-        _suspiciousTodayCount.value = suspicious.count { isToday(it.timestamp) }
+        val spam = filtered.filter { it.classification == "spam" }
+        _suspiciousMessages.value = spam
+        _suspiciousTodayCount.value = spam.count { isToday(it.timestamp) }
 
         val unknown = filtered.filter { it.classification == "unknown" }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
 
-        // Team rule: scams are auto-blocked, promotional goes to Spam,
-        // the main Messages list keeps only legitimate/unclassified mail.
+        // Team rule: confirmed scams are auto-blocked and live only in the
+        // Alerts tab; promotional/ad content goes to the Spam chip; the main
+        // Messages list keeps only legitimate/unclassified mail.
         val legitimate =
             filtered.filter {
-                it.classification != "suspicious" && it.classification != "blocked"
+                it.classification != "spam" && it.classification != "blocked"
             }
         val deletedFiltered =
             if (query.isEmpty()) {
@@ -301,8 +301,7 @@ class MessagesViewModel(
         _visibleMessages.value =
             when (_selectedFilter.value) {
                 MessageFilter.MESSAGES -> legitimate.groupedBySenderLatest()
-                MessageFilter.SPAM -> suspicious.groupedBySenderLatest()
-                MessageFilter.BLOCKED -> filtered.filter { it.classification == "blocked" }.groupedBySenderLatest()
+                MessageFilter.SPAM -> spam.groupedBySenderLatest()
                 MessageFilter.UNKNOWN -> unknown.groupedBySenderLatest()
                 MessageFilter.RECENTLY_DELETED -> deletedFiltered.groupedBySenderLatest()
                 MessageFilter.UNREAD -> legitimate.filter { !it.isRead }.groupedBySenderLatest()
@@ -347,14 +346,14 @@ class MessagesViewModel(
             // Deleting a row from Spam, for example, must not silently also delete
             // that same sender's unrelated Safe messages the user never saw or
             // selected — Messages/Unread are the exception since they already show
-            // the full non-suspicious/non-blocked thread.
+            // the full non-spam thread (getConversationBySender already excludes
+            // Blocked entirely, since that lives only in Alerts now).
             val idsToDelete = mutableSetOf<Long>()
             for (row in selectedRows) {
                 val conversation = smsRepository.getConversationBySender(row.sender)
                 val matching =
                     when (filter) {
-                        MessageFilter.SPAM -> conversation.filter { it.classification == "suspicious" }
-                        MessageFilter.BLOCKED -> conversation.filter { it.classification == "blocked" }
+                        MessageFilter.SPAM -> conversation.filter { it.classification == "spam" }
                         MessageFilter.UNKNOWN -> conversation.filter { it.classification == "unknown" }
                         else -> conversation
                     }

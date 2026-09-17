@@ -102,7 +102,9 @@ fun ScamAwarenessScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            // Bottom clearance matches the floating tab bar's footprint (see
+            // MainScreen) -- this screen now renders behind that persistent bar.
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(tips.size) { i ->

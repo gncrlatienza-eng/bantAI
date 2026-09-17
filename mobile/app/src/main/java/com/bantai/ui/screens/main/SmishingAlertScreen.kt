@@ -14,18 +14,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,8 +32,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,10 +41,12 @@ import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
@@ -75,28 +74,27 @@ fun SmishingAlertScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
+        // iOS-style back affordance: chevron + the screen you're returning to,
+        // not a generic "Back" label or a repeated page title -- the hero
+        // block right below already establishes what this screen is.
+        Row(
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .padding(top = 6.dp)
+                    .clickable { navController.popBackStack() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
-            }
-            Text(
-                "Smishing Alert",
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                modifier = Modifier.align(Alignment.Center),
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBackIos,
+                contentDescription = "Back",
+                tint = Indigo,
+                modifier = Modifier.size(16.dp),
             )
+            Spacer(Modifier.width(2.dp))
+            Text("Alerts", color = Indigo, fontSize = 15.sp)
         }
-        HorizontalDivider(color = Surface)
 
         when {
             isLoading ->
@@ -124,260 +122,187 @@ private fun SmishingAlertContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        // Bottom clearance matches the floating tab bar's footprint (see
+        // MainScreen) -- this screen now renders behind that persistent bar.
+        contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 116.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // Auto-blocked banner
-        item {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
-                Column {
-                    Text("Number auto-blocked", color = Danger, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(
-                        "${alert.sender} has been blocked. It can no longer send you messages.",
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                    )
-                }
-            }
-        }
-
-        // Sender info card
+        // Hero: centered status pill, big classification title, confidence +
+        // sender subtitle -- the message's own headline instead of splitting
+        // that same information across an icon, a label and a side column.
         item {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(alert.sender, color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = 12.sp)
-                    }
-                    alert.score?.let { score ->
-                        Text("${(score * 100).roundToInt()}% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                }
-                // Real campaign association (backend-sourced clusterId) — dropped back
-                // in August when this screen still showed mock content with no real
-                // link target; the data has been available in GET /sms/alerts all
-                // along, just never parsed on the mobile side until now.
-                alert.clusterId?.let { clusterId ->
-                    HorizontalDivider(color = Color(0xFF2A2A2A))
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Hub,
-                            contentDescription = null,
-                            tint = Suspicious,
-                            modifier = Modifier.size(14.dp),
-                        )
-                        Text(
-                            "Part of a tracked campaign",
-                            color = Suspicious,
-                            fontSize = 12.sp,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text("View campaign →", color = Indigo, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-
-        // Blocked message content header
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    "BLOCKED MESSAGE CONTENT",
-                    color = Color(0xFF666666),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
-                Box(
                     modifier =
                         Modifier
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                            .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Read-only", color = TextSecondary, fontSize = 10.sp)
+                    Box(modifier = Modifier.size(6.dp).background(Danger, CircleShape))
+                    Text("Blocked", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    alert.label?.replaceFirstChar { it.uppercase() } ?: "Smishing",
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 30.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    buildString {
+                        alert.score?.let { append("${(it * 100).roundToInt()}% confidence · ") }
+                        append(alert.sender)
+                    },
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                )
+            }
+        }
+
+        // Real campaign association (backend-sourced clusterId) -- only
+        // renders when the backend actually clustered this message into a
+        // tracked campaign, not just whenever this screen is shown.
+        alert.clusterId?.let { clusterId ->
+            item {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                            .clickable { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Default.Hub, contentDescription = null, tint = Suspicious, modifier = Modifier.size(14.dp))
+                    Text(
+                        "Part of a tracked campaign",
+                        color = Suspicious,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text("View →", color = Suspicious, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
 
-        // Message bubble
+        // Message content
         item {
+            SectionLabel("MESSAGE")
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(12.dp),
+                        .background(SurfaceElevated, RoundedCornerShape(18.dp))
+                        .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
-                            .padding(12.dp),
-                ) {
-                    Text(alert.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
-                    Spacer(Modifier.height(4.dp))
+                Text(alert.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
+                Text(formatFullTimestamp(alert.receivedAt), color = TextTertiary, fontSize = 11.sp)
+            }
+        }
+
+        // Why flagged -- one grouped card of plain rows (reason, then how strong
+        // a signal it was) instead of a progress bar per indicator; reads faster
+        // and matches the rest of this screen's flatter, simpler card language.
+        item {
+            SectionLabel("WHY IT WAS FLAGGED")
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceElevated, RoundedCornerShape(18.dp)),
+            ) {
+                if (indicators.isEmpty()) {
                     Text(
-                        formatTimeOnly(alert.receivedAt),
+                        "Still computing explainability for this message.",
                         color = TextSecondary,
-                        fontSize = 11.sp,
-                        modifier = Modifier.align(Alignment.End),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(16.dp),
                     )
-                }
-            }
-        }
-
-        // Why flagged section label
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    "WHY BANTAI FLAGGED THIS",
-                    color = Color(0xFF666666),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
-                Text(
-                    "These SHAP-derived features contributed to the classification. Longer bars = stronger signal.",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                )
-            }
-        }
-
-        // SHAP feature bars
-        item {
-            if (indicators.isEmpty()) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                ) {
-                    Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
-                }
-            } else {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    indicators.forEach { indicator ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Bottom,
-                            ) {
-                                Text(indicator.tag, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text(
-                                    "${(indicator.weight.coerceIn(0.0, 1.0) * 100).roundToInt()}%",
-                                    color = Danger,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            }
-                            LinearProgressIndicator(
-                                progress = { indicator.weight.coerceIn(0.0, 1.0).toFloat() },
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                color = Danger,
-                                trackColor = Color(0xFF2A2A2A),
+                } else {
+                    indicators.forEachIndexed { index, indicator ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                indicator.tag,
+                                color = White,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f),
                             )
+                            Text(severityLabel(indicator.weight), color = TextSecondary, fontSize = 13.sp)
+                        }
+                        if (index != indicators.lastIndex) {
+                            HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 16.dp))
                         }
                     }
                 }
             }
         }
 
-        // Classification summary card
+        // Actions -- only what's actually wired end to end. There's no
+        // standalone "mark as safe" or per-alert delete yet, and report/block
+        // share one confirm flow, so this is a single honest row into it
+        // rather than several buttons that all land on the same screen.
         item {
-            Column(
+            Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                        .background(SurfaceElevated, RoundedCornerShape(18.dp))
+                        .clickable {
+                            navController.navigate(Screen.TakeAction.createRoute(alert.messageId, alert.sender))
+                        }.padding(horizontal = 16.dp, vertical = 15.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
-                Text(
-                    buildString {
-                        append("Classified as ")
-                        append(alert.label ?: "smishing")
-                        alert.score?.let { append(" with ${(it * 100).roundToInt()}% confidence") }
-                        append(". The sender was auto-blocked based on this result.")
-                    },
-                    color = White,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
+                Text("Report or block sender", color = Indigo, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Indigo,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
     }
 }
 
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text,
+        color = TextTertiary,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.6.sp,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+}
+
+private fun severityLabel(weight: Double): String =
+    when (weight.coerceIn(0.0, 1.0)) {
+        in 0.66..1.0 -> "High"
+        in 0.33..0.66 -> "Medium"
+        else -> "Low"
+    }
+
 private fun formatFullTimestamp(iso: String): String =
     try {
         Instant
             .parse(iso)
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US))
-    } catch (_: Exception) {
-        ""
-    }
-
-private fun formatTimeOnly(iso: String): String =
-    try {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
+            .format(DateTimeFormatter.ofPattern("MMM d 'at' h:mm a", Locale.US))
     } catch (_: Exception) {
         ""
     }

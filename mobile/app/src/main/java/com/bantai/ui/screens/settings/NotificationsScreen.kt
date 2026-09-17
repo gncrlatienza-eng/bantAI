@@ -1,5 +1,11 @@
 package com.bantai.ui.screens.settings
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,8 +41,10 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,11 +54,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.data.remote.SmsApi
@@ -68,7 +82,7 @@ fun NotificationsScreen(
     navController: NavController,
     viewModel: SettingsViewModel,
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     val smishingAlerts by viewModel.smishingAlerts.collectAsState()
     val suspiciousAlerts by viewModel.suspiciousAlerts.collectAsState()
     val autoBlockNotice by viewModel.autoBlockNotice.collectAsState()
@@ -191,9 +205,75 @@ private fun ThreatAlertsTab(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        // Bottom clearance matches the floating tab bar's footprint (see
+        // MainScreen) -- this screen now renders behind that persistent bar.
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        item {
+            // The toggles below only control which BantAI alert types are sent — they
+            // can't make Android deliver a notification without the OS-level
+            // POST_NOTIFICATIONS permission. Surface that gap explicitly rather than
+            // letting a user believe alerts are "on" when the system will silently
+            // drop them (see NotificationHelper.canPostNotifications).
+            val context = LocalContext.current
+            val isGranted = {
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+            }
+            var notificationsGranted by remember { mutableStateOf(isGranted()) }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer =
+                    LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) notificationsGranted = isGranted()
+                    }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
+            if (!notificationsGranted) {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent =
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    }
+                                context.startActivity(intent)
+                            }.padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.WarningAmber,
+                        contentDescription = null,
+                        tint = Suspicious,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Notifications are off for BantAI",
+                            color = White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                        )
+                        Text(
+                            "Threat alerts below won't reach you until you turn on notifications " +
+                                "in system settings. Tap to fix this.",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             Text(
                 "This is how BantAI notifies you when a smishing or suspicious message is detected. Tap a notification to expand it.",
@@ -390,9 +470,12 @@ private fun ToggleRow(
 
 @Composable
 private fun WeeklyDigestTab() {
+    val context = LocalContext.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        // Bottom clearance matches the floating tab bar's footprint (see
+        // MainScreen) -- this screen now renders behind that persistent bar.
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -515,7 +598,11 @@ private fun WeeklyDigestTab() {
                         .fillMaxWidth()
                         .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
                         .border(1.dp, Indigo, RoundedCornerShape(12.dp))
-                        .padding(14.dp),
+                        .clickable {
+                            Toast
+                                .makeText(context, "Weekly reports aren't sent yet — coming in a future update.", Toast.LENGTH_LONG)
+                                .show()
+                        }.padding(14.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(

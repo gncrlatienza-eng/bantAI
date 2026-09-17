@@ -179,7 +179,9 @@ fun EditProfileScreen(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp)
+                    // Bottom clearance matches the floating tab bar's footprint
+                    // (see MainScreen) -- this screen now renders behind it.
+                    .padding(bottom = 116.dp)
                     .height(52.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B4FE8)),
             shape = RoundedCornerShape(12.dp),

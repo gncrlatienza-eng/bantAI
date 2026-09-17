@@ -6,14 +6,21 @@
         </trust-anchors>
     </base-config>
     <!-- Debug-only: plain HTTP to the backend on the development machine.
-         localhost = USB device via `adb reverse`; 10.0.2.2 = emulator host alias.
-         This file overrides res/main's stricter version for debug builds only
-         (Gradle resource merging picks src/debug over src/main) — a release
-         build never has any cleartext exception, closing the gap where a
-         malicious co-resident app could bind localhost:3000 and intercept
-         plaintext OTP/JWT traffic. -->
+         localhost = USB device via `adb reverse`; 10.0.2.2 = emulator host alias;
+         the third entry is the dev laptop's LAN IP, for a real device on the same
+         wifi with no USB/adb reverse needed at all. This file overrides res/main's
+         stricter version for debug builds only (Gradle resource merging picks
+         src/debug over src/main) — a release build never has any cleartext
+         exception, closing the gap where a malicious co-resident app could bind
+         localhost:3000 (or spoof the LAN IP) and intercept plaintext OTP/JWT
+         traffic.
+         The LAN IP is DHCP-assigned and can change (router reboot, lease renewal)
+         — check it with `ipconfig` (Wi-Fi adapter IPv4 Address) and update both
+         this entry and BACKEND_BASE_URL in build.gradle.kts if the backend stops
+         being reachable. A DHCP reservation on the router avoids this. -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">localhost</domain>
         <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">192.168.0.125</domain>
     </domain-config>
 </network-security-config>

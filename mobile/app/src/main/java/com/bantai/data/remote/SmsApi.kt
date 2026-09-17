@@ -94,12 +94,18 @@ object SmsApi {
             sender = message.optString("sender"),
             body = message.optString("body"),
             receivedAt = message.optString("receivedAt"),
-            label = classification?.optString("label")?.takeIf { it.isNotEmpty() },
+            label = classification?.optNullableString("label"),
             score = classification?.takeIf { it.has("score") }?.optDouble("score"),
-            bucket = classification?.optString("bucket")?.takeIf { it.isNotEmpty() },
-            clusterId = message.optString("clusterId").takeIf { it.isNotEmpty() },
+            bucket = classification?.optNullableString("bucket"),
+            clusterId = message.optNullableString("clusterId"),
         )
     }
+
+    // org.json's optString(name) turns a JSON `null` value into the literal 4-char
+    // string "null" (JSONObject.NULL.toString()), not a real null — so a plain
+    // isNotEmpty() check doesn't catch it. That literal string previously slipped
+    // through as a real clusterId and crashed campaign navigation.
+    private fun JSONObject.optNullableString(name: String): String? = optString(name).takeIf { it.isNotEmpty() && it != "null" }
 
     private fun parseIndicators(json: JSONObject): List<IndicatorTag> {
         val indicators = json.optJSONArray("indicators") ?: return emptyList()

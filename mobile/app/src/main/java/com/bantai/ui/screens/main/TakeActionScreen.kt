@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.remote.BlockedNumbersApi
 import com.bantai.data.remote.ReportsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
@@ -64,6 +66,7 @@ import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
+import com.bantai.util.BlockHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -74,8 +77,8 @@ private val reportTypes = listOf("Smishing / Phishing", "Spam", "Wrong classific
 // unambiguous mappings are wired to the real POST /reports call; "Wrong
 // classification" and "Other" don't imply a specific corrected label, so
 // submitting one would just be a guess written into data that feeds AI
-// retraining — those two keep the pre-existing (no-op) confirmation flow
-// until there's a real design for what they should report.
+// retraining — those two are rejected with an explanation at submit time
+// (see onConfirm below) until there's a real design for what they should report.
 private fun reportedLabelFor(reportTypeIndex: Int): String? =
     when (reportTypeIndex) {
         0 -> "Scam" // Smishing / Phishing
@@ -83,22 +86,72 @@ private fun reportedLabelFor(reportTypeIndex: Int): String? =
         else -> null // Wrong classification / Other — ambiguous, not wired
     }
 
-private suspend fun submitReport(
+private data class TakeActionRequest(
+    val reportSelected: Boolean,
+    val blockSelected: Boolean,
+    val messageId: String,
+    val sender: String,
+    val reportedLabel: String?,
+)
+
+private suspend fun submitReportIfSelected(
     context: Context,
-    messageId: String,
-    reportedLabel: String,
+    request: TakeActionRequest,
 ): Result<Unit> {
+    if (!request.reportSelected) return Result.success(Unit)
+    if (request.reportedLabel == null || request.messageId.isBlank()) {
+        // Ambiguous report type ("Wrong classification"/"Other") or no message to
+        // attach the report to — nothing to submit, so say so instead of silently
+        // no-opping into a "submitted" confirmation screen.
+        return Result.failure(
+            Exception("This report type isn't available yet for this message — try Smishing/Phishing or Spam."),
+        )
+    }
     val token = UserPreferences(context).userData.first().authToken
     if (token.isEmpty()) return Result.failure(Exception("Sign in to submit a report"))
-    return ReportsApi.submit(token, messageId, reportedLabel)
+    return ReportsApi.submit(token, request.messageId, request.reportedLabel)
+}
+
+// Blocks at the device level (the part that actually stops the sender), then
+// best-effort mirrors the block to the backend for cross-device sync — same
+// split BlockedNumbersViewModel.reconcileWithBackend() uses. Verifies the
+// device-level block actually landed before reporting success, since the
+// confirmation screen's "can no longer send you messages" claim must be true,
+// not just attempted.
+private suspend fun blockIfSelected(
+    context: Context,
+    request: TakeActionRequest,
+): Result<Unit> {
+    if (!request.blockSelected) return Result.success(Unit)
+    if (request.sender.isBlank()) return Result.failure(Exception("Can't block — no number for this message."))
+    BlockHelper.blockNumberSystem(context, request.sender)
+    if (!BlockHelper.isBlocked(context, request.sender)) {
+        return Result.failure(Exception("Couldn't block this number"))
+    }
+    val token = UserPreferences(context).userData.first().authToken
+    if (token.isNotEmpty()) BlockedNumbersApi.block(token, request.sender)
+    return Result.success(Unit)
+}
+
+// Performs whichever of Report/Block were selected and only reports success once
+// every selected action has actually happened — no more treating "nothing
+// submittable" as equivalent to success.
+private suspend fun performTakeAction(
+    context: Context,
+    request: TakeActionRequest,
+): Result<Unit> {
+    val reportResult = submitReportIfSelected(context, request)
+    if (reportResult.isFailure) return reportResult
+    return blockIfSelected(context, request)
 }
 
 /**
  * @param messageId backend `SmsMessage` UUID for the message being reported — required
- *   for a real submission. Blank when the caller doesn't have one (see NavGraph.kt),
- *   in which case Report falls back to the old confirm-only, no-op behavior rather
- *   than submitting a fabricated id.
- * @param sender shown in the confirmation dialog; blank falls back to a generic label.
+ *   for a real submission. Blank when the caller doesn't have one (see NavGraph.kt), in
+ *   which case attempting to Report is rejected with an explanatory toast rather than
+ *   submitting a fabricated id or silently no-opping into a "submitted" confirmation.
+ * @param sender shown in the confirmation dialog, and required to actually Block (a
+ *   blank sender rejects the block with an explanatory toast for the same reason).
  */
 @Composable
 fun TakeActionScreen(
@@ -110,7 +163,7 @@ fun TakeActionScreen(
     val coroutineScope = rememberCoroutineScope()
     var reportSelected by remember { mutableStateOf(false) }
     var blockSelected by remember { mutableStateOf(false) }
-    var selectedReportType by remember { mutableStateOf(0) }
+    var selectedReportType by remember { mutableIntStateOf(0) }
     var notes by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -136,21 +189,17 @@ fun TakeActionScreen(
             onDismiss = { showDialog = false },
             onConfirm = {
                 val reportedLabel = reportedLabelFor(selectedReportType)
-                if (!reportSelected || reportedLabel == null || messageId.isBlank()) {
-                    // Nothing submittable (Block-only, or an ambiguous/unwireable
-                    // report type) — same no-op confirmation flow as before.
-                    proceedAfterConfirm()
-                    return@ConfirmationDialog
-                }
                 isSubmitting = true
                 coroutineScope.launch {
-                    val result = submitReport(context, messageId, reportedLabel)
+                    val request =
+                        TakeActionRequest(reportSelected, blockSelected, messageId, sender, reportedLabel)
+                    val result = performTakeAction(context, request)
                     isSubmitting = false
                     result
                         .onSuccess { proceedAfterConfirm() }
                         .onFailure { error ->
                             Toast
-                                .makeText(context, error.message ?: "Could not submit report", Toast.LENGTH_SHORT)
+                                .makeText(context, error.message ?: "Something went wrong", Toast.LENGTH_LONG)
                                 .show()
                         }
                 }

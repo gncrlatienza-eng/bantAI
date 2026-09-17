@@ -19,10 +19,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,8 +29,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +40,7 @@ import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
@@ -70,6 +68,15 @@ fun AlertsScreen(
     // badge stays live even while this screen isn't the one on screen — this
     // composable just observes whatever the ViewModel already has.
 
+    val (todayAlerts, earlierAlerts) = alerts.partition { isToday(it.receivedAt) }
+
+    fun onAlertClick(alert: SmsApi.AlertSummary) {
+        val blocked = alert.status.equals("Blocked", ignoreCase = true)
+        navController.navigate(
+            if (blocked) Screen.SmishingAlert.createRoute(alert.messageId) else Screen.ThreatAnalysis.createRoute(alert.messageId),
+        )
+    }
+
     LazyColumn(
         modifier =
             Modifier
@@ -83,26 +90,27 @@ fun AlertsScreen(
                 end = 20.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
-            Text("Alerts", color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(7.dp)
-                            .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged",
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                )
+            Column {
+                Text("Alerts", color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(7.dp)
+                                .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged",
+                        color = TextSecondary,
+                        fontSize = 14.sp,
+                    )
+                }
             }
-            Spacer(Modifier.height(4.dp))
         }
 
         when {
@@ -127,93 +135,122 @@ fun AlertsScreen(
                         )
                     }
                 }
-            else ->
-                alerts.forEach { alert ->
-                    val blocked = alert.status.equals("Blocked", ignoreCase = true)
+            else -> {
+                if (todayAlerts.isNotEmpty()) {
                     item {
-                        AlertCard(
-                            alert = alert,
-                            blocked = blocked,
-                            onClick = {
-                                navController.navigate(
-                                    if (blocked) {
-                                        Screen.SmishingAlert.createRoute(alert.messageId)
-                                    } else {
-                                        Screen.ThreatAnalysis.createRoute(alert.messageId)
-                                    },
-                                )
-                            },
-                        )
+                        AlertSection(title = "TODAY", sectionAlerts = todayAlerts, onAlertClick = ::onAlertClick)
                     }
                 }
+                if (earlierAlerts.isNotEmpty()) {
+                    item {
+                        AlertSection(title = "EARLIER", sectionAlerts = earlierAlerts, onAlertClick = ::onAlertClick)
+                    }
+                }
+                item {
+                    Text(
+                        "Protection is on. Messages are scanned on this device.",
+                        color = TextTertiary,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Grouped-list style: one glass card per section (Today / Earlier) holding all
+// its rows, divided by hairlines, rather than a separate floating card per
+// alert -- reads as one coherent list instead of a stack of loose tiles.
+@Composable
+private fun AlertSection(
+    title: String,
+    sectionAlerts: List<SmsApi.AlertSummary>,
+    onAlertClick: (SmsApi.AlertSummary) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            title,
+            color = TextTertiary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.6.sp,
+        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceElevated, RoundedCornerShape(18.dp)),
+        ) {
+            sectionAlerts.forEachIndexed { index, alert ->
+                val blocked = alert.status.equals("Blocked", ignoreCase = true)
+                AlertRow(alert = alert, blocked = blocked, onClick = { onAlertClick(alert) })
+                if (index != sectionAlerts.lastIndex) {
+                    HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 20.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun AlertCard(
+private fun AlertRow(
     alert: SmsApi.AlertSummary,
     blocked: Boolean,
     onClick: () -> Unit,
 ) {
     val accent = if (blocked) Danger else Suspicious
-    val icon: ImageVector = if (blocked) Icons.Default.Block else Icons.Default.Warning
 
-    Column(
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(16.dp))
                 .clickable(onClick = onClick)
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(38.dp)
-                        .background(accent.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.size(8.dp).background(accent, CircleShape))
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     alert.sender,
                     color = White,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
+                Spacer(Modifier.width(8.dp))
+                Text(formatAlertTime(alert.receivedAt), color = TextTertiary, fontSize = 12.sp)
             }
-            Spacer(Modifier.width(8.dp))
-            Text(formatAlertTime(alert.receivedAt), color = TextSecondary, fontSize = 13.sp)
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = TextTertiary,
-                modifier = Modifier.size(18.dp),
+            Spacer(Modifier.height(2.dp))
+            Text(
+                alert.body,
+                color = TextSecondary,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
-
-        Text(
-            alert.body,
-            color = TextSecondary,
-            fontSize = 14.sp,
-            lineHeight = 19.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-
-        StatusPill(
-            label = if (blocked) "Auto-blocked" else "Suspicious",
-            color = accent,
+        Spacer(Modifier.width(6.dp))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = TextTertiary,
+            modifier = Modifier.size(16.dp),
         )
     }
 }
+
+private fun isToday(iso: String): Boolean =
+    try {
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate() == ZonedDateTime.now().toLocalDate()
+    } catch (_: Exception) {
+        false
+    }
 
 private fun formatAlertTime(iso: String): String =
     try {
@@ -229,18 +266,3 @@ private fun formatAlertTime(iso: String): String =
     } catch (_: Exception) {
         ""
     }
-
-@Composable
-private fun StatusPill(
-    label: String,
-    color: Color,
-) {
-    Box(
-        modifier =
-            Modifier
-                .background(color.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-                .padding(horizontal = 9.dp, vertical = 3.dp),
-    ) {
-        Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-    }
-}

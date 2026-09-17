@@ -379,12 +379,30 @@ def test_confirming_a_row_is_not_a_rejection(tmp_path):
     write_csv(
         tmp_path / "reviewed.csv",
         [
-            {"text": "a", "label": "Scam", "category": "c", "origin": "variant",
-             "seed_id": "keep", "correct_label": "SCAM"},
-            {"text": "b", "label": "Scam", "category": "c", "origin": "variant",
-             "seed_id": "keep2", "correct_label": "scam"},
-            {"text": "c", "label": "Scam", "category": "c", "origin": "variant",
-             "seed_id": "drop", "correct_label": "Ham"},
+            {
+                "text": "a",
+                "label": "Scam",
+                "category": "c",
+                "origin": "variant",
+                "seed_id": "keep",
+                "correct_label": "SCAM",
+            },
+            {
+                "text": "b",
+                "label": "Scam",
+                "category": "c",
+                "origin": "variant",
+                "seed_id": "keep2",
+                "correct_label": "scam",
+            },
+            {
+                "text": "c",
+                "label": "Scam",
+                "category": "c",
+                "origin": "variant",
+                "seed_id": "drop",
+                "correct_label": "Ham",
+            },
         ],
         ["text", "label", "category", "origin", "seed_id", "correct_label"],
     )

@@ -711,9 +711,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         # 2026-09-17 nothing ever *wrote* it -- a reviewer had to add the
         # column by hand before the loop could close, which is exactly the
         # sort of undocumented manual step that silently does not happen.
-        writer = csv.DictWriter(
-            handle, fieldnames=["text", "label", "category", "origin", "seed_id", "correct_label"]
-        )
+        writer = csv.DictWriter(handle, fieldnames=["text", "label", "category", "origin", "seed_id", "correct_label"])
         writer.writeheader()
         writer.writerows({**row, "correct_label": ""} for row in rows)
 

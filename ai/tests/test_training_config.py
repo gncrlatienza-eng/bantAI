@@ -120,6 +120,8 @@ def test_a_dataset_without_an_origin_column_splits_as_before(tmp_path):
     train_texts, val_texts, _, _ = load_split(_write(tmp_path, rows))
     assert len(val_texts) == 8  # 20% of 40, unchanged
     assert len(train_texts) == 32
+
+
 # --- warm-up steps (transformers 5 removed TrainingArguments(warmup_ratio=)) ---
 def test_warmup_steps_match_the_real_training_runs():
     """Checkpoint names prove steps/epoch: 2026-08-27 run 947 (checkpoint-2841 = 3x947), 07-29 run 697."""

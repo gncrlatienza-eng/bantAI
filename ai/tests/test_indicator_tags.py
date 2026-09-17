@@ -132,3 +132,39 @@ def test_to_indicator_dicts_matches_backend_shape():
 
 def test_no_tags_for_plain_message():
     assert tags_for_message("Hi, what time are we meeting tomorrow?") == []
+
+
+# --- task-scam vocabulary (2026-09-18) --------------------------------------
+def test_task_scams_are_recognised_as_fake_job_offers():
+    """Piecework scams are a distinct family from work-from-home, and nothing
+    in the original list reached them. The middle case previously came back as
+    *Gambling Bait*, because "red envelope" is in that tag's vocabulary -- a
+    user being recruited into a fake job was told it was a betting advert."""
+    from preprocessing import preprocess
+    from service.indicator_tags import tags_for_message
+
+    for text in (
+        "Make money while watching YouTube, earn 500P per day, contact the tutor to receive 138P.",
+        "Part-time car reviewer, easily earn 300P high income, contact the manager for your 138P red envelope.",
+        "Mag-recruit ng mga reviewer ng kotse, sumali at makakuha ng 138p.",
+        "It is easier to get a daily salary of 300P. Just contact the instructor on your mobile phone.",
+    ):
+        tags = {t.tag for t in tags_for_message(text, preprocess(text))}
+        assert "Fake Job Offer" in tags, text
+
+
+def test_the_added_phrases_carry_no_common_word_into_the_shap_path():
+    """``explainer._tokens_to_tags`` splits a phrase into words and fires on any
+    single one of >=4 characters, so a phrase is only as safe as its commonest
+    word. "make money while watching" would have made *money* a standalone
+    Fake Job Offer trigger; it appears in 3.2% of Ham."""
+    import re
+
+    from service.indicator_tags import _FAKE_JOB_OFFER
+
+    banned = {"money", "make", "contact", "receive", "your", "earn"}
+    added = {"while watching", "the tutor", "car reviewer", "reviewer ng kotse", "daily salary"}
+    for phrase in added:
+        assert phrase in _FAKE_JOB_OFFER, f"{phrase} missing from the lexicon"
+        words = {w for w in re.split(r"[^a-z0-9]+", phrase.lower()) if len(w) >= 4}
+        assert not (words & banned), f"{phrase!r} would make {words & banned} a standalone trigger"

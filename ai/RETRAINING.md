@@ -33,12 +33,15 @@ each catches what the others miss.
 |---|---|---|
 | Validated samples | **50** | Steady accumulation of confirmed mistakes |
 | Macro-F1 floor | **5pp** below baseline | Sudden breakage — bad deploy, corrupt checkpoint |
-| Page-Hinkley | δ=0.005, λ=0.05 | Slow drift no single measurement flags |
+| Page-Hinkley | δ=0.005, λ=0.05, **floor 10 samples** | Slow drift no single measurement flags |
 
 ### Threshold decisions
 
-WBS 4.1.2 asks these be *confirmed*, because the manuscript states them
-loosely. Resolved as:
+WBS 4.1.2 asks these be *confirmed*. Two of the three are stated precisely in
+the manuscript (pp. 166–167: "at least 50 new validated samples", and a
+Page-Hinkley alarm "with a minimum sample floor (at least 10 samples)") and are
+implemented at those exact values; the F1 floor is the one the manuscript
+leaves open. Resolved as:
 
 **"50 samples" = 50 validated reports, not raw submissions.** A report counts
 only once an admin marks it Validated (WBS 4.3.2). Counting raw submissions
@@ -55,6 +58,16 @@ that matters: a missed scam defrauds someone, a misfiled promo annoys them.
 **Page-Hinkley over a fixed floor** because a gradual slide never trips a
 floor until it is already severe. Each batch looks like noise; only the
 accumulated one-directional drift is visible.
+
+**The alarm is held until 10 observations** (`PageHinkley.min_samples`), the
+manuscript's own stated floor. **This had never been implemented** — found
+2026-09-17 while auditing the pipeline against the manuscript text, and fixed
+the same day. Without it the detector could fire on as few as three
+observations (two stable windows and one bad one), starting a full fine-tune on
+what is still noise; the running mean it compares against is barely established
+that early. Observations below the floor still accumulate state, so the floor is
+a warm-up rather than a rolling delay: the alarm can fire on the very first
+observation after the floor is cleared.
 
 > **Implementation note.** The decrease-detecting form *adds* the slack term
 > where the textbook increase-detecting form subtracts it. Getting this

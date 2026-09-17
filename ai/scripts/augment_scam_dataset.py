@@ -111,6 +111,24 @@ SHOPS = ["Shopee", "Lazada", "TikTok Shop"]
 AGENCIES = ["SSS", "PhilHealth", "Pag-IBIG", "BIR", "DOLE", "LTO"]
 JOB_TITLES = ["online encoder", "data entry staff", "typist", "product reviewer", "virtual assistant", "ad liker"]
 
+#: Loan-offer vocabulary, taken from how these actually read in the corpus:
+#: bracketed lender handles, shouty approval language, a spread rather than one
+#: figure, and a promised release window. Real examples: "[peSoLoan] You Are
+#: Granted ... Get it in 12 hours. No meetup", "Are you 1yr credit card holder?
+#: Apply 30k to 2M Cash loan, No Collateral! No Cash Out! Easy Approval!"
+LENDERS = ["peSoLoan", "CashBee", "JuanCredit", "PhLoan", "QuickPeso", "LoanGo"]
+LOAN_RANGE = ["30k to 2M", "50k up to 3M", "100K Up To 5M", "20k to 1M", "10k up to 500k"]
+RELEASE_TIME = ["12 hours", "24 hours", "3 to 7 banking days", "5-7 days", "the same day"]
+#: The document list these messages ask for, verbatim in shape from the
+#: CREDITCARD family in the corpus ("REQUIREMENTS: 2 GOVERNMENT ID / COMPANY ID
+#: / FRONTFACE OF YOUR CREDITCARD / CELLPHONE#").
+ID_DOCS = [
+    "2 GOVERNMENT ID",
+    "GOVERNMENT ID and COMPANY ID",
+    "1 VALID ID and SELFIE",
+    "2 VALID ID, PAYSLIP",
+]
+
 GREETINGS_EN = ["Hi", "Hello", "Good day", "Dear customer", "Attention"]
 GREETINGS_TL = ["Magandang araw po", "Hi po", "Good day po", "Kumusta po"]
 CTA_EN = ["Click here", "Tap the link", "Visit", "Open this link", "Confirm here"]
@@ -182,23 +200,78 @@ TEMPLATES_TL: Dict[str, List[str]] = {
     ],
 }
 
+#: Rewritten 2026-09-17, grounded in how these families actually read in the
+#: corpus rather than in generic recruiter/marketing English.
+#:
+#: Three of the four original Fake Job Offer templates produced rows the
+#: indicator tagger did not recognise as job offers at all (0 of 61, 0 of 10,
+#: 0 of 8), because "Online job opening", "your application was pre-approved"
+#: and "passed the initial screening" appear **nowhere** in the 2,279 real Scam
+#: rows. They read like a Western job-board phishing email. The real family
+#: reads "NEED HOMEBASED ONLINE BUSINESS? EARN USING OUR COPY-PASTE SYSTEM.
+#: INTERESTED? CLICK LINK BELOW" -- shouty, broken, contact-by-app.
+#:
+#: The thin categories were also *short*: Unsolicited Credit Offer produced 51
+#: of 120 requested and Personal Info Request 65 of 132, because five and six
+#: patterns cannot yield that many rows that differ by more than 20% of their
+#: masked tokens. More templates is the fix the module docstring calls for; a
+#: looser MAX_TOKEN_OVERLAP would just pad the batch with near-copies.
+#:
+#: ⚠️ Do NOT tune these to make the tagger-agreement check pass. The check is a
+#: diagnostic, and templates written to hit the keyword list make it
+#: self-confirming. Several entries below deliberately use real phrasing the
+#: lexicon does not carry ("no initial payment", "No Cash Out", "continually
+#: access"), so agreement stays an independent signal.
 TEMPLATES: Dict[str, List[str]] = {
     "Fake Job Offer": [
         "{greet}! We saw your resume online. We are hiring {a_job}, P{pay}/day, home-based, no experience needed. Reply YES or {cta}: {link}",
-        "{greet}, your application as {a_job} was pre-approved. Start today, salary P{pay}/day released daily. Register: {link}",
-        "{greet}! Online job opening: {job}. Daily payout P{pay} via {wallet}. Limited slots, apply {urgency}: {link}",
-        "Congrats! You passed the initial screening as {a_job}. Complete your registration {urgency} to secure the slot: {link}",
+        "NEED HOMEBASED ONLINE WORK? EARN P{pay} DAILY USING OUR SYSTEM. NO INITIAL PAYMENT. INTERESTED? CLICK LINK BELOW: {link}",
+        "OUR COMPANY NEEDS YOU! {job} needed, home-based, earn big while at home. INTERESTED? {cta}: {link}",
+        "{greet} sir/mam, you have been selected for a part-time job, daily salary P{pay}. No experience needed. Contact us for consultation: {link}",
+        "Make money at home while watching videos, earn P{pay} per day. Contact the tutor to start: {link}",
+        "New e-commerce part-time job, cashback shopping, you can earn a minimum of P{pay} per day. Please contact: {link}",
+        "BE ONE OF US.. EARN WHILE AT HOME.. Be an online {job}!! CLICK LINK BELOW: {link}",
+        "Part-time {job}, easily earn P{pay} high income. Contact the manager to receive your newbie bonus: {link}",
+        "{greet}! Walang initial bayad. {job} needed, flexible hours, P{pay} daily. Message us: {link}",
     ],
     "Unsolicited Credit Offer": [
         "{greet}! You are pre-approved for a P{amount} cash loan, 0% interest for 30 days. No collateral. Claim {urgency}: {link}",
         "{bank} Loan Offer: P{amount} approved for your number. Release today, low monthly. {cta}: {link}",
         "{greet}, your loan application is APPROVED. P{amount} is ready for release to your {wallet} account. Confirm here: {link}",
+        "[{lender}] You Are Granted P{amount} Credit. Complete your file and apply. Get it in {release}. No meetup. Visit: {link}",
+        "Are you 1yr credit card holder? Apply {range} Cash loan, No Collateral! No Cash Out! Easy Approval! Call/txt: {link}",
+        "{greet}! This is {bank}. You Are Qualified To Avail Our Unsecured Personal Cash Loan! You Can Loan {range}, released in {release}. {cta}: {link}",
+        "NEED CASH? We offer EASY CASH LOANS today. With just a few simple requirements you can apply and get approved in {release}. Message us: {link}",
+        "P{amount} waiting for you to apply in our App. No meet up, No guarantee. Visit: {link} [{lender}]",
+        "{bank}: You are pre-approved for a Credit Limit Increase of P{amount} on your card. Activate {urgency} via {link} or the offer will be forfeited.",
+        "Special Offer! Need an affordable cash loan? Get extra cash up to P{amount} and pay in 36 months. Fast approval! Apply: {link}",
+        "{greet}, I'm from multi banking personal cash loan. I'd like to offer you {range} unsecured loan, released in {release}. Reply to this number.",
     ],
+    # The four templates originally here asked the reader to "reply with your
+    # full name, birthdate and account number" / "mother's maiden name" / "the
+    # last 4 digits of your ID". Measured against the corpus 2026-09-17, that
+    # is a scam style which does not exist in Philippine SMS: "your full name"
+    # occurs in 0 of 2,279 real Scam rows, "maiden name" 0, "birthdate" 0,
+    # "date of birth" 0, "registered details" 0. ("last 4 digits" does occur --
+    # in 5 Spam and 3 Ham rows, i.e. genuine bank notifications, and 0 Scam.)
+    # They were an English-phishing-email idea of what a credential request
+    # looks like, and 0 of 22 rows they produced were re-read as this category.
+    #
+    # Real ones take two shapes, and only two: an account-verification notice
+    # that sends you to a link, and a credit-card "processing team" asking you
+    # to e-mail documents. Both are reproduced below.
     "Personal Info Request": [
-        "{greet}, this is {brand} verification. To keep your account active, reply with your full name, birthdate and account number.",
-        "{agency} update: Please confirm your registered details (complete name, date of birth, address) to avoid suspension of benefits.",
-        "{brand} Security: We detected incomplete records. Reply with your full name and the last 4 digits of your ID to continue.",
-        "{greet}! Your {brand} profile is incomplete. Send your full name, address and mother's maiden name to verify {urgency}.",
+        "{greet} from {brand}, your account is under review. We request you to verify your account information to continually access our services: {link}",
+        "{brand}: We were unable to verify your identity. Confirm your identity {urgency} to avoid restriction: {link}",
+        "{agency}: Your records are incomplete. E-mail your requirements ({docs}) to complete your file and avoid delay in your claim.",
+        "PROCESSING TEAM: Kindly e-mail your requirements today for us to process your {bank} application. REQUIREMENTS: {docs}, FRONTFACE OF YOUR CARD, CELLPHONE#",
+        "{greet} from {brand}, As part of our continuous effort to bring you the best services, we request that you verify your account information to continually access. Failure to do so will result in suspension: {link}",
+        "Greetings from {bank}, your account is under review. We request you to verify your account information to continually access our online banking services. Verify here: {link}",
+        "Thank you for your interest in applying {bank} CREDITCARD. Kindly E-mail your requirements today at our processing team. REQUIREMENTS: {docs}, FRONTFACE OF YOUR CREDITCARD, CELLPHONE#",
+        "WELCOME! We are now processing your {bank} CREDITCARD for APPROVAL. Kindly E-mail your requirements today and you will receive a call within 24 hours. REQUIREMENTS: {docs}",
+        "(FOR OTHER BANK CREDITCARDHOLDER APPLICANT) PROCESSING TEAM: Kindly E-mail your requirements today for us to fully process your application. REQUIREMENTS: {docs}",
+        "{agency} RECORDS UPDATE: Your file is incomplete. Send {docs} and your complete address to avoid delay in your claim.",
+        "{brand}: We were unable to verify your identity. Please send your full name, date of birth and {docs} to reactivate: {link}",
     ],
     "Brand Impersonation": [
         "{brand}: Your account has been temporarily limited. Verify {urgency} to avoid permanent suspension: {link}",
@@ -212,7 +285,18 @@ TEMPLATES: Dict[str, List[str]] = {
         "{shop}: Your voucher of P{amount} is about to expire. Claim it {urgency} before it is forfeited: {link}",
         "{telco}: Your SIM registration is incomplete and will be deactivated {urgency}. Complete it here: {link}",
         "{bank}: your online banking access was suspended after 3 failed attempts. Restore it here: {link}",
-        "{wallet} Alert: someone tried to change your registered number. If this was not you, {cta_tl}: {link}",
+        # ``{cta}``, not ``{cta_tl}``: this is an English-bank template, and a
+        # Tagalog call-to-action here bypasses the language quota entirely --
+        # the row is drawn as English, so it never counts against the Taglish
+        # allowance, but it still ships "po" to the model. Found 2026-09-17;
+        # it had put "po" into 3 rows of a 462-row batch, lifting the marker
+        # to 1.52% against a 0.53% real-Scam rate. See the quota note above
+        # TEMPLATES_TL for why that matters.
+        "{wallet} Alert: someone tried to change your registered number. If this was not you, {cta}: {link}",
+        "{bank}: Your ATM card has been temporarily blocked for security reasons. Reactivate here: {link}",
+        "{courier}: We attempted delivery but no one was available. Reschedule {urgency}: {link}",
+        "{wallet}: A login from a new device was detected on your account. Not you? Secure it now: {link}",
+        "{shop}: Your account has been flagged for unusual purchase activity. Confirm it was you: {link}",
     ],
 }
 
@@ -268,6 +352,45 @@ def _too_similar(masked: str, accepted: List[set]) -> bool:
 def load_rows(path: str) -> List[dict]:
     with open(path, encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def rejected_seed_ids(out_dir: str) -> set:
+    """Seeds whose generated variants a human rejected in an earlier batch.
+
+    Reviewing a batch means marking rows that are not really scams. When such a
+    row is a *variant*, the judgement is really about the real message it came
+    from -- so the seed is excluded from future batches instead of quietly
+    producing more of the same. Found necessary 2026-09-16: a review rejected
+    53 variants, 20 of their seeds were fixed by the label corrections that
+    followed, and 2 were not -- those 2 seeded 10 fresh variants on the next
+    run.
+
+    Reads any batch CSV in ``out_dir`` that has a ``correct_label`` column
+    filled in, so the loop closes by reviewing a file rather than by editing
+    this script.
+
+    A filled-in ``correct_label`` only counts as a rejection when it
+    **disagrees** with the row's own label. Reviewers reasonably use the column
+    to confirm as well as to correct: the 2026-09-17 review marked 485 of 514
+    rows "SCAM", meaning "yes, this is right". Treating any non-empty value as
+    a rejection would have excluded essentially every seed in the pool on the
+    next run -- a silent, total collapse of the seed set, surfacing as nothing
+    more alarming than a smaller batch. Compare, don't test for emptiness.
+    """
+    import glob as _glob
+
+    rejected = set()
+    for path in _glob.glob(os.path.join(out_dir, "*.csv")):
+        try:
+            with open(path, encoding="utf-8-sig", newline="") as handle:
+                for row in csv.DictReader(handle):
+                    verdict = (row.get("correct_label") or "").strip()
+                    label = (row.get("label") or "Scam").strip()
+                    if verdict and verdict.casefold() != label.casefold() and row.get("seed_id"):
+                        rejected.add(row["seed_id"])
+        except (OSError, csv.Error):
+            continue
+    return rejected
 
 
 def categorise(raw: str) -> List[str]:
@@ -350,6 +473,10 @@ def make_authored(category: str, rng: random.Random, taglish_rate: float = 0.0) 
         .replace("{shop}", rng.choice(SHOPS))
         .replace("{telco}", rng.choice(TELCOS))
         .replace("{agency}", rng.choice(AGENCIES))
+        .replace("{lender}", rng.choice(LENDERS))
+        .replace("{range}", rng.choice(LOAN_RANGE))
+        .replace("{release}", rng.choice(RELEASE_TIME))
+        .replace("{docs}", rng.choice(ID_DOCS))
     )
 
 
@@ -454,6 +581,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     existing = Counter()
     excluded_by_holdout = 0
     excluded_as_suspect = 0
+    excluded_as_rejected = 0
+    rejected_seeds = rejected_seed_ids(args.out_dir)
     for row in scam_rows:
         cats = categorise(row["text"])
         for cat in set(cats):
@@ -464,6 +593,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         if SUSPECT_SEED.search(row["text"]):
             excluded_as_suspect += 1
             continue  # pending human re-labelling; see SUSPECT_SEED
+        if _digest(preprocess(row["text"])) in rejected_seeds:
+            excluded_as_rejected += 1
+            continue  # a human rejected this seed's output before
         for cat in set(cats):
             if cat in TARGETS:
                 seeds_by_category.setdefault(cat, []).append(row)
@@ -491,7 +623,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     print(
         f"Scam rows in pool: {len(scam_rows)}   "
         f"seeds excluded -- in the holdout: {excluded_by_holdout}, "
-        f"suspected mislabel: {excluded_as_suspect}"
+        f"suspected mislabel: {excluded_as_suspect}, "
+        f"rejected in an earlier review: {excluded_as_rejected}"
     )
     print("\ncategory                    real   +new   origin split")
     for cat in TARGETS:
@@ -501,6 +634,36 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             f"  {cat:26}{existing.get(cat, 0):>5}{len(new):>7}   "
             f"variant {split.get('variant', 0)}, authored {split.get('authored', 0)}"
         )
+
+    # Does the tagger agree these rows are what this script says they are?
+    #
+    # The ``category`` column is *asserted* by the generator -- an authored row
+    # is filed under the template bank it came from, never re-checked. But the
+    # ``existing`` counts above, the targets in TARGETS, and the 2026-09-16
+    # miss-rate-per-family analysis that set those targets are all denominated
+    # in ``service.indicator_tags``. So a row the tagger does not recognise as
+    # its own category is a row that (a) will not count toward that category's
+    # target on the next run, leaving the target permanently unmet and the next
+    # batch asking for the same volume again, and (b) cannot appear as support
+    # for the weak family it was written for when the augmentation is
+    # evaluated. It also ships to users without the indicator that explains it.
+    #
+    # Reported rather than enforced: a low share can mean the templates drifted
+    # off-category, or that the tagger's keyword list is too narrowly phrased
+    # for how the family actually reads -- a gap already found and fixed four
+    # times (see PIPELINE.md bug history §9, §11, §14, §16). Those two have
+    # opposite fixes, and only a human reading the rows can tell them apart.
+    agreement: Dict[str, Dict[str, int]] = {}
+    print("\ncategory                    rows   the tagger re-reads as this category")
+    for cat in TARGETS:
+        new = [r for r in rows if r["category"] == cat]
+        if not new:
+            continue
+        agreed = sum(1 for r in new if cat in set(categorise(r["text"])))
+        agreement[cat] = {"rows": len(new), "agreed": agreed}
+        pct = 100 * agreed / len(new)
+        flag = "  <-- check these by hand before merging" if pct < 80 else ""
+        print(f"  {cat:26}{len(new):>5}   {agreed:>4} ({pct:.0f}%){flag}")
 
     total_scam_after = len(scam_rows) + len(rows)
     share = len(rows) / total_scam_after if total_scam_after else 0
@@ -543,9 +706,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     out_csv = os.path.join(args.out_dir, f"scam_augmentation_{stamp}.csv")
     with open(out_csv, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["text", "label", "category", "origin", "seed_id"])
+        # ``correct_label`` is written empty, as the reviewer's column. The
+        # review loop in ``rejected_seed_ids`` reads it back, but until
+        # 2026-09-17 nothing ever *wrote* it -- a reviewer had to add the
+        # column by hand before the loop could close, which is exactly the
+        # sort of undocumented manual step that silently does not happen.
+        writer = csv.DictWriter(
+            handle, fieldnames=["text", "label", "category", "origin", "seed_id", "correct_label"]
+        )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows({**row, "correct_label": ""} for row in rows)
 
     summary = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -555,6 +725,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         "existing_scam_rows": len(scam_rows),
         "synthetic_share_after": round(share, 4),
         "seeds_excluded_for_being_in_holdout": excluded_by_holdout,
+        "seeds_excluded_as_suspected_mislabel": excluded_as_suspect,
+        "seeds_excluded_as_rejected_in_review": excluded_as_rejected,
+        "tagger_agreement_by_category": agreement,
         "max_variants_per_seed": MAX_VARIANTS_PER_SEED,
         "note": (
             "Synthetic Scam rows for review. NOT merged into datasets/labeled/ by this script. "

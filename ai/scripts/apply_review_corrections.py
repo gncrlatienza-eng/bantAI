@@ -153,7 +153,11 @@ def apply_corrections(labeled_path: str = LABELED, audit_dir: str = AUDIT, quiet
         print(f"  ambiguous    {ambiguous:5}   (matched >1 row, skipped)")
         if conflicts:
             print("-" * 68)
-            print(f"  ⚠ {len(conflicts)} row(s) where two sheets disagree. The later filename won,")
+            # Plain ASCII: this prints to a Windows console under cp1252, where
+            # a warning glyph raises UnicodeEncodeError and takes down the whole
+            # summary (the corrections themselves are already written by then,
+            # so it fails after the work rather than before it -- still wrong).
+            print(f"  WARNING: {len(conflicts)} row(s) where two sheets disagree. The later filename won,")
             print("    which is alphabetical order, NOT recency -- confirm these by hand:")
             for first, second, first_label, second_label, entry_id in conflicts:
                 print(

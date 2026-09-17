@@ -1,0 +1,57 @@
+{
+  "checkpoint_integrity": "ok",
+  "confusion_matrix": {
+    "Ham": {
+      "Ham": 1758,
+      "Scam": 5,
+      "Spam": 24
+    },
+    "Scam": {
+      "Ham": 16,
+      "Scam": 459,
+      "Spam": 16
+    },
+    "Spam": {
+      "Ham": 41,
+      "Scam": 7,
+      "Spam": 910
+    }
+  },
+  "evaluated_at": "2026-09-16T07:45:54.505309+00:00",
+  "holdout_csv": "datasets/holdout/holdout.csv",
+  "holdout_integrity": "ok",
+  "holdout_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
+  "macro_f1": 0.9614,
+  "model_dir": "models/xlm-roberta-smishing",
+  "n_total": 3236,
+  "per_class_metrics": {
+    "Ham": {
+      "f1": 0.9761,
+      "false_negatives": 29,
+      "false_positives": 57,
+      "precision": 0.9686,
+      "recall": 0.9838,
+      "support": 1787,
+      "true_positives": 1758
+    },
+    "Scam": {
+      "f1": 0.9543,
+      "false_negatives": 32,
+      "false_positives": 12,
+      "precision": 0.9745,
+      "recall": 0.9348,
+      "support": 491,
+      "true_positives": 459
+    },
+    "Spam": {
+      "f1": 0.9539,
+      "false_negatives": 48,
+      "false_positives": 40,
+      "precision": 0.9579,
+      "recall": 0.9499,
+      "support": 958,
+      "true_positives": 910
+    }
+  },
+  "version_tag": "v2026-08-27T09-46-20Z"
+}

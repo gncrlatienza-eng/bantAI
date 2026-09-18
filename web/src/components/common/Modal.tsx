@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useId } from 'react';
 import ReactDOM from 'react-dom';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -18,17 +19,87 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   maxWidth = 720,
 }) => {
+  const titleId = useId();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
+    if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+
+    const timer = setTimeout(() => {
+      if (modalRef.current) {
+        const focusables = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length > 0) {
+          focusables[0].focus();
+        } else {
+          modalRef.current.focus();
+        }
+      }
+    }, 0);
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusables = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter(
+          (el) =>
+            el.offsetWidth > 0 ||
+            el.offsetHeight > 0 ||
+            el === document.activeElement,
+        );
+
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstElement = focusables[0];
+        const lastElement = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (
+            document.activeElement === firstElement ||
+            !modalRef.current.contains(document.activeElement)
+          ) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (
+            document.activeElement === lastElement ||
+            !modalRef.current.contains(document.activeElement)
+          ) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
     };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
-    }
+
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
+      clearTimeout(timer);
       document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleKeyDown);
+      if (
+        previousFocusRef.current &&
+        typeof previousFocusRef.current.focus === 'function'
+      ) {
+        previousFocusRef.current.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -55,6 +126,11 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={onClose}
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="panel"
         style={{
           width: '90%',
@@ -71,6 +147,7 @@ export const Modal: React.FC<ModalProps> = ({
           padding: 24,
           margin: '0 auto',
           position: 'relative',
+          outline: 'none',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -86,12 +163,14 @@ export const Modal: React.FC<ModalProps> = ({
           }}
         >
           <strong
+            id={titleId}
             style={{ fontSize: '1.25rem', color: '#f8fafc', fontWeight: 700 }}
           >
             {title}
           </strong>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -111,7 +190,7 @@ export const Modal: React.FC<ModalProps> = ({
               (e.currentTarget.style.color = 'var(--text-muted)')
             }
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>

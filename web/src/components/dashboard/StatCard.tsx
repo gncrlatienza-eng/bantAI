@@ -16,7 +16,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   subtext,
   trend,
   trendUp = true,
-  icon = '📊',
+  icon = '',
   iconBg = 'rgba(124, 58, 237, 0.15)',
 }) => {
   return (

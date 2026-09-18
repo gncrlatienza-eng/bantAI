@@ -25,18 +25,18 @@ const CLIENT_SIDEBAR_GROUPS = [
   {
     title: 'Threat Intelligence',
     items: [
-      { path: '/client/overview', label: 'Overview', icon: '📊' },
-      { path: '/client/messages', label: 'Messages', icon: '💬' },
-      { path: '/client/campaigns', label: 'Campaigns', icon: '🛡️' },
-      { path: '/client/analytics', label: 'Analytics', icon: '📈' },
+      { path: '/client/overview', label: 'Overview' },
+      { path: '/client/messages', label: 'Messages' },
+      { path: '/client/campaigns', label: 'Campaigns' },
+      { path: '/client/analytics', label: 'Analytics' },
     ],
   },
   {
     title: 'Operations',
     items: [
-      { path: '/client/export', label: 'Export Reports', icon: '📄' },
-      { path: '/client/help', label: 'Help & Docs', icon: '❓' },
-      { path: '/client/settings', label: 'Account Settings', icon: '⚙️' },
+      { path: '/client/export', label: 'Export Reports' },
+      { path: '/client/help', label: 'Help & Docs' },
+      { path: '/client/settings', label: 'Account Settings' },
     ],
   },
 ];
@@ -107,7 +107,7 @@ export function ClientOverviewPage() {
           subtext="+372 received today"
           trend="12.4%"
           trendUp={true}
-          icon="📬"
+          icon=""
           iconBg="rgba(124, 58, 237, 0.15)"
         />
         <StatCard
@@ -116,7 +116,7 @@ export function ClientOverviewPage() {
           subtext="+23 flagged today"
           trend="8.1%"
           trendUp={true}
-          icon="🚨"
+          icon=""
           iconBg="rgba(239, 68, 68, 0.15)"
         />
         <StatCard
@@ -125,7 +125,7 @@ export function ClientOverviewPage() {
           subtext="+6 pending review"
           trend="2.3%"
           trendUp={false}
-          icon="⚠️"
+          icon=""
           iconBg="rgba(245, 158, 11, 0.15)"
         />
         <StatCard
@@ -134,7 +134,7 @@ export function ClientOverviewPage() {
           subtext="SIM / IP deactivations"
           trend="15.8%"
           trendUp={true}
-          icon="🛡️"
+          icon=""
           iconBg="rgba(16, 185, 129, 0.15)"
         />
       </div>
@@ -630,7 +630,7 @@ export function ClientMessagesPage() {
         )
         .join('\n');
     triggerCSVDownload('bantai-classification-log.csv', csvContent);
-    showToast('📥 Classification log exported as CSV!');
+    showToast('Classification log exported as CSV!');
   };
 
   return (
@@ -688,7 +688,7 @@ export function ClientMessagesPage() {
               />
             </div>
             <Button variant="secondary" size="md" onClick={handleExportCSV}>
-              📥 Export CSV
+              Export CSV
             </Button>
           </div>
         </div>
@@ -1150,7 +1150,7 @@ export function ClientMessagesPage() {
                     className="badge badge-amber"
                     style={{ fontSize: '0.75rem' }}
                   >
-                    ⚠️ {ind}
+                    {ind}
                   </span>
                 ))}
               </div>
@@ -1177,10 +1177,10 @@ export function ClientMessagesPage() {
                 variant="primary"
                 onClick={() => {
                   setSelectedMessage(null);
-                  showToast('✓ Smishing confirmation logged & SIM blocked');
+                  showToast('Smishing confirmation logged & SIM blocked');
                 }}
               >
-                🛡️ Confirm &amp; Block SIM
+                Confirm &amp; Block SIM
               </Button>
             </div>
           </div>
@@ -1207,7 +1207,7 @@ export function ClientCampaignsPage() {
         if (isMounted && clusters && clusters.length > 0) {
           const mapped = clusters.map((c) => ({
             title: c.label || 'Active Smishing Cluster',
-            icon: '🛡️',
+            icon: '',
             status: 'Active',
             riskScore: 90,
             messages: c.messageCount ? c.messageCount.toLocaleString() : '100+',
@@ -1232,7 +1232,7 @@ export function ClientCampaignsPage() {
         if (isMounted && clusters && clusters.length > 0) {
           const mapped = clusters.map((c) => ({
             title: c.label || 'Inactive Campaign Cluster',
-            icon: '🔑',
+            icon: '',
             status: 'Inactive',
             riskScore: 70,
             messages: c.messageCount ? c.messageCount.toLocaleString() : '50+',
@@ -1265,7 +1265,7 @@ export function ClientCampaignsPage() {
   const initialActiveCampaignsList = [
     {
       title: 'Operation GCash Clone #17',
-      icon: '🛡️',
+      icon: '',
       status: 'Active',
       riskScore: 96,
       messages: '142,847',
@@ -1284,7 +1284,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'BDO Fake Support Wave #5',
-      icon: '🏦',
+      icon: '',
       status: 'Active',
       riskScore: 91,
       messages: '84,291',
@@ -1298,7 +1298,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'LBC Parcel Delivery Scam #8',
-      icon: '📦',
+      icon: '',
       status: 'Active',
       riskScore: 94,
       messages: '67,128',
@@ -1316,7 +1316,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'PLDT Bill Impersonation #4',
-      icon: '⚡',
+      icon: '',
       status: 'Active',
       riskScore: 88,
       messages: '43,912',
@@ -1330,7 +1330,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'Maya Wallet Phishing Wave #3',
-      icon: '💳',
+      icon: '',
       status: 'Active',
       riskScore: 93,
       messages: '38,410',
@@ -1348,7 +1348,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'Shopee Voucher Lure #11',
-      icon: '🛒',
+      icon: '',
       status: 'Active',
       riskScore: 85,
       messages: '29,150',
@@ -1365,7 +1365,7 @@ export function ClientCampaignsPage() {
   const initialInactiveCampaignsList = [
     {
       title: 'BDO OTP Harvester Wave #3',
-      icon: '🔑',
+      icon: '',
       status: 'Inactive',
       riskScore: 78,
       messages: '18,920',
@@ -1379,7 +1379,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'Piso Fare Lure #6',
-      icon: '✈️',
+      icon: '',
       status: 'Inactive',
       riskScore: 65,
       messages: '12,456',
@@ -1393,7 +1393,7 @@ export function ClientCampaignsPage() {
     },
     {
       title: 'Landline OTP Intercept #1',
-      icon: '📞',
+      icon: '',
       status: 'Inactive',
       riskScore: 72,
       messages: '7,231',
@@ -1422,7 +1422,7 @@ export function ClientCampaignsPage() {
         )
         .join('\n');
     triggerCSVDownload('bantai-campaign-clusters.csv', csvContent);
-    showToast('📥 Campaign clusters dataset exported as CSV!');
+    showToast('Campaign clusters dataset exported as CSV!');
   };
 
   const handleExportSingleCampaign = (campaign: any) => {
@@ -1433,7 +1433,7 @@ export function ClientCampaignsPage() {
       `${campaign.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-report.csv`,
       csvContent,
     );
-    showToast(`📥 Exported report for ${campaign.title}`);
+    showToast(`Exported report for ${campaign.title}`);
   };
 
   return (
@@ -1515,9 +1515,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                🛡️
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1572,9 +1570,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                🟢
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1629,9 +1625,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                💬
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1686,9 +1680,7 @@ export function ClientCampaignsPage() {
                   justifyContent: 'center',
                   fontSize: '1rem',
                 }}
-              >
-                🌐
-              </div>
+              ></div>
             </div>
             <strong
               style={{
@@ -1783,7 +1775,7 @@ export function ClientCampaignsPage() {
               fontSize: '0.8125rem',
             }}
           >
-            📥 Export All Clusters CSV
+            Export All Clusters CSV
           </Button>
         </div>
 
@@ -1899,7 +1891,7 @@ export function ClientCampaignsPage() {
                             className="badge badge-red"
                             style={{ fontSize: '0.6875rem' }}
                           >
-                            🔥 {item.riskScore}% Risk
+                            {item.riskScore}% Risk
                           </span>
                         </div>
                       </div>
@@ -1995,7 +1987,7 @@ export function ClientCampaignsPage() {
                         className="badge badge-purple"
                         style={{ fontSize: '0.6875rem', padding: '3px 9px' }}
                       >
-                        🏷️ {t}
+                        {t}
                       </span>
                     ))}
                   </div>
@@ -2298,7 +2290,7 @@ export function ClientCampaignsPage() {
                     {selectedCampaign.status}
                   </span>
                   <span className="badge badge-red">
-                    🔥 {selectedCampaign.riskScore}% Threat Risk
+                    {selectedCampaign.riskScore}% Threat Risk
                   </span>
                 </div>
               </div>
@@ -2402,7 +2394,7 @@ export function ClientCampaignsPage() {
                         fontSize: '0.75rem',
                       }}
                     >
-                      🌐 {domain}
+                      {domain}
                     </span>
                   ))}
                 </div>
@@ -2425,7 +2417,7 @@ export function ClientCampaignsPage() {
                 variant="primary"
                 onClick={() => handleExportSingleCampaign(selectedCampaign)}
               >
-                📥 Download Cluster Report
+                Download Cluster Report
               </Button>
             </div>
           </div>
@@ -2524,7 +2516,7 @@ export function ClientAnalyticsPage() {
         .map((t) => `"${t.label}","${t.val}","${t.count}"`)
         .join('\n');
     triggerCSVDownload('bantai-analytics-breakdown.csv', csvContent);
-    showToast('📥 Evasion tactic breakdown exported as CSV!');
+    showToast('Evasion tactic breakdown exported as CSV!');
   };
 
   return (
@@ -2588,7 +2580,7 @@ export function ClientAnalyticsPage() {
             </select>
 
             <Button variant="secondary" size="md" onClick={handleExportCSV}>
-              📥 Export CSV
+              Export CSV
             </Button>
           </div>
         </div>
@@ -2935,7 +2927,7 @@ export function ClientExportPage() {
       filename,
       `BantAI Export Dataset - ${filename}\nTimestamp,ID,Carrier,Status\n2026-05-13,MSG-101,Globe Telecom,Smishing`,
     );
-    showToast(`📥 Started download: ${filename}`);
+    showToast(`Started download: ${filename}`);
   };
 
   return (
@@ -3015,9 +3007,7 @@ export function ClientExportPage() {
                     color: '#60a5fa',
                     marginBottom: 16,
                   }}
-                >
-                  📄
-                </div>
+                ></div>
                 <strong
                   style={{
                     fontSize: '1.125rem',
@@ -3056,7 +3046,7 @@ export function ClientExportPage() {
                   handleDownloadFile('full-classification-log.csv')
                 }
               >
-                📥 Download CSV
+                Download CSV
               </Button>
             </div>
 
@@ -3085,9 +3075,7 @@ export function ClientExportPage() {
                     color: '#60a5fa',
                     marginBottom: 16,
                   }}
-                >
-                  📊
-                </div>
+                ></div>
                 <strong
                   style={{
                     fontSize: '1.125rem',
@@ -3126,7 +3114,7 @@ export function ClientExportPage() {
                   handleDownloadFile('campaign-summary-report.pdf')
                 }
               >
-                📥 Download
+                Download
               </Button>
             </div>
 
@@ -3155,9 +3143,7 @@ export function ClientExportPage() {
                     color: '#60a5fa',
                     marginBottom: 16,
                   }}
-                >
-                  ⚙️
-                </div>
+                ></div>
                 <strong
                   style={{
                     fontSize: '1.125rem',
@@ -3529,9 +3515,7 @@ export function ClientHelpPage() {
                       >
                         <span
                           style={{ color: '#60a5fa', fontSize: '1.125rem' }}
-                        >
-                          ❓
-                        </span>
+                        ></span>
                         <strong
                           style={{ fontSize: '0.9375rem', color: '#ffffff' }}
                         >
@@ -3596,7 +3580,7 @@ export function ClientHelpPage() {
                   marginBottom: 8,
                 }}
               >
-                <span style={{ fontSize: '1.25rem' }}>📧</span>
+                <span style={{ fontSize: '1.25rem' }}></span>
                 <strong style={{ color: '#ffffff', fontSize: '1rem' }}>
                   Email Support
                 </strong>
@@ -3650,7 +3634,7 @@ export function ClientHelpPage() {
                   marginBottom: 8,
                 }}
               >
-                <span style={{ fontSize: '1.25rem' }}>📄</span>
+                <span style={{ fontSize: '1.25rem' }}></span>
                 <strong style={{ color: '#ffffff', fontSize: '1rem' }}>
                   Documentation
                 </strong>
@@ -3819,21 +3803,21 @@ export function ClientSettingsPage({
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currPass) {
-      showToast('⚠️ Please enter your current password.');
+      showToast('Please enter your current password.');
       return;
     }
     if (newPass.length < 8) {
-      showToast('⚠️ New password must be at least 8 characters long.');
+      showToast('New password must be at least 8 characters long.');
       return;
     }
     if (newPass !== confirmPass) {
-      showToast('⚠️ New password and confirmation do not match.');
+      showToast('New password and confirmation do not match.');
       return;
     }
     setCurrPass('');
     setNewPass('');
     setConfirmPass('');
-    showToast('✓ Client account password updated successfully!');
+    showToast('Client account password updated successfully!');
   };
 
   const getPassStrength = () => {
@@ -3849,7 +3833,7 @@ export function ClientSettingsPage({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('✓ Client account settings updated successfully!');
+    showToast('Client account settings updated successfully!');
   };
 
   const handleReset = () => {
@@ -3935,7 +3919,7 @@ export function ClientSettingsPage({
             className="badge badge-blue"
             style={{ padding: '6px 14px', fontSize: '0.8125rem' }}
           >
-            🏢 Licensed Subscriber Hub
+            Licensed Subscriber Hub
           </span>
         </div>
 
@@ -3950,9 +3934,9 @@ export function ClientSettingsPage({
           }}
         >
           {[
-            { id: 'profile', label: '🏢 Organization & Profile' },
-            { id: 'notifications', label: '🔔 Alert Notifications' },
-            { id: 'security', label: '🔐 Security & Login' },
+            { id: 'profile', label: 'Organization & Profile' },
+            { id: 'notifications', label: 'Alert Notifications' },
+            { id: 'security', label: 'Security & Login' },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -4055,14 +4039,14 @@ export function ClientSettingsPage({
                   onClick={() => setIsAvatarModalOpen(true)}
                   className="btn btn-secondary btn-md"
                 >
-                  📷 Customize Avatar
+                  Customize Avatar
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsActivityModalOpen(true)}
                   className="btn btn-ghost btn-md"
                 >
-                  📜 Account Audit Log
+                  Account Audit Log
                 </button>
               </div>
             </div>
@@ -4339,7 +4323,7 @@ export function ClientSettingsPage({
                       License Status
                     </span>
                     <strong style={{ color: '#34d399', fontWeight: 700 }}>
-                      🟢 Active (Full Feed License)
+                      Active (Full Feed License)
                     </strong>
                   </div>
 
@@ -4409,7 +4393,7 @@ export function ClientSettingsPage({
                   size="md"
                   style={{ padding: '12px 24px' }}
                 >
-                  💾 Save Profile Changes
+                  Save Profile Changes
                 </Button>
                 <button
                   type="button"
@@ -4423,7 +4407,7 @@ export function ClientSettingsPage({
               <div
                 style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}
               >
-                🟢 Changes saved locally in component state.
+                Changes saved locally in component state.
               </div>
             </div>
           </form>
@@ -4570,9 +4554,9 @@ export function ClientSettingsPage({
             >
               <Button
                 variant="primary"
-                onClick={() => showToast('✓ Notification preferences saved!')}
+                onClick={() => showToast('Notification preferences saved!')}
               >
-                💾 Save Alert Settings
+                Save Alert Settings
               </Button>
             </div>
           </div>
@@ -4646,7 +4630,7 @@ export function ClientSettingsPage({
                       cursor: 'pointer',
                     }}
                   >
-                    {showPass ? '👁️' : '🙈'}
+                    {showPass ? '' : ''}
                   </button>
                 </div>
               </div>
@@ -4738,7 +4722,7 @@ export function ClientSettingsPage({
                 size="md"
                 style={{ marginTop: 8 }}
               >
-                🔑 Update Password
+                Update Password
               </Button>
             </form>
 
@@ -4848,7 +4832,7 @@ export function ClientSettingsPage({
                     <div
                       style={{ display: 'flex', alignItems: 'center', gap: 10 }}
                     >
-                      <span style={{ fontSize: '1.25rem' }}>📱</span>
+                      <span style={{ fontSize: '1.25rem' }}></span>
                       <div>
                         <strong
                           style={{
@@ -4959,68 +4943,68 @@ export function ClientSettingsPage({
               {[
                 {
                   id: 'analyst_female',
-                  icon: '👩‍💻',
+                  icon: '‍',
                   label: 'Security Analyst',
                   role: 'Glasses',
                 },
                 {
                   id: 'intel_lead',
-                  icon: '👩‍💼',
+                  icon: '‍',
                   label: 'Threat Intel Lead',
                   role: 'Blazer',
                 },
                 {
                   id: 'engineer_male',
-                  icon: '👨‍💻',
+                  icon: '‍',
                   label: 'Cyber Engineer',
                   role: 'Scarf',
                 },
                 {
                   id: 'responder',
-                  icon: '😷',
+                  icon: '',
                   label: 'Incident Responder',
                   role: 'Mask',
                 },
                 {
                   id: 'soc_sunglasses',
-                  icon: '😎',
+                  icon: '',
                   label: 'SOC Analyst',
                   role: 'Sunglasses',
                 },
                 {
                   id: 'researcher_hoodie',
-                  icon: '👨‍🔬',
+                  icon: '‍',
                   label: 'AI Researcher',
                   role: 'Hoodie',
                 },
                 {
                   id: 'investigator',
-                  icon: '🕵️',
+                  icon: '',
                   label: 'Investigator',
                   role: 'Fedora',
                 },
-                { id: 'ai_bot', icon: '🤖', label: 'AI Guardian', role: 'Bot' },
+                { id: 'ai_bot', icon: '', label: 'AI Guardian', role: 'Bot' },
                 {
                   id: 'shield_sentinel',
-                  icon: '🛡️',
+                  icon: '',
                   label: 'Shield Sentinel',
                   role: 'Defense',
                 },
                 {
                   id: 'red_team',
-                  icon: '🥷',
+                  icon: '',
                   label: 'Red Team',
                   role: 'Ninja',
                 },
                 {
                   id: 'scholar',
-                  icon: '🎓',
+                  icon: '',
                   label: 'Scholar Lead',
                   role: 'Research',
                 },
                 {
                   id: 'super_admin',
-                  icon: '👑',
+                  icon: '',
                   label: 'Enterprise Admin',
                   role: 'Crown',
                 },
@@ -5038,7 +5022,7 @@ export function ClientSettingsPage({
                     });
                     setIsAvatarModalOpen(false);
                     showToast(
-                      `✓ Avatar updated to ${item.label} (${item.role})!`,
+                      `Avatar updated to ${item.label} (${item.role})!`,
                     );
                   }}
                   style={{
@@ -5193,7 +5177,7 @@ export function ClientSettingsPage({
                 variant="primary"
                 onClick={() => {
                   if (!customImageUrl) {
-                    showToast('⚠️ Please enter an image URL first.');
+                    showToast('Please enter an image URL first.');
                     return;
                   }
                   setClientAvatar({
@@ -5203,7 +5187,7 @@ export function ClientSettingsPage({
                     initials: 'MS',
                   });
                   setIsAvatarModalOpen(false);
-                  showToast('✓ Custom photo avatar applied successfully!');
+                  showToast('Custom photo avatar applied successfully!');
                 }}
               >
                 Apply Image
@@ -5276,7 +5260,7 @@ export function ClientSettingsPage({
                       fontSize: '0.75rem',
                     }}
                   >
-                    ✓ {log.status}
+                    {log.status}
                   </span>
                 </div>
               </div>

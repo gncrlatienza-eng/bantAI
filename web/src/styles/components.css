@@ -658,20 +658,21 @@ textarea.form-input {
 }
 
 .sidebar-title {
-  padding: 0 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  padding: 6px 12px 2px 12px;
+  font-size: 0.8125rem;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin-bottom: 4px;
+  letter-spacing: 0.09em;
+  color: #f8fafc;
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px 8px 24px;
   border-radius: 8px;
   font-size: 0.9375rem;
   font-weight: 500;

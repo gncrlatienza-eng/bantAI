@@ -138,9 +138,6 @@ export function PortalShell({
   tag,
   tagTone,
   userInitials,
-  userName,
-  userMeta,
-  org,
   children,
   showPopup,
 }: {
@@ -150,9 +147,9 @@ export function PortalShell({
   tag: string;
   tagTone?: 'amber';
   userInitials: string;
-  userName: string;
-  userMeta: string;
-  org: string;
+  userName?: string;
+  userMeta?: string;
+  org?: string;
   children: ReactNode;
   showPopup?: boolean;
 }) {
@@ -196,14 +193,6 @@ export function PortalShell({
           ))}
         </nav>
         <div className="sidebar-foot">
-          <small>{org}</small>
-          <div className="account-row">
-            <span className={`avatar ${role}`}>{userInitials}</span>
-            <div>
-              <strong>{userName}</strong>
-              <small>{userMeta}</small>
-            </div>
-          </div>
           <button
             className="ghost-btn dark log-out-btn"
             type="button"
@@ -543,7 +532,7 @@ export function Stepper({
                   transition: 'all 0.3s ease',
                 }}
               >
-                {isDone ? '✓' : current}
+                {isDone ? '' : current}
               </div>
               <small
                 style={{

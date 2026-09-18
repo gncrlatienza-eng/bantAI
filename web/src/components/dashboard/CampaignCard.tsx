@@ -47,7 +47,7 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({
       >
         <div>
           <Badge tone={sevTone} className="mb-2">
-            🚨 {severity} Severity
+            {severity} Severity
           </Badge>
           <h4
             style={{

@@ -387,7 +387,7 @@ export const LandingPage: React.FC = () => {
                   boxShadow: '0 0 12px rgba(37, 99, 235, 0.3)',
                 }}
               >
-                <span style={{ fontSize: '1.3rem' }}>📬</span>
+                <span style={{ fontSize: '1.3rem' }}></span>
                 <span
                   style={{
                     color: '#93c5fd',
@@ -429,7 +429,7 @@ export const LandingPage: React.FC = () => {
                   boxShadow: '0 0 12px rgba(6, 182, 212, 0.3)',
                 }}
               >
-                <span style={{ fontSize: '1.3rem' }}>🚨</span>
+                <span style={{ fontSize: '1.3rem' }}></span>
                 <span
                   style={{
                     color: '#7dd3fc',
@@ -471,7 +471,7 @@ export const LandingPage: React.FC = () => {
                   boxShadow: '0 0 12px rgba(16, 185, 129, 0.3)',
                 }}
               >
-                <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+                <span style={{ fontSize: '1.3rem' }}></span>
                 <span
                   style={{
                     color: '#6ee7b7',
@@ -548,7 +548,7 @@ export const LandingPage: React.FC = () => {
                 padding: '28px 24px',
               }}
             >
-              <div style={{ fontSize: '2rem', marginBottom: 12 }}>🛡️</div>
+              <div style={{ fontSize: '2rem', marginBottom: 12 }}></div>
               <h3
                 style={{
                   fontSize: '1.25rem',
@@ -580,7 +580,7 @@ export const LandingPage: React.FC = () => {
                 padding: '28px 24px',
               }}
             >
-              <div style={{ fontSize: '2rem', marginBottom: 12 }}>🔗</div>
+              <div style={{ fontSize: '2rem', marginBottom: 12 }}></div>
               <h3
                 style={{
                   fontSize: '1.25rem',
@@ -612,7 +612,7 @@ export const LandingPage: React.FC = () => {
                 padding: '28px 24px',
               }}
             >
-              <div style={{ fontSize: '2rem', marginBottom: 12 }}>⚡</div>
+              <div style={{ fontSize: '2rem', marginBottom: 12 }}></div>
               <h3
                 style={{
                   fontSize: '1.25rem',

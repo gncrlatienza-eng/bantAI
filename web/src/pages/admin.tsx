@@ -189,9 +189,16 @@ export function AdminOverviewPage() {
                 color: 'var(--text-muted)',
                 cursor: 'pointer',
                 fontSize: '1rem',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                minWidth: '24px',
+                minHeight: '24px',
+                width: '32px',
+                height: '32px',
+                padding: 0,
+                borderRadius: '6px',
+                transition: 'all 0.2s ease',
               }}
             >
               <X size={16} />

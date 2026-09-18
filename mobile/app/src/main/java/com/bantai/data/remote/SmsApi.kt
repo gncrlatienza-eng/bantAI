@@ -105,7 +105,10 @@ object SmsApi {
     // string "null" (JSONObject.NULL.toString()), not a real null — so a plain
     // isNotEmpty() check doesn't catch it. That literal string previously slipped
     // through as a real clusterId and crashed campaign navigation.
-    private fun JSONObject.optNullableString(name: String): String? = optString(name).takeIf { it.isNotEmpty() && it != "null" }
+    private fun JSONObject.optNullableString(name: String): String? {
+        val value = optString(name)
+        return value.takeIf { it.isNotEmpty() && it != "null" }
+    }
 
     private fun parseIndicators(json: JSONObject): List<IndicatorTag> {
         val indicators = json.optJSONArray("indicators") ?: return emptyList()

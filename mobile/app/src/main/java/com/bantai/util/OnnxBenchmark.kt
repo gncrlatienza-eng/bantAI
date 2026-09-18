@@ -16,6 +16,9 @@ private const val TIMED_RUNS = 30
 // this only needs values ONNX Runtime will accept into the embedding lookup,
 // since dummy input measures the model's compute graph, not what it predicts.
 private const val SAFE_TOKEN_ID_BOUND = 1000L
+private const val NANOS_PER_MILLISECOND = 1_000_000.0
+private const val BYTES_PER_MEGABYTE = 1024.0 * 1024.0
+private const val ROUNDING_SCALE = 100.0
 
 data class OnnxBenchmarkResult(
     val modelPath: String,
@@ -73,17 +76,17 @@ object OnnxBenchmark {
                     (1..TIMED_RUNS).map {
                         val start = System.nanoTime()
                         session.run(feed).close()
-                        (System.nanoTime() - start) / 1_000_000.0
+                        (System.nanoTime() - start) / NANOS_PER_MILLISECOND
                     }
                 inputIds.close()
                 attentionMask.close()
 
                 OnnxBenchmarkResult(
                     modelPath = modelFile.absolutePath,
-                    modelSizeMb = modelFile.length() / (1024.0 * 1024.0),
-                    meanMs = (timings.sum() / timings.size * 100).roundToLong() / 100.0,
-                    minMs = (timings.min() * 100).roundToLong() / 100.0,
-                    maxMs = (timings.max() * 100).roundToLong() / 100.0,
+                    modelSizeMb = modelFile.length() / BYTES_PER_MEGABYTE,
+                    meanMs = (timings.sum() / timings.size * ROUNDING_SCALE).roundToLong() / ROUNDING_SCALE,
+                    minMs = (timings.min() * ROUNDING_SCALE).roundToLong() / ROUNDING_SCALE,
+                    maxMs = (timings.max() * ROUNDING_SCALE).roundToLong() / ROUNDING_SCALE,
                 )
             }
         }

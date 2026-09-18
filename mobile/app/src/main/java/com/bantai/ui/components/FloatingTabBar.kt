@@ -37,10 +37,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +57,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bantai.ui.theme.Black
@@ -81,9 +83,11 @@ private val navTabs =
         NavTab("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
     )
 
-private val Unselected = Color(0xFF8E8E93)
+private const val UNSELECTED_TAB_COLOR = 0xFF8E8E93
+private val Unselected = Color(UNSELECTED_TAB_COLOR)
 
 private const val TAB_BAR_HEIGHT_DP = 74
+private const val TAB_TINT_ANIMATION_MS = 200
 
 // Each tab gets an equal-width slice of the bar (Modifier.weight(1f)) so the
 // icons land at consistent, evenly-spaced positions regardless of how long
@@ -117,7 +121,7 @@ fun FloatingTabBar(
     // out (see onGloballyPositioned below) -- the pill animates to whichever
     // entry is the current target, so it always matches real content bounds
     // instead of an assumed uniform width.
-    val tabBounds = remember { mutableStateListOf(*Array(navTabs.size) { Rect.Zero }) }
+    val tabBounds = remember { List(navTabs.size) { Rect.Zero }.toMutableStateList() }
 
     fun indexAt(x: Float): Int {
         val hit = tabBounds.indexOfFirst { x >= it.left && x < it.right }
@@ -165,50 +169,69 @@ fun FloatingTabBar(
         val targetBounds = tabBounds.getOrElse(targetIndex) { Rect.Zero }
 
         if (targetBounds != Rect.Zero) {
-            val pillOffset by animateDpAsState(
-                targetValue = with(density) { targetBounds.left.toDp() },
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
-                label = "pillOffset",
-            )
-            val pillWidth by animateDpAsState(
-                targetValue = with(density) { targetBounds.width.toDp() },
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
-                label = "pillWidth",
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .offset(x = pillOffset)
-                        .width(pillWidth)
-                        .fillMaxHeight()
-                        .padding(6.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        // Real backdrop blur -- glassifies whatever screen content
-                        // (e.g. message text) is currently behind the pill.
-                        .hazeEffect(
-                            state = hazeState,
-                            style = HazeStyle(tint = HazeTint(Indigo.copy(alpha = 0.22f)), blurRadius = 18.dp),
-                        ),
-            )
+            TabSelectionPill(targetBounds = targetBounds, density = density, hazeState = hazeState)
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            navTabs.forEachIndexed { index, tab ->
-                TabItem(
-                    tab = tab,
-                    selected = if (dragActive) hoverIndex == index else selected == index,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .onGloballyPositioned { coordinates ->
-                                tabBounds[index] = coordinates.boundsInParent()
-                            },
-                )
-            }
+        TabBarItems(selected = selected, dragActive = dragActive, hoverIndex = hoverIndex, tabBounds = tabBounds)
+    }
+}
+
+@Composable
+private fun TabSelectionPill(
+    targetBounds: Rect,
+    density: Density,
+    hazeState: HazeState,
+) {
+    val pillOffset by animateDpAsState(
+        targetValue = with(density) { targetBounds.left.toDp() },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "pillOffset",
+    )
+    val pillWidth by animateDpAsState(
+        targetValue = with(density) { targetBounds.width.toDp() },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "pillWidth",
+    )
+    Box(
+        modifier =
+            Modifier
+                .offset(x = pillOffset)
+                .width(pillWidth)
+                .fillMaxHeight()
+                .padding(6.dp)
+                .clip(RoundedCornerShape(22.dp))
+                // Real backdrop blur -- glassifies whatever screen content
+                // (e.g. message text) is currently behind the pill.
+                .hazeEffect(
+                    state = hazeState,
+                    style = HazeStyle(tint = HazeTint(Indigo.copy(alpha = 0.22f)), blurRadius = 18.dp),
+                ),
+    )
+}
+
+@Composable
+private fun TabBarItems(
+    selected: Int,
+    dragActive: Boolean,
+    hoverIndex: Int,
+    tabBounds: SnapshotStateList<Rect>,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        navTabs.forEachIndexed { index, tab ->
+            TabItem(
+                tab = tab,
+                selected = if (dragActive) hoverIndex == index else selected == index,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .onGloballyPositioned { coordinates ->
+                            tabBounds[index] = coordinates.boundsInParent()
+                        },
+            )
         }
     }
 }
@@ -221,7 +244,7 @@ private fun TabItem(
 ) {
     val tint by animateColorAsState(
         targetValue = if (selected) Indigo else Unselected,
-        animationSpec = tween(200),
+        animationSpec = tween(TAB_TINT_ANIMATION_MS),
         label = "tabTint",
     )
     // A small bounce on the icon itself when it becomes selected/hovered, on

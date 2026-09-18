@@ -1,0 +1,28 @@
+{
+  "by_category": {
+    "Brand Impersonation": {
+      "authored": 57,
+      "variant": 153
+    },
+    "Fake Job Offer": {
+      "authored": 102,
+      "variant": 34
+    },
+    "Personal Info Request": {
+      "authored": 29,
+      "variant": 36
+    },
+    "Unsolicited Credit Offer": {
+      "authored": 15,
+      "variant": 36
+    }
+  },
+  "created_at": "2026-09-16T08:56:20.589850+00:00",
+  "existing_scam_rows": 2279,
+  "max_variants_per_seed": 3,
+  "n_generated": 462,
+  "note": "Synthetic Scam rows for review. NOT merged into datasets/labeled/ by this script. The holdout stays entirely real: no row here may enter it, and no seed came from it.",
+  "rng_seed": 20260916,
+  "seeds_excluded_for_being_in_holdout": 0,
+  "synthetic_share_after": 0.1686
+}

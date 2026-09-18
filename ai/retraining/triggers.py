@@ -83,6 +83,14 @@ class PageHinkley:
 
     delta: float = 0.005
     threshold: float = 0.05
+    #: Observations required before the alarm may fire at all. The manuscript
+    #: (pp. 166-167) specifies the drift trigger as "a Page Hinkley drift alarm
+    #: with a minimum sample floor (at least 10 samples)"; this is that floor,
+    #: which had never been implemented. Without it the detector could fire on
+    #: as few as three observations -- two stable windows and one bad one --
+    #: and kick off a full fine-tune on what is still noise. The running mean
+    #: it compares against is itself barely established that early.
+    min_samples: int = 10
 
     _n: int = field(default=0, init=False)
     _mean: float = field(default=0.0, init=False)
@@ -110,6 +118,12 @@ class PageHinkley:
         # input -- caught by test_stable_metric_does_not_signal_drift.
         self._cumulative += value - self._mean + self.delta
         self._max_cumulative = max(self._max_cumulative, self._cumulative)
+
+        # State still accumulates below the floor -- only the *alarm* is held
+        # back. Discarding early observations instead would reset the baseline
+        # every time and make the floor a rolling delay rather than a warm-up.
+        if self._n < self.min_samples:
+            return False
 
         return (self._max_cumulative - self._cumulative) > self.threshold
 

@@ -27,6 +27,9 @@ Raw sources (Kaggle, NTC, phone-inbox exports)
         ▼
 datasets/labeled/bantai_labeled.csv  (the training set)
         │
+        ├── [2b] Targeted augmentation ── scripts/augment_scam_dataset.py
+        │         (thin Scam families only; written to datasets/augmented/ for
+        │          human review, merged back by hand — never automatically)
         ▼
 [3] Preprocessing ── preprocessing/  (NFKC + PII masking; SAME code path used
         │             at both training and inference time)
@@ -285,6 +288,170 @@ four should be inspected after every rebuild.
 
 ---
 
+## Stage 3b — Targeted augmentation of the Scam class — 2026-09-16
+
+**Code:** `scripts/augment_scam_dataset.py` · **Tests:** `tests/test_augment_scam_dataset.py` · **Output:** `datasets/augmented/` — the batch **CSVs are gitignored** (roughly half of each batch is wording-level variants of real user messages, so the file carries real SMS content), while the per-batch **summary JSON is kept**, since it is counts only and is what the manuscript cites.
+
+**Why.** The 2026-09-16 error analysis of the frozen holdout found the model's
+scam misses are not spread evenly. Miss rate tracks training support almost
+exactly: 0.5% of gambling bait missed (768 training rows) against 50% of fake
+job offers (14 rows). This is a data problem, not a threshold problem — 29 of
+the 38 missed scams scored below 0.10, so no cutoff could have caught them.
+
+The generator fills four thin families up to a target, mixing **variants** of
+real seed messages with **authored** rows from a template bank. Gambling Bait
+is deliberately excluded: it needs nothing, and adding to it would deepen the
+imbalance that caused this.
+
+**Nothing here is merged automatically.** The script writes to
+`datasets/augmented/` for human review; merging into
+`datasets/labeled/bantai_labeled.csv` stays a deliberate manual step.
+
+### The four constraints that make this safe, and why each is easy to get wrong
+
+**1. Varying links, amounts or numbers accomplishes nothing.** `preprocess`
+replaces them with `<URL>`/`<AMOUNT>`/`<PHONE>`/`<OTP>` before the model sees
+anything, so a "variant" that swaps only the link is byte-identical after
+masking and is de-duplicated away. Variation has to live in wording, sentence
+structure and language mix.
+
+**2. A variant of a holdout message is training on the test set.** Seeds are
+checked against the frozen holdout and excluded; no generated row may ever
+enter it. The holdout stays 100% real, or the headline number stops meaning
+anything.
+
+**3. Synthetic rows train, they never validate.** See RETRAINING.md § "Stage 2"
+— a candidate scoring its own templates in validation would report "learned our
+templates" as "better at detecting scams", inflating the numbers that justify a
+promotion.
+
+**4. Language mix is a correctness constraint, not a style preference.**
+Measured on the 2026-09-16 pool, `po` appears in **7.7% of Ham and 0.5% of real
+Scam** — a marker of ordinary Filipino politeness, not of fraud. A first pass
+of this generator wrote `po` into **53%** of its rows; merging that would have
+taught the model `po → Scam` and produced false alarms on exactly the polite
+messages real users send. Templates are therefore tagged by language, and the
+Taglish share is a **quota on accepted rows** measured from the real pool at run
+time — not a per-attempt probability. (Sampling per attempt skewed it 14× above
+target: the English bank exhausts, so English candidates are mostly rejected as
+near-duplicates while the rare Tagalog ones are always novel and always
+accepted. Rejection sampling reshapes any distribution fed through it.)
+
+### Provenance is mandatory, not decoration
+
+Every row carries `origin` (`variant` / `authored`), the `seed_id` it came
+from, and its `category`, so synthetic rows can be counted, excluded from
+validation, and **ablated** — trained with and without — to show what the
+augmentation actually bought. The run's JSON summary records the RNG seed, the
+per-category origin split, the synthetic share of the Scam class, and every
+exclusion count.
+
+### Three self-checks the script runs on every batch
+
+| Check | What it catches |
+|---|---|
+| Synthetic share of the Scam class, capped at **30%** | Past this the model is mostly learning our writing style rather than how scams read |
+| Marker distribution (`po`, `ninyo/kayo`, ALL-CAPS) against real Ham and real Scam | A correlation the batch would *invent* |
+| Tagger agreement per category | Rows the indicator tagger does not re-read as their own category |
+
+The third check was added 2026-09-17 and is the one worth explaining. The
+`category` column is **asserted** by the generator — an authored row is filed
+under the template bank it came from, never re-checked — while the target
+counts, and the miss-rate-per-family analysis that set those targets, are all
+denominated in `service/indicator_tags.py`. Current batch:
+
+| Category | Rows | Tagger agreement | Was, before the 2026-09-17 template rewrite |
+|---|---|---|---|
+| Unsolicited Credit Offer | 120 | 112 (93%) | 51 rows, 82% — and **51 of 120 requested** |
+| Brand Impersonation | 227 | 198 (87%) | 211 rows, 94% |
+| Fake Job Offer | 97 | 83 (86%) | 136 rows, **42%** |
+| Personal Info Request | 70 | 45 (64%) | 65 rows, **32%** — and **65 of 132 requested** |
+
+The rewrite is described under "Bank rewritten" below. Fake Job Offer produced
+*fewer* rows than before (136 → 97) and that is the intended direction: 61 of
+the old 136 came from a single template no real scam resembles, so the old
+count was volume, not support. Personal Info Request's remaining 64% splits
+70% authored / 58% variant — the variant half comes from real seeds, so what is
+left there is the tagger's own lexicon gap on real messages, not a template
+problem.
+
+⚠️ **Open — not yet decided.** A row the tagger cannot see is a row that (a)
+will not count toward its category's target on the next run, so the target is
+never met and the next batch requests the same volume again, (b) cannot appear
+as support for the weak family it was written for when the augmentation is
+evaluated, and (c) reaches users without the indicator that explains the alert.
+Two opposite fixes are possible and only a human reading the rows can tell them
+apart: the templates drifted off-category, or the tagger's keyword list is too
+narrowly phrased for how the family actually reads. **The second is plausible —
+it is the same gap already found and fixed four times (Bug History §9, §11,
+§14, §16).** Measured against the real Scam pool: 17 rows use job-scam
+vocabulary the `Fake Job Offer` list does not carry (`hiring`, `job opening`,
+`salary`, `daily payout`, `encoder`, `typist`), against 14 currently tagged —
+so the "14 training rows" that justified this whole stage may itself be an
+undercount of roughly half. That same vocabulary hits **12 of 12,138 Ham rows
+(0.1%)**, so widening it there is cheap. The equivalent probes for `Personal
+Info Request` and `Unsolicited Credit Offer` hit 1.1% and 1.8% of Ham, so those
+two need individually-chosen phrases, not a broad sweep.
+
+Widening the lexicon changes the per-family miss rates already quoted in
+adviser-facing documents and changes what users see in production, so it is
+recorded here for a decision rather than actioned.
+
+### The review loop closes through a file, not a code edit
+
+Reviewing a batch means marking rows that are not really scams in a
+`correct_label` column. When such a row is a **variant**, the judgement is
+really about the *real* message it came from — so that seed is excluded from
+every future batch. `rejected_seed_ids()` reads any CSV in `datasets/augmented/`
+with a filled `correct_label`, so the loop closes by reviewing a file rather
+than by editing the script.
+
+Found necessary 2026-09-16: a review rejected 53 variants; 20 of their seeds
+were fixed by the label corrections that followed, and 2 were not — and those 2
+seeded 10 fresh variants on the very next run.
+
+A second, blunter guard (`SUSPECT_SEED`) drops any seed mentioning DLSL, DITO,
+telco or student/tuition vocabulary. Real institutional notices were sitting in
+the pool labeled Scam, so variants of them were fabricating "scams" out of
+genuine messages. It is deliberately over-broad — it also skips genuine scams
+impersonating those brands, which costs a few seeds and risks nothing, because
+seeds are the one input where a wrong row is copied three more times. It is a
+**stopgap for the generator only**; the rows are still in the training data,
+which is the larger problem, and
+`scripts/make_institutional_scam_review_sheet.py` exists to get them re-labeled
+through the normal correction workflow.
+
+### Bug found 2026-09-17 — a Tagalog CTA inside an English template
+
+One English-bank template used the `{cta_tl}` slot:
+
+```
+"{wallet} Alert: someone tried to change your registered number. If this was not you, {cta_tl}: {link}"
+```
+
+The row is *drawn* as English, so it never counts against the Taglish quota,
+but it still ships `po` to the model — the quota machinery cannot see it. It
+put `po` into 3 rows of a 462-row batch, lifting the marker to **1.52% against
+the 0.53% real-Scam rate**, roughly 3×.
+
+The marker table did not flag it and, honestly, no rate threshold would have:
+its rule is `synthetic > max(3 × real_scam, real_scam + 5pp)`, and for a marker
+this rare the `+5pp` floor is unreachable — but even a 1pp floor sits above
+1.52%. 3 rows in 462 is real and is simply too small for a distribution check
+to see. The invariant belongs on the **template bank**, not on the output
+distribution, so the test asserts no English template contains a `{cta_tl}`
+slot. Fixed, batch regenerated (`po` now 0.9%, 4 rows of 463).
+
+**Run:**
+
+```bash
+cd ai
+.venv/Scripts/python.exe scripts/augment_scam_dataset.py --sample   # eyeball, writes nothing
+.venv/Scripts/python.exe scripts/augment_scam_dataset.py            # full batch to datasets/augmented/
+```
+
+---
+
 ## Stage 4 — Preprocessing (train == inference)
 
 **Code:** `preprocessing/` (`normalization.py`, `masking.py`, `pipeline.py`)
@@ -522,14 +689,28 @@ first one this holdout can grade honestly. Two layers, both on the same 3,236
 rows:
 
 - **Raw label** (`scripts/evaluate_holdout.py`, WBS 6.4.6): macro-F1
-  **0.9592**; Scam recall 92.4% (38/498 missed).
-  `evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`.
+  **0.9614**; Scam recall 93.5% (32/491 missed).
+  `evaluation/holdout_confusion_2026-09-16T07-45-54Z.json`.
 - **What users see after routing** (`scripts/evaluate_holdout_buckets.py`,
-  added 2026-09-13): **17/498 real scams shown as safe (3.41%)**, **3/1,785
-  legitimate messages blocked (0.17%)**, 20/3,236 left as unknown (0.62%).
-  `evaluation/holdout_buckets_2026-09-12T16-47-44Z.json`. Its raw predictions
-  reproduce the 6.4.6 confusion matrix exactly, so both files describe the
-  same model on the same rows.
+  added 2026-09-13): **15/491 real scams shown as safe (3.05%)**, **4/1,787
+  legitimate messages blocked (0.22%)**, 20/3,236 left as unknown (0.62%).
+  `evaluation/holdout_buckets_2026-09-16T07-57-15Z.json`. Both runs report
+  `HOLDOUT integrity: ok` and `CHECKPOINT integrity: ok`, so they are pinned
+  to a known test set and a known checkpoint.
+
+**⚠️ These replace the figures first reported on 2026-08-27** (macro-F1
+0.9592, Scam recall 92.4%, 17/498 shown as safe, 3/1,785 blocked). The model
+did not change — the labels did. A blind review on 2026-09-16 of every
+holdout message carrying institutional or telco wording found **7 mislabelled
+rows** (5 Scam→Spam, 2 Scam→Ham): real messages from a school and from telcos
+that the rule cascade had called fraud. Six of the 38 scams the model was
+credited with "missing" were therefore never scams. **The correction did not
+only flatter the model** — legitimate messages wrongly blocked rose from 3 to
+4, a true false positive the old label had concealed. Original labels, review
+sheet, dated backup and the reasoning are recorded in
+`datasets/holdout/manifest.json` under `revisions`; the same pass corrected 99
+rows in the training pool, which the next retrain will pick up. This is a
+better estimate of the same model, not a better model.
 
 Quote the post-routing script in the thesis, not `evaluate_buckets.py`: that
 one draws a fresh split from `datasets/labeled/`, so its numbers move as the
@@ -1573,6 +1754,77 @@ most recent snapshots and prints a summary).
 Kept as a permanent record because *how* each was found is itself a
 methodology point worth writing up, not just the fix.
 
+### §18 — The drift alarm's minimum sample floor was never implemented (found 2026-09-17)
+
+**How it was found:** not by a test failing — by reading the manuscript's
+Stages 9–11 line by line against `retraining/triggers.py`. The audit was
+looking for changed *values*; this turned out to be a specified requirement
+that was simply absent, which no amount of testing the code against itself
+would ever surface.
+
+**Manuscript (pp. 166–167):** *"a Page Hinkley drift alarm **with a minimum
+sample floor (at least 10 samples)**."* The sibling trigger — 50 validated
+samples — was implemented at exactly the stated value. The floor was not
+implemented anywhere: not in `PageHinkley.update()`, not in `evaluate()`,
+which takes `drift_detected: bool` from its caller and applies no guard.
+
+**What it meant in practice.** The alarm could fire on the third observation:
+
+```
+observation 1: macro-F1 0.94  -> False
+observation 2: macro-F1 0.94  -> False
+observation 3: macro-F1 0.60  -> True     <- full fine-tune starts here
+```
+
+Two stable windows and one bad one is noise, not drift — and the running mean
+the detector compares against is barely established at n=3. That is the exact
+scenario the floor exists to prevent.
+
+**Fix:** `PageHinkley.min_samples = 10`, checked before the alarm condition.
+State still accumulates below the floor, so it is a warm-up rather than a
+rolling delay — the alarm can fire on the first observation after the floor is
+cleared. Three tests added.
+
+**⚠️ Correction, same day — the live path is a different implementation.** The
+first version of this entry said the detector "is not yet wired into a running
+monitoring loop." That is true of *this* Python detector, and it is why nothing
+downstream was affected — but it is not the whole picture, and the way it was
+found is worth recording: a repo-wide search that had been scoped to `ai/`
+only, re-run across the whole monorepo, turned up a **second Page-Hinkley
+implementation** in `backend/src/retraining/retraining.service.ts`.
+
+The backend copy is the one that actually runs — it sits on the
+`@Cron(EVERY_HOUR)` job the manuscript describes. Differences that matter:
+
+| | `ai/retraining/triggers.py` | `backend/.../retraining.service.ts` |
+|---|---|---|
+| Watches | macro-F1 per evaluation window | individual classification **scores** (≤2,000) |
+| Sample floor | 10 (added today) | **100 scores** |
+| δ | 0.005 | 0.005 |
+| λ (threshold) | 0.05 | **50** |
+| Wired to a live trigger | no | **yes, hourly cron** |
+
+So the live trigger was never exposed to the missing-floor defect — its floor of
+100 is stricter than the manuscript's 10. The larger finding is that **one
+algorithm named once in the manuscript has two independent implementations that
+do not consume the same quantity.** The manuscript's component table (p. 161)
+describes concept-drift detection as a *"statistical performance comparison"*
+against *"classification logs and baseline metrics"* — performance, which is
+what the Python version watches. The running version watches confidence-score
+distribution, which can shift without the model getting any worse. λ differs by
+a factor of 1,000 because the inputs are on different scales; simulated on the
+same series both do fire on a realistic drift, so this is a calibration and
+correctness-of-input question, not a dead detector.
+
+The backend half is Track A's code. Raised with the adviser as item 8 of the
+disclosure email, and with Reymark directly.
+
+**The methodology lesson**, which is why this entry is long: the first search
+was scoped to the directory that owns the algorithm, and that scoping is what
+made the answer wrong. A manuscript-specified component can be implemented in
+more than one track, and "is it wired up?" has to be asked across the whole
+repository, not just the module it belongs to.
+
 ### §1 — Train/validation leakage via masking (found 2026-07-28)
 
 **Symptom:** suspiciously high Scam recall (92.7%).
@@ -1986,6 +2238,9 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `scripts/make_backlog_review_sheet.py` | Review round 7 (raw-inbox backlog never previously reviewed, full population) |
 | `scripts/evaluate_buckets.py` | Bucket-level (post-threshold) evaluation using the real production `route()` |
 | `scripts/apply_review_corrections.py` | **Re-applies all human corrections after any rebuild — always run with `build_dataset.py`** |
+| `scripts/augment_scam_dataset.py` | Stage 3b: targeted synthetic Scam rows for the thin families, written for review (2026-09-16) |
+| `scripts/make_institutional_scam_review_sheet.py` | Re-labeling queue for institutional notices sitting in the pool marked Scam |
+| `datasets/augmented/` | Generated batches awaiting human review — CSVs git-ignored (real message content), summary JSON kept; never merged automatically |
 | `datasets/LABEL_DEFINITIONS.md` | Ham/Spam/Scam definitions + routing/threshold reference |
 | `datasets/LABELING_GUIDE.md` | Practical labeling guidance for human reviewers |
 | `datasets/labeled/bantai_labeled.csv` | The training set (git-ignored, regenerable) |
@@ -2012,7 +2267,7 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `retraining/pipeline.py` | Orchestrates snapshot → fine-tune → gate → `decision.json` (WBS 4.3.5) |
 | `scripts/retrain.py` | CLI for the above; also `--export-reports` for the offline/Colab hop |
 | `colab/` | Two Colab notebooks + packages — train from scratch (2.3.4), and retrain (4.3.5) |
-| `tests/` | 359 pytest tests across every module above |
+| `tests/` | 503 pytest tests across every module above |
 | `models/` | Trained weights output (git-ignored) |
 | `../docs/api/classify.md` | ML service API contract (consumed by the NestJS backend) |
 | `../docs/api/summarize.md` | Thread summarization API contract (WBS 4.3.9) |

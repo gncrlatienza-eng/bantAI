@@ -183,6 +183,32 @@ _FAKE_JOB_OFFER = [
     "no experience needed",
     "kumita ng malaki",
     "raket sa bahay",
+    # Task-scam vocabulary, added 2026-09-18. A distinct family from the
+    # work-from-home entries above: it offers piecework paid per task, not
+    # employment, and nothing above reached it. Measured on the corpus, these
+    # five take the tag from 14 Scam rows / 11 distinct messages to 59 / 18,
+    # with **no new Ham or Spam hits** beyond the two the list already had.
+    #
+    # ⚠️ Phrases are trimmed to their DISTINCTIVE words on purpose -- "while
+    # watching", not "make money while watching"; "the tutor", not "contact the
+    # tutor". ``explainer._tokens_to_tags`` splits every phrase into words and
+    # fires this tag when any single word of >=4 characters is a top-contributing
+    # SHAP token, so a common word buried inside a phrase becomes a standalone
+    # trigger. The untrimmed versions would have added "money" (3.2% of Ham),
+    # "make" (2.0%) and "contact" (1.2%): same scam coverage, but 794 Ham
+    # messages newly exposed instead of 35. "the" is three characters, below the
+    # token floor, so "the tutor" contributes only "tutor".
+    #
+    # Accepted cost: "while watching" mis-tags one Globe promo ("Stay
+    # #SafeAtHome while watching your favorite TV shows"), already labelled
+    # Spam. The alternative "watching youtube" avoids it but adds "youtube",
+    # which appears in 32 Ham messages -- and a wrong indicator on Ham is the
+    # user-visible harm.
+    "while watching",
+    "the tutor",
+    "car reviewer",
+    "reviewer ng kotse",
+    "daily salary",
 ]
 
 _UNSOLICITED_CREDIT_OFFER = [

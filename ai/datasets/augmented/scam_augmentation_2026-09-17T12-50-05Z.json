@@ -1,0 +1,48 @@
+{
+  "by_category": {
+    "Brand Impersonation": {
+      "authored": 74,
+      "variant": 153
+    },
+    "Fake Job Offer": {
+      "authored": 63,
+      "variant": 34
+    },
+    "Personal Info Request": {
+      "authored": 37,
+      "variant": 33
+    },
+    "Unsolicited Credit Offer": {
+      "authored": 84,
+      "variant": 36
+    }
+  },
+  "created_at": "2026-09-17T12:50:05.676215+00:00",
+  "existing_scam_rows": 2279,
+  "max_variants_per_seed": 3,
+  "n_generated": 514,
+  "note": "Synthetic Scam rows for review. NOT merged into datasets/labeled/ by this script. The holdout stays entirely real: no row here may enter it, and no seed came from it.",
+  "rng_seed": 20260916,
+  "seeds_excluded_as_rejected_in_review": 4,
+  "seeds_excluded_as_suspected_mislabel": 135,
+  "seeds_excluded_for_being_in_holdout": 0,
+  "synthetic_share_after": 0.184,
+  "tagger_agreement_by_category": {
+    "Brand Impersonation": {
+      "agreed": 198,
+      "rows": 227
+    },
+    "Fake Job Offer": {
+      "agreed": 83,
+      "rows": 97
+    },
+    "Personal Info Request": {
+      "agreed": 45,
+      "rows": 70
+    },
+    "Unsolicited Credit Offer": {
+      "agreed": 112,
+      "rows": 120
+    }
+  }
+}

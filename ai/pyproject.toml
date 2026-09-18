@@ -23,3 +23,10 @@ extend-exclude = ["colab"]
 # auto-fixed lines into one commit right after Sprint 4 closed would bury the
 # real diff. Left as a deliberate, separate follow-up rather than skipped.
 select = ["E", "W", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# The scam templates are single SMS messages held as one string each. Wrapping
+# them across lines to satisfy the 120-column limit would hide what the
+# generated message actually looks like, which is the one thing a reviewer of
+# this file needs to see at a glance.
+"scripts/augment_scam_dataset.py" = ["E501"]

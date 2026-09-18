@@ -77,7 +77,10 @@ fun PrivacyDataScreen(navController: NavController) {
             item {
                 InfoCard(
                     title = "Data we collect",
-                    body = "Anonymized SMS metadata (sender hash, message hash, timestamp). No message bodies are stored on our servers.",
+                    body =
+                        "The sender and message text of SMS you receive are sent to our servers and stored " +
+                            "linked to your account (not anonymized) to power detection, retraining, and the " +
+                            "reports you submit.",
                 )
             }
             item {

@@ -33,12 +33,15 @@ each catches what the others miss.
 |---|---|---|
 | Validated samples | **50** | Steady accumulation of confirmed mistakes |
 | Macro-F1 floor | **5pp** below baseline | Sudden breakage — bad deploy, corrupt checkpoint |
-| Page-Hinkley | δ=0.005, λ=0.05 | Slow drift no single measurement flags |
+| Page-Hinkley | δ=0.005, λ=0.05, **floor 10 samples** | Slow drift no single measurement flags |
 
 ### Threshold decisions
 
-WBS 4.1.2 asks these be *confirmed*, because the manuscript states them
-loosely. Resolved as:
+WBS 4.1.2 asks these be *confirmed*. Two of the three are stated precisely in
+the manuscript (pp. 166–167: "at least 50 new validated samples", and a
+Page-Hinkley alarm "with a minimum sample floor (at least 10 samples)") and are
+implemented at those exact values; the F1 floor is the one the manuscript
+leaves open. Resolved as:
 
 **"50 samples" = 50 validated reports, not raw submissions.** A report counts
 only once an admin marks it Validated (WBS 4.3.2). Counting raw submissions
@@ -55,6 +58,16 @@ that matters: a missed scam defrauds someone, a misfiled promo annoys them.
 **Page-Hinkley over a fixed floor** because a gradual slide never trips a
 floor until it is already severe. Each batch looks like noise; only the
 accumulated one-directional drift is visible.
+
+**The alarm is held until 10 observations** (`PageHinkley.min_samples`), the
+manuscript's own stated floor. **This had never been implemented** — found
+2026-09-17 while auditing the pipeline against the manuscript text, and fixed
+the same day. Without it the detector could fire on as few as three
+observations (two stable windows and one bad one), starting a full fine-tune on
+what is still noise; the running mean it compares against is barely established
+that early. Observations below the floor still accumulate state, so the floor is
+a warm-up rather than a rolling delay: the alarm can fire on the very first
+observation after the floor is cleared.
 
 > **Implementation note.** The decrease-detecting form *adds* the slack term
 > where the textbook increase-detecting form subtracts it. Getting this
@@ -144,6 +157,27 @@ disagree about the same message, the most recently validated one wins —
 decided by `validated_at`, not arrival order, because the backend returns
 reports newest first (a 2026-09-14 fix: last-write-wins over that order had
 been keeping the oldest label).
+
+**Synthetic rows train, they never validate** (2026-09-16). Rows whose
+`origin` is `authored` or `variant` — the output of
+`scripts/augment_scam_dataset.py` — are placed in the training half of the
+80/20 split unconditionally, never the validation half
+(`training/dataset.py:load_split`, `SYNTHETIC_ORIGINS` in `training/config.py`).
+
+This is not tidiness. The split is stratified and random, so roughly 20% of any
+generated rows would otherwise land in validation — the same validation the
+promotion gate scores both models on. A candidate trained on generated text
+classifies more generated text from the same templates easily, while the
+incumbent it is measured against has never seen any. The gate would report
+"learned our templates" as "better at detecting scams", inflating the very
+numbers (macro-F1, Scam recall, fix/regression counts) that justify a
+promotion. Measured on a 40-real/20-synthetic fixture before the fix: 6 of 20
+synthetic rows reached validation.
+
+The frozen holdout is unaffected — it is 100% real and the generator refuses
+to seed from it — so the headline evaluation stays honest either way. This
+protects the *gate*, which runs first and decides whether a candidate is even
+considered.
 
 **De-duplication compares masked text; the snapshot stores raw text.**
 `...libre 1q2w3e7.ca` and `...libre 1q2w3e8.ca` are one model input once

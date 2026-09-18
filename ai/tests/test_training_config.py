@@ -78,3 +78,80 @@ def test_class_weighted_loss_enabled_by_default():
     from training.config import TrainingConfig
 
     assert TrainingConfig().class_weighted_loss is True
+
+
+# --- synthetic rows train, never validate (2026-09-16) -----------------------
+def _write(tmp_path, rows, header="text,label"):
+    (tmp_path / "data.csv").write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    return TrainingConfig(dataset_path=str(tmp_path), seed=42)
+
+
+def test_synthetic_rows_are_kept_out_of_validation(tmp_path):
+    """The failure this prevents: a candidate trained on generated text scores
+    well on more generated text from the same templates, while the incumbent
+    it is compared against has never seen any -- so the promotion gate would
+    report "learned our templates" as "better at detecting scams"."""
+    from training.dataset import load_split
+
+    real = [f"real message number {i},{'Ham' if i % 2 else 'Scam'},dataset" for i in range(40)]
+    synth = [f"generated message number {i},Scam,authored" for i in range(20)]
+    config = _write(tmp_path, real + synth, header="text,label,origin")
+
+    train_texts, val_texts, _, _ = load_split(config)
+
+    assert not [t for t in val_texts if "generated" in t], "synthetic row reached the validation split"
+    assert len([t for t in train_texts if "generated" in t]) == 20, "synthetic rows must still train"
+
+
+def test_variants_are_excluded_from_validation_too(tmp_path):
+    from training.dataset import load_split
+
+    rows = [f"real message number {i},{'Ham' if i % 2 else 'Scam'},dataset" for i in range(40)]
+    rows += [f"variant message number {i},Scam,variant" for i in range(10)]
+    _, val_texts, _, _ = load_split(_write(tmp_path, rows, header="text,label,origin"))
+    assert not [t for t in val_texts if "variant" in t]
+
+
+def test_a_dataset_without_an_origin_column_splits_as_before(tmp_path):
+    """Every file except the augmentation output has no origin column."""
+    from training.dataset import load_split
+
+    rows = [f"message number {i},{'Ham' if i % 2 else 'Scam'}" for i in range(40)]
+    train_texts, val_texts, _, _ = load_split(_write(tmp_path, rows))
+    assert len(val_texts) == 8  # 20% of 40, unchanged
+    assert len(train_texts) == 32
+
+
+# --- warm-up steps (transformers 5 removed TrainingArguments(warmup_ratio=)) ---
+def test_warmup_steps_match_the_real_training_runs():
+    """Checkpoint names prove steps/epoch: 2026-08-27 run 947 (checkpoint-2841 = 3x947), 07-29 run 697."""
+    from training.train import warmup_steps_for
+
+    assert warmup_steps_for(15150, 16, 1, 4, 0.1) == 379  # ceil(0.1 * 4 * 947)
+    assert warmup_steps_for(11140, 16, 1, 4, 0.1) == 279  # ceil(0.1 * 4 * 697)
+
+
+def test_warmup_steps_edge_cases():
+    from training.train import warmup_steps_for
+
+    assert warmup_steps_for(5, 16, 1, 4, 0.1) == 1  # fewer rows than one batch is still one step
+    assert warmup_steps_for(15150, 16, 0, 4, 0.1) == 379  # CPU (0 GPUs) counts as one device
+    assert warmup_steps_for(15150, 16, 2, 4, 0.1) == 190  # ceil(0.1 * 4 * ceil(15150 / 32))
+
+
+def test_warmup_steps_equal_transformers_own_warmup_ratio_math():
+    """Only runnable on transformers 4.x, which still has warmup_ratio: proves the replacement is exact."""
+    import math
+
+    import pytest
+
+    transformers = pytest.importorskip("transformers")
+    from training.train import warmup_steps_for
+
+    try:
+        args = transformers.TrainingArguments(output_dir="unused", warmup_ratio=0.1, report_to="none")
+    except TypeError:
+        pytest.skip("this transformers version no longer accepts warmup_ratio")
+    for n_train in (1, 16, 17, 11140, 15150):
+        total = math.ceil(4 * max(math.ceil(n_train / 16), 1))
+        assert warmup_steps_for(n_train, 16, 1, 4, 0.1) == args.get_warmup_steps(total)

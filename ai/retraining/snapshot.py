@@ -35,6 +35,7 @@ a comparison key here, never a stored artifact.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass, field
@@ -99,6 +100,18 @@ class SnapshotManifest:
     label_counts: Dict[str, int] = field(default_factory=dict)
     report_ids: List[str] = field(default_factory=list)
 
+    #: SHA-256 over the snapshot's own (masked text, label) pairs, sorted so it
+    #: does not move with row order. Answers "which data produced this model?"
+    #: with a value rather than a description.
+    #:
+    #: Row counts alone cannot answer it: on 2026-09-16 a review moved 99 rows
+    #: out of Scam, leaving the pool the same size and a different dataset. A
+    #: model trained before and after that would carry identical-looking
+    #: manifests. Checkpoints and the holdout are both digest-verified
+    #: (``version_file.verify_version``, ``checksum.verify_against_manifest``);
+    #: this closes the same gap for the training input.
+    dataset_sha256: str = ""
+
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, sort_keys=True)
 
@@ -159,7 +172,11 @@ def build_snapshot(
     def history() -> Iterable[SnapshotRow]:
         """Stream dataset rows, dropping duplicates and report-superseded rows."""
         seen: set = set()
-        for raw_text, label in dataset_rows:
+        for row in dataset_rows:
+            # Two- and three-element rows both accepted: the reader yields an
+            # origin, hand-built callers (and tests) pass bare (text, label).
+            raw_text, label = row[0], row[1]
+            origin = row[2] if len(row) > 2 else "dataset"
             manifest.n_dataset_rows_seen += 1
             masked = preprocess(str(raw_text))
 
@@ -175,7 +192,7 @@ def build_snapshot(
                 continue
             seen.add(masked)
 
-            yield SnapshotRow(text=str(raw_text), label=label, origin="dataset")
+            yield SnapshotRow(text=str(raw_text), label=label, origin=origin)
 
     if max_history is None:
         sampled = list(history())
@@ -195,6 +212,15 @@ def build_snapshot(
     for row in rows:
         counts[row.label] = counts.get(row.label, 0) + 1
     manifest.label_counts = dict(sorted(counts.items()))
+    # Masked text, because that is what the model is actually trained on: two
+    # snapshots differing only in a tracking URL are the same training input.
+    digest = hashlib.sha256()
+    for masked, label in sorted((preprocess(r.text), r.label) for r in rows):
+        digest.update(masked.encode("utf-8"))
+        digest.update(b"\x00")
+        digest.update(label.encode("utf-8"))
+        digest.update(b"\n")
+    manifest.dataset_sha256 = digest.hexdigest()
 
     return rows, manifest
 
@@ -234,8 +260,14 @@ def write_snapshot(
     return data_dir
 
 
-def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
-    """Stream ``(text, label)`` out of the labeled dataset directory.
+def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str, str]]:
+    """Stream ``(text, label, origin)`` out of the labeled dataset directory.
+
+    ``origin`` is ``"dataset"`` for rows that carry no such column, which is
+    every file except the output of ``scripts/augment_scam_dataset.py``. It is
+    preserved rather than flattened because ``training/dataset.py`` uses it to
+    keep synthetic rows out of the validation split -- and a column dropped
+    here would silently re-admit them (see ``SYNTHETIC_ORIGINS``).
 
     Mirrors ``training/dataset._read_files``: same file types, and the same
     exclusion of ``sample.csv`` (the hand-written format reference documented
@@ -261,7 +293,7 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
             with open(file_path, newline="", encoding="utf-8") as handle:
                 for row in csv.DictReader(handle):
                     if row.get("text") and row.get("label") is not None:
-                        yield str(row["text"]), str(row["label"])
+                        yield str(row["text"]), str(row["label"]), str(row.get("origin") or "dataset")
         else:
             with open(file_path, encoding="utf-8") as handle:
                 if file_path.endswith(".jsonl"):
@@ -270,4 +302,4 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
                     records = json.load(handle)
             for row in records:
                 if row.get("text") and row.get("label") is not None:
-                    yield str(row["text"]), str(row["label"])
+                    yield str(row["text"]), str(row["label"]), str(row.get("origin") or "dataset")

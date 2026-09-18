@@ -114,3 +114,29 @@ def test_recovery_after_reset_behaves_like_a_fresh_detector():
         ph.update(0.94 - i * 0.004)
     ph.reset()
     assert not any(ph.update(0.80) for _ in range(20))
+
+
+def test_drift_alarm_is_held_until_the_minimum_sample_floor():
+    """Manuscript pp. 166-167: the drift trigger carries "a minimum sample
+    floor (at least 10 samples)". Before this was implemented a sharp drop on
+    the third observation fired a retrain."""
+    ph = PageHinkley()
+    results = [ph.update(v) for v in [0.94, 0.94, 0.60]]
+    assert not any(results)
+
+
+def test_drift_still_fires_once_the_floor_is_cleared():
+    ph = PageHinkley()
+    values = [0.94] * 9 + [0.60] * 5
+    results = [ph.update(v) for v in values]
+    assert not any(results[:9]), "nothing may fire below the floor"
+    assert any(results[9:]), "a real decline must still be caught after it"
+
+
+def test_the_floor_is_a_warm_up_not_a_rolling_delay():
+    """Observations below the floor still build the baseline, so the alarm can
+    fire on the very first observation after the floor is cleared."""
+    ph = PageHinkley(min_samples=10)
+    for _ in range(9):
+        assert not ph.update(0.94)
+    assert ph.update(0.40)

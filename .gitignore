@@ -76,6 +76,13 @@ ai/datasets/labeled/*.csv
 !ai/datasets/labeled/sample.csv
 ai/datasets/audit/
 
+# Synthetic Scam rows from scripts/augment_scam_dataset.py. Ignored for the
+# same reason the labeled pool is: roughly half of each batch is wording-level
+# variants of real user messages, so the file carries real SMS content even
+# though the rest of it is authored. The per-batch summary JSON beside it is
+# counts only and is kept, since that is what the manuscript cites.
+ai/datasets/augmented/*.csv
+
 # Dated backups of bantai_labeled.csv taken outside create_holdout_set.py's own
 # backup mechanism (which already writes its dated backups directly beside the
 # file, no trailing .csv, matching the pattern below at line ~92). Kept OUTSIDE
@@ -100,6 +107,14 @@ ai/datasets/reports/*.jsonl
 # writes matches this pattern too (it ends in the timestamp, not `.csv`).
 ai/datasets/holdout/*.csv
 ai/datasets/labeled/*.pre-holdout-backup-*
+# Backups taken before a relabelling pass rewrites the holdout (e.g.
+# holdout.pre-institutional-review-20260916.csv). Added 2026-09-18: this
+# directory postdates the rules above, so it was NOT covered by them and a
+# `git add .` would have committed a full copy of the holdout's real message
+# bodies -- the exact thing the two lines above exist to prevent. Caught before
+# it happened; if a backup was ever committed, it needs removing from history,
+# not just from HEAD.
+ai/datasets/holdout_backups/
 
 # Colab upload package embeds a full copy of the labeled dataset (real personal
 # SMS) inside the zip -- same reason it must never be pushed. Notebook + README

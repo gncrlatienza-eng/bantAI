@@ -69,13 +69,18 @@ fun PrivacyDataScreen(navController: NavController) {
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            // Bottom clearance matches the floating tab bar's footprint (see
+            // MainScreen) -- this screen now renders behind that persistent bar.
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
                 InfoCard(
                     title = "Data we collect",
-                    body = "Anonymized SMS metadata (sender hash, message hash, timestamp). No message bodies are stored on our servers.",
+                    body =
+                        "The sender and message text of SMS you receive are sent to our servers and stored " +
+                            "linked to your account (not anonymized) to power detection, retraining, and the " +
+                            "reports you submit.",
                 )
             }
             item {

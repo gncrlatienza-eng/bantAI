@@ -7,13 +7,16 @@ import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.SmsApi
+import com.bantai.util.OnnxBenchmark
 import com.bantai.util.isValidName
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel(
     application: Application,
@@ -194,7 +197,11 @@ class SettingsViewModel(
         }
     }
 
-    fun deleteAccount(onComplete: () -> Unit) {
+    // There is no backend account-deletion endpoint yet (only auth/profile
+    // ones) -- this clears the local session only. Named/labeled as "sign
+    // out" rather than "delete account" so the UI doesn't claim server-side
+    // deletion it doesn't actually do.
+    fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
             userPreferences.clearAll()
             onComplete()
@@ -230,5 +237,34 @@ class SettingsViewModel(
 
     fun clearSimulateStatus() {
         _simulateStatus.value = null
+    }
+
+    // Debug-only: real-device latency check for the on-device-AI feasibility
+    // spike (2026-09-16). See OnnxBenchmark.kt -- not wired into real
+    // classification, and says nothing about accuracy.
+    private val _onnxBenchmarkStatus = MutableStateFlow<String?>(null)
+    val onnxBenchmarkStatus: StateFlow<String?> = _onnxBenchmarkStatus.asStateFlow()
+
+    fun runOnnxBenchmark() {
+        viewModelScope.launch {
+            _onnxBenchmarkStatus.value = "Running 5 warmup + 30 timed passes…"
+            val result =
+                withContext(Dispatchers.IO) {
+                    OnnxBenchmark.run(getApplication())
+                }
+            _onnxBenchmarkStatus.value =
+                result.fold(
+                    onSuccess = { r ->
+                        "Model: ${r.modelSizeMb.toInt()} MB\n" +
+                            "Mean: ${r.meanMs} ms  (min ${r.minMs} / max ${r.maxMs})\n" +
+                            "Dummy input, not real tokenization — compute time only."
+                    },
+                    onFailure = { e -> "Failed: ${e.message}" },
+                )
+        }
+    }
+
+    fun clearOnnxBenchmarkStatus() {
+        _onnxBenchmarkStatus.value = null
     }
 }

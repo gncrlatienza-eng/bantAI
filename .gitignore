@@ -33,6 +33,7 @@ mobile/*.apk
 mobile/*.aab
 mobile/*.keystore
 mobile/*.jks
+mobile/keystore.properties
 
 # ─── Python / ML ───────────────────────────────────────────────────────────────
 __pycache__/

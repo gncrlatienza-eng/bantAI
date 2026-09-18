@@ -199,7 +199,9 @@ fun TipDetailScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+            // Bottom clearance matches the floating tab bar's footprint (see
+            // MainScreen) -- this screen now renders behind that persistent bar.
+            contentPadding = PaddingValues(start = 24.dp, top = 16.dp, end = 24.dp, bottom = 116.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {

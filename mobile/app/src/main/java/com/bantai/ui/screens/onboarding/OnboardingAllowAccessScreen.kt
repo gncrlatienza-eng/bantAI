@@ -1,6 +1,7 @@
 package com.bantai.ui.screens.onboarding
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.EaseOutCubic
@@ -102,7 +103,9 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
         Text("Read your SMS", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = White)
         Spacer(Modifier.height(8.dp))
         Text(
-            "BantAI needs to read your incoming messages to detect phishing attempts. Your messages are processed on-device — nothing is sent to a server without your consent.",
+            "BantAI needs to read your incoming messages to detect phishing attempts. Message text " +
+                "is sent to BantAI's servers for classification; a limited on-device check is used " +
+                "only when you're offline.",
             fontSize = 13.sp,
             color = TextSecondary,
             lineHeight = 20.sp,
@@ -122,8 +125,8 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
             )
             PermissionCheckRow(
                 icon = Icons.Filled.Shield,
-                title = "No data leaves your phone",
-                subtitle = "Classification happens on-device",
+                title = "Sent securely for classification",
+                subtitle = "Message text is analyzed by BantAI's detection service",
             )
         }
 
@@ -131,9 +134,15 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
 
         Button(
             onClick = {
-                permissionLauncher.launch(
-                    arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS),
-                )
+                val permissions =
+                    buildList {
+                        add(Manifest.permission.READ_SMS)
+                        add(Manifest.permission.RECEIVE_SMS)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            add(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                permissionLauncher.launch(permissions.toTypedArray())
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),

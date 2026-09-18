@@ -8,6 +8,7 @@ import android.provider.Telephony
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.BuildConfig
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.DeletedMessagesStore
 import com.bantai.data.local.DraftsStore
@@ -100,7 +101,7 @@ class MessageDetailViewModel(
                         .firstOrNull { normalizeSenderKey(it.address) == senderKey }
                         ?.body ?: ""
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to load conversation for $sender", e)
+                    if (BuildConfig.DEBUG) Log.e(TAG, "Failed to load conversation for $sender", e)
                     _errorMessage.value = "Couldn't load this conversation"
                 } finally {
                     _isLoading.value = false

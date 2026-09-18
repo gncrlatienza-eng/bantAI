@@ -17,12 +17,23 @@ import kotlinx.coroutines.launch
 private const val PH_MOBILE_DIGIT_COUNT = 10
 private const val PH_MOBILE_LEADING_DIGIT = '9'
 
+// Client-side abuse-prevention only, defense-in-depth on top of whatever the
+// backend enforces (unverified from mobile) -- this just stops the UI from
+// firing OTP request/verify calls as fast as a user (or a script driving the
+// same endpoints) can tap.
+private const val RESEND_COOLDOWN_MS = 30_000L
+private const val MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT = 5
+private const val VERIFY_LOCKOUT_MS = 30_000L
+
 data class OnboardingUiState(
     val phoneNumber: String = "",
     val termsAccepted: Boolean = false,
     val otpCode: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val resendAvailableAtMs: Long = 0L,
+    val failedVerifyAttempts: Int = 0,
+    val verifyLockedUntilMs: Long = 0L,
 )
 
 class OnboardingViewModel(
@@ -201,7 +212,12 @@ class OnboardingViewModel(
             AuthApi
                 .requestOtp(phone)
                 .onSuccess {
-                    _state.update { it.copy(isLoading = false) }
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            resendAvailableAtMs = System.currentTimeMillis() + RESEND_COOLDOWN_MS,
+                        )
+                    }
                     onSuccess()
                 }.onFailure { error ->
                     _state.update {
@@ -212,13 +228,18 @@ class OnboardingViewModel(
     }
 
     fun resendOtp() {
-        val phone = _state.value.phoneNumber
-        if (phone.isEmpty() || _state.value.isLoading) return
-        requestOtp(phone) {}
+        val current = _state.value
+        if (current.phoneNumber.isEmpty() || current.isLoading) return
+        if (System.currentTimeMillis() < current.resendAvailableAtMs) return
+        requestOtp(current.phoneNumber) {}
     }
 
     fun verifyOtp(onSuccess: () -> Unit) {
         val current = _state.value
+        if (System.currentTimeMillis() < current.verifyLockedUntilMs) {
+            _state.update { it.copy(errorMessage = "Too many attempts. Please wait before trying again.") }
+            return
+        }
         if (current.otpCode.length != 6) {
             _state.update { it.copy(errorMessage = "Enter the 6-digit code") }
             return
@@ -229,11 +250,20 @@ class OnboardingViewModel(
                 .verifyOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
                     userPreferences.saveAuth(auth.accessToken, current.phoneNumber)
-                    _state.update { it.copy(isLoading = false) }
+                    _state.update { it.copy(isLoading = false, failedVerifyAttempts = 0) }
                     onSuccess()
                 }.onFailure { error ->
                     _state.update {
-                        it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
+                        val attempts = it.failedVerifyAttempts + 1
+                        val lockedOut = attempts >= MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT
+                        val lockedUntil =
+                            if (lockedOut) System.currentTimeMillis() + VERIFY_LOCKOUT_MS else it.verifyLockedUntilMs
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Could not reach the server",
+                            failedVerifyAttempts = if (lockedOut) 0 else attempts,
+                            verifyLockedUntilMs = lockedUntil,
+                        )
                     }
                 }
         }

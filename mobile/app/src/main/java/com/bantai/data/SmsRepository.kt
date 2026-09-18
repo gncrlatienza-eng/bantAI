@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.bantai.BuildConfig
 import com.bantai.data.local.ClassificationStore
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
@@ -42,7 +43,7 @@ class SmsRepository(
                 arrayOf(address),
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to mark conversation with $address read", e)
+            if (BuildConfig.DEBUG) Log.e(TAG, "Failed to mark conversation with $address read", e)
             0
         }
     }
@@ -82,7 +83,7 @@ class SmsRepository(
             val uri = context.contentResolver.insert(Telephony.Sms.Outbox.CONTENT_URI, values)
             uri?.let { ContentUris.parseId(it) }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to record outgoing message to $address", e)
+            if (BuildConfig.DEBUG) Log.e(TAG, "Failed to record outgoing message to $address", e)
             null
         }
     }
@@ -172,7 +173,9 @@ class SmsRepository(
         val bodyLower = body.lowercase()
         val senderLower = sender.lowercase()
 
-        // Guard: known legitimate senders are always safe — never auto-blocked
+        // Guard: known legitimate senders are never auto-blocked outright, but (see
+        // below) a spoofed sender name matching this list no longer guarantees "safe"
+        // on its own — sender IDs aren't authenticated over SMS.
         val knownSenders =
             listOf(
                 "pldt",
@@ -208,7 +211,7 @@ class SmsRepository(
                 "eastwest",
                 "landbank",
             )
-        if (knownSenders.any { senderLower.contains(it) }) return "safe"
+        val isKnownSender = knownSenders.any { senderLower.contains(it) }
 
         // High-confidence scam signals — deliberately excludes words that are routine
         // in legitimate financial messages (otp, verify, account, http, pin, password,
@@ -244,52 +247,40 @@ class SmsRepository(
 
         val suspiciousScore = suspiciousKeywords.count { bodyLower.contains(it) }
 
+        // Sender IDs are trivially spoofable over SMS -- a scammer only has to
+        // include a bank/telco name to match knownSenders. It still shouldn't be
+        // auto-blocked outright (a false-positive block on a real OTP/bank alert
+        // is disruptive), but the name alone no longer guarantees a clean result
+        // when the body itself carries high-confidence scam signals: that
+        // combination is surfaced as "unknown" for the user to review instead of
+        // being trusted.
+        // "blocked" is reserved for a genuine backend AI verdict (Scam winning,
+        // >= 0.90, leading the runner-up by >= 0.15 -- see docs/api/classify.md;
+        // mobile never re-derives this, it only reads the backend's decision).
+        // This on-device heuristic is only a keyword/pattern score, never
+        // confident enough to claim that, so its worst outcome is "unknown".
+        //
+        // Its best outcome is "unverified", not "safe" -- "safe" is reserved for
+        // a genuine backend verdict (see SmsIngestPipeline.applyBackendAction).
+        // This heuristic only ever runs when the backend couldn't be reached, so
+        // "found nothing suspicious" and "the model actually checked this and
+        // it's clean" must stay distinguishable in storage and in the UI
+        // (Maxene's audit, 2026-09-16) -- collapsing them into one "safe" value
+        // is what made them indistinguishable in the first place.
+        // A bare phone-number sender used to be flagged "unknown" on format
+        // alone (any +63 number, or anything that's just digits/+/-/space),
+        // regardless of content -- but real people text from phone numbers,
+        // not bank/telco sender IDs, so that caught ordinary "hello" texts
+        // from unsaved contacts as often as it caught anything suspicious.
+        // Removed 2026-09-16: a plain-number sender now gets the same
+        // content-based treatment as a known sender -- suspicious only when
+        // the body actually earns it.
         return when {
-            suspiciousScore >= 2 -> "suspicious"
-            suspiciousScore == 1 -> "unknown"
-            sender.startsWith("+63") -> "unknown"
-            sender.all { it.isDigit() || it == '+' || it == '-' || it == ' ' } -> "unknown"
-            else -> "safe"
+            isKnownSender && suspiciousScore >= 2 -> "unknown"
+            isKnownSender -> "unverified"
+            suspiciousScore >= 1 -> "unknown"
+            else -> "unverified"
         }
-    }
-
-    fun getBlockedMessages(limit: Int = 100): List<SmsMessage> {
-        if (!hasReadSmsPermission()) return emptyList()
-        val messages = mutableListOf<SmsMessage>()
-        try {
-            val cursor =
-                context.contentResolver.query(
-                    Telephony.Sms.CONTENT_URI,
-                    arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
-                    "blocked = 1",
-                    null,
-                    "${Telephony.Sms.DATE} DESC",
-                )
-            cursor?.use {
-                val idCol = it.getColumnIndexOrThrow(Telephony.Sms._ID)
-                val addressCol = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-                val bodyCol = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-                val dateCol = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-                var count = 0
-                while (it.moveToNext() && count < limit) {
-                    count++
-                    val sender = it.getString(addressCol) ?: "Unknown"
-                    val body = it.getString(bodyCol) ?: ""
-                    messages.add(
-                        SmsMessage(
-                            id = it.getLong(idCol),
-                            sender = sender,
-                            body = body,
-                            timestamp = it.getLong(dateCol),
-                            classification = "blocked",
-                        ),
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "SMS provider query failed", e)
-        }
-        return messages
     }
 
     fun getMessageById(id: Long): SmsMessage? {
@@ -376,7 +367,11 @@ class SmsRepository(
         } catch (e: Exception) {
             Log.e(TAG, "SMS provider query failed", e)
         }
-        return messages
+        // Blocked messages live exclusively in the Alerts tab, so a thread view
+        // must not leak them back in just because the sender also has other,
+        // non-blocked messages. Spam is left untouched -- it's still a normal
+        // (if hidden-by-default) part of Messages, not an Alerts-only concept.
+        return messages.filter { it.isOutgoing || it.classification != "blocked" }
     }
 
     fun getMessagesByClassification(classification: String): List<SmsMessage> = getInboxMessages().filter { it.classification == classification }

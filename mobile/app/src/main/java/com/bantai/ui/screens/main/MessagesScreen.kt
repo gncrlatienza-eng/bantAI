@@ -126,9 +126,10 @@ fun MessagesScreen(
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showPermanentDeleteConfirm by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
 
     // Back should never fall through to exiting the screen: while selecting, back
-    // cancels the selection; while on a non-default filter (Spam, Blocked, Recently
+    // cancels the selection; while on a non-default filter (Spam, Unknown, Recently
     // Deleted, Unread), back returns to Messages instead of leaving the tab entirely.
     BackHandler(enabled = selectionMode || selectedFilter != MessageFilter.MESSAGES) {
         if (selectionMode) {
@@ -154,7 +155,7 @@ fun MessagesScreen(
                 onCancel = { viewModel.exitSelectionMode() },
                 onSelectAll = { viewModel.selectAll() },
                 onDelete = { showDeleteConfirm = true },
-                onRestore = { viewModel.restoreSelected() },
+                onRestore = { showRestoreConfirm = true },
                 onPermanentDelete = { showPermanentDeleteConfirm = true },
             )
         } else {
@@ -245,7 +246,6 @@ fun MessagesScreen(
                             val emptyLabel =
                                 when (selectedFilter) {
                                     MessageFilter.SPAM -> "No Spam"
-                                    MessageFilter.BLOCKED -> "No Blocked Messages"
                                     MessageFilter.UNKNOWN -> "No Unknown Messages"
                                     MessageFilter.RECENTLY_DELETED -> "No Recently Deleted"
                                     MessageFilter.UNREAD -> "No Unread Messages"
@@ -307,6 +307,25 @@ fun MessagesScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel", color = TextSecondary) }
+            },
+        )
+    }
+
+    if (showRestoreConfirm) {
+        val count = selectedIds.size
+        AlertDialog(
+            onDismissRequest = { showRestoreConfirm = false },
+            containerColor = SurfaceElevated,
+            title = { Text("Restore $count message${if (count == 1) "" else "s"}?", color = White) },
+            text = { Text("They'll move back to Messages.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.restoreSelected()
+                    showRestoreConfirm = false
+                }) { Text("Restore", color = Indigo) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreConfirm = false }) { Text("Cancel", color = TextSecondary) }
             },
         )
     }
@@ -397,9 +416,10 @@ private fun SmsMessage.toDisplayItem(isDraft: Boolean = false) =
         timestamp = getRelativeTime(timestamp),
         badge =
             when (classification) {
-                "suspicious" -> BadgeType.SUSPICIOUS
+                "spam" -> BadgeType.SPAM
                 "blocked" -> BadgeType.BLOCKED
                 "safe" -> BadgeType.SAFE
+                "unverified" -> BadgeType.UNVERIFIED
                 else -> BadgeType.UNKNOWN
             },
         isRead = isRead,
@@ -492,7 +512,6 @@ private fun FilterBubble(
                     MessageFilter.MESSAGES,
                     MessageFilter.SPAM,
                     MessageFilter.UNKNOWN,
-                    MessageFilter.BLOCKED,
                     MessageFilter.RECENTLY_DELETED,
                 )
             mainFilters.forEach { filter ->
@@ -594,10 +613,10 @@ private fun MessageListRow(
                 imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
                 contentDescription = if (isSelected) "Selected" else "Not selected",
                 tint = if (isSelected) Indigo else TextTertiary,
-                modifier = Modifier.size(48.dp).padding(12.dp),
+                modifier = Modifier.size(40.dp).padding(10.dp),
             )
         } else {
-            SenderAvatar(sender = item.sender, size = 48.dp)
+            SenderAvatar(sender = item.sender, size = 40.dp)
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -609,7 +628,7 @@ private fun MessageListRow(
                     item.sender,
                     color = White,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -618,21 +637,21 @@ private fun MessageListRow(
                 Text(
                     item.timestamp,
                     color = TextSecondary,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                 )
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = TextTertiary,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                 )
             }
             Spacer(Modifier.height(1.dp))
             Text(
                 item.preview,
                 color = TextSecondary,
-                fontSize = 14.sp,
-                lineHeight = 19.sp,
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -647,7 +666,8 @@ private fun VerdictLabel(badge: BadgeType) {
     val (label, color) =
         when (badge) {
             BadgeType.SAFE -> "Safe" to Safe
-            BadgeType.SUSPICIOUS -> "Suspicious" to Suspicious
+            BadgeType.UNVERIFIED -> "Unverified" to TextTertiary
+            BadgeType.SPAM -> "Spam" to Suspicious
             BadgeType.BLOCKED -> "Blocked" to Danger
             else -> "Unknown" to TextTertiary
         }
@@ -655,10 +675,10 @@ private fun VerdictLabel(badge: BadgeType) {
         Box(
             modifier =
                 Modifier
-                    .size(6.dp)
+                    .size(5.dp)
                     .background(color, CircleShape),
         )
         Spacer(Modifier.width(5.dp))
-        Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }

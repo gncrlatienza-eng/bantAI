@@ -6,7 +6,6 @@
     <ID>CyclomaticComplexMethod:ComposeScreen.kt$@Composable fun ComposeScreen( navController: NavController, initialRecipient: String = "", initialBody: String = "", viewModel: ComposeViewModel = viewModel(), )</ID>
     <ID>CyclomaticComplexMethod:MessageDetailScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun MessageDetailScreen( sender: String, navController: NavController, viewModel: MessageDetailViewModel = viewModel(), )</ID>
     <ID>CyclomaticComplexMethod:MessagesScreen.kt$@OptIn(ExperimentalPermissionsApi::class, ExperimentalFoundationApi::class) @Composable fun MessagesScreen( navController: NavController, innerPadding: PaddingValues, viewModel: MessagesViewModel = viewModel(), )</ID>
-    <ID>CyclomaticComplexMethod:MessagesViewModel.kt$MessagesViewModel$private fun filterMessages(query: String)</ID>
     <ID>CyclomaticComplexMethod:NavGraph.kt$@Composable fun NavGraph( requestedTab: Int? = null, requestedConversationSender: String? = null, )</ID>
     <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsScreen( innerPadding: PaddingValues, navController: NavController, viewModel: SettingsViewModel, )</ID>
     <ID>LongMethod:AISummaryBottomSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AISummaryBottomSheet( onDismiss: () -&gt; Unit, onViewFullAnalysis: () -&gt; Unit, isSuspicious: Boolean = true, summary: String? = null, isLoadingSummary: Boolean = false, )</ID>
@@ -71,9 +70,9 @@
     <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF5B4FE8</ID>
     <ID>MagicNumber:BlockedNumbersScreen.kt$0xFF666666</ID>
     <ID>MagicNumber:BlockedNumbersScreen.kt$0xFFFF3B30</ID>
-    <ID>MagicNumber:CampaignDetailScreen.kt$0xFF2A1A00</ID>
-    <ID>MagicNumber:CampaignDetailScreen.kt$0xFF666666</ID>
     <ID>MagicNumber:CampaignDetailScreen.kt$10</ID>
+    <ID>MagicNumber:Color.kt$0x21FFFFFF</ID>
+    <ID>MagicNumber:Color.kt$0xE61A1A1F</ID>
     <ID>MagicNumber:Color.kt$0xFF000000</ID>
     <ID>MagicNumber:Color.kt$0xFF00BCD4</ID>
     <ID>MagicNumber:Color.kt$0xFF0A84FF</ID>
@@ -105,13 +104,8 @@
     <ID>MagicNumber:EditProfileScreen.kt$0xFFFF6B35</ID>
     <ID>MagicNumber:HowItWorksScreen.kt$0xFF1A1A1A</ID>
     <ID>MagicNumber:HowItWorksScreen.kt$0xFF5B4FE8</ID>
-    <ID>MagicNumber:MainScreen.kt$0x21FFFFFF</ID>
-    <ID>MagicNumber:MainScreen.kt$0x8C1A1A1F</ID>
-    <ID>MagicNumber:MainScreen.kt$0xE61A1A1F</ID>
-    <ID>MagicNumber:MainScreen.kt$0xFF8E8E93</ID>
-    <ID>MagicNumber:MainScreen.kt$200</ID>
-    <ID>MagicNumber:MainScreen.kt$280</ID>
     <ID>MagicNumber:MainScreen.kt$3</ID>
+    <ID>MagicNumber:MainScreen.kt$5</ID>
     <ID>MagicNumber:MessageDetailScreen.kt$0.75f</ID>
     <ID>MagicNumber:MessageDetailScreen.kt$0xFF2A1A00</ID>
     <ID>MagicNumber:MessageItem.kt$0xFF1A3A1A</ID>
@@ -156,15 +150,8 @@
     <ID>MagicNumber:ScamAwarenessScreen.kt$0xFFFF3B30</ID>
     <ID>MagicNumber:ScamAwarenessScreen.kt$0xFFFF9500</ID>
     <ID>MagicNumber:SenderAvatar.kt$0.58f</ID>
-    <ID>MagicNumber:SettingsScreen.kt$0xFF00BCD4</ID>
-    <ID>MagicNumber:SettingsScreen.kt$0xFF1A1A1A</ID>
-    <ID>MagicNumber:SettingsScreen.kt$0xFF2A2A2A</ID>
-    <ID>MagicNumber:SettingsScreen.kt$0xFF5B4FE8</ID>
-    <ID>MagicNumber:SettingsScreen.kt$0xFF666666</ID>
-    <ID>MagicNumber:SettingsScreen.kt$0xFF8A8A8A</ID>
-    <ID>MagicNumber:SmishingAlertScreen.kt$0xFF2A0A0A</ID>
-    <ID>MagicNumber:SmishingAlertScreen.kt$0xFF2A2A2A</ID>
-    <ID>MagicNumber:SmishingAlertScreen.kt$0xFF666666</ID>
+    <ID>MagicNumber:SmishingAlertScreen.kt$0.33</ID>
+    <ID>MagicNumber:SmishingAlertScreen.kt$0.66</ID>
     <ID>MagicNumber:SmishingAlertScreen.kt$100</ID>
     <ID>MagicNumber:SmsIngestPipeline.kt$SmsIngestPipeline$10</ID>
     <ID>MagicNumber:SplashScreen.kt$2000</ID>
@@ -191,12 +178,12 @@
     <ID>MaxLineLength:AISummaryBottomSheet.kt$Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF666666), modifier = Modifier.size(18.dp))</ID>
     <ID>MaxLineLength:AISummaryBottomSheet.kt$Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))</ID>
     <ID>MaxLineLength:AlertsScreen.kt$if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged"</ID>
+    <ID>MaxLineLength:AlertsScreen.kt$if (blocked) Screen.SmishingAlert.createRoute(alert.messageId) else Screen.ThreatAnalysis.createRoute(alert.messageId)</ID>
     <ID>MaxLineLength:AuthApi.kt$AuthApi$suspend fun requestOtp(phone: String): Result&lt;Unit&gt;</ID>
     <ID>MaxLineLength:AvatarHelper.kt$words.size &gt;= 2 -&gt; "${words[0].firstOrNull()?.uppercase() ?: ""}${words[1].firstOrNull()?.uppercase() ?: ""}"</ID>
     <ID>MaxLineLength:BlockedNumbersApi.kt$BlockedNumbersApi$suspend</ID>
     <ID>MaxLineLength:CampaignDetailScreen.kt$Icon(Icons.Default.Link, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))</ID>
     <ID>MaxLineLength:CampaignDetailScreen.kt$Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = 12.sp)</ID>
-    <ID>MaxLineLength:CampaignDetailScreen.kt$Text("Inactive", color = Color(0xFF666666), fontSize = 11.sp, fontWeight = FontWeight.Medium)</ID>
     <ID>MaxLineLength:CampaignsApi.kt$CampaignsApi$private fun parseCampaignList(json: JSONArray): List&lt;CampaignSummary&gt;</ID>
     <ID>MaxLineLength:CampaignsApi.kt$CampaignsApi$suspend fun list(token: String): Result&lt;List&lt;CampaignSummary&gt;&gt;</ID>
     <ID>MaxLineLength:CampaignsApi.kt$CampaignsApi$suspend fun listInactive(token: String): Result&lt;List&lt;CampaignSummary&gt;&gt;</ID>
@@ -207,7 +194,6 @@
     <ID>MaxLineLength:ComposeScreen.kt$Icon(Icons.Default.PersonAdd, contentDescription = "Add contact", tint = Indigo, modifier = Modifier.size(20.dp))</ID>
     <ID>MaxLineLength:ComposeScreen.kt$NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))</ID>
     <ID>MaxLineLength:DeletedMessagesStore.kt$DeletedMessagesStore$/** Also used after a permanent delete succeeds — the soft-delete record is meaningless once the row is truly gone. */</ID>
-    <ID>MaxLineLength:HowItWorksScreen.kt$"All classification happens on-device. No message body is ever sent to a server without your explicit consent."</ID>
     <ID>MaxLineLength:HowItWorksScreen.kt$"HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders."</ID>
     <ID>MaxLineLength:HowItWorksScreen.kt$"High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review."</ID>
     <ID>MaxLineLength:HowItWorksScreen.kt$"SHAP values identify which words or phrases contributed most to the classification — giving you a transparent reason, not just a verdict."</ID>
@@ -217,7 +203,7 @@
     <ID>MaxLineLength:MessageDetailScreen.kt$Icon(Icons.Default.Warning, contentDescription = null, tint = Danger, modifier = Modifier.size(12.dp))</ID>
     <ID>MaxLineLength:MessageDetailScreen.kt$Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))</ID>
     <ID>MaxLineLength:MessageDetailScreen.kt$NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))</ID>
-    <ID>MaxLineLength:MessageDetailScreen.kt$color = if (msg.classification == "suspicious") Color(0xFF2A1A00) else Surface</ID>
+    <ID>MaxLineLength:MessageDetailScreen.kt$color = if (msg.classification == "blocked") Color(0xFF2A1A00) else Surface</ID>
     <ID>MaxLineLength:MessageDetailScreen.kt$color = if (msg.sendStatus == SendStatus.FAILED) Indigo.copy(alpha = 0.5f) else Indigo</ID>
     <ID>MaxLineLength:MessageDetailScreen.kt$if (msg.sendStatus == SendStatus.SENDING) "Sending…" else getRelativeTime(msg.timestamp)</ID>
     <ID>MaxLineLength:MessageDetailScreen.kt$if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED</ID>
@@ -227,18 +213,15 @@
     <ID>MaxLineLength:NotificationHelper.kt$NotificationHelper$fun</ID>
     <ID>MaxLineLength:NotificationsScreen.kt$"6 smishing messages were detected this week — 2 more than last week. Stay cautious of GCash-related texts."</ID>
     <ID>MaxLineLength:NotificationsScreen.kt$"This is how BantAI notifies you when a smishing or suspicious message is detected. Tap a notification to expand it."</ID>
+    <ID>MaxLineLength:NotificationsScreen.kt$.</ID>
     <ID>MaxLineLength:NotificationsScreen.kt$Icon(Icons.Filled.BarChart, contentDescription = null, tint = Indigo, modifier = Modifier.size(18.dp))</ID>
     <ID>MaxLineLength:NotificationsScreen.kt$Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(14.dp))</ID>
     <ID>MaxLineLength:NotificationsScreen.kt$Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(18.dp))</ID>
     <ID>MaxLineLength:NotificationsScreen.kt$Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(20.dp))</ID>
-    <ID>MaxLineLength:OnboardingAllowAccessScreen.kt$"BantAI needs to read your incoming messages to detect phishing attempts. Your messages are processed on-device — nothing is sent to a server without your consent."</ID>
     <ID>MaxLineLength:OnboardingDefaultSmsScreen.kt$subtitle = "BantAI needs to be your default messaging app to read and protect your SMS messages from phishing threats."</ID>
-    <ID>MaxLineLength:OnboardingTermsScreen.kt$"BantAI collects anonymized SMS metadata (sender hash, message hash, timestamp) to improve its detection model. No message body is stored on our servers."</ID>
     <ID>MaxLineLength:OnboardingTermsScreen.kt$"BantAI does not sell your data to third parties. We may share aggregate threat intelligence with authorized research partners."</ID>
-    <ID>MaxLineLength:OnboardingTermsScreen.kt$"Messages are classified locally on your device using an on-device AI model. Only aggregate, non-identifiable statistics are used for model retraining."</ID>
     <ID>MaxLineLength:OnboardingTermsScreen.kt$"You can delete your account and all associated data at any time from Settings &gt; Account. Deletion is permanent and irreversible."</ID>
     <ID>MaxLineLength:PrivacyDataScreen.kt$Icon(Icons.Filled.Download, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))</ID>
-    <ID>MaxLineLength:PrivacyDataScreen.kt$body = "Anonymized SMS metadata (sender hash, message hash, timestamp). No message bodies are stored on our servers."</ID>
     <ID>MaxLineLength:PrivacyDataScreen.kt$body = "Data is used solely to improve BantAI's smishing detection model. Only non-identifiable aggregate statistics are shared."</ID>
     <ID>MaxLineLength:PrivacyDataScreen.kt$body = "You can request deletion of all your data at any time. Deleting your account permanently removes all associated data."</ID>
     <ID>MaxLineLength:ReportSentScreen.kt$"block_only" -&gt; "The number has been added to your blocked list and can no longer send you messages. You can unblock it anytime from this screen."</ID>
@@ -249,9 +232,8 @@
     <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("links", "TECHNICAL", "Safe links vs phishing links", Icons.Filled.Link, Color(0xFF5B4FE8), Color(0xFF16163A))</ID>
     <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("shap", "AI/ML", "Understanding SHAP scores", Icons.Filled.Psychology, Color(0xFF5B4FE8), Color(0xFF16163A))</ID>
     <ID>MaxLineLength:ScamAwarenessScreen.kt$TipEntry("urgency", "PSYCHOLOGY", "Why scammers use urgency", Icons.Filled.Bolt, Color(0xFFFF9500), Color(0xFF2A1A00))</ID>
-    <ID>MaxLineLength:SmishingAlertScreen.kt$Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))</ID>
-    <ID>MaxLineLength:SmishingAlertScreen.kt$Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))</ID>
-    <ID>MaxLineLength:SmishingAlertScreen.kt$Text("${(score * 100).roundToInt()}% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:SmishingAlertScreen.kt$Icon(Icons.Default.Hub, contentDescription = null, tint = Suspicious, modifier = Modifier.size(14.dp))</ID>
     <ID>MaxLineLength:SmsApi.kt$SmsApi$private fun parseAlerts(json: JSONArray): List&lt;AlertSummary&gt;</ID>
     <ID>MaxLineLength:SmsApi.kt$SmsApi$suspend</ID>
     <ID>MaxLineLength:SmsRepository.kt$SmsRepository$arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE)</ID>
@@ -285,9 +267,7 @@
     <ID>MaxLineLength:TipDetailScreen.kt$whatToDo = "Use the indicators as context, not as final proof. If BantAI flagged a message but none of the indicators match what you are reading, tap Report to help improve the model. Your judgment plus BantAI's analysis is always stronger than either alone."</ID>
     <ID>MaxLineLength:UnsafeLinkScreen.kt$"This link has been flagged as part of a known smishing campaign. Visiting it may expose you to credential theft or malware."</ID>
     <ID>ReturnCount:ComposeScreen.kt$fun sendMessage()</ID>
-    <ID>ReturnCount:OnboardingConfirmNumberScreen.kt$private fun normalizePhNumber(raw: String?): String?</ID>
     <ID>ReturnCount:OnboardingViewModel.kt$OnboardingViewModel$fun validateAndSaveProfile(onSuccess: () -&gt; Unit)</ID>
-    <ID>ReturnCount:SmsRepository.kt$SmsRepository$fun getMessageById(id: Long): SmsMessage?</ID>
     <ID>SwallowedException:EditProfileScreen.kt$e: Exception</ID>
     <ID>SwallowedException:SenderAvatar.kt$e: Exception</ID>
     <ID>SwallowedException:SettingsScreen.kt$e: Exception</ID>

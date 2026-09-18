@@ -12,8 +12,11 @@ export class OtpSmsService {
   async send(phone: string, otp: string): Promise<void> {
     const apiKey = process.env.SEMAPHORE_API_KEY;
     if (!apiKey) {
+      // Dev-only branch (no real SMS provider configured) -- printing the code
+      // here is the whole point of the fallback, otherwise a tester has no way
+      // to get it at all short of querying the OtpCode table directly.
       this.logger.warn(
-        'SEMAPHORE_API_KEY not set — OTP not delivered via SMS (dev mode)',
+        `SEMAPHORE_API_KEY not set — OTP not delivered via SMS (dev mode). Code for ${phone}: ${otp}`,
       );
       return;
     }

@@ -2,6 +2,8 @@ package com.bantai.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.SmsApi
@@ -14,7 +16,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private const val ALERTS_POLL_INTERVAL_MS = 5_000L
+// The whole (unbounded, per WBS -- the backend has no pagination on this
+// endpoint yet) alert list gets re-fetched on every tick, so this trades
+// alert-badge freshness against bandwidth/battery: long enough to not hammer
+// the backend, short enough that a new threat still shows up promptly.
+private const val ALERTS_POLL_INTERVAL_MS = 20_000L
 
 class AlertsViewModel(
     application: Application,
@@ -41,7 +47,18 @@ class AlertsViewModel(
         viewModelScope.launch {
             while (isActive) {
                 delay(ALERTS_POLL_INTERVAL_MS)
-                loadAlerts(silent = true)
+                // Skip while the app is backgrounded -- this ViewModel is scoped to
+                // MainScreen's back stack entry (see AlertsScreen.kt), not to Activity
+                // foreground state, so without this it keeps polling indefinitely even
+                // while nothing is on screen to show the refreshed badge.
+                val isForeground =
+                    ProcessLifecycleOwner
+                        .get()
+                        .lifecycle.currentState
+                        .isAtLeast(Lifecycle.State.STARTED)
+                if (isForeground) {
+                    loadAlerts(silent = true)
+                }
             }
         }
     }

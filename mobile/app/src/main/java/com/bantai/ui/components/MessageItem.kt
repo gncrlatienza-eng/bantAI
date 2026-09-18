@@ -20,7 +20,7 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
-enum class BadgeType { CONTACT, SAFE, SUSPICIOUS, UNKNOWN, BLOCKED }
+enum class BadgeType { CONTACT, SAFE, UNVERIFIED, SPAM, UNKNOWN, BLOCKED }
 
 data class MessageItem(
     val sender: String,
@@ -38,7 +38,12 @@ fun StatusBadge(type: BadgeType) {
     when (type) {
         BadgeType.CONTACT -> BadgePill("Contact", ContactBadge, White, null)
         BadgeType.SAFE -> BadgePill("Safe", Color(0xFF1A3A1A), Safe, Safe)
-        BadgeType.SUSPICIOUS -> BadgePill("Suspicious", Color(0xFF3A1A00), Suspicious, Suspicious)
+        // Distinct from SAFE on purpose: the on-device heuristic found nothing
+        // suspicious, but the backend model never actually checked this message
+        // (offline / no token / request failed) -- "nothing found" and "verified
+        // clean" must not read the same way to the user.
+        BadgeType.UNVERIFIED -> BadgePill("Unverified", Surface, TextSecondary, TextSecondary)
+        BadgeType.SPAM -> BadgePill("Spam", Color(0xFF3A1A00), Suspicious, Suspicious)
         BadgeType.UNKNOWN -> BadgePill("Unknown", Surface, TextSecondary, null)
         BadgeType.BLOCKED -> BadgePill("Blocked", Color(0xFF3A0000), Danger, Danger)
     }

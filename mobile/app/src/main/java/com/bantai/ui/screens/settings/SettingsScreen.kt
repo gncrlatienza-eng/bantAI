@@ -1,5 +1,7 @@
 package com.bantai.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,10 +24,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Phone
@@ -53,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,11 +63,15 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.BuildConfig
 import com.bantai.navigation.Screen
+import com.bantai.ui.theme.AvatarTeal
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.GlassStroke
+import com.bantai.ui.theme.Hairline
+import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.SettingsViewModel
 
@@ -76,13 +83,14 @@ fun SettingsScreen(
 ) {
     val userData by viewModel.userData.collectAsState()
     val scanPeriod by viewModel.scanPeriod.collectAsState()
+    val context = LocalContext.current
 
     val avatarColorParsed =
         remember(userData.avatarColor) {
             try {
                 Color(android.graphics.Color.parseColor(userData.avatarColor))
             } catch (e: Exception) {
-                Color(0xFF00BCD4)
+                AvatarTeal
             }
         }
     val initials =
@@ -94,20 +102,20 @@ fun SettingsScreen(
         }
     val fullName = "${userData.firstName} ${userData.lastName}".trim().ifEmpty { "Your Name" }
 
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showSignOutDialog by remember { mutableStateOf(false) }
     var showSmsMonitoringDialog by remember { mutableStateOf(false) }
     var showPhoneDialog by remember { mutableStateOf(false) }
-    var showContactSupportDialog by remember { mutableStateOf(false) }
     var showScanPeriodDialog by remember { mutableStateOf(false) }
     var showSimulateSmsDialog by remember { mutableStateOf(false) }
+    var showOnnxBenchmarkDialog by remember { mutableStateOf(false) }
 
-    if (showDeleteDialog) {
+    if (showSignOutDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete account?", color = White, fontWeight = FontWeight.Bold) },
+            onDismissRequest = { showSignOutDialog = false },
+            title = { Text("Sign out?", color = White, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "This will permanently delete your account and all data. This cannot be undone.",
+                    "You'll need to verify your phone number again to sign back in.",
                     color = TextSecondary,
                     fontSize = 14.sp,
                 )
@@ -115,8 +123,8 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        showDeleteDialog = false
-                        viewModel.deleteAccount {
+                        showSignOutDialog = false
+                        viewModel.signOut {
                             navController.navigate("splash") {
                                 popUpTo(navController.graph.id) { inclusive = true }
                             }
@@ -125,15 +133,15 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Danger),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Delete", color = White, fontWeight = FontWeight.Bold)
+                    Text("Sign out", color = White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(onClick = { showSignOutDialog = false }) {
                     Text("Cancel", color = TextSecondary)
                 }
             },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = SurfaceElevated,
         )
     }
 
@@ -150,10 +158,10 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showSmsMonitoringDialog = false }) {
-                    Text("OK", color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold)
+                    Text("OK", color = Indigo, fontWeight = FontWeight.Bold)
                 }
             },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = SurfaceElevated,
         )
     }
 
@@ -170,37 +178,17 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showPhoneDialog = false }) {
-                    Text("OK", color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold)
+                    Text("OK", color = Indigo, fontWeight = FontWeight.Bold)
                 }
             },
-            containerColor = Color(0xFF1A1A1A),
-        )
-    }
-
-    if (showContactSupportDialog) {
-        AlertDialog(
-            onDismissRequest = { showContactSupportDialog = false },
-            title = { Text("Contact support", color = White, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "For support, email us at support@bantai.ph",
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showContactSupportDialog = false }) {
-                    Text("OK", color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold)
-                }
-            },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = SurfaceElevated,
         )
     }
 
     if (showScanPeriodDialog) {
         AlertDialog(
             onDismissRequest = { showScanPeriodDialog = false },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = SurfaceElevated,
             title = { Text("Scan period", color = White, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -231,13 +219,13 @@ fun SettingsScreen(
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = null,
-                                    tint = Color(0xFF5B4FE8),
+                                    tint = Indigo,
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
                         if (value != "monthly") {
-                            HorizontalDivider(color = Color(0xFF2A2A2A))
+                            HorizontalDivider(color = Hairline)
                         }
                     }
                 }
@@ -257,7 +245,7 @@ fun SettingsScreen(
 
         AlertDialog(
             onDismissRequest = { showSimulateSmsDialog = false },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = SurfaceElevated,
             title = { Text("Simulate incoming SMS", color = White, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -275,13 +263,13 @@ fun SettingsScreen(
                         singleLine = true,
                         colors =
                             OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF5B4FE8),
-                                unfocusedBorderColor = Color(0xFF2A2A2A),
+                                focusedBorderColor = Indigo,
+                                unfocusedBorderColor = GlassStroke,
                                 focusedTextColor = White,
                                 unfocusedTextColor = White,
-                                focusedLabelColor = Color(0xFF5B4FE8),
+                                focusedLabelColor = Indigo,
                                 unfocusedLabelColor = TextSecondary,
-                                cursorColor = Color(0xFF5B4FE8),
+                                cursorColor = Indigo,
                             ),
                     )
                     OutlinedTextField(
@@ -292,24 +280,24 @@ fun SettingsScreen(
                         minLines = 3,
                         colors =
                             OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF5B4FE8),
-                                unfocusedBorderColor = Color(0xFF2A2A2A),
+                                focusedBorderColor = Indigo,
+                                unfocusedBorderColor = GlassStroke,
                                 focusedTextColor = White,
                                 unfocusedTextColor = White,
-                                focusedLabelColor = Color(0xFF5B4FE8),
+                                focusedLabelColor = Indigo,
                                 unfocusedLabelColor = TextSecondary,
-                                cursorColor = Color(0xFF5B4FE8),
+                                cursorColor = Indigo,
                             ),
                     )
                     if (simulateStatus != null) {
-                        Text(simulateStatus!!, color = Color(0xFF5B4FE8), fontSize = 12.sp)
+                        Text(simulateStatus!!, color = Indigo, fontSize = 12.sp)
                     }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = { viewModel.simulateIncomingSms(simSender, simBody) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B4FE8)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                     shape = RoundedCornerShape(12.dp),
                 ) {
                     Text("Simulate", color = White, fontWeight = FontWeight.Bold)
@@ -323,219 +311,245 @@ fun SettingsScreen(
         )
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Black).statusBarsPadding(),
-        contentPadding =
-            PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = innerPadding.calculateTopPadding() + 24.dp,
-                bottom = innerPadding.calculateBottomPadding() + 24.dp,
-            ),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item {
-            Text(
-                "Settings",
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 32.sp,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
+    if (showOnnxBenchmarkDialog) {
+        val benchmarkStatus by viewModel.onnxBenchmarkStatus.collectAsState()
 
-        // Profile card
-        item {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .clickable { navController.navigate(Screen.SettingsEditProfile.route) }
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(avatarColorParsed),
-                    contentAlignment = Alignment.Center,
+        LaunchedEffect(Unit) { viewModel.clearOnnxBenchmarkStatus() }
+
+        AlertDialog(
+            onDismissRequest = { showOnnxBenchmarkDialog = false },
+            containerColor = SurfaceElevated,
+            title = { Text("ONNX latency benchmark", color = White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Debug-only, on-device-AI feasibility spike: times the exported model's " +
+                            "forward pass on this phone using dummy input, not real tokenization. " +
+                            "Says nothing about accuracy — push model_int8.onnx to the app's " +
+                            "external files dir first (adb push).",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                    )
+                    if (benchmarkStatus != null) {
+                        Text(benchmarkStatus!!, color = Indigo, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.runOnnxBenchmark() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Indigo),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text(initials, color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Run", color = White, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(fullName, color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Tap to edit profile", color = TextSecondary, fontSize = 13.sp)
+            },
+            dismissButton = {
+                TextButton(onClick = { showOnnxBenchmarkDialog = false }) {
+                    Text("Close", color = TextSecondary)
                 }
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = null,
-                    tint = Color(0xFF666666),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
+            },
+        )
+    }
 
-        // PROTECTION section
-        item { SectionLabel("PROTECTION") }
-        item {
-            Column(
+    Column(
+        modifier = Modifier.fillMaxSize().background(Black).statusBarsPadding(),
+    ) {
+        // Same big-title placement as Messages/Alerts/Campaigns -- this tab
+        // shouldn't be the odd one out just because the profile hero sits
+        // right below it. Pinned above the scrolling list along with the
+        // profile hero, rather than scrolling away with everything else.
+        Text(
+            "Settings",
+            color = White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 32.sp,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+
+        // Profile hero -- centered photo + name, not a list row, matching the
+        // reference's "You" tab: the profile is the top of the page, not one
+        // item on it.
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { navController.navigate(Screen.SettingsEditProfile.route) }
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp)),
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .background(avatarColorParsed),
+                contentAlignment = Alignment.Center,
             ) {
-                SettingsRow(
-                    icon = Icons.Filled.Shield,
-                    title = "SMS Monitoring",
-                    subtitle = "Active — all messages scanned",
-                    onClick = { showSmsMonitoringDialog = true },
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                SettingsRow(
-                    icon = Icons.Filled.Notifications,
-                    title = "Notifications",
-                    subtitle = "Smishing alerts enabled",
-                    onClick = { navController.navigate(Screen.SettingsNotifications.route) },
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                SettingsRow(
-                    icon = Icons.Filled.Schedule,
-                    title = "Scan period",
-                    subtitle =
-                        when (scanPeriod) {
-                            "weekly" -> "Scanning last 7 days"
-                            "monthly" -> "Scanning last 30 days"
-                            else -> "Scanning today only"
-                        },
-                    onClick = { showScanPeriodDialog = true },
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                SettingsRow(
-                    icon = Icons.Filled.Block,
-                    title = "Blocked numbers",
-                    subtitle = "3 numbers blocked",
-                    onClick = { navController.navigate(Screen.BlockedNumbers.route) },
-                )
+                Text(initials, color = White, fontWeight = FontWeight.SemiBold, fontSize = 28.sp)
             }
+            Spacer(Modifier.height(10.dp))
+            Text(fullName, color = White, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
         }
 
-        // LEARN section
-        item { SectionLabel("LEARN") }
-        item {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp)),
-            ) {
-                SettingsRow(
-                    icon = Icons.AutoMirrored.Filled.Article,
-                    title = "Scam awareness tips",
-                    onClick = { navController.navigate(Screen.SettingsScamAwareness.route) },
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                SettingsRow(
-                    icon = Icons.Filled.Psychology,
-                    title = "How BantAI works",
-                    onClick = { navController.navigate(Screen.SettingsHowItWorks.route) },
-                )
-            }
-        }
-
-        // DEVELOPER section — debug builds only, never ships in a release build.
-        if (BuildConfig.DEBUG) {
-            item { SectionLabel("DEVELOPER") }
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding =
+                PaddingValues(
+                    start = 20.dp,
+                    top = 20.dp,
+                    end = 20.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 24.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            // Protection + learn -- one grouped card rather than several small
+            // labeled ones, matching the reference's "You" tab.
             item {
                 Column(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp)),
+                            .background(SurfaceElevated, RoundedCornerShape(18.dp)),
                 ) {
                     SettingsRow(
-                        icon = Icons.Filled.BugReport,
-                        title = "Simulate incoming SMS",
-                        subtitle = "Test detection without a real message",
-                        onClick = { showSimulateSmsDialog = true },
+                        icon = Icons.Filled.Shield,
+                        title = "SMS Monitoring",
+                        onClick = { showSmsMonitoringDialog = true },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.Filled.Notifications,
+                        title = "Notifications",
+                        onClick = { navController.navigate(Screen.SettingsNotifications.route) },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.Filled.Schedule,
+                        title = "Scan period",
+                        onClick = { showScanPeriodDialog = true },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.Filled.Block,
+                        title = "Blocked numbers",
+                        onClick = { navController.navigate(Screen.BlockedNumbers.route) },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Filled.Article,
+                        title = "Scam awareness tips",
+                        onClick = { navController.navigate(Screen.SettingsScamAwareness.route) },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.Filled.Psychology,
+                        title = "How BantAI works",
+                        onClick = { navController.navigate(Screen.SettingsHowItWorks.route) },
                     )
                 }
             }
-        }
 
-        // ACCOUNT section
-        item { SectionLabel("ACCOUNT") }
-        item {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp)),
-            ) {
-                SettingsRow(
-                    icon = Icons.Filled.Phone,
-                    title = "Change phone number",
-                    onClick = { showPhoneDialog = true },
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                SettingsRow(
-                    icon = Icons.Filled.Lock,
-                    title = "Privacy & data",
-                    onClick = { navController.navigate(Screen.SettingsPrivacy.route) },
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                SettingsRow(
-                    icon = Icons.AutoMirrored.Filled.Help,
-                    title = "Contact support",
-                    onClick = { showContactSupportDialog = true },
-                )
+            // DEVELOPER section — debug builds only, never ships in a release build.
+            if (BuildConfig.DEBUG) {
+                item {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceElevated, RoundedCornerShape(18.dp)),
+                    ) {
+                        SettingsRow(
+                            icon = Icons.Filled.BugReport,
+                            title = "Simulate incoming SMS",
+                            onClick = { showSimulateSmsDialog = true },
+                        )
+                        HorizontalDivider(color = Hairline, thickness = 1.dp)
+                        SettingsRow(
+                            icon = Icons.Filled.BugReport,
+                            title = "ONNX latency benchmark",
+                            onClick = { showOnnxBenchmarkDialog = true },
+                        )
+                    }
+                }
             }
-        }
 
-        // Delete account — separate card
-        item {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .clickable { showDeleteDialog = true }
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.Delete, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(12.dp))
+            item {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceElevated, RoundedCornerShape(18.dp)),
+                ) {
+                    SettingsRow(
+                        icon = Icons.Filled.Phone,
+                        title = "Change phone number",
+                        onClick = { showPhoneDialog = true },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.Filled.Lock,
+                        title = "Privacy & data",
+                        onClick = { navController.navigate(Screen.SettingsPrivacy.route) },
+                    )
+                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Filled.Help,
+                        title = "Contact support",
+                        onClick = {
+                            val intent =
+                                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bantai.ph")).apply {
+                                    putExtra(Intent.EXTRA_SUBJECT, "BantAI support request")
+                                }
+                            runCatching { context.startActivity(intent) }
+                        },
+                    )
+                }
+            }
+
+            // Sign out — separate card. Not "Delete account": there is no backend
+            // account-deletion endpoint yet, only this local session clear.
+            item {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceElevated, RoundedCornerShape(18.dp))
+                            .clickable { showSignOutDialog = true }
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Sign out",
+                        color = Danger,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForwardIos,
+                        contentDescription = null,
+                        tint = Danger,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+
+            // Version footer
+            item {
                 Text(
-                    "Delete account",
-                    color = Danger,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = null,
-                    tint = Danger,
-                    modifier = Modifier.size(16.dp),
+                    "BantAI v1.0.0 · SDK 34",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp, bottom = 8.dp),
                 )
             }
-        }
-
-        // Version footer
-        item {
-            Text(
-                "BantAI v1.0.0 · SDK 34",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-            )
         }
     }
 }
@@ -544,7 +558,6 @@ fun SettingsScreen(
 private fun SettingsRow(
     icon: ImageVector,
     title: String,
-    subtitle: String? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -552,34 +565,17 @@ private fun SettingsRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF8A8A8A), modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            if (subtitle != null) {
-                Text(subtitle, color = TextSecondary, fontSize = 12.sp)
-            }
-        }
+        Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = 14.sp, modifier = Modifier.weight(1f))
         Icon(
             Icons.AutoMirrored.Filled.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFF666666),
-            modifier = Modifier.size(16.dp),
+            tint = TextTertiary,
+            modifier = Modifier.size(14.dp),
         )
     }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text,
-        color = Color(0xFF666666),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 1.sp,
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-    )
 }

@@ -11,6 +11,23 @@ style:
     # Matches the line length already chosen for ai/ and backend/+web/'s
     # Prettier configs -- one consistent width across the whole monorepo.
     maxLineLength: 120
+  ReturnCount:
+    # Guard clauses (single early-return validation checks at the top of a
+    # function) are the idiomatic Kotlin style already used elsewhere in this
+    # codebase (see the pre-existing ReturnCount baseline entries) -- counting
+    # them against the same 2-return budget as branchy control flow penalizes
+    # the more readable style. Only non-guard-clause returns still count.
+    excludeGuardClauses: true
+
+complexity:
+  TooManyFunctions:
+    # Compose screen files are one public entry-point composable plus many
+    # small private sub-composables/helpers -- that decomposition is the
+    # idiomatic (and more readable) alternative to a few giant functions, so
+    # counting private helpers against the same budget as a class's public
+    # API surface penalizes the style this codebase already uses throughout
+    # ui/screens/. Only public functions count now.
+    ignorePrivate: true
 
 naming:
   FunctionNaming:

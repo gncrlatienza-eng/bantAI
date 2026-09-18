@@ -50,11 +50,15 @@ private val termsCards =
     listOf(
         TermsCard(
             "Data collected",
-            "BantAI collects anonymized SMS metadata (sender hash, message hash, timestamp) to improve its detection model. No message body is stored on our servers.",
+            "To classify incoming messages, BantAI sends the sender and message text to our " +
+                "servers, where they're stored linked to your account (not anonymized) to support " +
+                "detection, retraining, and reports you submit.",
         ),
         TermsCard(
             "How it works",
-            "Messages are classified locally on your device using an on-device AI model. Only aggregate, non-identifiable statistics are used for model retraining.",
+            "Messages are classified by BantAI's detection service. If you're offline or the " +
+                "server can't be reached, a limited on-device check is used instead. Reports you " +
+                "submit are tied to your account and used to improve the model.",
         ),
         TermsCard(
             "Your rights",

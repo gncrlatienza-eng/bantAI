@@ -2,20 +2,24 @@ package com.bantai.ui.screens.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Hub
@@ -24,7 +28,6 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,12 +45,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.CampaignsApi
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.GlassStroke
+import com.bantai.ui.theme.Hairline
+import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Safe
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.CampaignDetailViewModel
 import java.time.Instant
@@ -73,28 +79,27 @@ fun CampaignDetailScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
+        // iOS-style back affordance: chevron + the screen you're returning to,
+        // not a generic "Back" label or a repeated page title -- matches the
+        // alert detail screen's header.
+        Row(
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .padding(top = 6.dp)
+                    .clickable { navController.popBackStack() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
-            }
-            Text(
-                "Campaign",
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                modifier = Modifier.align(Alignment.Center),
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBackIos,
+                contentDescription = "Back",
+                tint = Indigo,
+                modifier = Modifier.size(16.dp),
             )
+            Spacer(Modifier.width(2.dp))
+            Text("Campaigns", color = Indigo, fontSize = 15.sp)
         }
-        HorizontalDivider(color = Surface)
 
         when {
             isLoading ->
@@ -121,8 +126,10 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        // Bottom clearance matches the floating tab bar's footprint (see
+        // MainScreen) -- this screen now renders behind that persistent bar.
+        contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 116.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // Header card
         item {
@@ -130,7 +137,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
+                        .background(SurfaceElevated, RoundedCornerShape(18.dp))
                         .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -140,11 +147,11 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                         Modifier
                             .size(44.dp)
                             .background(
-                                if (campaign.isActive) Color(0xFF2A1A00) else Color.Transparent,
+                                if (campaign.isActive) Suspicious.copy(alpha = 0.15f) else Color.Transparent,
                                 RoundedCornerShape(12.dp),
                             ).then(
                                 if (!campaign.isActive) {
-                                    Modifier.border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                                    Modifier.border(1.dp, GlassStroke, RoundedCornerShape(12.dp))
                                 } else {
                                     Modifier
                                 },
@@ -154,7 +161,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                     Icon(
                         Icons.Default.Hub,
                         contentDescription = null,
-                        tint = if (campaign.isActive) Suspicious else Color(0xFF666666),
+                        tint = if (campaign.isActive) Suspicious else TextTertiary,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -175,8 +182,8 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                             Box(
                                 modifier =
                                     Modifier
-                                        .size(8.dp)
-                                        .background(Safe, RoundedCornerShape(100.dp)),
+                                        .size(6.dp)
+                                        .background(Safe, CircleShape),
                             )
                             Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = 12.sp)
                         }
@@ -185,10 +192,10 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                             modifier =
                                 Modifier
                                     .padding(top = 4.dp)
-                                    .background(BorderColor, RoundedCornerShape(100.dp))
+                                    .background(Hairline, RoundedCornerShape(100.dp))
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                         ) {
-                            Text("Inactive", color = Color(0xFF666666), fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("Inactive", color = TextTertiary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -235,25 +242,30 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
             }
         }
 
-        // Known domains
+        // Known domains -- one grouped card of divided rows instead of a
+        // separate little card per domain.
         item {
             SectionLabel("KNOWN DOMAINS")
             if (campaign.urlDomains.isEmpty()) {
                 EmptySectionRow("No known domains yet")
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    campaign.urlDomains.forEach { domain ->
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(SurfaceElevated, RoundedCornerShape(18.dp)),
+                ) {
+                    campaign.urlDomains.forEachIndexed { index, domain ->
                         Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .background(Surface, RoundedCornerShape(12.dp))
-                                    .padding(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Icon(Icons.Default.Link, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))
                             Text(domain, color = Danger, fontSize = 13.sp)
+                        }
+                        if (index != campaign.urlDomains.lastIndex) {
+                            HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 16.dp))
                         }
                     }
                 }
@@ -266,16 +278,18 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
             if (campaign.messages.isEmpty()) {
                 EmptySectionRow("No messages recorded for this campaign yet")
             } else {
+                val recentMessages = campaign.messages.take(10)
                 Column(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                            .background(SurfaceElevated, RoundedCornerShape(18.dp)),
                 ) {
-                    campaign.messages.take(10).forEach { message ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    recentMessages.forEachIndexed { index, message ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -296,6 +310,9 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                        if (index != recentMessages.lastIndex) {
+                            HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 16.dp))
+                        }
                     }
                 }
             }
@@ -307,11 +324,11 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
 private fun SectionLabel(text: String) {
     Text(
         text,
-        color = Color(0xFF666666),
-        fontSize = 11.sp,
+        color = TextTertiary,
+        fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
-        letterSpacing = 1.sp,
-        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+        letterSpacing = 0.6.sp,
+        modifier = Modifier.padding(bottom = 8.dp),
     )
 }
 
@@ -321,8 +338,8 @@ private fun EmptySectionRow(message: String) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(Surface, RoundedCornerShape(12.dp))
-                .padding(12.dp),
+                .background(SurfaceElevated, RoundedCornerShape(18.dp))
+                .padding(16.dp),
     ) {
         Text(message, color = TextSecondary, fontSize = 13.sp)
     }
@@ -338,11 +355,11 @@ private fun StatCard(
     Column(
         modifier =
             modifier
-                .background(Surface, RoundedCornerShape(12.dp))
+                .background(SurfaceElevated, RoundedCornerShape(16.dp))
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF666666), modifier = Modifier.size(16.dp))
+        Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(16.dp))
         Text(value, color = White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
         Text(label, color = TextSecondary, fontSize = 12.sp)
     }

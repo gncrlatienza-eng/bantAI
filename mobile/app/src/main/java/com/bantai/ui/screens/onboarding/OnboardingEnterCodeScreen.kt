@@ -30,8 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -54,6 +56,10 @@ import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
+import kotlinx.coroutines.delay
+
+private const val COUNTDOWN_TICK_MS = 1000L
+private const val MS_PER_SECOND = 1000L
 
 @Composable
 fun OnboardingEnterCodeScreen(
@@ -63,6 +69,19 @@ fun OnboardingEnterCodeScreen(
     val state by viewModel.state.collectAsState()
     val digits = remember { mutableStateListOf("", "", "", "", "", "") }
     val focusRequesters = remember { List(6) { FocusRequester() } }
+
+    // Ticks once a second purely to re-derive the resend/lockout countdowns below
+    // from state.resendAvailableAtMs / verifyLockedUntilMs -- those timestamps are
+    // the source of truth, this is just what forces the UI to recompute against them.
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(COUNTDOWN_TICK_MS)
+            nowMs = System.currentTimeMillis()
+        }
+    }
+    val resendRemainingSec = ((state.resendAvailableAtMs - nowMs) / MS_PER_SECOND).coerceAtLeast(0)
+    val verifyLockedRemainingSec = ((state.verifyLockedUntilMs - nowMs) / MS_PER_SECOND).coerceAtLeast(0)
 
     LaunchedEffect(Unit) { focusRequesters[0].requestFocus() }
 
@@ -124,24 +143,28 @@ fun OnboardingEnterCodeScreen(
         Spacer(Modifier.height(24.dp))
         Row {
             Text("Didn't get it? ", color = TextSecondary, fontSize = 15.sp)
-            Text(
-                "Resend code",
-                color = Indigo,
-                fontSize = 15.sp,
-                modifier = Modifier.clickable { viewModel.resendOtp() },
-            )
+            if (resendRemainingSec > 0) {
+                Text("Resend code in ${resendRemainingSec}s", color = TextSecondary, fontSize = 15.sp)
+            } else {
+                Text(
+                    "Resend code",
+                    color = Indigo,
+                    fontSize = 15.sp,
+                    modifier = Modifier.clickable { viewModel.resendOtp() },
+                )
+            }
         }
 
         Spacer(Modifier.weight(1f))
 
         PrimaryButton(
-            text = "Verify",
+            text = if (verifyLockedRemainingSec > 0) "Try again in ${verifyLockedRemainingSec}s" else "Verify",
             onClick = {
                 viewModel.verifyOtp {
                     navController.navigate(Screen.OnboardingTerms.route)
                 }
             },
-            enabled = !state.isLoading,
+            enabled = !state.isLoading && verifyLockedRemainingSec == 0L,
             isLoading = state.isLoading,
         )
         Spacer(Modifier.height(24.dp))

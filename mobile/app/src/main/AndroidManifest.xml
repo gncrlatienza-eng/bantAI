@@ -10,6 +10,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Explicit rather than implied by the SMS permissions above: this app's whole
+         purpose is intercepting/classifying SMS, so it genuinely can't function
+         without telephony hardware. required="true" correctly excludes it from
+         non-telephony devices (tablets, ChromeOS) on the Play Store instead of
+         leaving that decision implicit. -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="true" />
+
     <!-- Signature-level: protects the dynamic SMS send-result receiver in
          SmsSender.kt on API < 33, where RECEIVER_NOT_EXPORTED doesn't exist. -->
     <permission

@@ -57,11 +57,6 @@ class AlertDetailViewModel(
                 .onSuccess { alerts -> _alert.value = alerts.find { it.messageId == messageId } }
                 .onFailure { error -> _errorMessage.value = error.message ?: "Could not reach the server" }
 
-            // Indicators failing is non-fatal: an empty list just means no SHAP bars render.
-            SmsApi
-                .getIndicators(token, messageId)
-                .onSuccess { tags -> _indicators.value = tags }
-
             _isLoading.value = false
         }
     }

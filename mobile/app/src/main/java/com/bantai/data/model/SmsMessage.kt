@@ -15,4 +15,7 @@ data class SmsMessage(
     val isOutgoing: Boolean = false,
     val isRead: Boolean = true,
     val sendStatus: SendStatus = SendStatus.NONE,
+    // This is a presentation-only value created while grouping an inbox. It is
+    // never written to the device SMS provider and never leaves the device.
+    val isUnreadThreadSummary: Boolean = false,
 )

@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.SmsApi
-import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
@@ -114,16 +113,16 @@ fun ThreatAnalysisScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No threat details available", color = TextSecondary, fontSize = 14.sp)
                 }
-            else -> ThreatAnalysisContent(alert!!, indicators, navController)
+            else -> ThreatAnalysisContent(alert!!, indicators)
         }
     }
 }
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 private fun ThreatAnalysisContent(
     alert: SmsApi.AlertSummary,
     indicators: List<SmsApi.IndicatorTag>,
-    navController: NavController,
 ) {
     val confidence = (alert.score ?: 0.0).coerceIn(0.0, 1.0)
 
@@ -155,7 +154,7 @@ private fun ThreatAnalysisContent(
                         Icon(Icons.Default.GppBad, contentDescription = null, tint = Danger, modifier = Modifier.size(24.dp))
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(alert.sender, color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Message stored on this device", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = 12.sp)
                     }
                     Box(
@@ -236,7 +235,7 @@ private fun ThreatAnalysisContent(
                             .background(Surface, RoundedCornerShape(16.dp))
                             .padding(16.dp),
                 ) {
-                    Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
+                    Text("Detailed indicators are unavailable because message text remains on this device.", color = TextSecondary, fontSize = 13.sp)
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -250,10 +249,8 @@ private fun ThreatAnalysisContent(
         item {
             SectionLabel("ACTIONS")
             Button(
-                onClick = {
-                    val route = Screen.TakeAction.createRoute(messageId = alert.messageId, sender = alert.sender)
-                    navController.navigate(route)
-                },
+                onClick = {},
+                enabled = false,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -261,7 +258,7 @@ private fun ThreatAnalysisContent(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Indigo),
             ) {
-                Text("Take action", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("Use your device inbox to take action", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
             Spacer(Modifier.height(8.dp))
         }

@@ -40,6 +40,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun PrivacyDataScreen(navController: NavController) {
     val context = LocalContext.current
 
@@ -77,16 +78,19 @@ fun PrivacyDataScreen(navController: NavController) {
             item {
                 InfoCard(
                     title = "Data we collect",
-                    body =
-                        "The sender and message text of SMS you receive are sent to our servers and stored " +
-                            "linked to your account (not anonymized) to power detection, retraining, and the " +
-                            "reports you submit.",
+                    body = "A server-side pseudonymous sender identifier, classification result, timestamp, and campaign domains. The sender is sent transiently to derive that pseudonym; SMS bodies and contact names/numbers are not retained on our servers.",
                 )
             }
             item {
                 InfoCard(
                     title = "How your data is used",
-                    body = "Data is used solely to improve BantAI's smishing detection model. Only non-identifiable aggregate statistics are shared.",
+                    body = "Data supports privacy-minimized campaign intelligence. SMS classification happens on-device; raw SMS content is not sent for remote classification.",
+                )
+            }
+            item {
+                InfoCard(
+                    title = "Retention",
+                    body = "Pseudonymous threat telemetry is deleted after 90 days. OTP and request-limit records are deleted after their challenge and one-hour request window expire. Sender reports are deleted after 90 days. Contact fingerprints remain only until your next complete contact sync or account deletion; block preferences remain until account deletion.",
                 )
             }
             item {

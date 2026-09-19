@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.bantai.ui.screens.onboarding
 
 import androidx.compose.foundation.background
@@ -50,15 +52,11 @@ private val termsCards =
     listOf(
         TermsCard(
             "Data collected",
-            "To classify incoming messages, BantAI sends the sender and message text to our " +
-                "servers, where they're stored linked to your account (not anonymized) to support " +
-                "detection, retraining, and reports you submit.",
+            "BantAI processes SMS content on your phone. To synchronize threat metadata, the app briefly sends the sender to derive a server-side pseudonym, plus classification result, timestamp, and campaign domains. The server does not retain raw SMS bodies or contact names/numbers.",
         ),
         TermsCard(
             "How it works",
-            "Messages are classified by BantAI's detection service. If you're offline or the " +
-                "server can't be reached, a limited on-device check is used instead. Reports you " +
-                "submit are tied to your account and used to improve the model.",
+            "Messages are classified locally on your device. Only privacy-minimized threat metadata is synchronized for campaign intelligence; it is not used to transmit your SMS content.",
         ),
         TermsCard(
             "Your rights",

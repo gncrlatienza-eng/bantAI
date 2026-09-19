@@ -11,8 +11,8 @@ object BlockHelper {
     fun blockNumberSystem(
         context: Context,
         number: String,
-    ) {
-        try {
+    ): Result<Unit> =
+        runCatching {
             if (!BlockedNumberContract.isBlocked(context, number)) {
                 val values =
                     ContentValues().apply {
@@ -23,10 +23,10 @@ object BlockHelper {
                     values,
                 )
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "blockNumberSystem failed for $number", e)
+            Unit
+        }.onFailure { error ->
+            Log.e(TAG, "blockNumberSystem failed for $number", error)
         }
-    }
 
     fun isBlocked(
         context: Context,

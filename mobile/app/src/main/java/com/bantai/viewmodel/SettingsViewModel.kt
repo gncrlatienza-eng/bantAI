@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.remote.AuthApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.util.OnnxBenchmark
 import com.bantai.util.isValidName
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,6 +68,11 @@ class SettingsViewModel(
     // without needing a real SMS to arrive first.
     private val _simulateStatus = MutableStateFlow<String?>(null)
     val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
+
+    private val _accountDeleteError = MutableStateFlow<String?>(null)
+    val accountDeleteError: StateFlow<String?> = _accountDeleteError.asStateFlow()
+    private val _accountDeleting = MutableStateFlow(false)
+    val accountDeleting: StateFlow<Boolean> = _accountDeleting.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -203,8 +210,25 @@ class SettingsViewModel(
     // deletion it doesn't actually do.
     fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
-            userPreferences.clearAll()
-            onComplete()
+            if (_accountDeleting.value) return@launch
+            _accountDeleteError.value = null
+            _accountDeleting.value = true
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) {
+                _accountDeleteError.value = "Your session has expired. Please sign in again."
+                _accountDeleting.value = false
+                return@launch
+            }
+            AuthApi
+                .deleteAccount(token)
+                .onSuccess {
+                    userPreferences.clearAll()
+                    _accountDeleting.value = false
+                    onComplete()
+                }.onFailure {
+                    _accountDeleteError.value = "Could not delete account. Please try again."
+                    _accountDeleting.value = false
+                }
         }
     }
 

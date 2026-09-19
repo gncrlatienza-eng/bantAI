@@ -39,6 +39,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun ReportSentScreen(
     type: String,
     navController: NavController,
@@ -53,7 +54,7 @@ fun ReportSentScreen(
         when (type) {
             "block_only" -> "The number has been added to your blocked list and can no longer send you messages. You can unblock it anytime from this screen."
             "both" -> "Your report has been submitted and the number has been blocked. It can no longer send you messages."
-            else -> "Thank you for your report. It helps PhishNet improve its AI model and protect other users from this threat."
+            else -> "Thank you for your report. It will be available for administrator review and can help protect other users from this threat."
         }
     val buttonText = if (type == "block_only") "Got it" else "Done"
 
@@ -117,7 +118,7 @@ fun ReportSentScreen(
                 val checklistItems =
                     buildList {
                         add("Report queued for admin review")
-                        add("Used to retrain the PhishNet AI model")
+                        add("Kept for administrator review; SMS content is not used for retraining")
                         add("Domain/sender flagged for campaign tracking")
                         if (type == "both") add("Number added to your blocked list")
                     }

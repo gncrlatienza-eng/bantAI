@@ -75,7 +75,7 @@ import com.bantai.data.SmsRepository
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
-import com.bantai.data.remote.SummarizeApi
+import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.components.SenderAvatar
@@ -91,6 +91,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.util.NotificationHelper
+import com.bantai.util.SmsLinkSafety
 import com.bantai.util.SmsSender
 import com.bantai.viewmodel.MessageDetailViewModel
 import kotlinx.coroutines.flow.first
@@ -115,12 +116,17 @@ fun MessageDetailScreen(
     var replyText by remember { mutableStateOf("") }
     var replyPrefilled by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var senderVerification by remember(sender) { mutableStateOf<VerificationApi.SenderVerification?>(null) }
 
     BackHandler(enabled = selectionMode) { viewModel.exitSelectionMode() }
 
     LaunchedEffect(sender) {
         viewModel.loadConversation(sender)
         viewModel.markAsRead(sender)
+        val token = UserPreferences(context).userData.first().authToken
+        if (token.isNotEmpty()) {
+            senderVerification = VerificationApi.verifySender(token, sender).getOrNull()
+        }
     }
 
     // Resume any unsent reply left from a previous visit, once — after that, typing
@@ -170,7 +176,6 @@ fun MessageDetailScreen(
     val hasUnknown = conversation.any { it.classification == "unknown" }
     var showAISummary by remember { mutableStateOf(false) }
     var summaryText by remember { mutableStateOf<String?>(null) }
-    var isSummaryLoading by remember { mutableStateOf(false) }
 
     // Reset whenever the thread changes so a stale summary from a previous
     // conversation can never be shown against this one.
@@ -178,26 +183,9 @@ fun MessageDetailScreen(
         summaryText = null
     }
 
-    // Fetched lazily on first open, once per thread — keyed on showAISummary and
-    // sender only, not on `conversation` itself: a new message arriving mid-fetch
-    // used to make this a different key (a longer list), restarting the effect
-    // and leaving isSummaryLoading stuck true forever with no finally to reset
-    // it. Reading `conversation`'s current value inside the effect (rather than
-    // keying on it) still summarizes the latest messages without re-triggering
-    // just because one more arrived while the sheet was open.
     LaunchedEffect(showAISummary, sender) {
-        if (showAISummary && summaryText == null && !isSummaryLoading && conversation.isNotEmpty()) {
-            isSummaryLoading = true
-            try {
-                val token = UserPreferences(context).userData.first().authToken
-                if (token.isNotEmpty()) {
-                    SummarizeApi
-                        .summarize(token, conversation.map { it.body })
-                        .onSuccess { summaryText = it.summary }
-                }
-            } finally {
-                isSummaryLoading = false
-            }
+        if (showAISummary && summaryText == null) {
+            summaryText = "Remote message summarization is disabled to keep SMS content on your device."
         }
     }
 
@@ -205,7 +193,7 @@ fun MessageDetailScreen(
         AISummaryBottomSheet(
             isSuspicious = hasSuspicious || hasUnknown,
             summary = summaryText,
-            isLoadingSummary = isSummaryLoading,
+            isLoadingSummary = false,
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false
@@ -302,6 +290,16 @@ fun MessageDetailScreen(
                     )
                     if (hasSuspicious) {
                         Text("Suspicious", color = Suspicious, fontSize = 11.sp)
+                    } else if (senderVerification?.risk == "confirmed_fraud") {
+                        Text("Confirmed fraud", color = Suspicious, fontSize = 11.sp)
+                    } else if (senderVerification?.familiarity == "verified_organization") {
+                        Text(
+                            "Verified organization${senderVerification?.organizationName?.let { " • $it" } ?: ""}",
+                            color = IosBlue,
+                            fontSize = 11.sp,
+                        )
+                    } else if (senderVerification?.familiarity == "known_contact") {
+                        Text("Known contact", color = IosBlue, fontSize = 11.sp)
                     }
                 }
                 IconButton(
@@ -437,7 +435,12 @@ fun MessageDetailScreen(
                                             ).padding(horizontal = 12.dp, vertical = 8.dp),
                                 ) {
                                     Column {
-                                        Text(msg.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
+                                        Text(
+                                            SmsLinkSafety.visibleBody(msg.body, msg.classification),
+                                            color = White,
+                                            fontSize = 14.sp,
+                                            lineHeight = 20.sp,
+                                        )
                                         Spacer(Modifier.height(2.dp))
                                         Text(
                                             getRelativeTime(msg.timestamp),

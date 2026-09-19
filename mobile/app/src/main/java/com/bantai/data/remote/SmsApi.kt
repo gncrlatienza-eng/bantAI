@@ -5,12 +5,9 @@ import org.json.JSONObject
 import java.time.Instant
 
 /**
- * Sends incoming SMS to the backend for classification by the fine-tuned model.
- *
- * The backend (POST /api/sms/ingest) stores the message, calls the Python ML
- * service, applies confidence-threshold routing, and returns the action the app
- * should take. Callers must treat any failure here as non-fatal and fall back to
- * the on-device heuristic in SmsRepository — see SmsReceiver.
+ * Sends locally masked text to the backend's deployed classifier. Raw SMS text
+ * never leaves the handset. The sender is transmitted only so the backend can
+ * derive a non-reversible server-side pseudonym; it is not stored.
  */
 object SmsApi {
     /** Routing decision returned by the backend, mapped from its `action` field. */
@@ -20,6 +17,7 @@ object SmsApi {
         val action: Action,
         val label: String,
         val score: Double,
+        val classificationSource: String? = null,
         /** True when the sender was already on the block list and no work was done. */
         val suppressed: Boolean = false,
         val messageId: String? = null,
@@ -32,6 +30,7 @@ object SmsApi {
         val status: String,
         val createdAt: String,
         val messageId: String,
+        val sourceId: String?,
         val sender: String,
         val body: String,
         val receivedAt: String,
@@ -46,32 +45,47 @@ object SmsApi {
         val weight: Double,
     )
 
+    /** Values required by the privacy-safe SMS ingestion endpoint. */
+    data class IngestRequest(
+        val sender: String,
+        val receivedAtMillis: Long,
+        val sourceId: String,
+        val maskedBody: String,
+        val label: String,
+        val score: Double,
+        val bucket: String,
+        val domains: List<String>,
+        val timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
+    )
+
     /**
      * @param receivedAtMillis epoch millis from the SMS intent; converted to the
      *   ISO-8601 string the backend's `@IsDateString` validator requires.
      */
     suspend fun ingest(
         token: String,
-        sender: String,
-        body: String,
-        receivedAtMillis: Long,
-        timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
+        request: IngestRequest,
     ): Result<IngestResult> {
         val payload =
             JSONObject()
-                .put("sender", sender)
-                .put("body", body)
-                .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
+                .put("sender", request.sender)
+                .put("maskedBody", request.maskedBody)
+                .put("receivedAt", Instant.ofEpochMilli(request.receivedAtMillis).toString())
+                .put("sourceId", request.sourceId)
+                .put("label", request.label)
+                .put("score", request.score)
+                .put("bucket", request.bucket)
+                .put("domains", JSONArray(request.domains))
 
-        return HttpClient.post("/sms/ingest", payload, token, timeoutMs).mapCatching { parseIngestResponse(it) }
+        return HttpClient.post("/sms/ingest", payload, token, request.timeoutMs).mapCatching { parseIngestResponse(it) }
     }
 
     /** GET /sms/alerts — all alerts for the signed-in user, newest first. */
     suspend fun getAlerts(token: String): Result<List<AlertSummary>> = HttpClient.get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
 
     /**
-     * GET /sms/:messageId/indicators — SHAP-derived tags for one message.
-     * An empty list is valid (SHAP may still be computing), not an error.
+     * Legacy indicator endpoint. Privacy-first ingestion has no raw message
+     * body to analyze, so callers should treat the response as unavailable.
      */
     suspend fun getIndicators(
         token: String,
@@ -91,10 +105,12 @@ object SmsApi {
             status = json.optString("status"),
             createdAt = json.optString("createdAt"),
             messageId = message.getString("id"),
-            sender = message.optString("sender"),
-            body = message.optString("body"),
+            // Never turn a privacy placeholder into an actionable sender.
+            sender = "",
+            body = "Message content remains in your device inbox.",
             receivedAt = message.optString("receivedAt"),
-            label = classification?.optNullableString("label"),
+            sourceId = message.optString("sourceId").takeIf { it.isNotEmpty() },
+            label = classification?.let { displayClassificationLabel(it.optString("label"), it.optString("bucket")) },
             score = classification?.takeIf { it.has("score") }?.optDouble("score"),
             bucket = classification?.optNullableString("bucket"),
             clusterId = message.optNullableString("clusterId"),
@@ -138,6 +154,7 @@ object SmsApi {
             action = toAction(json.getString("action")),
             label = classification.getString("label"),
             score = classification.getDouble("score"),
+            classificationSource = json.optString("classificationSource").takeIf { it.isNotEmpty() },
             messageId = json.optString("messageId").takeIf { it.isNotEmpty() },
             senderStatus = json.optString("senderStatus").takeIf { it.isNotEmpty() },
             suppressedLinks = List(links?.length() ?: 0) { links!!.getString(it) },
@@ -151,5 +168,23 @@ object SmsApi {
             "blocked" -> Action.BLOCKED
             "alert" -> Action.ALERT
             else -> Action.INBOX
+        }
+
+    /**
+     * The model's Ham/Spam/Scam taxonomy remains in the API and evaluation
+     * artifacts. The participant-facing language follows the manuscript's
+     * three alert terms without pretending that a low-confidence result is a
+     * fraud verdict.
+     */
+    private fun displayClassificationLabel(
+        label: String,
+        bucket: String,
+    ): String? =
+        when {
+            label == "Scam" -> "Likely Smishing"
+            label == "Spam" -> "Suspicious"
+            bucket == "unknown" -> "Unknown"
+            label == "Ham" -> "Safe"
+            else -> label.takeIf { it.isNotBlank() }
         }
 }

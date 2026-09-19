@@ -46,6 +46,7 @@ private data class TipContent(
     val whatToDo: String,
 )
 
+@Suppress("LongMethod", "MaxLineLength")
 private fun tipContent(tip: String): TipContent =
     when (tip) {
         "gcash" ->
@@ -126,16 +127,16 @@ private fun tipContent(tip: String): TipContent =
         "shap" ->
             TipContent(
                 quote = "BantAI shows its reasoning — not just its answer.",
-                whatIsIt = "SHAP (SHapley Additive exPlanations) is a machine learning technique that explains model decisions. When BantAI flags a message, it uses SHAP to identify which words or patterns drove that classification — producing the Threat Indicators you see on the alert screen.",
+                whatIsIt = "SHAP (SHapley Additive exPlanations) is a machine learning technique for explaining model decisions. It is not used in BantAI's privacy-first on-device mode because SMS content stays on the device.",
                 redFlagTitle = "How to read the indicators",
                 redFlags =
                     listOf(
                         "Longer bars = stronger signal — that feature had more influence on the classification",
                         "Multiple indicators together (e.g., Urgency Cue + Suspicious URL) build a stronger combined case",
-                        "An empty indicators section means SHAP is still computing — it arrives a few seconds after the alert",
+                        "Detailed remote indicators are unavailable in privacy-first mode",
                         "Tag names are plain language: \"Prize Lure\", \"Brand Impersonation\", \"OTP / Account Phishing\"",
                     ),
-                whatToDo = "Use the indicators as context, not as final proof. If BantAI flagged a message but none of the indicators match what you are reading, tap Report to help improve the model. Your judgment plus BantAI's analysis is always stronger than either alone.",
+                whatToDo = "Use your own reading as the final check. If BantAI flagged a message incorrectly, tap Report for administrator review. Your judgment remains important.",
             )
 
         else ->
@@ -166,6 +167,7 @@ private fun tipTitle(tip: String) =
     }
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun TipDetailScreen(
     tip: String,
     navController: NavController,

@@ -2,7 +2,6 @@
 
 import io
 import json
-import urllib.error
 from datetime import datetime, timezone
 
 import pytest

@@ -117,9 +117,7 @@ class ModelRegistry:
         after reviewing the candidate; retaining an API-key promotion endpoint
         would recreate broad administrator authorization.
         """
-        raise ModelRegistryError(
-            f"Model {model_id} is registered but requires administrator promotion."
-        )
+        raise ModelRegistryError(f"Model {model_id} is registered but requires administrator promotion.")
 
     def get_active(self) -> Optional[dict]:
         """``GET /models/active``. ``None`` when no model has ever been registered.

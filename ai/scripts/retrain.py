@@ -131,9 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--reports-api-key",
         default=None,
-        help=(
-            "Deprecated: live database report ingestion is disabled because raw SMS text is not retained."
-        ),
+        help=("Deprecated: live database report ingestion is disabled because raw SMS text is not retained."),
     )
     parser.add_argument(
         "--export-reports",
@@ -270,7 +268,6 @@ def _build_report_source(args):
         if args.reports_dir and not os.path.isdir(args.reports_dir):
             return None, f"--reports-dir '{args.reports_dir}' does not exist."
         return (FileReportSource(args.reports_dir) if args.reports_dir else NullReportSource()), None
-
 
 
 def _resolve_models_registry(args) -> tuple:

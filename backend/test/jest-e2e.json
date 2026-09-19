@@ -2,7 +2,14 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testRegex": ".*\\.e2e-spec\\.ts$",
-  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "extensionsToTreatAsEsm": [".ts"],
+  "transform": {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      { "useESM": true, "tsconfig": "<rootDir>/tsconfig.spec.json" }
+    ]
+  },
+  "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" },
   "setupFiles": ["<rootDir>/test/setup-env.ts"],
   "testEnvironment": "node"
 }

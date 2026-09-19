@@ -11,6 +11,10 @@ function assertRequiredConfiguration() {
     'OTP_HASH_SECRET',
     'SENDER_HASH_SECRET',
     'ADMIN_PHONES',
+    // The backend must authenticate to the AI service outside local
+    // development. Leaving this unset silently turns every AI response into
+    // a non-authoritative fallback after the service rejects the request.
+    'AI_SERVICE_API_KEY',
     'AI_CAMPAIGNS_API_KEY',
     'AI_MODELS_API_KEY',
     'AI_INDICATORS_API_KEY',

@@ -22,17 +22,6 @@ import { VerificationService } from './verification.service';
 export class VerificationController {
   constructor(private readonly verificationService: VerificationService) {}
 
-  // Familiarity (private contact or vetted organization) and risk are separate
-  // fields. A community report can never make a sender appear familiar.
-  @UseGuards(JwtAuthGuard)
-  @Get('sender/:sender')
-  verifySender(
-    @Request() req: { user: { userId: string } },
-    @Param('sender') sender: string,
-  ) {
-    return this.verificationService.verifySender(req.user.userId, sender);
-  }
-
   // Mobile app calls this on first launch and when contacts change.
   // Syncs the user's Android contact list so Stage 1 verification works.
   @UseGuards(JwtAuthGuard)
@@ -60,6 +49,20 @@ export class VerificationController {
   @Get('sender/pending-reports')
   pendingFraudReports() {
     return this.verificationService.findPendingFraudReports();
+  }
+
+  // This static route must stay above `sender/:sender`: Express matches route
+  // declarations in order, so a parameter route registered first would treat
+  // "pending-reports" as a sender and bypass the administrator-only handler.
+  // Familiarity (private contact or vetted organization) and risk are separate
+  // fields. A community report can never make a sender appear familiar.
+  @UseGuards(JwtAuthGuard)
+  @Get('sender/:sender')
+  verifySender(
+    @Request() req: { user: { userId: string } },
+    @Param('sender') sender: string,
+  ) {
+    return this.verificationService.verifySender(req.user.userId, sender);
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)

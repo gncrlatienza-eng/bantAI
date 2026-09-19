@@ -14,7 +14,7 @@ run it on a platform that can reach PostgreSQL and the AI service privately.
 - [ ] Create distinct production secrets in the platform secret manager; never
       place them in GitHub variables, an APK, or a web bundle:
       `DATABASE_URL`, `JWT_SECRET`, `OTP_HASH_SECRET`, `SENDER_HASH_SECRET`,
-      `ADMIN_PHONES`, `AI_CAMPAIGNS_API_KEY`, `AI_MODELS_API_KEY`,
+      `ADMIN_PHONES`, `AI_SERVICE_API_KEY`, `AI_CAMPAIGNS_API_KEY`, `AI_MODELS_API_KEY`,
       `AI_INDICATORS_API_KEY`, and `SEMAPHORE_API_KEY`.
 - [ ] Set `CORS_ORIGINS` to the exact deployed dashboard origins. Wildcards are
       not permitted.

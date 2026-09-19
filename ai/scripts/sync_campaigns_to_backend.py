@@ -129,12 +129,12 @@ def sync(payloads: List[dict], request: Request) -> tuple:
             created.append(request("POST", "/campaigns", body)["id"])
     except Exception:
         for cid in created:
-            request("PATCH", f"/campaigns/{cid}/deactivate", None)
+            request("PATCH", f"/campaigns/internal/{cid}/deactivate", None)
         raise
 
     deactivated: List[str] = []
     for cid in old_ids:
-        request("PATCH", f"/campaigns/{cid}/deactivate", None)
+        request("PATCH", f"/campaigns/internal/{cid}/deactivate", None)
         deactivated.append(cid)
     return created, deactivated
 
@@ -155,15 +155,15 @@ def main() -> int:
     print(f"  {len(with_domains)} clusters contribute link-suppression domains, {len(all_domains)} distinct:")
     print("  " + (", ".join(all_domains) or "(none)"))
 
-    if not settings.backend_api_key:
-        print("\nBANTAI_AI_BACKEND_API_KEY is not set in ai/.env -- it must equal the backend's INTERNAL_API_KEY.")
+    if not settings.campaigns_api_key:
+        print("\nBANTAI_AI_CAMPAIGNS_API_KEY is not set in ai/.env -- it must match AI_CAMPAIGNS_API_KEY.")
         return 1
 
-    request = make_request(settings.backend_url, settings.backend_api_key)
+    request = make_request(settings.backend_url, settings.campaigns_api_key)
     try:
         current = request("GET", "/campaigns/centroids", None)
     except urllib.error.HTTPError as exc:
-        print(f"\nBackend answered {exc.code} -- check BANTAI_AI_BACKEND_API_KEY matches INTERNAL_API_KEY.")
+        print(f"\nBackend answered {exc.code} -- check BANTAI_AI_CAMPAIGNS_API_KEY matches AI_CAMPAIGNS_API_KEY.")
         return 1
     except urllib.error.URLError as exc:
         print(f"\nCould not reach {settings.backend_url}: {exc}. Is the backend running?")

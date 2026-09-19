@@ -201,14 +201,15 @@ landed in PR #39. The source is an interface with three implementations:
 |---|---|
 | `NullReportSource` | Nothing. Still the default; manifest records `null (no report store consulted)` |
 | `FileReportSource` | CSV/JSONL from a directory — see `datasets/reports/README.md` |
-| `DatabaseReportSource` | `GET /reports` on the backend, keeping `status == "Validated"` |
+| `DatabaseReportSource` | Retained for historical compatibility; live backend report ingestion is disabled. |
 
 Running without reports is a legitimate operation — it is what you do to
 reproduce a checkpoint. What would be wrong is *pretending* reports were
-consulted, which `describe()` prevents. That is also why no source is ever
-selected implicitly: `scripts/retrain.py` requires `--reports-dir` or
-`--reports-url`, and a `BANTAI_AI_BACKEND_URL` sitting in the environment is
-not on its own enough to turn the database on.
+consulted, which `describe()` prevents. Live `--reports-url` ingestion is
+deliberately disabled because the backend retains privacy-masked SMS only and
+must not become a raw-message training source. Use a separately consented,
+offline `--reports-dir` export instead. A `BANTAI_AI_BACKEND_URL` sitting in
+the environment never enables report ingestion.
 
 **The `Validated` filter runs client-side.** `ReportsService` exposes only
 `findAll()` and `findPending()` — there is no `findValidated()` — so the AI
@@ -235,13 +236,13 @@ question. `ReportSourceError` stops the run instead.
 
 #### Getting reports onto a GPU box
 
-Colab has no route to a laptop's `localhost:3000`, so the database source
-cannot be used from the notebook. Export first, then carry the file:
+The backend report endpoint is not a supported ingestion path. Prepare a
+separately consented, privacy-reviewed offline file, then carry that file to
+the GPU box:
 
 ```bash
 cd ai
-python scripts/retrain.py --export-reports datasets/reports/validated.csv \
-    --reports-url http://localhost:3000/api
+python scripts/retrain.py --reports-dir datasets/reports --dry-run
 python colab/build_retrain_package.py     # picks up datasets/reports/
 ```
 

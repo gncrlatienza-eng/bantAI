@@ -44,6 +44,48 @@ uvicorn service.main:app --reload --port 8001
 Until a fine-tuned model exists in `models/`, `/classify` returns **503** (the
 request is still validated and PII is still masked, so the contract is testable).
 
+## Team local-model test (no deployment required)
+
+Each teammate keeps the approved model bundle in their own ignored local
+directory, normally `ai/models/xlm-roberta-smishing/`. Do not commit the model,
+raw SMS data, a `.env` file, or a public download link. The bundle needs
+`config.json`, a model-weight file (`model.safetensors` or `pytorch_model.bin`),
+and an XLM-R tokenizer artifact such as `sentencepiece.bpe.model`.
+
+For an AI-only check, use these local settings in `ai/.env`:
+
+```env
+BANTAI_AI_MODEL_DIR=models/xlm-roberta-smishing
+BANTAI_AI_CENTROID_SOURCE=none
+BANTAI_AI_VERSION_CHECK_ENABLED=false
+BANTAI_AI_ENVIRONMENT=development
+```
+
+From `ai/`, first verify the copied model without starting any network service:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify_local_model.py --smoke
+```
+
+It performs a structural bundle check and a real forward pass using a built-in,
+non-sensitive string. It does not read a dataset or print SMS content. Then run
+the local AI API:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn service.main:app --host 127.0.0.1 --port 8001
+```
+
+`GET http://127.0.0.1:8001/health` must return `model_ready: true`. For the
+full local stack, start PostgreSQL and the NestJS backend separately, set
+`AI_SERVICE_URL=http://localhost:8001` in `backend/.env`, and use matching
+non-production values for `AI_SERVICE_API_KEY` and
+`BANTAI_AI_SERVICE_API_KEY`. Restore `BANTAI_AI_CENTROID_SOURCE=backend` only
+when the local backend is running and its campaign/model API keys are also set.
+
+For an Android emulator on the same computer, use `http://10.0.2.2:3000/api`.
+For a USB-connected device, use `adb reverse tcp:3000 tcp:3000` and the app's
+localhost debug URL. Do not expose this local stack over a public tunnel.
+
 ## Preprocessing / privacy masking
 
 `preprocessing.preprocess(text)` is the single transform used at both train and

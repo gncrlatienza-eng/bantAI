@@ -56,14 +56,10 @@ class Settings(BaseSettings):
     cluster_file: str = "datasets/processed/campaign_clusters.json"
     backend_url: str = "http://localhost:3000/api"
 
-    # Shared secret for the backend's ApiKeyGuard-protected internal routes --
-    # GET /campaigns/centroids (this service) and GET /reports (the retraining
-    # pipeline). Must equal the backend's ``INTERNAL_API_KEY``. Empty means the
-    # header is omitted entirely, which those routes answer with 401; since
-    # ``load_centroids`` swallows failures by design, an unset key shows up as
-    # "0 campaigns loaded" rather than an error, so check this first if
-    # matching is silently doing nothing.
-    backend_api_key: str = ""
+    # Separate machine credentials: each is accepted by only one internal
+    # capability. They must never be bundled in the web dashboard.
+    campaigns_api_key: str = ""
+    models_api_key: str = ""
 
     # Cosine similarity a message must reach to join an existing campaign
     # (manuscript Stage 5b). The manuscript specifies 0.85; measured against
@@ -86,6 +82,25 @@ class Settings(BaseSettings):
     # deciding whether this process is alive.
     service_api_key: str = ""
 
+    # Deployment environment tag ("development", "production", "test"). Used
+    # by startup checks to decide whether an empty ``service_api_key`` is a
+    # warning or a hard error, and by log formatters that vary by env.
+    environment: str = "development"
+
+    # Allow the service to boot without an ``x-api-key`` requirement in dev.
+    # Ignored in production, where a missing key is fatal by policy.
+    allow_unauthenticated_dev: bool = False
+
+    # Hard cap on inbound request body size (bytes). Default 384 KiB is
+    # comfortably above MAX_SUMMARIZE_MESSAGES * MAX_MESSAGE_CHARS and refuses
+    # obvious abuse without needing an upstream reverse-proxy limit.
+    max_request_body_bytes: int = 393_216
+
+    # Concurrency ceiling for CPU-bound inference work. Beyond this the
+    # semaphore rejects rather than queueing, so a burst does not blow the
+    # process memory with pending tokenisation buffers.
+    max_concurrent_operations: int = 4
+
     # --- Retraining round trip (Sprint 4, WBS 4.4.3) --------------------- #
     # Where POST /retrain records the backend's trigger requests. Training
     # itself does not happen here -- there is no GPU on the serving host --
@@ -99,9 +114,7 @@ class Settings(BaseSettings):
     # Where `main.py`'s startup check reads the currently active model from,
     # to compare against the version this service is actually serving (see
     # `models/xlm-roberta-smishing/version.json`). Reuses the same backend
-    # as `centroid_source="backend"` and the same `backend_api_key` --
-    # `GET /models/active` is ApiKeyGuard-protected like `/campaigns/centroids`
-    # and `/reports`.
+    # as `centroid_source="backend"`, but with the distinct models key.
     version_check_enabled: bool = True
 
 

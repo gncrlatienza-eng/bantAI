@@ -69,7 +69,7 @@ class ModelRegistry:
         except urllib.error.HTTPError as exc:
             hint = ""
             if exc.code == 401:
-                hint = " -- BANTAI_AI_BACKEND_API_KEY is missing or does not match the backend's INTERNAL_API_KEY"
+                hint = " -- BANTAI_AI_MODELS_API_KEY is missing or does not match AI_MODELS_API_KEY"
             elif exc.code == 409:
                 hint = " -- a ModelVersion with this versionTag is already registered"
             raise ModelRegistryError(f"{method} {url} returned HTTP {exc.code} {exc.reason}{hint}") from exc
@@ -104,20 +104,22 @@ class ModelRegistry:
             payload["accuracy"] = accuracy
         if notes is not None:
             payload["notes"] = notes
-        result = self._call("/models", "POST", payload)
+        result = self._call("/internal/models", "POST", payload)
         model_id = (result or {}).get("id")
         if not model_id:
-            raise ModelRegistryError(f"POST {self.base_url}/models did not return an id: {result!r}")
+            raise ModelRegistryError(f"POST {self.base_url}/internal/models did not return an id: {result!r}")
         return model_id
 
     def activate(self, model_id: str) -> None:
-        """``POST /models/:id/activate``. The deliberate, separate promotion step.
+        """Machine credentials cannot promote a model.
 
-        Deactivates whatever was active and activates this row -- see
-        ``ModelsService.promote`` on the backend. Calling this is the human
-        act this whole module exists to keep separate from a green gate.
+        An authenticated administrator must use the admin-only backend route
+        after reviewing the candidate; retaining an API-key promotion endpoint
+        would recreate broad administrator authorization.
         """
-        self._call(f"/models/{model_id}/activate", "POST")
+        raise ModelRegistryError(
+            f"Model {model_id} is registered but requires administrator promotion."
+        )
 
     def get_active(self) -> Optional[dict]:
         """``GET /models/active``. ``None`` when no model has ever been registered.
@@ -126,4 +128,4 @@ class ModelRegistry:
         comparing what the backend thinks is live against the ``version_tag``
         this service is actually serving (``models/<dir>/version.json``).
         """
-        return self._call("/models/active", "GET")
+        return self._call("/internal/models/active", "GET")

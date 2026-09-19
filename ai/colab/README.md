@@ -107,18 +107,17 @@ package.
 
 ## Steps
 
-1. **Export the validated reports** (skip only if you accept a run that
-   consumes no corrections):
+1. **Prepare a separately consented offline report export** (skip if you accept
+   a run that consumes no corrections):
 
    ```bash
    cd ai
-   python scripts/retrain.py --export-reports datasets/reports/validated.csv \
-       --reports-url http://localhost:3000/api
+   python scripts/retrain.py --reports-dir datasets/reports --dry-run
    ```
 
-   Needs the backend running and `BANTAI_AI_BACKEND_API_KEY` set to match its
-   `INTERNAL_API_KEY`. Colab has no route to your laptop's `localhost:3000`,
-   which is the only reason this hop exists.
+   Live `--reports-url` ingestion is deliberately disabled. The backend keeps
+   privacy-masked SMS only, so the GPU workflow accepts a separately consented
+   offline `--reports-dir` export. Do not place raw SMS bodies in the export.
 
 2. **Build the package** — it picks up whatever is in `datasets/reports/`:
 

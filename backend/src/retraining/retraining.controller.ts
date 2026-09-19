@@ -7,11 +7,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RetrainingService } from './retraining.service';
 
 @Controller('retraining')
-@UseGuards(ApiKeyGuard)
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class RetrainingController {
   constructor(private readonly retrainingService: RetrainingService) {}
 

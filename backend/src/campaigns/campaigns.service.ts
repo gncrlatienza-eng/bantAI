@@ -15,6 +15,7 @@ export class CampaignsService {
     return this.prisma.campaignCluster.findMany({
       where: { isActive: true },
       orderBy: { messageCount: 'desc' },
+      take: 100,
       select: {
         id: true,
         label: true,
@@ -27,14 +28,16 @@ export class CampaignsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string) {
     const cluster = await this.prisma.campaignCluster.findUnique({
       where: { id },
       include: {
         messages: {
+          where: { userId },
           select: {
             id: true,
-            sender: true,
+            // Sender and body are pseudonymized/masked at ingestion. Campaign
+            // members from other users are never returned to a JWT user.
             body: true,
             receivedAt: true,
             classification: {
@@ -42,7 +45,7 @@ export class CampaignsService {
             },
           },
           orderBy: { receivedAt: 'desc' },
-          take: 50,
+          take: 25,
         },
       },
     });
@@ -118,6 +121,7 @@ export class CampaignsService {
     return this.prisma.campaignCluster.findMany({
       where: { isActive: false },
       orderBy: { updatedAt: 'desc' },
+      take: 100,
       select: {
         id: true,
         label: true,
@@ -134,6 +138,7 @@ export class CampaignsService {
   findAllCentroids() {
     return this.prisma.campaignCluster.findMany({
       where: { isActive: true },
+      take: 100,
       select: { id: true, centroid: true },
     });
   }

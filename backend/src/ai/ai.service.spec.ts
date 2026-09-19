@@ -20,6 +20,35 @@ describe('AiService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('classifyMasked', () => {
+    it('returns only a validated deployed-model decision', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: () => ({ label: 'Scam', score: 0.97, bucket: 'blocked' }),
+      });
+
+      await expect(
+        service.classifyMasked('Claim [AMOUNT] at [URL]'),
+      ).resolves.toEqual({
+        label: 'Scam',
+        score: 0.97,
+        bucket: 'blocked',
+        indicators: [],
+        explanationMethod: 'keyword-fallback',
+      });
+      expect(fetchMock.mock.calls[0][0]).toContain('/classify');
+    });
+
+    it('rejects malformed model output as a non-authoritative fallback', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: () => ({ label: 'Scam', score: 9, bucket: 'blocked' }),
+      });
+
+      await expect(service.classifyMasked('masked')).resolves.toBeNull();
+    });
+  });
+
   describe('summarize', () => {
     it('maps a successful AI-service response to camelCase', async () => {
       fetchMock.mockResolvedValue({

@@ -7,16 +7,17 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 
-@Injectable()
-export class ApiKeyGuard implements CanActivate {
+abstract class ScopedApiKeyGuard implements CanActivate {
+  protected abstract readonly environmentVariable: string;
+
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
     const key = req.headers['x-api-key'];
-    const expected = process.env.INTERNAL_API_KEY;
+    const expected = process.env[this.environmentVariable];
 
     if (!expected) {
       throw new UnauthorizedException(
-        'INTERNAL_API_KEY is not configured on the server.',
+        `${this.environmentVariable} is not configured on the server.`,
       );
     }
 
@@ -33,4 +34,22 @@ export class ApiKeyGuard implements CanActivate {
 
     return true;
   }
+}
+
+/** Machine credential limited to campaign centroid/synchronization routes. */
+@Injectable()
+export class ApiKeyGuard extends ScopedApiKeyGuard {
+  protected readonly environmentVariable = 'AI_CAMPAIGNS_API_KEY';
+}
+
+/** Machine credential limited to model registry reads/candidate registration. */
+@Injectable()
+export class AiModelsKeyGuard extends ScopedApiKeyGuard {
+  protected readonly environmentVariable = 'AI_MODELS_API_KEY';
+}
+
+/** Machine credential limited to indicator storage. */
+@Injectable()
+export class AiIndicatorsKeyGuard extends ScopedApiKeyGuard {
+  protected readonly environmentVariable = 'AI_INDICATORS_API_KEY';
 }

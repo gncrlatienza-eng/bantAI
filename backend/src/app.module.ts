@@ -15,6 +15,8 @@ import { ReportsModule } from './reports/reports.module';
 import { ModelsModule } from './models/models.module';
 import { RetrainingModule } from './retraining/retraining.module';
 import { BlockedNumbersModule } from './blocked-numbers/blocked-numbers.module';
+import { DataRetentionModule } from './data-retention/data-retention.module';
+import { PortalOrganizationsModule } from './portal-organizations/portal-organizations.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { BlockedNumbersModule } from './blocked-numbers/blocked-numbers.module';
     ModelsModule,
     RetrainingModule,
     BlockedNumbersModule,
+    DataRetentionModule,
+    PortalOrganizationsModule,
   ],
   providers: [
     // Apply throttle globally; individual routes can override with @Throttle()

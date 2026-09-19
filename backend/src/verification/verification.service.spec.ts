@@ -1,273 +1,141 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
+import { SenderReputationService } from './sender-reputation.service';
 import { VerificationService } from './verification.service';
 
-const mockPrisma = {
-  contact: {
-    findUnique: jest.fn(),
-    upsert: jest.fn(),
-  },
-  senderVerificationCache: {
-    findUnique: jest.fn(),
-    upsert: jest.fn(),
-  },
-  $transaction: jest
-    .fn()
-    .mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
-};
-
 describe('VerificationService', () => {
+  const prisma = {
+    senderReport: {
+      create: jest.fn(),
+      count: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    senderVerificationCache: { upsert: jest.fn(), findUnique: jest.fn() },
+    contact: {
+      findUnique: jest.fn(),
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+    },
+    trustedOrganization: {
+      findFirst: jest.fn(),
+      upsert: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+  const senderReputation = { lookup: jest.fn() };
   let service: VerificationService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    jest.clearAllMocks();
+    prisma.$transaction.mockResolvedValue([]);
+    const module = await Test.createTestingModule({
       providers: [
         VerificationService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: PrismaService, useValue: prisma },
+        { provide: SenderReputationService, useValue: senderReputation },
       ],
     }).compile();
-
-    service = module.get<VerificationService>(VerificationService);
-    jest.clearAllMocks();
-
-    // Default: sender not in contacts, not in cache
-    mockPrisma.contact.findUnique.mockResolvedValue(null);
-    mockPrisma.senderVerificationCache.findUnique.mockResolvedValue(null);
-    mockPrisma.senderVerificationCache.upsert.mockResolvedValue({});
-    mockPrisma.contact.upsert.mockResolvedValue({});
+    service = module.get(VerificationService);
   });
 
-  const userId = 'user-1';
-
-  // ── verifySender ─────────────────────────────────────────────────────────────
-
-  describe('verifySender', () => {
-    it('returns verified+contact when sender is in user contacts', async () => {
-      mockPrisma.contact.findUnique.mockResolvedValue({
-        userId,
-        phone: '09171234567',
-        name: 'Nanay',
-      });
-
-      const result = await service.verifySender(userId, '09171234567');
-
-      expect(result).toEqual({
-        sender: '09171234567',
-        status: 'verified',
-        source: 'contact',
-        name: 'Nanay',
-      });
-    });
-
-    it('returns null name when contact has no display name', async () => {
-      mockPrisma.contact.findUnique.mockResolvedValue({
-        userId,
-        phone: '09171234567',
-        name: null,
-      });
-
-      const result = await service.verifySender(userId, '09171234567');
-      expect(result.name).toBeNull();
-    });
-
-    it('does not check the cache when sender is found in contacts', async () => {
-      mockPrisma.contact.findUnique.mockResolvedValue({
-        phone: '09171234567',
-        name: null,
-      });
-
-      await service.verifySender(userId, '09171234567');
-
-      expect(
-        mockPrisma.senderVerificationCache.findUnique,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('returns cached status when cache entry exists and is not expired', async () => {
-      const future = new Date(Date.now() + 60_000);
-      mockPrisma.senderVerificationCache.findUnique.mockResolvedValue({
-        sender: '09171234567',
-        status: 'fraud',
-        source: 'user-report',
-        expiresAt: future,
-      });
-
-      const result = await service.verifySender(userId, '09171234567');
-
-      expect(result).toMatchObject({ status: 'fraud', source: 'user-report' });
-      expect(mockPrisma.senderVerificationCache.upsert).not.toHaveBeenCalled();
-    });
-
-    it('falls through to unknown when cache entry is expired', async () => {
-      const past = new Date(Date.now() - 1000);
-      mockPrisma.senderVerificationCache.findUnique.mockResolvedValue({
-        sender: '09171234567',
-        status: 'fraud',
-        source: 'user-report',
-        expiresAt: past,
-      });
-
-      const result = await service.verifySender(userId, '09171234567');
-
-      expect(result.status).toBe('unknown');
-      expect(mockPrisma.senderVerificationCache.upsert).toHaveBeenCalled();
-    });
-
-    it('returns unknown and upserts cache when sender has no contact and no cache', async () => {
-      const result = await service.verifySender(userId, '09171234567');
-
-      expect(result).toMatchObject({ status: 'unknown', source: 'default' });
-      expect(mockPrisma.senderVerificationCache.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { sender: '09171234567' },
-          create: expect.objectContaining({
-            status: 'unknown',
-            source: 'default',
-          }),
+  it('records an attributed, windowed pending report without altering reputation', async () => {
+    prisma.senderReport.create.mockResolvedValue({});
+    prisma.senderReport.count.mockResolvedValue(1);
+    await expect(
+      service.reportFraud('u1', '09171234567'),
+    ).resolves.toMatchObject({ status: 'pending_review', reportCount: 1 });
+    expect(prisma.senderVerificationCache.upsert).not.toHaveBeenCalled();
+    expect(prisma.senderReport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'u1',
+          reportWindow: expect.any(String),
         }),
-      );
+      }),
+    );
+  });
+
+  it('requires independent corroboration before an admin can establish global fraud status', async () => {
+    prisma.senderReport.findUnique.mockResolvedValue({
+      id: 'r1',
+      sender: 'fingerprint',
+      reportWindow: '1',
+      status: 'Pending',
     });
+    prisma.senderReport.count.mockResolvedValue(1);
+    await expect(
+      service.confirmFraud('r1', 'admin', 'verified'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.senderVerificationCache.upsert).not.toHaveBeenCalled();
+  });
 
-    it('normalizes +639XXXXXXXXX to 09XXXXXXXXX before DB lookup', async () => {
-      await service.verifySender(userId, '+639171234567');
-
-      expect(mockPrisma.contact.findUnique).toHaveBeenCalledWith({
-        where: { userId_phone: { userId, phone: '09171234567' } },
-      });
+  it('returns a vetted organization separately from risk and never treats it as a fraud override', async () => {
+    prisma.senderVerificationCache.findUnique.mockResolvedValue(null);
+    prisma.trustedOrganization.findFirst.mockResolvedValue({
+      id: 'org1',
+      name: 'Example Bank',
+      officialDomains: ['example.ph'],
+      evidenceType: 'government_registry',
     });
-
-    it('lowercases alphanumeric sender IDs (e.g. "GCash")', async () => {
-      await service.verifySender(userId, 'GCash');
-
-      expect(mockPrisma.contact.findUnique).toHaveBeenCalledWith({
-        where: { userId_phone: { userId, phone: 'gcash' } },
-      });
+    await expect(
+      service.verifySender('u1', 'EXAMPLEBANK'),
+    ).resolves.toMatchObject({
+      status: 'verified',
+      familiarity: 'verified_organization',
+      risk: 'unknown',
+      organization: { name: 'Example Bank' },
     });
   });
 
-  // ── syncContacts ──────────────────────────────────────────────────────────────
-
-  describe('syncContacts', () => {
-    it('upserts each contact and returns synced count', async () => {
-      const contacts = [
-        { phone: '09171234567', name: 'Tatay' },
-        { phone: '09181234567', name: 'Nanay' },
-      ];
-
-      const result = await service.syncContacts(userId, contacts);
-
-      expect(result).toEqual({ synced: 2 });
-      expect(mockPrisma.contact.upsert).toHaveBeenCalledTimes(2);
+  it('caches an external high-risk result without treating it as an approved global fraud verdict', async () => {
+    prisma.senderVerificationCache.findUnique.mockResolvedValue(null);
+    prisma.trustedOrganization.findFirst.mockResolvedValue(null);
+    prisma.contact.findUnique.mockResolvedValue(null);
+    senderReputation.lookup.mockResolvedValue({
+      status: 'fraud',
+      source: 'ipqs-phone-reputation',
+      expiresAt: new Date(Date.now() + 60_000),
     });
 
-    it('upserts with normalized phone numbers', async () => {
-      await service.syncContacts(userId, [
-        { phone: '+639171234567', name: 'Tatay' },
-      ]);
-
-      expect(mockPrisma.contact.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { userId_phone: { userId, phone: '09171234567' } },
-          create: expect.objectContaining({ phone: '09171234567' }),
-        }),
-      );
+    await expect(
+      service.verifySender('u1', '09171234567'),
+    ).resolves.toMatchObject({
+      status: 'fraud',
+      source: 'ipqs-phone-reputation',
+      risk: 'external_high_risk',
+      familiarity: 'unknown',
     });
-
-    it('uses null when name is not provided', async () => {
-      await service.syncContacts(userId, [{ phone: '09171234567' }]);
-
-      expect(mockPrisma.contact.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: null }),
-        }),
-      );
-    });
-
-    it('returns synced: 0 for an empty contacts list', async () => {
-      const result = await service.syncContacts(userId, []);
-      expect(result).toEqual({ synced: 0 });
-      expect(mockPrisma.contact.upsert).not.toHaveBeenCalled();
-    });
+    expect(prisma.senderVerificationCache.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ source: 'ipqs-phone-reputation' }),
+      }),
+    );
   });
 
-  // ── reportFraud ───────────────────────────────────────────────────────────────
-
-  describe('reportFraud', () => {
-    it('upserts fraud status with user-report source', async () => {
-      await service.reportFraud('09171234567');
-
-      expect(mockPrisma.senderVerificationCache.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { sender: '09171234567' },
-          create: expect.objectContaining({
-            status: 'fraud',
-            source: 'user-report',
-          }),
-          update: expect.objectContaining({
-            status: 'fraud',
-            source: 'user-report',
-          }),
-        }),
-      );
+  it('recognizes only a current administrator-reviewed fraud entry as confirmed', async () => {
+    prisma.senderVerificationCache.findUnique.mockResolvedValue({
+      status: 'fraud',
+      source: 'corroborated-admin-review',
+      expiresAt: new Date(Date.now() + 60_000),
     });
-
-    it('returns sender and fraud status', async () => {
-      const result = await service.reportFraud('09171234567');
-      expect(result).toEqual({ sender: '09171234567', status: 'fraud' });
+    await expect(service.isConfirmedFraud('09171234567')).resolves.toBe(true);
+    prisma.senderVerificationCache.findUnique.mockResolvedValue({
+      status: 'fraud',
+      source: 'ipqs-phone-reputation',
+      expiresAt: new Date(Date.now() + 60_000),
     });
-
-    it('normalizes sender before upserting', async () => {
-      await service.reportFraud('+639171234567');
-
-      expect(mockPrisma.senderVerificationCache.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { sender: '09171234567' },
-        }),
-      );
+    await expect(service.isConfirmedFraud('09171234567')).resolves.toBe(false);
+    prisma.senderVerificationCache.findUnique.mockResolvedValue({
+      status: 'fraud',
+      source: 'corroborated-admin-review',
+      expiresAt: new Date(Date.now() - 60_000),
     });
-
-    it('sets a 30-day expiry on fraud reports', async () => {
-      const before = Date.now();
-      await service.reportFraud('09171234567');
-      const after = Date.now();
-
-      const call = mockPrisma.senderVerificationCache.upsert.mock.calls[0][0];
-      const expiresAt: Date = call.create.expiresAt;
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-
-      expect(expiresAt.getTime()).toBeGreaterThanOrEqual(
-        before + thirtyDaysMs - 100,
-      );
-      expect(expiresAt.getTime()).toBeLessThanOrEqual(
-        after + thirtyDaysMs + 100,
-      );
-    });
-  });
-
-  // ── normalizePhone (private, tested through public methods) ───────────────────
-
-  describe('normalizePhone (via verifySender)', () => {
-    const lookup = async (phone: string) => {
-      await service.verifySender(userId, phone);
-      const call = mockPrisma.contact.findUnique.mock.calls[0][0];
-      return call.where.userId_phone.phone as string;
-    };
-
-    it('leaves 09XXXXXXXXX unchanged', async () => {
-      expect(await lookup('09171234567')).toBe('09171234567');
-    });
-
-    it('converts +639XXXXXXXXX to 09XXXXXXXXX', async () => {
-      expect(await lookup('+639171234567')).toBe('09171234567');
-    });
-
-    it('lowercases alphabetic sender IDs without stripping characters', async () => {
-      expect(await lookup('PLDT')).toBe('pldt');
-    });
-
-    it('strips non-digit characters from numeric-only strings', async () => {
-      expect(await lookup('0917-123-4567')).toBe('09171234567');
-    });
+    await expect(service.isConfirmedFraud('09171234567')).resolves.toBe(false);
   });
 });

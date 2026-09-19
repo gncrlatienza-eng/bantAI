@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReviewReportDto } from './dto/review-report.dto';
 import { SubmitReportDto } from './dto/submit-report.dto';
@@ -33,21 +33,21 @@ export class ReportsController {
   }
 
   // Admin: list all reports.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get()
   findAll() {
     return this.reportsService.findAll();
   }
 
   // Admin: list only Pending reports.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Get('pending')
   findPending() {
     return this.reportsService.findPending();
   }
 
   // Admin: validate a report — accepts it into the training set.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @HttpCode(HttpStatus.OK)
   @Patch(':id/validate')
   validate(@Param('id') id: string, @Body() dto: ReviewReportDto) {
@@ -55,7 +55,7 @@ export class ReportsController {
   }
 
   // Admin: reject a report — discards it from the training set.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @HttpCode(HttpStatus.OK)
   @Patch(':id/reject')
   reject(@Param('id') id: string, @Body() dto: ReviewReportDto) {

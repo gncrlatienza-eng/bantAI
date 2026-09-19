@@ -13,6 +13,7 @@ model User {
 
   phone     String   @unique
   email     String?  @unique
+  role      UserRole @default(USER)
 
   firstName String?
   lastName  String?
@@ -24,6 +25,45 @@ model User {
   contacts       Contact[]
   blockedNumbers BlockedNumber[]
   reports        UserReport[]
+  senderReports  SenderReport[]
+  moderatedSenderReports SenderReport[] @relation("SenderReportReviewer")
+  organizationMemberships OrganizationMembership[]
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// Dashboard tenancy is intentionally separate from the global ADMIN role.
+// A member can be permitted to inspect only their organization's masked data.
+enum OrganizationMemberRole {
+  TIER_1
+  TIER_2
+}
+
+model PortalOrganization {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members OrganizationMembership[]
+}
+
+model OrganizationMembership {
+  id             String                 @id @default(uuid())
+  organizationId String
+  organization   PortalOrganization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrganizationMemberRole
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId, role])
 }
 
 // Synced from the user's Android phone contacts.
@@ -34,8 +74,10 @@ model Contact {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
-  phone     String   // normalized PH format: 09XXXXXXXXX
-  name      String?  // display name from phone contacts
+  // HMAC fingerprint of a canonical phone number; raw contacts and names are
+  // never retained.
+  phone     String
+  name      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -46,15 +88,18 @@ model Contact {
 model OtpCode {
   id         String   @id @default(uuid())
 
-  phone      String
-  code       String
+  phone      String   @unique
+  codeHash   String
 
   expiresAt  DateTime
   verified   Boolean  @default(false)
+  attempts   Int      @default(0)
+  requestCount Int    @default(0)
+  requestWindowStart DateTime @default(now())
 
   createdAt  DateTime @default(now())
 
-  @@index([phone, verified])
+  @@index([phone, verified, createdAt])
 }
 
 model SmsMessage {
@@ -67,7 +112,12 @@ model SmsMessage {
   cluster    CampaignCluster? @relation(fields: [clusterId], references: [id])
 
   sender     String
+  // Privacy-masked text only. The original SMS body is never persisted.
   body       String
+  sourceId   String?
+  // Mobile-submitted telemetry is intentionally non-authoritative. It is not
+  // included in global metrics, campaigns, or retraining without review.
+  trusted    Boolean  @default(false)
   receivedAt DateTime @default(now())
 
   classification Classification?
@@ -76,6 +126,8 @@ model SmsMessage {
   reports        UserReport[]
 
   @@index([userId, receivedAt])
+  @@unique([userId, sourceId])
+  @@index([clusterId, receivedAt])
 }
 
 model MessageFeature {
@@ -141,6 +193,7 @@ model CampaignCluster {
   messages     SmsMessage[]
 
   @@index([isActive])
+  @@index([urlDomains], type: Gin)
 }
 
 // SHAP-based feature importance for a single classification result.
@@ -166,7 +219,8 @@ model BlockedNumber {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
-  sender    String           // phone number or sender name
+  // HMAC fingerprint; the raw phone number/sender value is not retained.
+  sender    String
   source    String           // AutoBlock | UserBlock
   createdAt DateTime @default(now())
 
@@ -186,6 +240,46 @@ model SenderVerificationCache {
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// Curated sender identity evidence. This is deliberately not a crowd-sourced
+// "known caller" graph: organization records may be created only after a
+// reviewer verifies an official source (for example, a government registry or
+// an organization-controlled domain). The sender remains HMAC-pseudonymized.
+model TrustedOrganization {
+  id              String   @id @default(uuid())
+  name            String
+  sender          String   @unique
+  officialDomains String[]
+  evidenceUrl     String
+  evidenceType    String
+  reviewedBy      String
+  expiresAt       DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive, expiresAt])
+  @@index([officialDomains], type: Gin)
+}
+
+// Attribution for community sender reports. A sender is not globally marked as
+// fraud until several distinct authenticated users have corroborated it.
+model SenderReport {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender    String
+  reportWindow String
+  status    String   @default("Pending")
+  validatedAt DateTime?
+  reviewedBy String?
+  reviewer User? @relation("SenderReportReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  reviewReason String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, sender, reportWindow])
+  @@index([sender, status, createdAt])
 }
 
 // User-submitted FP/FN corrections used to feed the retraining pipeline.

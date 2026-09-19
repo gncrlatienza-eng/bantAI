@@ -46,6 +46,7 @@ private data class TipContent(
     val whatToDo: String,
 )
 
+@Suppress("LongMethod", "MaxLineLength")
 private fun tipContent(tip: String): TipContent =
     when (tip) {
         "gcash" ->
@@ -166,6 +167,7 @@ private fun tipTitle(tip: String) =
     }
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun TipDetailScreen(
     tip: String,
     navController: NavController,

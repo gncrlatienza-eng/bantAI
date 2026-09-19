@@ -113,16 +113,16 @@ fun ThreatAnalysisScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No threat details available", color = TextSecondary, fontSize = 14.sp)
                 }
-            else -> ThreatAnalysisContent(alert!!, indicators, navController)
+            else -> ThreatAnalysisContent(alert!!, indicators)
         }
     }
 }
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 private fun ThreatAnalysisContent(
     alert: SmsApi.AlertSummary,
     indicators: List<SmsApi.IndicatorTag>,
-    navController: NavController,
 ) {
     val confidence = (alert.score ?: 0.0).coerceIn(0.0, 1.0)
 

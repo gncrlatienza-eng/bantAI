@@ -154,6 +154,7 @@ private suspend fun performTakeAction(
  *   blank sender rejects the block with an explanatory toast for the same reason).
  */
 @Composable
+@Suppress("LongMethod")
 fun TakeActionScreen(
     navController: NavController,
     messageId: String = "",

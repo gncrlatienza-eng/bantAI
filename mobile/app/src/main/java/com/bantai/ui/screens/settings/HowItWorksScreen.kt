@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.bantai.ui.screens.settings
 
 import androidx.compose.foundation.background

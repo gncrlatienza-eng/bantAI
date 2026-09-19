@@ -120,6 +120,7 @@ fun SmishingAlertScreen(
 }
 
 @Composable
+@Suppress("LongMethod", "MagicNumber", "MaxLineLength")
 private fun SmishingAlertContent(
     alert: SmsApi.AlertSummary,
     indicators: List<SmsApi.IndicatorTag>,

@@ -9,6 +9,7 @@ import java.text.Normalizer
  * campaign matching and are not retained as message text by the backend.
  */
 object SmsPrivacyMasker {
+    private const val MAX_MASKED_BODY_LENGTH = 1600
     private val url = Regex("\\bhttps?://[^\\s<>()]+", RegexOption.IGNORE_CASE)
     private val bareDomain =
         Regex(
@@ -30,5 +31,5 @@ object SmsPrivacyMasker {
             .replace(otp) { match -> "${match.groupValues[1]}${match.groupValues[2]}[OTP]" }
             .replace(Regex("\\s+"), " ")
             .trim()
-            .take(1600)
+            .take(MAX_MASKED_BODY_LENGTH)
 }

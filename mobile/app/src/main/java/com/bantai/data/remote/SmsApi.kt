@@ -45,34 +45,39 @@ object SmsApi {
         val weight: Double,
     )
 
+    /** Values required by the privacy-safe SMS ingestion endpoint. */
+    data class IngestRequest(
+        val sender: String,
+        val receivedAtMillis: Long,
+        val sourceId: String,
+        val maskedBody: String,
+        val label: String,
+        val score: Double,
+        val bucket: String,
+        val domains: List<String>,
+        val timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
+    )
+
     /**
      * @param receivedAtMillis epoch millis from the SMS intent; converted to the
      *   ISO-8601 string the backend's `@IsDateString` validator requires.
      */
     suspend fun ingest(
         token: String,
-        sender: String,
-        receivedAtMillis: Long,
-        sourceId: String,
-        maskedBody: String,
-        label: String,
-        score: Double,
-        bucket: String,
-        domains: List<String>,
-        timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
+        request: IngestRequest,
     ): Result<IngestResult> {
         val payload =
             JSONObject()
-                .put("sender", sender)
-                .put("maskedBody", maskedBody)
-                .put("receivedAt", Instant.ofEpochMilli(receivedAtMillis).toString())
-                .put("sourceId", sourceId)
-                .put("label", label)
-                .put("score", score)
-                .put("bucket", bucket)
-                .put("domains", JSONArray(domains))
+                .put("sender", request.sender)
+                .put("maskedBody", request.maskedBody)
+                .put("receivedAt", Instant.ofEpochMilli(request.receivedAtMillis).toString())
+                .put("sourceId", request.sourceId)
+                .put("label", request.label)
+                .put("score", request.score)
+                .put("bucket", request.bucket)
+                .put("domains", JSONArray(request.domains))
 
-        return HttpClient.post("/sms/ingest", payload, token, timeoutMs).mapCatching { parseIngestResponse(it) }
+        return HttpClient.post("/sms/ingest", payload, token, request.timeoutMs).mapCatching { parseIngestResponse(it) }
     }
 
     /** GET /sms/alerts — all alerts for the signed-in user, newest first. */

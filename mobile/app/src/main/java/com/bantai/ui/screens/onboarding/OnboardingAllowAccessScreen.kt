@@ -54,6 +54,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
     val permissionLauncher =
         rememberLauncherForActivityResult(

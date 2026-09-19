@@ -40,6 +40,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun PrivacyDataScreen(navController: NavController) {
     val context = LocalContext.current
 

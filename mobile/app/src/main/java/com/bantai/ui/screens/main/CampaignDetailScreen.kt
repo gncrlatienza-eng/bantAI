@@ -117,6 +117,7 @@ fun CampaignDetailScreen(
 }
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
     val blockedCount = campaign.messages.count { it.bucket == "blocked" }
 
@@ -334,6 +335,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
     }
 }
 
+@Suppress("MaxLineLength")
 private fun campaignAdvice(campaign: CampaignsApi.CampaignDetail): List<String> {
     val evidence = (listOfNotNull(campaign.label) + campaign.urlDomains).joinToString(" ").lowercase()
     val advice = mutableListOf<String>()

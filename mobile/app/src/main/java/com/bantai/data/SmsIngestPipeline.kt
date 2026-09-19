@@ -15,6 +15,7 @@ import com.bantai.util.SmsPrivacyMasker
 import kotlinx.coroutines.flow.first
 
 private const val TAG = "SmsIngestPipeline"
+private const val MAX_EXTRACTED_DOMAINS = 20
 
 /**
  * Shared entry point for turning a message (real, over-the-air SMS or a
@@ -24,6 +25,13 @@ private const val TAG = "SmsIngestPipeline"
  * text is sent to the classifier.
  */
 object SmsIngestPipeline {
+    private data class NotificationTarget(
+        val sender: String,
+        val body: String,
+        val notificationId: Int,
+        val messageId: Long?,
+    )
+
     /**
      * Convenience entry point for the debug "Simulate incoming SMS" tool. Unlike
      * SmsReceiver's real broadcast path, this has no goAsync() deadline, so it
@@ -102,32 +110,35 @@ object SmsIngestPipeline {
     ) {
         // Notification ID: XOR of sender hash and truncated timestamp avoids
         // the collision caused by System.currentTimeMillis().toInt() overflow.
-        val notifId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+        val notificationId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+        val notification = NotificationTarget(sender, body, notificationId, messageId)
 
         if (token.isNotEmpty()) {
-            val fallback = repository.classifyMessagePublic(sender, body)
+            val fallback = repository.classifyMessagePublic(body)
             val (label, score, bucket) = classificationMetadata(fallback)
             val sourceId = messageId?.toString() ?: "${sender.hashCode()}:$receivedAt"
             SmsApi
                 .ingest(
-                    token = token,
-                    sender = sender,
-                    receivedAtMillis = receivedAt,
-                    sourceId = sourceId,
-                    maskedBody = SmsPrivacyMasker.maskForRemoteClassification(body),
-                    label = label,
-                    score = score,
-                    bucket = bucket,
-                    domains = extractDomains(body),
-                    timeoutMs = timeoutMs,
+                    token,
+                    SmsApi.IngestRequest(
+                        sender = sender,
+                        receivedAtMillis = receivedAt,
+                        sourceId = sourceId,
+                        maskedBody = SmsPrivacyMasker.maskForRemoteClassification(body),
+                        label = label,
+                        score = score,
+                        bucket = bucket,
+                        domains = extractDomains(body),
+                        timeoutMs = timeoutMs,
+                    ),
                 ).onSuccess { result ->
-                    applyServerClassification(context, sender, body, notifId, messageId, result)
+                    applyServerClassification(context, notification, result)
                 }.onFailure {
                     Log.w(TAG, "Model classification unavailable; showing local caution only", it)
-                    applyOfflineCaution(context, repository, sender, body, notifId, messageId)
+                    applyOfflineCaution(context, repository, notification)
                 }
         } else {
-            applyOfflineCaution(context, repository, sender, body, notifId, messageId)
+            applyOfflineCaution(context, repository, notification)
         }
     }
 
@@ -157,32 +168,29 @@ object SmsIngestPipeline {
             .findAll(body)
             .map { it.groupValues[1].lowercase().removePrefix("www.") }
             .distinct()
-            .take(20)
+            .take(MAX_EXTRACTED_DOMAINS)
             .toList()
 
     private suspend fun applyServerClassification(
         context: Context,
-        sender: String,
-        body: String,
-        notifId: Int,
-        messageId: Long?,
+        target: NotificationTarget,
         result: SmsApi.IngestResult,
     ) {
         when (result.action) {
             SmsApi.Action.BLOCKED -> {
-                persistClassification(context, messageId, "suspicious")
+                persistClassification(context, target.messageId, "suspicious")
                 // Older servers may still emit BLOCKED. Treat it as a
                 // high-risk alert instead of changing the system block list;
                 // the user must explicitly choose Block in Take Action.
-                NotificationHelper.sendSuspiciousAlert(context, sender, notifId)
+                NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
             }
             SmsApi.Action.ALERT -> {
-                persistClassification(context, messageId, "spam")
-                NotificationHelper.sendSpamAlert(context, sender, notifId)
+                persistClassification(context, target.messageId, "spam")
+                NotificationHelper.sendSpamAlert(context, target.sender, target.notificationId)
             }
             SmsApi.Action.INBOX -> {
-                persistClassification(context, messageId, "safe")
-                NotificationHelper.sendMessageNotification(context, sender, body, notifId)
+                persistClassification(context, target.messageId, "safe")
+                NotificationHelper.sendMessageNotification(context, target.sender, target.body, target.notificationId)
             }
         }
     }
@@ -190,10 +198,7 @@ object SmsIngestPipeline {
     private suspend fun applyOfflineCaution(
         context: Context,
         repository: SmsRepository,
-        sender: String,
-        body: String,
-        notifId: Int,
-        messageId: Long?,
+        target: NotificationTarget,
     ) {
         // The offline heuristic is a keyword/pattern score, not a confident AI
         // verdict — it can only ever land on "unknown" (reviewable) or
@@ -202,19 +207,25 @@ object SmsIngestPipeline {
         // backend verdict in applyBackendAction below). Never "blocked" (that
         // requires a real backend result) or "spam" (it has no way to detect
         // promotional content at all).
-        val classification = repository.classifyMessagePublic(sender, body)
+        val classification = repository.classifyMessagePublic(target.body)
         // An offline heuristic is never a trustworthy verdict. Preserve the
         // neutral state so the inbox does not claim ML confidence it lacks.
-        persistClassification(context, messageId, "unknown")
+        persistClassification(context, target.messageId, "unknown")
         when (classification) {
             "suspicious" -> {
-                NotificationHelper.sendSuspiciousAlert(context, sender, notifId)
+                NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
             }
             "unknown" -> {
-                NotificationHelper.sendSuspiciousAlert(context, sender, notifId)
+                NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
             }
             // A quiet fallback is only a normal incoming message, not a trust claim.
-            else -> NotificationHelper.sendMessageNotification(context, sender, body, notifId)
+            else ->
+                NotificationHelper.sendMessageNotification(
+                    context,
+                    target.sender,
+                    target.body,
+                    target.notificationId,
+                )
         }
     }
 }

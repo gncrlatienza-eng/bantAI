@@ -39,6 +39,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 fun ReportSentScreen(
     type: String,
     navController: NavController,

@@ -147,7 +147,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = stored[id] ?: classifyMessage(sender, body),
+                            classification = stored[id] ?: classifyMessage(body),
                             isContact = false,
                             isRead = it.getInt(readCol) == 1,
                         ),
@@ -161,15 +161,9 @@ class SmsRepository(
         return messages
     }
 
-    fun classifyMessagePublic(
-        sender: String,
-        body: String,
-    ): String = classifyMessage(sender, body)
+    fun classifyMessagePublic(body: String): String = classifyMessage(body)
 
-    private fun classifyMessage(
-        sender: String,
-        body: String,
-    ): String {
+    private fun classifyMessage(body: String): String {
         val bodyLower = body.lowercase()
         // Sender display names are spoofable. A familiar-looking name must
         // never certify a message as safe; verified organizations are assessed
@@ -260,7 +254,7 @@ class SmsRepository(
                         sender = sender,
                         body = body,
                         timestamp = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE)),
-                        classification = storedClassifications()[id] ?: classifyMessage(sender, body),
+                        classification = storedClassifications()[id] ?: classifyMessage(body),
                     )
                 }
             }
@@ -314,7 +308,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(sender, body)),
+                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
                             isOutgoing = isOutgoing,
                             sendStatus = if (isOutgoing) sendStatusFor(type) else SendStatus.NONE,
                         ),
@@ -366,7 +360,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(sender, body)),
+                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
                             isOutgoing = isOutgoing,
                         ),
                     )
@@ -460,7 +454,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = stored[id] ?: classifyMessage(sender, body),
+                            classification = stored[id] ?: classifyMessage(body),
                             isContact = false,
                             isRead = it.getInt(readCol) == 1,
                         ),

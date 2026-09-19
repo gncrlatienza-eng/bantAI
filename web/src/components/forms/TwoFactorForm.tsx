@@ -2,7 +2,12 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/routes';
 import { useTimer } from '../../hooks/useTimer';
-import { getCurrentUser, logout, requestOtp, verifyOtp } from '../../services/authService';
+import {
+  getCurrentUser,
+  logout,
+  requestOtp,
+  verifyOtp,
+} from '../../services/authService';
 import { clearSession, setSession } from '../../lib/auth';
 import { Button } from '../common/Button';
 
@@ -93,11 +98,15 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
       if (admin && role !== 'admin') {
         logout();
         clearSession();
-        setError('This phone number is not authorized for administrator access.');
+        setError(
+          'This phone number is not authorized for administrator access.',
+        );
         return;
       }
       setSession(role);
-      navigate(role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW);
+      void navigate(
+        role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW,
+      );
     } catch (verificationError) {
       setError(
         verificationError instanceof Error
@@ -112,7 +121,9 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
   return (
     <form
       className="auth-form"
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
       style={{ textAlign: 'center' }}
     >
       <p
@@ -124,7 +135,9 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
       >
         Enter the 6-digit authentication code sent to:
         <br />
-        <strong style={{ color: 'var(--text-primary)' }}>{targetPhone || 'your mobile number'}</strong>
+        <strong style={{ color: 'var(--text-primary)' }}>
+          {targetPhone || 'your mobile number'}
+        </strong>
       </p>
 
       {resendNotice && (
@@ -203,7 +216,9 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
       >
         <button
           type="button"
-          onClick={handleResend}
+          onClick={() => {
+            void handleResend();
+          }}
           style={{
             background: 'none',
             border: 'none',
@@ -217,7 +232,7 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
         <button
           type="button"
           onClick={() => {
-            navigate(admin ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN);
+            void navigate(admin ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN);
           }}
           style={{
             background: 'none',

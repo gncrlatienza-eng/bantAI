@@ -74,38 +74,74 @@ export function AppRoutes() {
       />
 
       {/* Client Portal Routes */}
-      <Route path="/client/overview" element={clientPage(<ClientOverviewPage />)} />
-      <Route path="/client/messages" element={clientPage(<ClientMessagesPage />)} />
-      <Route path="/client/campaigns" element={clientPage(<ClientCampaignsPage />)} />
-      <Route path="/client/analytics" element={clientPage(<ClientAnalyticsPage />)} />
+      <Route
+        path="/client/overview"
+        element={clientPage(<ClientOverviewPage />)}
+      />
+      <Route
+        path="/client/messages"
+        element={clientPage(<ClientMessagesPage />)}
+      />
+      <Route
+        path="/client/campaigns"
+        element={clientPage(<ClientCampaignsPage />)}
+      />
+      <Route
+        path="/client/analytics"
+        element={clientPage(<ClientAnalyticsPage />)}
+      />
       <Route path="/client/export" element={clientPage(<ClientExportPage />)} />
       <Route path="/client/help" element={clientPage(<ClientHelpPage />)} />
-      <Route path="/client/settings" element={clientPage(<ClientSettingsPage />)} />
+      <Route
+        path="/client/settings"
+        element={clientPage(<ClientSettingsPage />)}
+      />
       <Route
         path="/client/notifications"
         element={clientPage(<ClientSettingsPage notifications />)}
       />
 
       {/* Admin Portal Routes */}
-      <Route path="/admin/overview" element={adminPage(<AdminOverviewPage />)} />
+      <Route
+        path="/admin/overview"
+        element={adminPage(<AdminOverviewPage />)}
+      />
       <Route path="/admin/reports" element={adminPage(<AdminReportsPage />)} />
       <Route path="/admin/model" element={adminPage(<AdminModelPage />)} />
-      <Route path="/admin/concept-drift" element={adminPage(<AdminConceptDriftPage />)} />
+      <Route
+        path="/admin/concept-drift"
+        element={adminPage(<AdminConceptDriftPage />)}
+      />
       <Route path="/admin/dataset" element={adminPage(<AdminDatasetPage />)} />
       <Route
         path="/admin/classification"
         element={adminPage(<AdminClassificationPage />)}
       />
       <Route path="/admin/fpfn" element={adminPage(<AdminFpFnPage />)} />
-      <Route path="/admin/campaigns" element={adminPage(<AdminCampaignsPage />)} />
-      <Route path="/admin/timeline" element={adminPage(<AdminTimelinePage />)} />
+      <Route
+        path="/admin/campaigns"
+        element={adminPage(<AdminCampaignsPage />)}
+      />
+      <Route
+        path="/admin/timeline"
+        element={adminPage(<AdminTimelinePage />)}
+      />
       <Route path="/admin/users" element={adminPage(<AdminUsersPage />)} />
       <Route path="/admin/export" element={adminPage(<AdminExportPage />)} />
-      <Route path="/admin/server" element={adminPage(<AdminServerPage tab="server" />)} />
+      <Route
+        path="/admin/server"
+        element={adminPage(<AdminServerPage tab="server" />)}
+      />
       <Route path="/admin/api-logs" element={adminPage(<AdminApiLogsPage />)} />
-      <Route path="/admin/db-storage" element={adminPage(<AdminDbStoragePage />)} />
+      <Route
+        path="/admin/db-storage"
+        element={adminPage(<AdminDbStoragePage />)}
+      />
       <Route path="/admin/tips" element={adminPage(<AdminTipsPage />)} />
-      <Route path="/admin/settings" element={adminPage(<AdminSettingsPage />)} />
+      <Route
+        path="/admin/settings"
+        element={adminPage(<AdminSettingsPage />)}
+      />
       <Route
         path="/admin/notifications"
         element={adminPage(<AdminSettingsPage notifications />)}

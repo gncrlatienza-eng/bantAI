@@ -25,7 +25,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
     setLoading(true);
     try {
       await requestOtp(phone.trim());
-      navigate(ROUTES.TWO_FACTOR, { state: { admin, phone: phone.trim() } });
+      void navigate(ROUTES.TWO_FACTOR, {
+        state: { admin, phone: phone.trim() },
+      });
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -38,7 +40,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
   };
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
+    <form
+      className="auth-form"
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
+    >
       <Input
         label="Philippine mobile number"
         type="tel"

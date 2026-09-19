@@ -187,10 +187,9 @@ export function ClientOverviewPage() {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background:
-                        campaign.isActive
-                          ? 'var(--amber-text)'
-                          : 'var(--text-muted)',
+                      background: campaign.isActive
+                        ? 'var(--amber-text)'
+                        : 'var(--text-muted)',
                     }}
                   />
                   <strong style={{ fontSize: '0.8125rem' }}>
@@ -272,7 +271,8 @@ export function ClientOverviewPage() {
             }}
           >
             <span style={{ color: 'var(--text-muted)' }}>
-              Showing {Math.min(activeCampaigns.length, 4)} active threat clusters
+              Showing {Math.min(activeCampaigns.length, 4)} active threat
+              clusters
             </span>
             <button
               type="button"

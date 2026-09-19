@@ -10,7 +10,6 @@ import { CampaignCard } from '../components/dashboard/CampaignCard';
 import { StatCard } from '../components/dashboard/StatCard';
 import { PortalShell } from '../components/layout/PortalShell';
 
-import { campaigns, threatFeed } from '../mocks/referenceData';
 import {
   getAnalyticsSummary,
   AnalyticsSummary,
@@ -67,12 +66,20 @@ function ClientShell({
 export function ClientOverviewPage() {
   const navigate = useNavigate();
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [activeCampaigns, setActiveCampaigns] = useState<
+    Awaited<ReturnType<typeof getActiveCampaigns>>
+  >([]);
 
   useEffect(() => {
     let isMounted = true;
     getAnalyticsSummary()
       .then((res) => {
         if (isMounted && res) setAnalytics(res);
+      })
+      .catch(() => {});
+    getActiveCampaigns()
+      .then((campaigns) => {
+        if (isMounted) setActiveCampaigns(campaigns);
       })
       .catch(() => {});
     return () => {
@@ -83,19 +90,19 @@ export function ClientOverviewPage() {
   const totalReportsVal =
     analytics?.totalMessages !== undefined
       ? analytics.totalMessages.toLocaleString()
-      : '14,892';
+      : '—';
   const smishingVal =
     analytics?.classificationsByLabel?.['Scam'] !== undefined
       ? analytics.classificationsByLabel['Scam'].toLocaleString()
-      : '1,247';
+      : '—';
   const suspiciousVal =
     analytics?.classificationsByLabel?.['Spam'] !== undefined
       ? analytics.classificationsByLabel['Spam'].toLocaleString()
-      : '389';
+      : '—';
   const blockedVal =
     analytics?.alertsByStatus?.['Blocked'] !== undefined
       ? analytics.alertsByStatus['Blocked'].toLocaleString()
-      : '203';
+      : '—';
 
   return (
     <ClientShell title="Executive Overview">
@@ -157,13 +164,13 @@ export function ClientOverviewPage() {
           <div className="panel-head">
             <div>
               <strong>Live Threat Feed</strong>
-              <small>Real-time intercepted campaign outbreaks</small>
+              <small>Active campaign clusters available to this account</small>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {threatFeed.map(([name, level]) => (
+            {activeCampaigns.slice(0, 5).map((campaign) => (
               <div
-                key={name}
+                key={campaign.id}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -180,18 +187,19 @@ export function ClientOverviewPage() {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background:
-                        level === 'Critical'
-                          ? 'var(--red-text)'
-                          : 'var(--amber-text)',
+                      background: campaign.isActive
+                        ? 'var(--amber-text)'
+                        : 'var(--text-muted)',
                     }}
                   />
-                  <strong style={{ fontSize: '0.8125rem' }}>{name}</strong>
+                  <strong style={{ fontSize: '0.8125rem' }}>
+                    {campaign.label || 'Unlabeled campaign'}
+                  </strong>
                 </div>
                 <span
-                  className={`badge ${level === 'Critical' ? 'badge-red' : 'badge-amber'}`}
+                  className={`badge ${campaign.isActive ? 'badge-amber' : 'badge-gray'}`}
                 >
-                  {level}
+                  {campaign.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
             ))}
@@ -229,7 +237,7 @@ export function ClientOverviewPage() {
           <div className="panel-head">
             <div>
               <strong>Active Campaign Clusters</strong>
-              <small>Targeting Globe Telecom subscribers</small>
+              <small>Clusters available to this account</small>
             </div>
           </div>
           <div
@@ -239,15 +247,15 @@ export function ClientOverviewPage() {
               gap: 16,
             }}
           >
-            {campaigns.slice(0, 4).map((item) => (
+            {activeCampaigns.slice(0, 4).map((campaign) => (
               <CampaignCard
-                key={item.title}
-                title={item.title}
-                messages={item.messages}
-                domains={item.domains}
-                since={item.since}
-                status={item.status}
-                tags={item.tags}
+                key={campaign.id}
+                title={campaign.label || 'Unlabeled campaign'}
+                messages={campaign.messageCount.toLocaleString()}
+                domains={campaign.urlDomains.length.toString()}
+                since={new Date(campaign.createdAt).toLocaleDateString()}
+                status={campaign.isActive ? 'Active' : 'Inactive'}
+                tags={campaign.urlDomains.slice(0, 3)}
               />
             ))}
           </div>
@@ -263,7 +271,8 @@ export function ClientOverviewPage() {
             }}
           >
             <span style={{ color: 'var(--text-muted)' }}>
-              Showing top 4 active threat clusters
+              Showing {Math.min(activeCampaigns.length, 4)} active threat
+              clusters
             </span>
             <button
               type="button"
@@ -277,7 +286,7 @@ export function ClientOverviewPage() {
                 fontSize: '0.8125rem',
               }}
             >
-              View All 6 Clusters →
+              View All {activeCampaigns.length} Clusters →
             </button>
           </div>
         </div>

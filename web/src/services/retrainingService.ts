@@ -9,7 +9,7 @@ export interface RetrainingStatus {
 }
 
 export async function getRetrainingStatus(): Promise<RetrainingStatus> {
-  return fetchApi<RetrainingStatus>('/retraining/status', { useApiKey: true });
+  return fetchApi<RetrainingStatus>('/retraining/status');
 }
 
 export async function triggerRetraining(): Promise<{
@@ -20,7 +20,6 @@ export async function triggerRetraining(): Promise<{
     '/retraining/trigger',
     {
       method: 'POST',
-      useApiKey: true,
     },
   );
 }

@@ -3,10 +3,6 @@ const env = import.meta.env as Record<string, string | undefined> | undefined;
 const BASE_URL: string =
   (env && env.VITE_API_URL) || 'http://localhost:3000/api';
 
-const DEFAULT_API_KEY: string =
-  (env && env.VITE_INTERNAL_API_KEY) ||
-  'change-me-shared-secret-for-ai-service-calls';
-
 export function getStoredToken(): string | null {
   return localStorage.getItem('bantai_token');
 }
@@ -19,16 +15,7 @@ export function clearStoredToken() {
   localStorage.removeItem('bantai_token');
 }
 
-export function getStoredApiKey(): string {
-  return localStorage.getItem('bantai_api_key') || DEFAULT_API_KEY;
-}
-
-export function setStoredApiKey(apiKey: string) {
-  localStorage.setItem('bantai_api_key', apiKey);
-}
-
 export interface RequestOptions extends RequestInit {
-  useApiKey?: boolean;
   params?: Record<string, string | number | undefined>;
 }
 
@@ -36,7 +23,7 @@ export async function fetchApi<T>(
   endpoint: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { useApiKey, params, headers: customHeaders, ...restOptions } = options;
+  const { params, headers: customHeaders, ...restOptions } = options;
 
   let url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -61,10 +48,6 @@ export async function fetchApi<T>(
   const token = getStoredToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  if (useApiKey || !token) {
-    headers['x-api-key'] = getStoredApiKey();
   }
 
   const response = await fetch(url, {

@@ -6,14 +6,17 @@ export interface RequestOtpResponse {
 }
 
 export interface VerifyOtpResponse {
-  accessToken: string;
-  user: {
-    id: string;
-    phone: string;
-    email?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-  };
+  message: string;
+  access_token: string;
+}
+
+export interface CurrentUser {
+  id: string;
+  phone: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role: 'ADMIN' | 'USER';
 }
 
 export async function requestOtp(phone: string): Promise<RequestOtpResponse> {
@@ -29,22 +32,16 @@ export async function verifyOtp(
 ): Promise<VerifyOtpResponse> {
   const result = await fetchApi<VerifyOtpResponse>('/auth/verify-otp', {
     method: 'POST',
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ phone, otp: code }),
   });
-  if (result.accessToken) {
-    setStoredToken(result.accessToken);
+  if (result.access_token) {
+    setStoredToken(result.access_token);
   }
   return result;
 }
 
-export async function getCurrentUser() {
-  return fetchApi<{
-    id: string;
-    phone: string;
-    email?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-  }>('/auth/me');
+export async function getCurrentUser(): Promise<CurrentUser> {
+  return fetchApi<CurrentUser>('/auth/me');
 }
 
 export function logout() {

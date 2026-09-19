@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/routes';
-import { validateLoginForm } from '../../utils/validation';
+import { requestOtp } from '../../services/authService';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 
@@ -11,116 +11,55 @@ interface LoginFormProps {
 
 export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    organization: admin ? 'BantAI Research Group' : 'Globe Telecom',
-    email: admin ? 'admin@bantai.research' : 'analyst@globe.com.ph',
-    password: '',
-    rememberMe: true,
-  });
-
-  const [errors, setErrors] = useState<{
-    organization?: string;
-    email?: string;
-    password?: string;
-  }>({});
+  const [phone, setPhone] = useState('');
+  const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validation = validateLoginForm(formData, !admin);
-
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    if (!phone.trim()) {
+      setError('Enter your Philippine mobile number.');
       return;
     }
 
     setLoading(true);
     try {
-      localStorage.setItem('bantai_session', admin ? 'admin' : 'client');
-      localStorage.setItem('bantai_user_email', formData.email);
-    } catch {
-      // Ignore local storage error
-    }
-    setTimeout(() => {
+      await requestOtp(phone.trim());
+      void navigate(ROUTES.TWO_FACTOR, {
+        state: { admin, phone: phone.trim() },
+      });
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Could not send a verification code.',
+      );
+    } finally {
       setLoading(false);
-      navigate(ROUTES.TWO_FACTOR, { state: { admin, email: formData.email } });
-    }, 600);
+    }
   };
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      {!admin && (
-        <Input
-          label="Organization Name"
-          placeholder="e.g. Globe Telecom"
-          value={formData.organization}
-          onChange={(e) => handleChange('organization', e.target.value)}
-          error={errors.organization}
-        />
-      )}
-
+    <form
+      className="auth-form"
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
+    >
       <Input
-        label={admin ? 'Admin Email Address' : 'Work Email Address'}
-        type="email"
-        placeholder="name@company.com"
-        value={formData.email}
-        onChange={(e) => handleChange('email', e.target.value)}
-        error={errors.email}
-      />
-
-      <Input
-        label="Password"
-        isPassword
-        placeholder="••••••••"
-        value={formData.password}
-        onChange={(e) => handleChange('password', e.target.value)}
-        error={errors.password}
-      />
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '0.8125rem',
-          marginTop: 4,
+        label="Philippine mobile number"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        placeholder="e.g. +639171234567"
+        value={phone}
+        onChange={(e) => {
+          setPhone(e.target.value);
+          setError(undefined);
         }}
-      >
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            cursor: 'pointer',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={formData.rememberMe}
-            onChange={(e) => handleChange('rememberMe', e.target.checked)}
-            style={{
-              accentColor: 'var(--accent-primary)',
-              width: 16,
-              height: 16,
-            }}
-          />
-          <span>Remember this device</span>
-        </label>
-        <Link
-          to={ROUTES.FORGOT_PASSWORD}
-          style={{ color: 'var(--accent-light)', textDecoration: 'none' }}
-        >
-          Forgot password?
-        </Link>
-      </div>
+        error={error}
+        helpText="We send a one-time code to verify access."
+      />
 
       <Button
         type="submit"
@@ -130,7 +69,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
         loading={loading}
         style={{ marginTop: 12 }}
       >
-        {admin ? 'Sign In as Administrator' : 'Sign In to Client Portal'}
+        {admin ? 'Send administrator code' : 'Send access code'}
       </Button>
 
       <div

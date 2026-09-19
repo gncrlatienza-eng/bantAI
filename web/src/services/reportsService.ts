@@ -26,11 +26,11 @@ export interface UserReportItem {
 }
 
 export async function getAllReports(): Promise<UserReportItem[]> {
-  return fetchApi<UserReportItem[]>('/reports', { useApiKey: true });
+  return fetchApi<UserReportItem[]>('/reports');
 }
 
 export async function getPendingReports(): Promise<UserReportItem[]> {
-  return fetchApi<UserReportItem[]>('/reports/pending', { useApiKey: true });
+  return fetchApi<UserReportItem[]>('/reports/pending');
 }
 
 export async function validateReport(
@@ -39,7 +39,6 @@ export async function validateReport(
 ): Promise<UserReportItem> {
   return fetchApi<UserReportItem>(`/reports/${id}/validate`, {
     method: 'PATCH',
-    useApiKey: true,
     body: JSON.stringify({ adminNote }),
   });
 }
@@ -50,7 +49,6 @@ export async function rejectReport(
 ): Promise<UserReportItem> {
   return fetchApi<UserReportItem>(`/reports/${id}/reject`, {
     method: 'PATCH',
-    useApiKey: true,
     body: JSON.stringify({ adminNote }),
   });
 }

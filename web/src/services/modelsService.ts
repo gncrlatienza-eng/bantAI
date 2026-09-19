@@ -14,23 +14,21 @@ export interface ModelVersionItem {
 }
 
 export async function getAllModels(): Promise<ModelVersionItem[]> {
-  return fetchApi<ModelVersionItem[]>('/models', { useApiKey: true });
+  return fetchApi<ModelVersionItem[]>('/models');
 }
 
 export async function getActiveModel(): Promise<ModelVersionItem> {
-  return fetchApi<ModelVersionItem>('/models/active', { useApiKey: true });
+  return fetchApi<ModelVersionItem>('/models/active');
 }
 
 export async function activateModel(id: string): Promise<ModelVersionItem> {
   return fetchApi<ModelVersionItem>(`/models/${id}/activate`, {
     method: 'POST',
-    useApiKey: true,
   });
 }
 
 export async function rollbackModel(id: string): Promise<ModelVersionItem> {
   return fetchApi<ModelVersionItem>(`/models/${id}/rollback`, {
     method: 'POST',
-    useApiKey: true,
   });
 }

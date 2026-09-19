@@ -8,5 +8,5 @@ export interface AnalyticsSummary {
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
-  return fetchApi<AnalyticsSummary>('/analytics/summary', { useApiKey: true });
+  return fetchApi<AnalyticsSummary>('/analytics/summary');
 }

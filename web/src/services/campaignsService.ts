@@ -27,6 +27,5 @@ export async function getCampaignById(id: string): Promise<CampaignCluster> {
 export async function deactivateCampaign(id: string): Promise<CampaignCluster> {
   return fetchApi<CampaignCluster>(`/campaigns/${id}/deactivate`, {
     method: 'PATCH',
-    useApiKey: true,
   });
 }

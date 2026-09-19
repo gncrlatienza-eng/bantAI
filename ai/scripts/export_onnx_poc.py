@@ -21,7 +21,9 @@ Run from ai/:
         Get-FileHash model.safetensors -Algorithm SHA256 against version.json
         or ModelVersion in the DB before trusting a --model-dir blindly.
 
-    .venv/Scripts/python.exe scripts/export_onnx_poc.py --model-dir models/some-other-checkpoint --output-dir models/onnx_export
+    .venv/Scripts/python.exe scripts/export_onnx_poc.py \\
+        --model-dir models/some-other-checkpoint \\
+        --output-dir models/onnx_export
 """
 
 from __future__ import annotations
@@ -127,7 +129,13 @@ def main() -> int:
                 label_mismatches += 1
 
         # Warm run + repeated timed runs for a less noisy latency figure.
-        enc = tokenizer(SAMPLE_MESSAGES[0], return_tensors="np", padding="max_length", truncation=True, max_length=MAX_LENGTH)
+        enc = tokenizer(
+            SAMPLE_MESSAGES[0],
+            return_tensors="np",
+            padding="max_length",
+            truncation=True,
+            max_length=MAX_LENGTH,
+        )
         feed = {"input_ids": enc["input_ids"], "attention_mask": enc["attention_mask"]}
         for _ in range(5):
             session.run(None, feed)

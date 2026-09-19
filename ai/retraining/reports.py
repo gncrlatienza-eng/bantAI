@@ -367,6 +367,12 @@ class DatabaseReportSource:
         snapshot assembly instead of at the point the source was asked for
         data.
         """
+        raise ReportSourceError(
+            "Database report ingestion is disabled in privacy-first mode: "
+            "the backend does not retain raw SMS text for retraining. Use a "
+            "separately consented, offline FileReportSource export instead."
+        )
+
         payload = self._get()
 
         out: List[ValidatedReport] = []

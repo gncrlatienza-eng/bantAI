@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from ..campaign import CampaignMatcher
 from ..classifier import ModelNotReadyError, classifier, route
+from ..explainer import explain
 from ..schemas import CampaignMatch, ClassifyRequest, ClassifyResponse
 
 router = APIRouter(tags=["classification"])
@@ -50,6 +51,14 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         match = matcher.match(result.embedding, req.message)
         campaign = CampaignMatch(**match.to_dict())
 
+    explanation = explain(
+        req.message,
+        result.masked_text,
+        getattr(classifier, "_model", None),
+        getattr(classifier, "_tokenizer", None),
+        predicted_label=result.label,
+    )
+
     return ClassifyResponse(
         label=result.label,
         score=result.score,
@@ -57,4 +66,6 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         bucket=route(result.scores),
         masked_text=result.masked_text,
         campaign=campaign,
+        indicators=explanation.to_indicator_payload(),
+        explanation_method=explanation.method,
     )

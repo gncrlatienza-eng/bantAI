@@ -16,7 +16,43 @@ import pandas as pd
 
 from preprocessing import preprocess
 
-from .config import LABEL2ID, ORIGIN_COLUMN, SYNTHETIC_ORIGINS, TrainingConfig
+from .config import ID2LABEL, LABEL2ID, ORIGIN_COLUMN, SYNTHETIC_ORIGINS, TrainingConfig
+
+#: Conflicting texts quoted in the error before it is truncated. The full set
+#: is always available on ``LabelConflictError.conflicts``.
+_CONFLICT_REPORT_LIMIT = 20
+
+
+class LabelConflictError(ValueError):
+    """One masked text carries more than one label.
+
+    Not a de-duplication detail: it means two sources or two annotators
+    disagree about ground truth for the exact string the model is trained on.
+    Resolving that by keeping whichever row was read first would manufacture a
+    gold label nobody approved, so the load fails and an annotator adjudicates.
+
+    ``conflicts`` maps masked text -> the sorted label names claimed for it, so
+    the annotation-QA step can write a review file without parsing the message.
+    """
+
+    def __init__(self, conflicts: dict):
+        self.conflicts = conflicts
+        super().__init__(_format_conflict_report(conflicts))
+
+
+def _format_conflict_report(conflicts: dict) -> str:
+    # Texts are already masked by ``preprocess``, so quoting them here does not
+    # leak PII into logs or CI output.
+    lines = [
+        f"{len(conflicts)} masked text(s) carry more than one label. PII masking collapses "
+        "distinct raw messages onto a single model input, so these cannot be resolved by "
+        "de-duplication -- adjudicate each one and correct the source files before training:"
+    ]
+    for text, labels in list(conflicts.items())[:_CONFLICT_REPORT_LIMIT]:
+        lines.append(f"  {'/'.join(labels)}: {text!r}")
+    if len(conflicts) > _CONFLICT_REPORT_LIMIT:
+        lines.append(f"  ... and {len(conflicts) - _CONFLICT_REPORT_LIMIT} more")
+    return "\n".join(lines)
 
 
 def _read_files(path: str) -> pd.DataFrame:
@@ -81,9 +117,20 @@ def load_split(config: TrainingConfig) -> Tuple[List[str], List[str], List[int],
     # model be scored on strings it memorised verbatim (measured at 13.7% of the
     # validation set, and 31.8% of validation Scams). De-duplicate on the masked
     # text instead, since that is what the model actually sees.
+    # Rows that agree collapse to one. Rows that disagree are an annotation
+    # defect and stop the run -- see LabelConflictError.
     deduped: dict = {}
+    conflicting: dict = {}
     for text, label, origin in zip(texts, labels, origins):
-        deduped.setdefault(text, (label, origin))
+        seen = deduped.get(text)
+        if seen is None:
+            deduped[text] = (label, origin)
+        elif seen[0] != label:
+            conflicting.setdefault(text, {seen[0]}).add(label)
+    if conflicting:
+        raise LabelConflictError(
+            {text: sorted(ID2LABEL[label] for label in found) for text, found in conflicting.items()}
+        )
 
     real = [(t, lo[0]) for t, lo in deduped.items() if lo[1] not in SYNTHETIC_ORIGINS]
     synthetic = [(t, lo[0]) for t, lo in deduped.items() if lo[1] in SYNTHETIC_ORIGINS]

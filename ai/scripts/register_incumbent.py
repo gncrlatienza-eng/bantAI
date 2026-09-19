@@ -21,7 +21,7 @@ yet) so ``GET /health`` can report a real ``version_tag`` for it instead of
 
 Run:
     cd ai && .venv/Scripts/python.exe scripts/register_incumbent.py \\
-        --backend-url http://localhost:3000/api --api-key <INTERNAL_API_KEY>
+        --backend-url http://localhost:3000/api --api-key <AI_MODELS_API_KEY>
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ INCUMBENT_NOTES = (
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--backend-url", required=True, metavar="URL", help="e.g. http://localhost:3000/api")
-    parser.add_argument("--api-key", required=True, help="Must match the backend's INTERNAL_API_KEY.")
+    parser.add_argument("--api-key", required=True, help="Must match AI_MODELS_API_KEY.")
     parser.add_argument(
         "--model-dir",
         default="models/xlm-roberta-smishing",
@@ -59,12 +59,7 @@ def main() -> int:
     parser.add_argument(
         "--activate",
         action="store_true",
-        help=(
-            "Also mark it active (POST /models/:id/activate). Do this unless "
-            "the backend already has a different active ModelVersion you "
-            "want to keep -- e.g. if this script is being re-run after a "
-            "real promotion already happened."
-        ),
+        help="Deprecated: model promotion requires an authenticated administrator.",
     )
     args = parser.parse_args()
 
@@ -91,8 +86,7 @@ def main() -> int:
         print(f"Registered {INCUMBENT_VERSION_TAG} as ModelVersion {model_id} (inactive).")
 
         if args.activate:
-            registry.activate(model_id)
-            print(f"Activated {INCUMBENT_VERSION_TAG} as the live ModelVersion.")
+            print("Candidate registered. Promote it through the authenticated administrator workflow.")
     except ModelRegistryError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

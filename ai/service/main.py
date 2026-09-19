@@ -45,7 +45,7 @@ def load_campaign_centroids() -> None:
         source=settings.centroid_source,
         cluster_file=settings.cluster_file,
         backend_url=settings.backend_url,
-        backend_api_key=settings.backend_api_key,
+        backend_api_key=settings.campaigns_api_key,
     )
     classify.matcher = CampaignMatcher(centroids, threshold=settings.campaign_threshold)
 
@@ -60,9 +60,9 @@ def load_campaign_centroids() -> None:
         # exist yet", and silently degrading to that is exactly the bug this
         # startup hook exists to prevent.
         hint = (
-            "BANTAI_AI_BACKEND_API_KEY is unset -- /campaigns/centroids is "
+            "BANTAI_AI_CAMPAIGNS_API_KEY is unset -- /campaigns/centroids is "
             "ApiKeyGuard-protected and answers 401 without it"
-            if settings.centroid_source == "backend" and not settings.backend_api_key
+            if settings.centroid_source == "backend" and not settings.campaigns_api_key
             else "Run scripts/cluster_campaigns.py, or check BANTAI_AI_CENTROID_SOURCE"
         )
         logger.warning(
@@ -110,12 +110,12 @@ def check_served_version() -> None:
 
     if not settings.version_check_enabled:
         return
-    if not settings.backend_api_key:
-        logger.info("Version check skipped: BANTAI_AI_BACKEND_API_KEY is unset.")
+    if not settings.models_api_key:
+        logger.info("Version check skipped: BANTAI_AI_MODELS_API_KEY is unset.")
         return
 
     try:
-        registry = ModelRegistry(settings.backend_url, settings.backend_api_key)
+        registry = ModelRegistry(settings.backend_url, settings.models_api_key)
         active = registry.get_active()
     except ModelRegistryError as exc:
         logger.warning("Could not reach the backend to verify the served model version: %s", exc)

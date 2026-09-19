@@ -74,9 +74,9 @@ def load_from_backend(base_url: str, api_key: str = "", timeout: float = 5.0) ->
 
     The route is ``ApiKeyGuard``-protected (``campaigns.controller.ts``), so
     ``api_key`` is sent as ``x-api-key`` and must match the backend's
-    ``INTERNAL_API_KEY``. Omitting it earns a 401 that :func:`load_centroids`
+    ``AI_CAMPAIGNS_API_KEY``. Omitting it earns a 401 that :func:`load_centroids`
     then swallows into an empty list -- which is why an unset
-    ``BANTAI_AI_BACKEND_API_KEY`` used to look exactly like "no campaigns
+    ``BANTAI_AI_CAMPAIGNS_API_KEY`` used to look exactly like "no campaigns
     discovered yet" instead of like a misconfiguration.
 
     ⚠️ The ``lexical`` field is read here but the backend does not store it
@@ -90,7 +90,7 @@ def load_from_backend(base_url: str, api_key: str = "", timeout: float = 5.0) ->
 
     url = base_url.rstrip("/") + "/campaigns/centroids"
     # An empty key means "send no header at all" rather than "send an empty
-    # one": the guard compares against INTERNAL_API_KEY, and an empty string
+    # one": the guard compares against AI_CAMPAIGNS_API_KEY, and an empty string
     # would be a wrong key rather than a missing one -- same 401, but a
     # misleading one to debug.
     headers = {"x-api-key": api_key} if api_key else {}

@@ -147,4 +147,4 @@ def test_failed_create_rolls_back_new_and_leaves_old_active():
         sync_mod.sync([{"label": "x"}, {"label": "y"}, {"label": "z"}], backend)
 
     patched = [p for m, p in backend.calls if m == "PATCH"]
-    assert patched == ["/campaigns/new-1/deactivate"]
+    assert patched == ["/campaigns/internal/new-1/deactivate"]

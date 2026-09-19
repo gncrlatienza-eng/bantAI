@@ -89,6 +89,14 @@ class ClassifyResponse(BaseModel):
         description="Campaign clustering result. Null when no campaign centroids "
         "are loaded (cold start), so existing callers stay unaffected.",
     )
+    indicators: List[dict] = Field(
+        default_factory=list,
+        description="Explainability tags for the prediction. Their provenance is in explanation_method.",
+    )
+    explanation_method: Literal["shap", "keyword-fallback"] = Field(
+        "keyword-fallback",
+        description="Whether tags came from Shapley attribution or the documented fallback.",
+    )
 
 
 class SummarizeRequest(BaseModel):

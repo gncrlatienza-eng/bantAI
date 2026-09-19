@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from retraining.reports import DatabaseReportSource, FileReportSource, NullReportSource
+from retraining.reports import FileReportSource, NullReportSource
 from service.retrain_queue import QUEUED, enqueue, list_jobs
 
 # scripts/ is not a package (the scripts insert "." on sys.path and are run as
@@ -29,7 +29,7 @@ _SPEC.loader.exec_module(retrain)
 
 def resolve(argv, env=None, monkeypatch=None):
     """Parse ``argv`` and resolve a report source from it."""
-    for name in (retrain.ENV_BACKEND_URL, retrain.ENV_BACKEND_API_KEY):
+    for name in (retrain.ENV_BACKEND_URL,):
         monkeypatch.delenv(name, raising=False)
     for name, value in (env or {}).items():
         monkeypatch.setenv(name, value)
@@ -53,7 +53,6 @@ def test_environment_alone_never_turns_the_database_on(monkeypatch):
         [],
         env={
             retrain.ENV_BACKEND_URL: "http://localhost:3000/api",
-            retrain.ENV_BACKEND_API_KEY: "k",
         },
         monkeypatch=monkeypatch,
     )
@@ -74,44 +73,39 @@ def test_missing_reports_dir_is_an_error(tmp_path, monkeypatch):
     assert "does not exist" in error
 
 
-# --- database source --------------------------------------------------------
-def test_explicit_url_and_key_give_a_database_source(monkeypatch):
+# --- live database reports are intentionally disabled ----------------------
+def test_explicit_url_is_rejected_in_privacy_first_mode(monkeypatch):
     source, error = resolve(
         ["--reports-url", "http://localhost:3000/api", "--reports-api-key", "k"],
         monkeypatch=monkeypatch,
     )
-    assert error is None
-    assert isinstance(source, DatabaseReportSource)
-    assert source.url == "http://localhost:3000/api/reports"
-    assert source.api_key == "k"
+    assert source is None
+    assert "privacy-first" in error
+    assert "--reports-dir" in error
 
 
-def test_bare_flag_resolves_both_values_from_the_environment(monkeypatch):
+def test_bare_flag_is_rejected_even_with_a_backend_environment(monkeypatch):
     source, error = resolve(
         ["--reports-url"],
         env={
             retrain.ENV_BACKEND_URL: "http://backend:3000/api",
-            retrain.ENV_BACKEND_API_KEY: "envkey",
         },
         monkeypatch=monkeypatch,
     )
-    assert error is None
-    assert source.url == "http://backend:3000/api/reports"
-    assert source.api_key == "envkey"
+    assert source is None
+    assert "privacy-first" in error
 
 
-def test_bare_flag_with_no_environment_is_an_error(monkeypatch):
+def test_bare_flag_is_rejected_without_an_environment(monkeypatch):
     source, error = resolve(["--reports-url"], monkeypatch=monkeypatch)
     assert source is None
-    assert retrain.ENV_BACKEND_URL in error
+    assert "privacy-first" in error
 
 
-def test_missing_api_key_fails_before_any_work(monkeypatch):
-    """Checked up front so a wrong key costs a line of output rather than a
-    snapshot build followed by a 401."""
+def test_reports_api_key_cannot_reenable_live_ingestion(monkeypatch):
     source, error = resolve(["--reports-url", "http://localhost:3000/api"], monkeypatch=monkeypatch)
     assert source is None
-    assert retrain.ENV_BACKEND_API_KEY in error
+    assert "privacy-first" in error
 
 
 def test_the_two_sources_are_mutually_exclusive(tmp_path, monkeypatch):
@@ -123,19 +117,13 @@ def test_the_two_sources_are_mutually_exclusive(tmp_path, monkeypatch):
     assert "mutually exclusive" in error
 
 
-def test_export_implies_the_database(monkeypatch):
-    """Exporting *is* a database operation; requiring --reports-url alongside
-    it would be ceremony."""
+def test_export_is_rejected_without_a_consented_offline_source(monkeypatch):
     source, error = resolve(
         ["--export-reports", "out.csv"],
-        env={
-            retrain.ENV_BACKEND_URL: "http://localhost:3000/api",
-            retrain.ENV_BACKEND_API_KEY: "k",
-        },
         monkeypatch=monkeypatch,
     )
-    assert error is None
-    assert isinstance(source, DatabaseReportSource)
+    assert source is None
+    assert "privacy-first" in error
 
 
 # --- export -----------------------------------------------------------------
@@ -206,23 +194,12 @@ def test_empty_export_says_so_out_loud(tmp_path, capsys):
 
 # --- main() exit codes ------------------------------------------------------
 def test_main_exits_2_on_a_bad_source(monkeypatch, capsys):
-    monkeypatch.delenv(retrain.ENV_BACKEND_API_KEY, raising=False)
     code = retrain.main(["--reports-url", "http://localhost:3000/api", "--dry-run"])
     assert code == 2
-    assert "error:" in capsys.readouterr().err
+    assert "privacy-first" in capsys.readouterr().err
 
 
-def test_main_exits_1_when_the_report_store_is_unreachable(monkeypatch, tmp_path, capsys):
-    """Exit 1, not 0: the run is abandoned rather than completed without the
-    corrections that justified it."""
-    import urllib.error
-    import urllib.request
-
-    def _boom(request, timeout=None):
-        raise urllib.error.URLError("connection refused")
-
-    monkeypatch.setattr(urllib.request, "urlopen", _boom)
-
+def test_main_exits_2_before_any_live_report_request(tmp_path, capsys):
     labeled = tmp_path / "labeled"
     labeled.mkdir()
     (labeled / "d.csv").write_text(
@@ -243,8 +220,8 @@ def test_main_exits_1_when_the_report_store_is_unreachable(monkeypatch, tmp_path
             "k",
         ]
     )
-    assert code == 1
-    assert "backend running" in capsys.readouterr().err
+    assert code == 2
+    assert "privacy-first" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("bad", ["not-a-date", "2026-13-99"])

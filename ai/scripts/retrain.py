@@ -20,7 +20,8 @@ Run:
 
     cd ai && python scripts/retrain.py --reports-url http://localhost:3000/api
         Include admin-validated user reports read live from the backend
-        (WBS 4.3.1). Needs BANTAI_AI_BACKEND_API_KEY, or --reports-api-key.
+        (WBS 4.3.1). Live report ingestion is disabled in privacy-first mode;
+        use a separately consented offline report export.
 
     cd ai && python scripts/retrain.py --reports-dir datasets/reports
         Same, from a CSV/JSONL export instead. This is the route for a GPU box
@@ -68,12 +69,7 @@ from retraining.pipeline import (  # noqa: E402
     run_retraining,
 )
 from retraining.registry import ModelRegistry, ModelRegistryError  # noqa: E402
-from retraining.reports import (  # noqa: E402
-    DatabaseReportSource,
-    FileReportSource,
-    NullReportSource,
-    ReportSourceError,
-)
+from retraining.reports import FileReportSource, NullReportSource, ReportSourceError  # noqa: E402
 from service.retrain_queue import (  # noqa: E402
     DEFAULT_QUEUE_PATH,
     QUEUED,
@@ -89,7 +85,7 @@ from training.config import TrainingConfig  # noqa: E402
 #: and coupling them would drag pydantic into the training path for two
 #: strings.
 ENV_BACKEND_URL = "BANTAI_AI_BACKEND_URL"
-ENV_BACKEND_API_KEY = "BANTAI_AI_BACKEND_API_KEY"
+ENV_MODELS_API_KEY = "BANTAI_AI_MODELS_API_KEY"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -135,10 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--reports-api-key",
         default=None,
-        help=(
-            f"Key for the backend's ApiKeyGuard routes. Defaults to "
-            f"${ENV_BACKEND_API_KEY}. Must match the backend's INTERNAL_API_KEY."
-        ),
+        help=("Deprecated: live database report ingestion is disabled because raw SMS text is not retained."),
     )
     parser.add_argument(
         "--export-reports",
@@ -198,7 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
             "POST the finished candidate to the backend's ModelVersions table "
             "(WBS 4.3.4/4.4.3) as an inactive row, once the gate has produced "
             "a decision. Needs --models-url/--models-api-key (or the "
-            f"${ENV_BACKEND_URL}/${ENV_BACKEND_API_KEY} env vars). No-op with "
+            f"${ENV_BACKEND_URL}/${ENV_MODELS_API_KEY} env vars). No-op with "
             "--dry-run: there is no candidate yet."
         ),
     )
@@ -206,11 +199,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--activate",
         action="store_true",
         help=(
-            "Implies --register, and additionally makes the candidate the "
-            "live ModelVersion. This is the promotion decision -- refuses to "
-            "activate a candidate the gate rejected. Nothing here re-points "
-            "the running service at the new checkpoint; that is still a "
-            "separate manual step (see the note this script prints below)."
+            "Implies --register, and attempts activation. Activation is "
+            "currently gated to authenticated administrators through the "
+            "admin backend route (see retraining/registry.py::activate) -- "
+            "machine credentials cannot promote a model. This flag will "
+            "therefore error after successful registration; use it to signal "
+            "intent so the script prints the admin-handoff instructions."
         ),
     )
     parser.add_argument(
@@ -227,7 +221,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--models-api-key",
         default=None,
-        help=f"Key for the backend's ModelVersions routes. Defaults to ${ENV_BACKEND_API_KEY}.",
+        help=f"Key for the internal model registry. Defaults to ${ENV_MODELS_API_KEY}.",
     )
     parser.add_argument(
         "--complete-queue",
@@ -267,25 +261,13 @@ def _build_report_source(args):
     if args.reports_dir and wants_database:
         return None, "--reports-dir and --reports-url are mutually exclusive; pick one source."
 
+    if wants_database:
+        return None, "--reports-url is disabled in privacy-first mode; use a consented offline --reports-dir export."
+
     if not wants_database:
         if args.reports_dir and not os.path.isdir(args.reports_dir):
             return None, f"--reports-dir '{args.reports_dir}' does not exist."
         return (FileReportSource(args.reports_dir) if args.reports_dir else NullReportSource()), None
-
-    url = raw_url or os.environ.get(ENV_BACKEND_URL, "")
-    if not url:
-        return None, (
-            f"--reports-url was given no value and ${ENV_BACKEND_URL} is unset; "
-            "pass the URL explicitly, e.g. --reports-url http://localhost:3000/api."
-        )
-
-    key = args.reports_api_key or os.environ.get(ENV_BACKEND_API_KEY, "")
-    if not key:
-        return None, (
-            f"reading reports from {url} needs an API key: pass --reports-api-key "
-            f"or set ${ENV_BACKEND_API_KEY} (it must match the backend's INTERNAL_API_KEY)."
-        )
-    return DatabaseReportSource(url, key), None
 
 
 def _resolve_models_registry(args) -> tuple:
@@ -302,11 +284,11 @@ def _resolve_models_registry(args) -> tuple:
             f"--register/--activate need a backend URL: pass --models-url or set "
             f"${ENV_BACKEND_URL}, e.g. --models-url http://localhost:3000/api."
         )
-    key = args.models_api_key or os.environ.get(ENV_BACKEND_API_KEY, "")
+    key = args.models_api_key or os.environ.get(ENV_MODELS_API_KEY, "")
     if not key:
         return None, (
             f"--register/--activate need an API key: pass --models-api-key or set "
-            f"${ENV_BACKEND_API_KEY} (must match the backend's INTERNAL_API_KEY)."
+            f"${ENV_MODELS_API_KEY} (must match AI_MODELS_API_KEY)."
         )
     return ModelRegistry(url, key), None
 
@@ -375,14 +357,26 @@ def _register_candidate(args, run) -> int:
                     "Registered as an inactive record only."
                 )
                 return 1
-            registry.activate(model_id)
-            print(
-                f"Activated {run.version_tag} as the live ModelVersion.\n"
-                "This does NOT re-point the running service -- that is still a separate step:\n"
-                f"  1. Point the live model at {run.candidate_dir}\n"
-                "  2. Restart the AI service so /health reports the new version_tag\n"
-                "  3. Re-run scripts/embed_dataset.py and scripts/cluster_campaigns.py"
-            )
+            # Machine credentials cannot promote a model -- activate() always
+            # raises. Print the admin-handoff instructions rather than letting
+            # the exception propagate with no guidance.
+            try:
+                registry.activate(model_id)
+                print(f"Activated {run.version_tag} as the live ModelVersion.")
+            except ModelRegistryError as exc:
+                print(f"\n{exc}")
+                print(
+                    "\nActivation requires an authenticated administrator. Hand off:\n"
+                    f"  ModelVersion id : {model_id}\n"
+                    f"  versionTag      : {run.version_tag}\n"
+                    f"  candidate_dir   : {run.candidate_dir}\n"
+                    "The admin activation route flips this record to active,\n"
+                    "and the operator then completes the deployment:\n"
+                    f"  1. Point the live model at {run.candidate_dir}\n"
+                    "  2. Restart the AI service so /health reports the new version_tag\n"
+                    "  3. Re-run scripts/embed_dataset.py and scripts/cluster_campaigns.py"
+                )
+                return 1
     except ModelRegistryError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

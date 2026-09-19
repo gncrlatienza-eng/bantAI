@@ -10,8 +10,8 @@ backend's own F1-degradation trigger and rollback route were dead code.
 This test walks every stage with everything stubbed -- no GPU, no Docker, no
 real network -- proving the wiring rather than the model:
 
-    validated report (stubbed backend)
-        -> DatabaseReportSource.fetch()
+    validated report (consented offline export)
+        -> FileReportSource.fetch()
         -> a gate verdict (stubbed _predict, same pattern as
            test_retraining_pipeline.py)
         -> ModelRegistry.register() / .activate() (stubbed backend)
@@ -36,7 +36,7 @@ from fastapi.testclient import TestClient
 from retraining import pipeline as pl
 from retraining.pipeline import evaluate_candidate
 from retraining.registry import ModelRegistry, ModelRegistryError
-from retraining.reports import DatabaseReportSource
+from retraining.reports import FileReportSource
 from retraining.version_file import read_version, verify_version, write_version
 from service import retrain_queue
 from service.main import app
@@ -163,7 +163,7 @@ def test_enqueue_helper_is_reusable_outside_the_http_layer(tmp_path):
 
 
 # =============================================================================
-# Stage: register / activate -- ModelVersions used to stay empty forever.
+# Stage: register / administrator promotion -- model credentials stay scoped.
 # =============================================================================
 def test_register_posts_the_expected_payload_and_returns_the_id(monkeypatch):
     sent = []
@@ -175,7 +175,7 @@ def test_register_posts_the_expected_payload_and_returns_the_id(monkeypatch):
 
     assert model_id == "mv-1"
     (request,) = sent
-    assert request.full_url == "http://localhost:3000/api/models"
+    assert request.full_url == "http://localhost:3000/api/internal/models"
     assert request.get_header("X-api-key") == "secret"
     body = json.loads(request.data.decode("utf-8"))
     assert body == {
@@ -194,7 +194,7 @@ def test_register_without_an_id_in_the_response_raises(monkeypatch):
 def test_register_401_hints_at_the_api_key(monkeypatch):
     err = urllib.error.HTTPError("http://x/models", 401, "Unauthorized", {}, None)
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(None, raises=err))
-    with pytest.raises(ModelRegistryError, match="INTERNAL_API_KEY"):
+    with pytest.raises(ModelRegistryError, match="AI_MODELS_API_KEY"):
         ModelRegistry("http://localhost:3000/api", "k").register("v1", 0.9)
 
 
@@ -205,13 +205,9 @@ def test_register_409_hints_at_a_duplicate_tag(monkeypatch):
         ModelRegistry("http://localhost:3000/api", "k").register("v1", 0.9)
 
 
-def test_activate_posts_to_the_right_url(monkeypatch):
-    sent = []
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({}, capture=sent))
-    ModelRegistry("http://localhost:3000/api", "k").activate("mv-1")
-    (request,) = sent
-    assert request.full_url == "http://localhost:3000/api/models/mv-1/activate"
-    assert request.get_method() == "POST"
+def test_activate_requires_an_authenticated_administrator():
+    with pytest.raises(ModelRegistryError, match="administrator promotion"):
+        ModelRegistry("http://localhost:3000/api", "k").activate("mv-1")
 
 
 def test_get_active_returns_none_when_the_backend_says_so(monkeypatch):
@@ -287,25 +283,21 @@ def test_the_whole_round_trip_with_everything_stubbed(monkeypatch, tmp_path):
     """One test walking every stage 4.4.3 needed, end to end.
 
     Each piece already has its own focused tests above (and, for the
-    report -> snapshot half, in test_retraining_pipeline.py's
-    ``test_dry_run_includes_reports_from_the_database_source``). This one
+    report -> snapshot half, in test_retraining_pipeline.py's file-source
+    coverage). This one
     exists because the pieces being individually correct does not prove they
     compose -- a version_tag typo between ``pipeline.py`` and ``registry.py``
     would pass every test above and still break the real round trip.
     """
-    # 1. A validated report, from a stubbed backend -- same shape
-    #    scripts/round_trip.py's live phase 1/2 exercise for real.
-    report_payload = [
-        {
-            "id": "rpt-1",
-            "status": "Validated",
-            "reportedLabel": "Scam",
-            "updatedAt": "2026-08-17T00:00:00.000Z",
-            "message": {"id": "m1", "body": "you won a prize, claim at http://x.ph"},
-        }
-    ]
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(report_payload))
-    reports = DatabaseReportSource("http://localhost:3000/api", "k").fetch()
+    # 1. A validated report supplied as a separately consented offline export.
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "validated.csv").write_text(
+        "text,label,report_id,validated_at\n"
+        "you won a prize claim at http://x.ph,Scam,rpt-1,2026-08-17T00:00:00+00:00\n",
+        encoding="utf-8",
+    )
+    reports = list(FileReportSource(str(reports_dir)).fetch())
     assert len(reports) == 1
 
     # 2. A gate verdict -- _predict stubbed, same pattern as
@@ -328,17 +320,15 @@ def test_the_whole_round_trip_with_everything_stubbed(monkeypatch, tmp_path):
     version_tag = "v2026-08-17T04-15-33Z"
     write_version(str(candidate_dir), version_tag)
 
-    # 3. Register (inactive) then activate -- the two flags scripts/retrain.py
-    #    gates this behind, exercised together here as the "adviser said yes"
-    #    path.
+    # 3. Register the candidate inactive. Promotion must subsequently be done
+    #    through the authenticated admin workflow, not by the AI service key.
     sent = []
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"id": "mv-2"}, capture=sent))
     registry = ModelRegistry("http://localhost:3000/api", "k")
     model_id = registry.register(version_tag, decision.candidate_macro_f1, notes=decision.reason)
-    registry.activate(model_id)
-
-    assert sent[0].full_url == "http://localhost:3000/api/models"
-    assert sent[1].full_url == f"http://localhost:3000/api/models/{model_id}/activate"
+    assert sent[0].full_url == "http://localhost:3000/api/internal/models"
+    with pytest.raises(ModelRegistryError, match="administrator promotion"):
+        registry.activate(model_id)
 
     # 4. Deploy -- "point the live model at candidate_dir" is the one manual
     #    step left (see scripts/retrain.py's printed instructions); what

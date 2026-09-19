@@ -20,11 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +34,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +47,7 @@ import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
@@ -127,14 +132,103 @@ private fun SmishingAlertContent(
         contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 116.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // Hero: centered status pill, big classification title, confidence +
-        // sender subtitle -- the message's own headline instead of splitting
-        // that same information across an icon, a label and a side column.
+        // High-risk banner. Blocking remains an explicit user choice.
+        item {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
+                Column {
+                    Text("High-risk message", color = Danger, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(
+                        "Review the message, then choose whether to block, report, or ignore it.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                    )
+                }
+            }
+        }
+
+        // Sender info card
         item {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Sender retained on this device", color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = 12.sp)
+                    }
+                    alert.score?.let { score ->
+                        Text("${(score * 100).roundToInt()}% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+                // Real campaign association (backend-sourced clusterId) — dropped back
+                // in August when this screen still showed mock content with no real
+                // link target; the data has been available in GET /sms/alerts all
+                // along, just never parsed on the mobile side until now.
+                alert.clusterId?.let { clusterId ->
+                    HorizontalDivider(color = Color(0xFF2A2A2A))
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Hub,
+                            contentDescription = null,
+                            tint = Suspicious,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Text(
+                            "Part of a tracked campaign",
+                            color = Suspicious,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text("View campaign →", color = Indigo, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Blocked message content header
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "FLAGGED MESSAGE CONTENT",
+                    color = Color(0xFF666666),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.8.sp,
+                )
                 Row(
                     modifier =
                         Modifier
@@ -144,7 +238,7 @@ private fun SmishingAlertContent(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Box(modifier = Modifier.size(6.dp).background(Danger, CircleShape))
-                    Text("Blocked", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Flagged", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -227,18 +321,74 @@ private fun SmishingAlertContent(
                         fontSize = 13.sp,
                         modifier = Modifier.padding(16.dp),
                     )
-                } else {
+                }
+            }
+        }
+
+        // Why flagged section label
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "WHY BANTAI FLAGGED THIS",
+                    color = Color(0xFF666666),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.8.sp,
+                )
+                Text(
+                    "Detailed server-side indicators are unavailable because message text stays on your device.",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                )
+            }
+        }
+
+        // SHAP feature bars
+        item {
+            if (indicators.isEmpty()) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                ) {
+                    Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
+                }
+            } else {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
                     indicators.forEachIndexed { index, indicator ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                indicator.tag,
-                                color = White,
-                                fontSize = 14.sp,
-                                modifier = Modifier.weight(1f),
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                Text(indicator.tag, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(
+                                    "${(indicator.weight.coerceIn(0.0, 1.0) * 100).roundToInt()}%",
+                                    color = Danger,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { indicator.weight.coerceIn(0.0, 1.0).toFloat() },
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                color = Danger,
+                                trackColor = Color(0xFF2A2A2A),
                             )
                             Text(severityLabel(indicator.weight), color = TextSecondary, fontSize = 13.sp)
                         }
@@ -266,12 +416,17 @@ private fun SmishingAlertContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Report or block sender", color = Indigo, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = Indigo,
-                    modifier = Modifier.size(16.dp),
+                Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
+                Text(
+                    buildString {
+                        append("Classified as ")
+                        append(alert.label ?: "smishing")
+                        alert.score?.let { append(" with ${(it * 100).roundToInt()}% confidence") }
+                        append(". Choose Block, Report, or Ignore after reviewing the result.")
+                    },
+                    color = White,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
                 )
             }
         }

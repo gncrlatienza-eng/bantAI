@@ -50,6 +50,7 @@ import com.bantai.ui.theme.GlassStroke
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Safe
+import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
@@ -117,11 +118,6 @@ fun CampaignDetailScreen(
 
 @Composable
 private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
-    val uniqueSenders =
-        campaign.messages
-            .map { it.sender }
-            .distinct()
-            .size
     val blockedCount = campaign.messages.count { it.bucket == "blocked" }
 
     LazyColumn(
@@ -228,7 +224,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 ) {
                     StatCard(
                         icon = Icons.Default.People,
-                        value = uniqueSenders.toString(),
+                        value = "Private",
                         label = "Senders (recent)",
                         modifier = Modifier.weight(1f),
                     )
@@ -272,6 +268,24 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
             }
         }
 
+        // This advice is derived from the campaign evidence currently returned
+        // by the backend, not a generic warning shown for every cluster.
+        item {
+            SectionLabel("CAMPAIGN-SPECIFIC ADVICE")
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Surface, RoundedCornerShape(12.dp))
+                        .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                campaignAdvice(campaign).forEach { advice ->
+                    Text("• $advice", color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp)
+                }
+            }
+        }
+
         // Recent messages
         item {
             SectionLabel("RECENT MESSAGES")
@@ -295,7 +309,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(message.sender, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Private device record", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 Text(
                                     message.label ?: message.bucket ?: "Unclassified",
                                     color = if (message.bucket == "blocked") Danger else TextSecondary,
@@ -303,7 +317,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                 )
                             }
                             Text(
-                                message.body,
+                                "Message content remains on your device.",
                                 color = TextSecondary,
                                 fontSize = 12.sp,
                                 maxLines = 2,
@@ -318,6 +332,26 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
             }
         }
     }
+}
+
+private fun campaignAdvice(campaign: CampaignsApi.CampaignDetail): List<String> {
+    val evidence = (listOfNotNull(campaign.label) + campaign.urlDomains).joinToString(" ").lowercase()
+    val advice = mutableListOf<String>()
+
+    if (campaign.urlDomains.isNotEmpty()) {
+        advice += "Do not open links from this campaign. Use the provider's official app or type its known address yourself."
+    }
+    if (listOf("gcash", "maya", "bank", "bdo", "bpi", "wallet", "otp", "pin").any { it in evidence }) {
+        advice += "Never share an OTP, PIN, password, or recovery code. Contact the financial provider only through its verified channel."
+    }
+    if (listOf("job", "loan", "prize", "winner", "reward", "cash").any { it in evidence }) {
+        advice += "Do not pay a fee or send money to claim a prize, loan, job, or reward. Verify the offer independently first."
+    }
+    if (advice.isEmpty()) {
+        advice += "Do not reply or share personal information. Keep the message as evidence and report it if it asks for urgent action."
+    }
+    advice += "Blocking is recommended if you did not initiate this conversation."
+    return advice.distinct()
 }
 
 @Composable

@@ -33,4 +33,6 @@ object AuthApi {
         if (lastName.isNotEmpty()) body.put("lastName", lastName)
         return HttpClient.put("/users/me", body, token = token).map { }
     }
+
+    suspend fun deleteAccount(token: String): Result<Unit> = HttpClient.delete("/users/me", token)
 }

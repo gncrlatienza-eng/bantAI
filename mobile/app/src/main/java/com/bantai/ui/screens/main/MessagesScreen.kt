@@ -83,6 +83,7 @@ import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.util.SmsLinkSafety
 import com.bantai.viewmodel.MessageFilter
 import com.bantai.viewmodel.MessagesViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -412,7 +413,12 @@ private fun SmsMessage.toDisplayItem(isDraft: Boolean = false) =
         sender = sender,
         initials = getInitialsFromSender(sender),
         avatarColor = getAvatarColor(sender),
-        preview = if (isDraft) "Draft: $body" else body,
+        preview =
+            when {
+                isDraft -> "Draft: $body"
+                isUnreadThreadSummary -> "Unread summary: $body"
+                else -> SmsLinkSafety.visibleBody(body, classification)
+            },
         timestamp = getRelativeTime(timestamp),
         badge =
             when (classification) {

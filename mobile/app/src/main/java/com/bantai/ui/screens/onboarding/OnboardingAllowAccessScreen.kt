@@ -103,9 +103,7 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
         Text("Read your SMS", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = White)
         Spacer(Modifier.height(8.dp))
         Text(
-            "BantAI needs to read your incoming messages to detect phishing attempts. Message text " +
-                "is sent to BantAI's servers for classification; a limited on-device check is used " +
-                "only when you're offline.",
+            "BantAI reads incoming messages on your device to detect phishing. SMS content stays on your phone; only privacy-minimized threat metadata is synchronized after you sign in.",
             fontSize = 13.sp,
             color = TextSecondary,
             lineHeight = 20.sp,
@@ -125,8 +123,8 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
             )
             PermissionCheckRow(
                 icon = Icons.Filled.Shield,
-                title = "Sent securely for classification",
-                subtitle = "Message text is analyzed by BantAI's detection service",
+                title = "SMS content stays on your phone",
+                subtitle = "Classification happens on-device; only threat metadata is synced",
             )
         }
 

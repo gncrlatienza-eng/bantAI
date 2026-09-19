@@ -146,12 +146,12 @@ object NotificationHelper {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(BRAND_INDIGO)
                 .setContentTitle("⚠ Smishing detected — $safe")
-                .setContentText("Dangerous link or smishing attempt detected. Sender auto-blocked.")
+                .setContentText("Dangerous link or smishing attempt detected. Review it before blocking the sender.")
                 .setStyle(
                     NotificationCompat
                         .BigTextStyle()
                         .bigText(
-                            "A smishing message from $safe was detected and the sender has been automatically blocked. Tap to view threat details.",
+                            "A high-risk message from $safe was detected. Tap to review and choose what to do.",
                         ),
                 ).setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)

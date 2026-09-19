@@ -84,6 +84,8 @@ fun SettingsScreen(
     val userData by viewModel.userData.collectAsState()
     val scanPeriod by viewModel.scanPeriod.collectAsState()
     val context = LocalContext.current
+    val accountDeleteError by viewModel.accountDeleteError.collectAsState()
+    val accountDeleting by viewModel.accountDeleting.collectAsState()
 
     val avatarColorParsed =
         remember(userData.avatarColor) {
@@ -130,6 +132,7 @@ fun SettingsScreen(
                             }
                         }
                     },
+                    enabled = !accountDeleting,
                     colors = ButtonDefaults.buttonColors(containerColor = Danger),
                     shape = RoundedCornerShape(12.dp),
                 ) {

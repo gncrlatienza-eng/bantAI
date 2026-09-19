@@ -23,18 +23,16 @@ import com.bantai.ui.theme.*
 private val howItWorksSections =
     listOf(
         "Step 1 — Receive SMS" to "When a message arrives, BantAI intercepts it as the default SMS app before it reaches your inbox.",
-        "Step 2 — Classify" to
-            "XLM-RoBERTa, a multilingual AI model trained on Filipino smishing patterns, analyzes the message body for threats.",
-        "Step 3 — SHAP Explainability" to
-            "SHAP values identify which words or phrases contributed most to the classification — giving you a transparent reason, not just a verdict.",
+        "Step 2 — Local classification" to
+            "Your device uses privacy-preserving heuristic threat checks. The result drives local alerts even when the network is unavailable.",
+        "Step 3 — Explanations" to
+            "Detailed server-side SHAP explanations are unavailable in privacy-first mode because message content stays on your device.",
         "Step 4 — Cluster" to
             "HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders.",
         "Step 5 — Alert" to
-            "High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review.",
+            "High-confidence smishing triggers a push notification and clear choices to block, report, or ignore. Suspicious messages are flagged for your review.",
         "Your Privacy" to
-            "Message text is sent to BantAI's servers for classification by the model above, and is " +
-            "stored linked to your account. If you're offline or the server can't be reached, a " +
-            "limited on-device check is used instead.",
+            "SMS content stays on your device. After sign-in, BantAI briefly sends the sender to derive a server-side pseudonym, then syncs that pseudonym, classification outcome, timestamp, and campaign domains for threat intelligence.",
     )
 
 @Composable

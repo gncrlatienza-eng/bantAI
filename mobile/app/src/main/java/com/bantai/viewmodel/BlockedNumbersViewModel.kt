@@ -42,32 +42,17 @@ class BlockedNumbersViewModel(
         }
     }
 
-    // The backend already records an entry itself when /sms/ingest auto-blocks
-    // a sender — this only has to cover the two directions that don't already
-    // happen server-side: a backend-known block this device hasn't applied yet
-    // (e.g. a fresh install, or a block made from another device), and a
-    // device-side block (from the offline local-heuristic fallback path, which
-    // never calls the backend at all) the backend doesn't know about yet.
-    // Best-effort both ways — a sync failure here must never block the screen
-    // from showing whatever the device already has.
+    // Android's blocked-number store is the source of actionable sender values.
+    // Backend rows use non-reversible enforcement pseudonyms and cannot safely
+    // be rendered or applied as phone numbers on another device.
     private suspend fun reconcileWithBackend(
         context: Context,
         token: String,
     ) {
-        val backendEntries = BlockedNumbersApi.list(token).getOrNull() ?: return
+        BlockedNumbersApi.list(token).getOrNull() ?: return
         val deviceNumbers = BlockHelper.getBlockedNumbers(context).map { it.number }.toSet()
-
-        for (entry in backendEntries) {
-            if (entry.sender !in deviceNumbers) {
-                BlockHelper.blockNumberSystem(context, entry.sender)
-            }
-        }
-
-        val backendSenders = backendEntries.map { it.sender }.toSet()
         for (number in deviceNumbers) {
-            if (number !in backendSenders) {
-                BlockedNumbersApi.block(token, number)
-            }
+            BlockedNumbersApi.block(token, number)
         }
     }
 

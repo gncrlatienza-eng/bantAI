@@ -140,9 +140,9 @@ private suspend fun performTakeAction(
     context: Context,
     request: TakeActionRequest,
 ): Result<Unit> {
-    val reportResult = submitReportIfSelected(context, request)
-    if (reportResult.isFailure) return reportResult
-    return blockIfSelected(context, request)
+    val blockResult = blockIfSelected(context, request)
+    if (blockResult.isFailure) return blockResult
+    return submitReportIfSelected(context, request)
 }
 
 /**
@@ -191,9 +191,17 @@ fun TakeActionScreen(
                 val reportedLabel = reportedLabelFor(selectedReportType)
                 isSubmitting = true
                 coroutineScope.launch {
-                    val request =
-                        TakeActionRequest(reportSelected, blockSelected, messageId, sender, reportedLabel)
-                    val result = performTakeAction(context, request)
+                    val result =
+                        performTakeAction(
+                            context,
+                            TakeActionRequest(
+                                reportSelected = reportSelected,
+                                blockSelected = blockSelected,
+                                messageId = messageId,
+                                sender = sender,
+                                reportedLabel = reportedLabel,
+                            ),
+                        )
                     isSubmitting = false
                     result
                         .onSuccess { proceedAfterConfirm() }
@@ -278,7 +286,7 @@ private fun TakeActionContent(
                 ActionToggleCard(
                     modifier = Modifier.weight(1f),
                     title = "Report",
-                    description = "Flag this message to improve PhishNet's AI",
+                    description = "Flag this message for administrator review",
                     icon = Icons.Default.Flag,
                     iconColor = Danger,
                     selected = reportSelected,

@@ -1,5 +1,10 @@
 package com.bantai.ui.screens.onboarding
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -27,10 +32,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.bantai.ui.components.BantAILogo
 import com.bantai.ui.components.FeatureListRow
 import com.bantai.ui.components.GroupedCard
@@ -46,7 +53,21 @@ fun OnboardingProtectedScreen(
     viewModel: OnboardingViewModel,
     onFinish: () -> Unit,
 ) {
+    val context = LocalContext.current
     var visible by remember { mutableStateOf(false) }
+    var notificationsAllowed by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) == PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notificationsAllowed = granted
+        }
     val slideAlpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(durationMillis = 500),
@@ -57,7 +78,12 @@ fun OnboardingProtectedScreen(
         animationSpec = tween(durationMillis = 500, easing = EaseOutCubic),
         label = "slide_up",
     )
-    LaunchedEffect(Unit) { visible = true }
+    LaunchedEffect(Unit) {
+        visible = true
+        if (!notificationsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Column(
         modifier =
@@ -110,14 +136,25 @@ fun OnboardingProtectedScreen(
             GroupedDivider()
             FeatureListRow(
                 icon = Icons.Default.AutoAwesome,
-                title = "AI-powered analysis",
-                subtitle = "Trained on Filipino smishing patterns",
+                title = "On-device protection",
+                subtitle = "Privacy-preserving threat checks",
             )
             GroupedDivider()
             FeatureListRow(
                 icon = Icons.Default.Hub,
                 title = "Campaign intelligence",
                 subtitle = "Track coordinated attack waves",
+            )
+        }
+
+        if (!notificationsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Threat notifications are off. You can enable them later in Android Settings.",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 

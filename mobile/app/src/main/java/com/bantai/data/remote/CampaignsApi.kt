@@ -20,7 +20,6 @@ object CampaignsApi {
 
     data class CampaignMessagePreview(
         val id: String,
-        val sender: String,
         val body: String,
         val receivedAt: String,
         val label: String?,
@@ -82,7 +81,6 @@ object CampaignsApi {
         val classification = json.optJSONObject("classification")
         return CampaignMessagePreview(
             id = json.getString("id"),
-            sender = json.optString("sender"),
             body = json.optString("body"),
             receivedAt = json.optString("receivedAt"),
             label = classification?.optString("label")?.takeIf { it.isNotEmpty() },

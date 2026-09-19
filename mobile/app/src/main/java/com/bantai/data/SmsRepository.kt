@@ -171,47 +171,9 @@ class SmsRepository(
         body: String,
     ): String {
         val bodyLower = body.lowercase()
-        val senderLower = sender.lowercase()
-
-        // Guard: known legitimate senders are never auto-blocked outright, but (see
-        // below) a spoofed sender name matching this list no longer guarantees "safe"
-        // on its own — sender IDs aren't authenticated over SMS.
-        val knownSenders =
-            listOf(
-                "pldt",
-                "smart",
-                "globe",
-                "dito",
-                "sun",
-                "tnt",
-                "sss",
-                "gsis",
-                "philhealth",
-                "pagibig",
-                "bir",
-                "meralco",
-                "maynilad",
-                "manila water",
-                "jollibee",
-                "mcdo",
-                "grab",
-                "shopee",
-                "lazada",
-                // Financial institutions added here so their OTP/notification messages
-                // are never misclassified and auto-blocked
-                "gcash",
-                "bdo",
-                "maya",
-                "metrobank",
-                "bpi",
-                "unionbank",
-                "security bank",
-                "chinabank",
-                "rcbc",
-                "eastwest",
-                "landbank",
-            )
-        val isKnownSender = knownSenders.any { senderLower.contains(it) }
+        // Sender display names are spoofable. A familiar-looking name must
+        // never certify a message as safe; verified organizations are assessed
+        // server-side alongside the model and can never override fraud evidence.
 
         // High-confidence scam signals — deliberately excludes words that are routine
         // in legitimate financial messages (otp, verify, account, http, pin, password,
@@ -275,12 +237,7 @@ class SmsRepository(
         // Removed 2026-09-16: a plain-number sender now gets the same
         // content-based treatment as a known sender -- suspicious only when
         // the body actually earns it.
-        return when {
-            isKnownSender && suspiciousScore >= 2 -> "unknown"
-            isKnownSender -> "unverified"
-            suspiciousScore >= 1 -> "unknown"
-            else -> "unverified"
-        }
+        return if (suspiciousScore >= 1) "unknown" else "unverified"
     }
 
     fun getMessageById(id: Long): SmsMessage? {

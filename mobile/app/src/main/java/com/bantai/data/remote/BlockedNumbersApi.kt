@@ -5,14 +5,12 @@ import org.json.JSONObject
 
 /**
  * Syncs the local BlockedNumberContract list with the backend's BlockedNumber
- * table (WBS 4.3.12). The backend already auto-populates this table when
- * /sms/ingest auto-blocks a sender — this client covers the two directions
- * that don't already happen server-side: reading it back, and reflecting a
- * manual unblock.
+ * table (WBS 4.3.12). Blocking is a user action; this client keeps that
+ * user-selected list synchronized with the backend record.
  */
 object BlockedNumbersApi {
     data class BlockedNumberEntry(
-        val sender: String,
+        val id: String,
         val source: String,
         val createdAt: String,
     )
@@ -41,7 +39,7 @@ object BlockedNumbersApi {
         List(json.length()) { i ->
             val entry = json.getJSONObject(i)
             BlockedNumberEntry(
-                sender = entry.optString("sender"),
+                id = entry.optString("id"),
                 source = entry.optString("source"),
                 createdAt = entry.optString("createdAt"),
             )

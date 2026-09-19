@@ -1,0 +1,16 @@
+.git
+.github
+.agents
+.codex
+**/node_modules
+backend/dist
+backend/coverage
+backend/.env
+backend/.env.*
+!backend/.env.example
+mobile
+web
+ai
+docs
+*.log
+*.tmp

@@ -10,12 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateModelVersionDto } from './dto/create-model-version.dto';
 import { ModelsService } from './models.service';
 
 @Controller('models')
-@UseGuards(ApiKeyGuard)
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class ModelsController {
   constructor(private readonly modelsService: ModelsService) {}
 

@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { AdminGuard } from './guards/admin.guard';
 import { jwtConstants } from './constants';
 
 @Module({
@@ -25,7 +26,7 @@ import { jwtConstants } from './constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpSmsService, JwtStrategy],
-  exports: [JwtModule],
+  providers: [AuthService, OtpSmsService, JwtStrategy, AdminGuard],
+  exports: [JwtModule, AdminGuard],
 })
 export class AuthModule {}

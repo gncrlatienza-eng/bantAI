@@ -8,13 +8,15 @@ export class AnalyticsService {
   async getSummary() {
     const [totalMessages, classificationGroups, alertGroups, totalReports] =
       await Promise.all([
-        this.prisma.smsMessage.count(),
+        this.prisma.smsMessage.count({ where: { trusted: true } }),
         this.prisma.classification.groupBy({
           by: ['label'],
+          where: { message: { trusted: true } },
           _count: { label: true },
         }),
         this.prisma.alert.groupBy({
           by: ['status'],
+          where: { message: { trusted: true } },
           _count: { status: true },
         }),
         this.prisma.userReport.count(),

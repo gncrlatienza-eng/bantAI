@@ -62,6 +62,7 @@ export class ReportsService {
   findAll() {
     return this.prisma.userReport.findMany({
       orderBy: { createdAt: 'desc' },
+      take: 100,
       select: {
         id: true,
         status: true,
@@ -70,8 +71,8 @@ export class ReportsService {
         adminNote: true,
         createdAt: true,
         updatedAt: true,
-        user: { select: { id: true, phone: true } },
-        message: { select: { id: true, sender: true, body: true } },
+        user: { select: { id: true } },
+        message: { select: { id: true, body: true } },
       },
     });
   }
@@ -81,13 +82,14 @@ export class ReportsService {
     return this.prisma.userReport.findMany({
       where: { status: 'Pending' },
       orderBy: { createdAt: 'asc' },
+      take: 100,
       select: {
         id: true,
         originalLabel: true,
         reportedLabel: true,
         createdAt: true,
-        user: { select: { id: true, phone: true } },
-        message: { select: { id: true, sender: true, body: true } },
+        user: { select: { id: true } },
+        message: { select: { id: true, body: true } },
       },
     });
   }

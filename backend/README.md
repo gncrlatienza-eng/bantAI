@@ -57,7 +57,7 @@ From the **repo root** (the compose file lives there, not in `backend/`):
 docker compose up -d postgres
 ```
 
-Postgres listens on host port **5433** (mapped to 5432 in the container) with user `bantai` / db `bantai_db`. pgAdmin is available via `docker compose up -d pgadmin` at `http://localhost:5050`.
+Postgres listens on host port **5434** (mapped to 5432 in the container) with user `bantai` / db `bantai_db`. pgAdmin is available via `docker compose up -d pgadmin` at `http://localhost:5050`.
 
 ### Run database migrations
 
@@ -112,13 +112,15 @@ have nothing to do with your code.
 Copy `backend/.env.example` to `backend/.env` (Prisma also reads `backend/database/.env` for the schema CLI):
 
 ```env
-DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5433/bantai_db"
-SHADOW_DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5433/bantai_shadow_db"
+DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5434/bantai_db"
+SHADOW_DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5434/bantai_shadow_db"
 JWT_SECRET="change-me"
 JWT_EXPIRES_IN="7d"
 ```
 
-`JWT_SECRET` falls back to a hardcoded dev value — it must be set in production.
+Production configuration is validated at startup. Copy the full
+[`backend/.env.example`](.env.example), use distinct secret-manager values, and
+set an explicit `CORS_ORIGINS` list. There is no production fallback secret.
 
 ---
 
@@ -151,10 +153,16 @@ JWT_EXPIRES_IN="7d"
 
 Full request/response documentation: [docs/api/auth.md](../docs/api/auth.md) and [docs/api/users.md](../docs/api/users.md).
 
+Interactive OpenAPI documentation is available in development at
+`http://localhost:3000/api/docs`; its JSON document is `/api/docs-json`.
+Production keeps the documentation disabled unless `API_DOCS_ENABLED=true` is
+set behind an authenticated internal gateway.
+
 ### Health
 
 ```
 GET /api/health
+GET /api/health/ready  (database readiness)
 ```
 
 ### Authentication

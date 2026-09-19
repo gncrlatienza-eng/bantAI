@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { AiIndicatorsKeyGuard } from '../auth/guards/api-key.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IngestSmsDto } from './dto/ingest-sms.dto';
 import { StoreIndicatorsDto } from './dto/store-indicators.dto';
@@ -49,7 +49,7 @@ export class SmsController {
   }
 
   // Internal: AI/ML service posts SHAP-derived indicator tags for a message.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(AiIndicatorsKeyGuard)
   @Post(':messageId/indicators')
   storeIndicators(
     @Param('messageId') messageId: string,

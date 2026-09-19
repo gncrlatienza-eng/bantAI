@@ -15,6 +15,7 @@ const F1_DROP_THRESHOLD = 0.05;
 // delta: allowance for natural variance; lambda: detection threshold.
 const PH_DELTA = 0.005;
 const PH_LAMBDA = 50;
+const RETRAIN_LOCK_ID = 2_026_091_600;
 
 @Injectable()
 export class RetrainingService {
@@ -96,7 +97,7 @@ export class RetrainingService {
 
     // Condition 3: Page-Hinkley drift on recent classification scores
     const recentScores = await this.prisma.classification.findMany({
-      where: { createdAt: { gte: lastPromotedAt } },
+      where: { createdAt: { gte: lastPromotedAt }, message: { trusted: true } },
       orderBy: { createdAt: 'asc' },
       select: { score: true },
       take: 2000,
@@ -129,7 +130,22 @@ export class RetrainingService {
     this._retrainInFlight = true;
     this.logger.warn(`Retraining triggered: ${reason}`);
     try {
-      await this.callRetrainEndpoint(reason);
+      // Transaction-scoped locks remain tied to Prisma's pinned interactive
+      // transaction connection and are always released on commit/rollback.
+      await this.prisma.$transaction(
+        async (tx) => {
+          const locks = await tx.$queryRaw<{ locked: boolean }[]>`
+          SELECT pg_try_advisory_xact_lock(${RETRAIN_LOCK_ID}) AS locked
+        `;
+          if (!locks[0]?.locked) {
+            throw new ConflictException(
+              'A retraining job is already in progress.',
+            );
+          }
+          await this.callRetrainEndpoint(reason);
+        },
+        { timeout: 35_000 },
+      );
     } finally {
       this._retrainInFlight = false;
     }

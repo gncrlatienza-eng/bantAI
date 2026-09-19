@@ -4,9 +4,6 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
-type AiLabel = 'Ham' | 'Spam' | 'Scam';
-type AiBucket = 'safe' | 'unknown' | 'spam' | 'blocked';
-
 interface AiSummarizeResponse {
   summary: string;
   sentence_count: number;
@@ -21,20 +18,20 @@ export interface SummarizeResult {
   truncated: boolean;
 }
 
-interface AiClassifyResponse {
-  label: AiLabel;
+export interface ClassifyResult {
+  label: 'Ham' | 'Spam' | 'Scam';
   score: number;
-  scores: Record<AiLabel, number>;
-  bucket: AiBucket;
-  masked_text: string;
+  bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
+  indicators: { tag: string; weight: number }[];
+  explanationMethod: 'shap' | 'keyword-fallback';
 }
 
-export interface ClassificationResult {
-  label: AiLabel;
+interface AiClassifyResponse {
+  label: 'Ham' | 'Spam' | 'Scam';
   score: number;
-  scores: Record<AiLabel, number>;
-  bucket: AiBucket;
-  maskedText: string;
+  bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
+  indicators?: { tag?: unknown; weight?: unknown }[];
+  explanation_method?: unknown;
 }
 
 @Injectable()
@@ -42,46 +39,72 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly baseUrl =
     process.env.AI_SERVICE_URL ?? 'http://localhost:8001';
+  private readonly apiKey = process.env.AI_SERVICE_API_KEY ?? '';
 
-  async classify(messageBody: string): Promise<ClassificationResult | null> {
+  /**
+   * Shared header set for AI-service calls. The `x-api-key` header is only
+   * included when configured — the AI service accepts unauthenticated calls
+   * in local development (see BANTAI_AI_SERVICE_API_KEY in ai/service/config.py).
+   */
+  private authHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.apiKey) headers['x-api-key'] = this.apiKey;
+    return headers;
+  }
+
+  /**
+   * Classifies a privacy-masked SMS with the deployed ML service. Failure is
+   * deliberately non-fatal to ingestion: the caller may show an inbox caution,
+   * but must never turn a client fallback into an automatic block.
+   */
+  async classifyMasked(message: string): Promise<ClassifyResult | null> {
     try {
       const res = await fetch(`${this.baseUrl}/classify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageBody }),
-        signal: AbortSignal.timeout(5000),
+        headers: this.authHeaders(),
+        body: JSON.stringify({ message }),
+        signal: AbortSignal.timeout(3500),
       });
-
-      if (res.status === 503) {
-        this.logger.warn(
-          'AI service model not ready (503) — will fall back to local heuristic',
-        );
-        return null;
-      }
-
       if (!res.ok) {
-        this.logger.error(
-          `AI service returned unexpected status ${res.status}`,
-        );
+        this.logger.warn(`AI service /classify returned ${res.status}`);
         return null;
       }
 
-      // fetch()'s Response.json() is typed Promise<any> by the DOM lib itself --
-      // there's no runtime schema check on the AI service's response, so this
-      // annotation is trusted, not verified.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- response is externally supplied
       const data: AiClassifyResponse = await res.json();
-
+      if (
+        !['Ham', 'Spam', 'Scam'].includes(data.label) ||
+        !['safe', 'unknown', 'spam', 'blocked'].includes(data.bucket) ||
+        typeof data.score !== 'number' ||
+        !Number.isFinite(data.score) ||
+        data.score < 0 ||
+        data.score > 1
+      ) {
+        this.logger.warn('AI service /classify returned an invalid payload');
+        return null;
+      }
+      const indicators = (data.indicators ?? []).filter(
+        (indicator): indicator is { tag: string; weight: number } =>
+          typeof indicator.tag === 'string' &&
+          typeof indicator.weight === 'number' &&
+          Number.isFinite(indicator.weight) &&
+          indicator.weight >= 0 &&
+          indicator.weight <= 1,
+      );
+      const explanationMethod =
+        data.explanation_method === 'shap' ? 'shap' : 'keyword-fallback';
       return {
         label: data.label,
         score: data.score,
-        scores: data.scores,
         bucket: data.bucket,
-        maskedText: data.masked_text,
+        indicators,
+        explanationMethod,
       };
     } catch (err) {
       this.logger.warn(
-        `AI service unreachable: ${(err as Error).message} — will fall back to local heuristic`,
+        `AI service unreachable for /classify: ${(err as Error).message}`,
       );
       return null;
     }
@@ -89,7 +112,7 @@ export class AiService {
 
   /**
    * Proxies POST /summarize on the AI service (WBS 4.3.9/4.3.11). Unlike
-   * classify(), there is no on-device fallback for a real extractive summary,
+   * there is no on-device fallback for a real extractive summary,
    * so an unreachable AI service surfaces as a 503 rather than a null the
    * caller might mistake for "no summary needed".
    */
@@ -100,7 +123,7 @@ export class AiService {
     try {
       const res = await fetch(`${this.baseUrl}/summarize`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.authHeaders(),
         body: JSON.stringify({
           messages,
           ...(maxSentences ? { max_sentences: maxSentences } : {}),
@@ -117,7 +140,7 @@ export class AiService {
         );
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- see classify() above
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- response is externally supplied
       const data: AiSummarizeResponse = await res.json();
       return {
         summary: data.summary,

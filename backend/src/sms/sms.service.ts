@@ -1,12 +1,14 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../database/prisma.service';
-import { AiService } from '../ai/ai.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
+import { fingerprintSender } from '../auth/phone';
+import { VerificationService } from '../verification/verification.service';
+import { AiService } from '../ai/ai.service';
 import { IngestSmsDto } from './dto/ingest-sms.dto';
 
 // Shortened URL services whose domains trigger caution regardless of content.
-const SHORTENED_URL_HOSTS = new Set([
+const SHORTENED_URL_HOSTS = new Set<string>([
   'bit.ly',
   'tinyurl.com',
   'goo.gl',
@@ -23,18 +25,17 @@ const SHORTENED_URL_HOSTS = new Set([
 
 @Injectable()
 export class SmsService {
-  private readonly logger = new Logger(SmsService.name);
-
   constructor(
     private prisma: PrismaService,
-    private aiService: AiService,
     private campaignsService: CampaignsService,
+    private verificationService: VerificationService,
+    private aiService: AiService,
   ) {}
 
   async ingest(userId: string, dto: IngestSmsDto) {
-    // Normalize once; all DB lookups keyed on sender use this value so that
-    // +639171234567, 09171234567, and 639171234567 resolve to the same record.
-    const normalizedSender = this.normalizePhone(dto.sender);
+    // Only a server-side HMAC pseudonym is persisted. Raw sender identifiers
+    // and raw SMS bodies stay on the device.
+    const normalizedSender = fingerprintSender(dto.sender);
 
     // Step 1 — check if sender is blocked; suppress before doing any work
     const blocked = await this.prisma.blockedNumber.findUnique({
@@ -44,153 +45,136 @@ export class SmsService {
       return { suppressed: true, reason: 'blocked_sender' };
     }
 
-    // Step 2 — store the SMS with the normalized sender so all DB lookups
-    // keyed on sender (alerts, verification cache) resolve consistently.
-    const message = await this.prisma.smsMessage.create({
-      data: {
-        userId,
-        sender: normalizedSender,
-        body: dto.body,
-        receivedAt: new Date(dto.receivedAt),
-      },
-    });
+    const modelResult = await this.aiService.classifyMasked(dto.maskedBody);
+    const classificationSource = modelResult ? 'model' : 'device_fallback';
+    const label = modelResult?.label ?? dto.label ?? 'Ham';
+    const score = modelResult?.score ?? dto.score ?? 0;
+    const bucket = modelResult?.bucket ?? dto.bucket;
+    const candidateAction = bucket
+      ? this.routeFromBucket(bucket)
+      : this.routeFromLabel(label, score);
+    // A device can submit arbitrary telemetry. A missing/unavailable model may
+    // still create an alert, but never lets client-provided metadata block a
+    // number automatically.
+    const action =
+      !modelResult && candidateAction === 'blocked' ? 'alert' : candidateAction;
 
-    // Step 3 — call AI service; returns null when model is not ready or service is down
-    const aiResult = await this.aiService.classify(dto.body);
-
-    const normalizedBody = dto.body.normalize('NFKC');
-    let label: string;
-    let score: number;
-    let scores: Record<string, number> | undefined;
-    let bucket: string | undefined;
-    let maskedBody: string;
-
-    if (aiResult) {
-      label = aiResult.label;
-      score = aiResult.score;
-      scores = aiResult.scores;
-      bucket = aiResult.bucket;
-      maskedBody = aiResult.maskedText;
-    } else {
-      this.logger.warn(
-        `Falling back to local heuristic for message ${message.id}`,
-      );
-      maskedBody = this.maskLocally(normalizedBody);
-      ({ label, score } = this.classifyLocally(maskedBody));
-    }
-
-    // Step 4 — route using AI bucket when available, otherwise fall back to score thresholds
-    const action = bucket
-      ? this.routeFromBucket(bucket as 'safe' | 'unknown' | 'spam' | 'blocked')
-      : this.routeFromScore(score);
+    // A global fraud result is established only after independent reports and
+    // an administrator's review. It raises the risk level but never performs a
+    // block silently: the thesis workflow requires the user to choose Block,
+    // Report, or Ignore after a high-confidence warning.
+    const confirmedFraud = await this.verificationService.isConfirmedFraud(
+      dto.sender,
+    );
+    const senderVerification = await this.verificationService.verifySender(
+      userId,
+      dto.sender,
+    );
+    const effectiveAction =
+      confirmedFraud || action === 'blocked' ? 'alert' : action;
 
     // Step 5 — auto-block: if high-confidence smishing, add sender to blocked list.
     // Gated on the routing decision, not the raw score: `score` is the winning
     // class's confidence, so a confidently-Ham message (Ham at 0.94) would
     // otherwise block a legitimate sender.
-    if (action === 'blocked') {
-      await this.prisma.blockedNumber.upsert({
-        where: { userId_sender: { userId, sender: normalizedSender } },
-        create: { userId, sender: normalizedSender, source: 'AutoBlock' },
-        update: {},
-      });
-    }
+    const domains = (dto.domains ?? []).map((domain) => domain.toLowerCase());
+    const cluster = domains.length
+      ? await this.campaignsService.findByDomains(domains)
+      : null;
 
-    // Step 6 — determine sender verification status (needed for link suppression trigger)
-    const senderContact = await this.prisma.contact.findUnique({
-      where: { userId_phone: { userId, phone: normalizedSender } },
-    });
-    const senderIsUnknown = !senderContact;
-
-    // Step 7 — link suppression:
-    //   Triggers when classification is Spam/Scam OR sender is unknown.
-    //   Extracts URLs, checks campaign cluster domains + shortened URL services,
-    //   and logs suppressed links back to MessageFeatures (per thesis pseudocode).
-    const suppressedLinks: string[] = [];
+    // Link suppression: for flagged messages or unknown senders, mark
+    // shortener/known-campaign domains so the mobile UI can strip or warn on
+    // them. Only domains are available server-side (mobile masks the raw
+    // body), so the payload is domain-shaped rather than full URLs.
     const shouldSuppress =
-      label === 'Spam' || label === 'Scam' || senderIsUnknown;
-
-    if (shouldSuppress) {
-      const urls = this.extractUrls(dto.body);
-
-      if (urls.length > 0) {
-        const clusterDomains = await this.campaignsService.getActiveDomains();
-        // Compute hosts once — reused for both suppression check and cluster match
-        const hosts = urls.map((u) => this.extractHost(u));
-
-        for (let i = 0; i < urls.length; i++) {
-          if (
-            SHORTENED_URL_HOSTS.has(hosts[i]) ||
-            clusterDomains.has(hosts[i])
-          ) {
-            suppressedLinks.push(urls[i]);
-          }
-        }
-
-        const matchedDomains = hosts.filter((h) => clusterDomains.has(h));
-        if (matchedDomains.length > 0) {
-          const cluster =
-            await this.campaignsService.findByDomains(matchedDomains);
-          if (cluster) {
-            await this.prisma.$transaction([
-              this.prisma.smsMessage.update({
-                where: { id: message.id },
-                data: { clusterId: cluster.id },
-              }),
-              this.prisma.campaignCluster.update({
-                where: { id: cluster.id },
-                data: { messageCount: { increment: 1 } },
-              }),
-            ]);
-            this.logger.log(
-              `Message ${message.id} linked to cluster ${cluster.id}`,
-            );
-          }
+      label === 'Spam' ||
+      label === 'Scam' ||
+      senderVerification.familiarity === 'unknown';
+    const suppressedLinks: string[] = [];
+    if (shouldSuppress && domains.length) {
+      const clusterDomains = await this.campaignsService.getActiveDomains();
+      for (const domain of domains) {
+        if (SHORTENED_URL_HOSTS.has(domain) || clusterDomains.has(domain)) {
+          suppressedLinks.push(domain);
         }
       }
     }
 
-    // Steps 8+9 — single transaction so a failed classification.create cannot
-    // leave an orphaned messageFeature row (and vice versa).
-    await this.prisma.$transaction([
-      this.prisma.messageFeature.create({
-        data: {
-          messageId: message.id,
-          normalizedBody,
-          maskedBody,
-          suppressedLinks,
-        },
-      }),
-      this.prisma.classification.create({
-        data: {
-          messageId: message.id,
-          label,
-          score,
-          scores,
-          bucket,
-        },
-      }),
-    ]);
+    // Create the message, derived metadata, classification, alert, and campaign
+    // reference as one transaction. `sourceId` provides idempotency. Blocking
+    // happens only through the user's explicit blocked-number action.
+    let result: { id: string; duplicate: boolean };
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.smsMessage.findUnique({
+          where: { userId_sourceId: { userId, sourceId: dto.sourceId } },
+          select: { id: true },
+        });
+        if (existing) return { id: existing.id, duplicate: true };
 
-    // Step 10 — create an Alert row for flagged messages so the Alerts screen
-    //   has something to display. Inbox messages do not generate an alert.
-    //   Status mirrors the routing decision: blocked messages are already
-    //   suppressed, so they are recorded as Blocked rather than Pending.
-    if (action === 'alert' || action === 'blocked') {
-      await this.prisma.alert.create({
-        data: {
-          messageId: message.id,
-          status: action === 'blocked' ? 'Blocked' : 'Pending',
-        },
+        const message = await tx.smsMessage.create({
+          data: {
+            userId,
+            sender: normalizedSender,
+            body: dto.maskedBody.normalize('NFKC'),
+            sourceId: dto.sourceId,
+            trusted: false,
+            receivedAt: new Date(dto.receivedAt),
+            clusterId: cluster?.id,
+          },
+        });
+        await tx.messageFeature.create({
+          data: {
+            messageId: message.id,
+            normalizedBody: dto.maskedBody.normalize('NFKC'),
+            maskedBody: dto.maskedBody,
+            suppressedLinks,
+          },
+        });
+        const classification = await tx.classification.create({
+          data: { messageId: message.id, label, score, bucket },
+        });
+        if (modelResult?.indicators?.length) {
+          await tx.explainableIndicator.create({
+            data: {
+              classificationId: classification.id,
+              indicators: modelResult.indicators,
+            },
+          });
+        }
+        // Client telemetry may link to an existing campaign for the owner's
+        // local metadata view, but it cannot change global campaign counts.
+        if (effectiveAction === 'alert') {
+          await tx.alert.create({
+            data: {
+              messageId: message.id,
+              status: 'Pending',
+            },
+          });
+        }
+        return { id: message.id, duplicate: false };
       });
+    } catch (error) {
+      // A concurrent retry can win between the lookup and insert. The unique
+      // key is the authority; resolve that race as a successful idempotent read.
+      if ((error as { code?: string }).code !== 'P2002') throw error;
+      const existing = await this.prisma.smsMessage.findUnique({
+        where: { userId_sourceId: { userId, sourceId: dto.sourceId } },
+        select: { id: true },
+      });
+      if (!existing) throw error;
+      result = { id: existing.id, duplicate: true };
     }
 
     return {
-      messageId: message.id,
+      messageId: result.id,
       classification: { label, score },
-      action,
-      senderStatus: senderIsUnknown ? 'unknown' : 'verified',
+      classificationSource,
+      action: effectiveAction,
+      senderStatus: senderVerification.familiarity,
+      senderVerification,
       suppressedLinks,
+      duplicate: result.duplicate,
     };
   }
 
@@ -198,6 +182,7 @@ export class SmsService {
     return this.prisma.alert.findMany({
       where: { message: { userId } },
       orderBy: { createdAt: 'desc' },
+      take: 100,
       select: {
         id: true,
         status: true,
@@ -205,8 +190,7 @@ export class SmsService {
         message: {
           select: {
             id: true,
-            sender: true,
-            body: true,
+            sourceId: true,
             receivedAt: true,
             clusterId: true,
             classification: {
@@ -272,67 +256,12 @@ export class SmsService {
     return 'inbox';
   }
 
-  private routeFromScore(score: number): 'blocked' | 'alert' | 'inbox' {
-    if (score >= 0.9) return 'blocked';
-    if (score >= 0.5) return 'alert';
+  private routeFromLabel(
+    label: 'Ham' | 'Spam' | 'Scam',
+    score: number,
+  ): 'blocked' | 'alert' | 'inbox' {
+    if (label === 'Scam' && score >= 0.9) return 'blocked';
+    if (label === 'Spam' || label === 'Scam') return 'alert';
     return 'inbox';
-  }
-
-  private maskLocally(normalizedBody: string): string {
-    return normalizedBody
-      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
-      .replace(/https?:\/\/\S+/gi, '[URL]')
-      .replace(/\b(09\d{9}|\+639\d{9}|\d{7,8})\b/g, '[PHONE]')
-      .replace(
-        /[₱P][\d,]+(\.\d+)?|\b\d+(\.\d+)?\s*(pesos?|php)\b/gi,
-        '[AMOUNT]',
-      )
-      .replace(/\b\d{4,8}\b/g, '[OTP]');
-  }
-
-  private classifyLocally(maskedBody: string): {
-    label: string;
-    score: number;
-  } {
-    const keywords = [
-      '[url]',
-      'verify',
-      'locked',
-      'click',
-      'prize',
-      'won',
-      'gcash',
-      'account',
-    ];
-    const hits = keywords.filter((kw) =>
-      maskedBody.toLowerCase().includes(kw),
-    ).length;
-    const score = Math.min(hits / keywords.length, 0.99);
-    let label: string;
-    if (score >= 0.9) label = 'Scam';
-    else if (score >= 0.5) label = 'Spam';
-    else label = 'Ham';
-    return { label, score };
-  }
-
-  private extractUrls(body: string): string[] {
-    const pattern = /https?:\/\/[^\s]+/gi;
-    return Array.from(new Set(body.match(pattern) ?? []));
-  }
-
-  private extractHost(url: string): string {
-    try {
-      return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
-    } catch {
-      return url.toLowerCase();
-    }
-  }
-
-  private normalizePhone(phone: string): string {
-    if (/[a-zA-Z]/.test(phone)) return phone.trim().toLowerCase();
-    const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('63') && digits.length === 12)
-      return '0' + digits.slice(2);
-    return digits;
   }
 }

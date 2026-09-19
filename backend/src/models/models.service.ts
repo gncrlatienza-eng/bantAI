@@ -14,6 +14,7 @@ export class ModelsService {
   findAll() {
     return this.prisma.modelVersion.findMany({
       orderBy: { promotedAt: 'desc' },
+      take: 100,
     });
   }
 

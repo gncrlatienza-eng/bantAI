@@ -7,10 +7,12 @@ import {
   Param,
   Patch,
   Post,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddDomainsDto } from './dto/add-domains.dto';
 import { CreateClusterDto } from './dto/create-cluster.dto';
@@ -44,8 +46,11 @@ export class CampaignsController {
   // Mobile / dashboard: get one cluster with its recent messages
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.campaignsService.findOne(id);
+  findOne(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
+    return this.campaignsService.findOne(id, req.user.userId);
   }
 
   // Internal: AI/ML service registers a new cluster after HDBSCAN run
@@ -63,11 +68,16 @@ export class CampaignsController {
     return this.campaignsService.addDomains(id, dto.domains);
   }
 
-  // Internal: AI/ML service or admin deactivates a cluster.
-  // ApiKeyGuard replaces JwtAuthGuard — any registered user could previously call this.
-  @UseGuards(ApiKeyGuard)
+  // Human administrative operation. Machine credentials cannot act as a user.
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch(':id/deactivate')
   deactivate(@Param('id') id: string) {
+    return this.campaignsService.deactivate(id);
+  }
+
+  @UseGuards(ApiKeyGuard)
+  @Patch('internal/:id/deactivate')
+  deactivateInternal(@Param('id') id: string) {
     return this.campaignsService.deactivate(id);
   }
 }

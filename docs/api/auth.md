@@ -2,106 +2,73 @@
 
 Base URL (local development): `http://localhost:3000/api`
 
-Authentication is phone-based OTP. There are no passwords. A successful OTP verification returns a JWT which must be sent as `Authorization: Bearer <token>` on protected endpoints.
+bantAI has two intentionally separate authentication flows:
 
-- **JWT expiry:** 7 days by default (`JWT_EXPIRES_IN`).
-- **Secret:** `JWT_SECRET` env var (falls back to a hardcoded dev secret — must be set in production).
-- **OTP delivery (dev):** requires `SEMAPHORE_API_KEY` in `.env`; without it, `OtpSmsService` logs a warning and no-ops (the code is *not* printed to the console — read it straight from the `OtpCode` table, e.g. `SELECT phone, code FROM "OtpCode" ORDER BY "createdAt" DESC LIMIT 1;`). OTPs are 6 digits and expire after 5 minutes.
-- **Validation:** requests are validated with a global `ValidationPipe` (`whitelist: true, forbidNonWhitelisted: true`) — unknown body fields cause a 400.
+- Android users prove ownership of a Philippine mobile number with Firebase Phone Authentication.
+- Web clients and administrators sign in with email and password.
 
----
+Every successful flow returns a bantAI JWT for protected API requests. Send it as `Authorization: Bearer <token>`.
 
-## POST /auth/register
+## Android mobile authentication
 
-Explicitly register a user with profile details. Optional — `verify-otp` auto-creates a bare user for unknown phone numbers, so this is only needed when collecting profile info up front.
+Firebase generates, sends, expires, and verifies the SMS code in the Android app. The app then exchanges the resulting Firebase ID token for a bantAI JWT. The backend never receives or stores the OTP.
 
-**Request**
+### POST /auth/mobile/firebase
+
+```json
+{ "idToken": "<firebase-id-token>" }
+```
+
+The backend verifies the token signature, audience, expiry, phone number, and Firebase sign-in provider. It then creates or retrieves the phone-owned user without changing an existing role.
+
+**Responses**
+
+- `200` — `{ "message": "Authentication successful.", "access_token": "<bantai-jwt>" }`
+- `401` — invalid, expired, or non-phone Firebase token
+- `503` — `FIREBASE_PROJECT_ID` is not configured
+
+Firebase development test numbers and codes must be configured in Firebase Console. Never add a production bypass or log real OTP values.
+
+## Web portal authentication
+
+### POST /auth/portal/register
 
 ```json
 {
-  "phone": "+639170000001",
   "email": "user@example.com",
-  "firstName": "Juan",
-  "lastName": "Dela Cruz"
+  "password": "a-long-password",
+  "company": "Optional Company"
 }
 ```
 
-`email`, `firstName`, `lastName` are optional.
-
-**Responses**
-
-- `201` — `{ "message": "User registered successfully.", "user": { ... } }`
-- `400` — phone already registered.
-
----
-
-## POST /auth/request-otp
-
-Generate an OTP for a phone number. Works for both existing and new numbers.
-
-**Request**
-
-```json
-{ "phone": "+639170000001" }
-```
-
-**Responses**
-
-- `201` — `{ "message": "OTP generated successfully." }` (read the code from the backend console in dev)
-
----
-
-## POST /auth/verify-otp
-
-Verify the OTP. On success: marks the code used, creates the user if the phone is new, and returns a JWT.
-
-**Request**
-
-```json
-{ "phone": "+639170000001", "otp": "974983" }
-```
-
-**Responses**
-
-- `201` —
+### POST /auth/login
 
 ```json
 {
-  "message": "Authentication successful.",
-  "access_token": "<jwt>"
+  "email": "user@example.com",
+  "password": "a-long-password"
 }
 ```
 
-No `user` object is returned here by design — the auth payload deliberately carries no PII (see `auth.service.spec.ts`). Callers that already know the phone number they just verified don't need it back; call `GET /auth/me` if you need the full profile.
+Both endpoints return the normal bantAI JWT. Administrator status comes from the stored database role, never from a client-supplied field.
 
-- `400` — invalid or expired OTP (the two cases are deliberately not distinguished, so a guessed code can't be told apart from an expired one).
+## GET /auth/me
 
-**JWT payload:** `{ "sub": "<userId>", "phone": "<phone>" }`.
+Returns the authenticated user's current database record.
 
----
-
-## GET /auth/me  🔒
-
-Returns the authenticated user. Use this on app load to validate a stored token.
-
-**Request**
-
-```
-Authorization: Bearer <access_token>
+```text
+Authorization: Bearer <bantai-jwt>
 ```
 
-**Responses**
+- `200` — current user
+- `401` — missing, invalid, or expired JWT
+- `404` — the user no longer exists
 
-- `200` — the user object (same shape as in `verify-otp`).
-- `401` — missing/invalid/expired token.
-- `404` — token valid but user no longer exists.
+## Mobile flow
 
----
-
-## Frontend login flow
-
-1. User enters phone → `POST /auth/request-otp`.
-2. User enters the 6-digit code → `POST /auth/verify-otp`.
-3. Store `access_token` (e.g. localStorage for the dashboard, DataStore on Android).
-4. Attach `Authorization: Bearer <token>` to all subsequent API calls.
-5. On app start, call `GET /auth/me` — a `401` means the token is stale; clear it and return to login.
+1. Android calls Firebase Phone Authentication with the normalized `+63...` number.
+2. Firebase sends and verifies the six-digit SMS code.
+3. Android obtains a Firebase ID token.
+4. Android sends the ID token to `POST /auth/mobile/firebase`.
+5. The backend verifies it and returns the bantAI JWT.
+6. Android stores only the bantAI JWT for subsequent API calls.

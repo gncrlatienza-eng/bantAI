@@ -33,7 +33,7 @@ src/
 
 database/
 ├── prisma/
-│   ├── schema.prisma    # User, OtpCode, SmsMessage, Classification, Alert
+│   ├── schema.prisma    # User, SmsMessage, Classification, Alert
 │   └── migrations/
 ├── prisma.module.ts
 └── prisma.service.ts
@@ -137,7 +137,7 @@ set an explicit `CORS_ORIGINS` list. There is no production fallback secret.
 
 ### Authentication (phone OTP — no passwords)
 
-- ✅ OTP request + verification (`OtpCode` model, 6 digits, 5-minute expiry)
+- ✅ Firebase phone authentication with backend ID-token exchange
 - ✅ JWT issued on successful verification (Passport JWT strategy + guard)
 - ✅ Auto-creates a user on first OTP verification for unknown numbers
 - ✅ Protected `GET /auth/me` for token validation
@@ -168,9 +168,8 @@ GET /api/health/ready  (database readiness)
 ### Authentication
 
 ```
-POST /api/auth/register      (optional — verify-otp auto-registers)
-POST /api/auth/request-otp
-POST /api/auth/verify-otp    → returns JWT
+POST /api/auth/register
+POST /api/auth/mobile/firebase → verifies Firebase phone token, returns JWT
 GET  /api/auth/me            🔒 Bearer token
 ```
 

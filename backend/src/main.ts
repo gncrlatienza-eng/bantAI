@@ -8,9 +8,8 @@ function assertRequiredConfiguration() {
   const required = [
     'DATABASE_URL',
     'JWT_SECRET',
-    'OTP_HASH_SECRET',
+    'FIREBASE_PROJECT_ID',
     'SENDER_HASH_SECRET',
-    'ADMIN_PHONES',
     // The backend must authenticate to the AI service outside local
     // development. Leaving this unset silently turns every AI response into
     // a non-authoritative fallback after the service rejects the request.
@@ -18,12 +17,20 @@ function assertRequiredConfiguration() {
     'AI_CAMPAIGNS_API_KEY',
     'AI_MODELS_API_KEY',
     'AI_INDICATORS_API_KEY',
-    'SEMAPHORE_API_KEY',
   ];
   const missing = required.filter((name) => !process.env[name]?.trim());
   if (missing.length) {
     throw new Error(`Missing required configuration: ${missing.join(', ')}`);
   }
+
+  /*
+   * Mobile phone verification is handled by Firebase Authentication. The
+   * backend verifies Firebase ID tokens and never generates or stores OTPs.
+   *
+   * Admin promotion is no longer env-based (previously ADMIN_PHONES). Admin
+   * role is set on the User record directly. Provisioning happens through a
+   * seed or the DB, not through this file.
+   */
 }
 
 function getAllowedOrigins(): string[] {

@@ -5,7 +5,7 @@ import { PrismaModule } from '../../database/prisma.module';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { OtpSmsService } from './otp-sms.service';
+import { FirebaseTokenVerifierService } from './firebase-token-verifier.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AdminGuard } from './guards/admin.guard';
 import { jwtConstants } from './constants';
@@ -36,7 +36,12 @@ import { jwtConstants } from './constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpSmsService, JwtStrategy, AdminGuard],
+  providers: [
+    AuthService,
+    FirebaseTokenVerifierService,
+    JwtStrategy,
+    AdminGuard,
+  ],
   exports: [JwtModule, PassportModule, AdminGuard],
 })
 export class AuthModule {}

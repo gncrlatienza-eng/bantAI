@@ -34,6 +34,8 @@ mobile/*.aab
 mobile/*.keystore
 mobile/*.jks
 mobile/keystore.properties
+mobile/app/google-services.json
+**/firebase-service-account*.json
 
 # ─── Python / ML ───────────────────────────────────────────────────────────────
 __pycache__/

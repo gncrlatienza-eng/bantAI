@@ -2,7 +2,7 @@
 
 Base URL (local development): `http://localhost:3000/api`
 
-All endpoints here require the JWT from [auth](auth.md) `verify-otp`, sent as `Authorization: Bearer <token>`.
+All endpoints here require the JWT described in [auth](auth.md), sent as `Authorization: Bearer <token>`.
 
 ---
 

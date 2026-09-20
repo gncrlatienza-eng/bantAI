@@ -3,7 +3,6 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { PrismaService } from '../../database/prisma.service';
 
-const OTP_RETENTION_MS = 24 * 60 * 60 * 1000;
 const TELEMETRY_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const SENDER_REPORT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -16,7 +15,6 @@ export class DataRetentionService {
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async purgeExpiredData() {
     const now = Date.now();
-    const otpBefore = new Date(now - OTP_RETENTION_MS);
     const telemetryBefore = new Date(now - TELEMETRY_RETENTION_MS);
     const reportBefore = new Date(now - SENDER_REPORT_RETENTION_MS);
 
@@ -36,14 +34,6 @@ export class DataRetentionService {
         select: { clusterId: true },
       });
       await tx.smsMessage.deleteMany({ where: staleMessages });
-      await tx.otpCode.deleteMany({
-        // Keep an expired challenge until its one-hour request window has
-        // elapsed; that row holds the durable per-phone request budget.
-        where: {
-          expiresAt: { lt: new Date() },
-          requestWindowStart: { lt: otpBefore },
-        },
-      });
       // Contacts are deleted on the next complete device snapshot or account
       // deletion. Removing a still-present contact merely because the user has
       // not opened the app in 90 days would be incorrect.

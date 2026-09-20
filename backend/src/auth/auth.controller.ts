@@ -12,10 +12,9 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
-import { RequestOtpDto } from './dto/request-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { LoginDto } from './dto/login.dto';
 import { PortalRegisterDto } from './dto/portal-register.dto';
+import { FirebaseLoginDto } from './dto/firebase-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -43,18 +42,13 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  // 5 OTP requests per IP per minute — prevents SMS-flooding abuse
-  @Throttle({ global: { ttl: 60_000, limit: 5 } })
-  @Post('request-otp')
-  requestOtp(@Body() dto: RequestOtpDto) {
-    return this.authService.requestOtp(dto);
-  }
-
-  // 10 OTP verification attempts per IP per minute
+  // Firebase performs SMS delivery and verification. This exchange validates
+  // the Firebase ID token and returns the normal bantAI API JWT.
   @Throttle({ global: { ttl: 60_000, limit: 10 } })
-  @Post('verify-otp')
-  verifyOtp(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(dto);
+  @HttpCode(HttpStatus.OK)
+  @Post('mobile/firebase')
+  firebaseLogin(@Body() dto: FirebaseLoginDto) {
+    return this.authService.firebaseLogin(dto);
   }
 
   // Authenticated — skip the global throttle, JWT already identifies the user

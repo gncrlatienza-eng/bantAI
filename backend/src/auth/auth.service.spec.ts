@@ -1,4 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 
@@ -8,7 +12,7 @@ import { OtpSmsService } from './otp-sms.service';
 
 describe('AuthService', () => {
   const prisma = {
-    user: { upsert: jest.fn(), findUnique: jest.fn() },
+    user: { upsert: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
     otpCode: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
@@ -22,7 +26,7 @@ describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     prisma.$transaction.mockImplementation(
       (work: (tx: typeof prisma) => unknown) => work(prisma),
     );
@@ -44,6 +48,75 @@ describe('AuthService', () => {
       message: 'Verify this phone number before creating a profile.',
     });
     expect(prisma.user.upsert).not.toHaveBeenCalled();
+  });
+
+  it('registers a portal user with a hashed password and issues a token', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockImplementation(({ data }) =>
+      Promise.resolve({ id: 'u-web', role: 'USER', ...data }),
+    );
+    jwt.signAsync.mockResolvedValue('portal-jwt');
+
+    await expect(
+      service.registerPortal({
+        email: ' Client@Example.com ',
+        password: 'strong-password',
+        company: ' Example Co ',
+      }),
+    ).resolves.toMatchObject({ access_token: 'portal-jwt' });
+
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: 'client@example.com',
+        company: 'Example Co',
+        role: 'USER',
+        passwordHash: expect.not.stringMatching(/^strong-password$/),
+      }),
+    });
+  });
+
+  it('rejects duplicate portal registration', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
+
+    await expect(
+      service.registerPortal({
+        email: 'client@example.com',
+        password: 'strong-password',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('authenticates a portal user with email and password', async () => {
+    const registration = service.registerPortal({
+      email: 'client@example.com',
+      password: 'strong-password',
+    });
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockImplementation(({ data }) =>
+      Promise.resolve({ id: 'u-web', role: 'USER', ...data }),
+    );
+    jwt.signAsync.mockResolvedValue('portal-jwt');
+    await registration;
+    const created = prisma.user.create.mock.calls[0][0].data;
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'u-web',
+      role: 'USER',
+      passwordHash: created.passwordHash,
+    });
+
+    await expect(
+      service.login({
+        email: 'CLIENT@example.com',
+        password: 'strong-password',
+      }),
+    ).resolves.toMatchObject({ access_token: 'portal-jwt' });
+
+    await expect(
+      service.login({
+        email: 'client@example.com',
+        password: 'wrong-password',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('atomically consumes a valid OTP and issues a role-bearing token', async () => {

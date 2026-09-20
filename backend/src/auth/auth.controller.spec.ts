@@ -5,6 +5,8 @@ import { AuthService } from './auth.service';
 
 const mockAuthService = {
   register: jest.fn(),
+  registerPortal: jest.fn(),
+  login: jest.fn(),
   requestOtp: jest.fn(),
   verifyOtp: jest.fn(),
   getMe: jest.fn(),
@@ -28,7 +30,7 @@ describe('AuthController', () => {
   });
 
   it('delegates register to AuthService', async () => {
-    const dto = { phone: '+639171234567' } as any;
+    const dto = { phone: '+639171234567' };
     mockAuthService.register.mockResolvedValue({
       message: 'User registered successfully.',
       user: {},
@@ -48,6 +50,28 @@ describe('AuthController', () => {
     await controller.requestOtp(dto);
 
     expect(mockAuthService.requestOtp).toHaveBeenCalledWith(dto);
+  });
+
+  it('delegates portal registration to AuthService', async () => {
+    const dto = {
+      email: 'client@example.com',
+      password: 'strong-password',
+      company: 'Example Co',
+    };
+    mockAuthService.registerPortal.mockResolvedValue({ access_token: 'tok' });
+
+    await controller.portalRegister(dto);
+
+    expect(mockAuthService.registerPortal).toHaveBeenCalledWith(dto);
+  });
+
+  it('delegates email/password login to AuthService', async () => {
+    const dto = { email: 'client@example.com', password: 'strong-password' };
+    mockAuthService.login.mockResolvedValue({ access_token: 'tok' });
+
+    await controller.login(dto);
+
+    expect(mockAuthService.login).toHaveBeenCalledWith(dto);
   });
 
   it('delegates verifyOtp to AuthService', async () => {

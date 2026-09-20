@@ -7,7 +7,10 @@ import {
   Logger,
   NotFoundException,
   ServiceUnavailableException,
+  UnauthorizedException,
+  ConflictException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
 import { PrismaService } from '../../database/prisma.service';
@@ -17,6 +20,8 @@ import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { OtpSmsService } from './otp-sms.service';
 import { normalizePhilippineMobile } from './phone';
+import { LoginDto } from './dto/login.dto';
+import { PortalRegisterDto } from './dto/portal-register.dto';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_WINDOW_MS = 60 * 60 * 1000;
@@ -40,6 +45,42 @@ export class AuthService {
     return Promise.resolve({
       message: 'Verify this phone number before creating a profile.',
     });
+  }
+
+  async registerPortal(dto: PortalRegisterDto) {
+    const email = dto.email.trim().toLowerCase();
+    if (await this.prisma.user.findUnique({ where: { email } })) {
+      throw new ConflictException('An account already exists for this email.');
+    }
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash: await bcrypt.hash(dto.password, 12),
+        company: dto.company?.trim() || undefined,
+        role: 'USER',
+      },
+    });
+    return this.issueToken(user.id, user.role);
+  }
+
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email.trim().toLowerCase() },
+    });
+    if (
+      !user?.passwordHash ||
+      !(await bcrypt.compare(dto.password, user.passwordHash))
+    ) {
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+    return this.issueToken(user.id, user.role);
+  }
+
+  private async issueToken(id: string, role: 'USER' | 'ADMIN') {
+    return {
+      message: 'Authentication successful.',
+      access_token: await this.jwtService.signAsync({ sub: id, role }),
+    };
   }
 
   async requestOtp(dto: RequestOtpDto) {
@@ -153,11 +194,18 @@ export class AuthService {
           if (consumed.count !== 1) {
             throw new BadRequestException('Invalid or expired OTP.');
           }
-          const role = this.isAdministratorPhone(phone) ? 'ADMIN' : 'USER';
+          /*
+           * OTP-verified sign-in creates or updates the phone-owned user with
+           * the USER role. Admin promotion is no longer derived from the
+           * phone number (env-var ADMIN_PHONES) - admin role is set on the
+           * User record directly (seed, migration, or a dedicated admin
+           * management endpoint). Do NOT overwrite an existing ADMIN role on
+           * successful OTP verify.
+           */
           return tx.user.upsert({
             where: { phone },
-            create: { phone, role },
-            update: { role },
+            create: { phone, role: 'USER' },
+            update: {}, // preserve existing role
           });
         },
         { isolationLevel: 'Serializable' },
@@ -167,15 +215,7 @@ export class AuthService {
     if (!result) throw new BadRequestException('Invalid or expired OTP.');
 
     // Minimal payload — no PII in the token; phone is fetched from DB when needed
-    const access_token = await this.jwtService.signAsync({
-      sub: result.id,
-      role: result.role,
-    });
-
-    return {
-      message: 'Authentication successful.',
-      access_token,
-    };
+    return this.issueToken(result.id, result.role);
   }
 
   async getMe(userId: string) {
@@ -185,6 +225,7 @@ export class AuthService {
         id: true,
         phone: true,
         email: true,
+        company: true,
         firstName: true,
         lastName: true,
         createdAt: true,
@@ -236,10 +277,9 @@ export class AuthService {
     return `${phone.slice(0, 3)}****${phone.slice(-2)}`;
   }
 
-  private isAdministratorPhone(phone: string): boolean {
-    return (process.env.ADMIN_PHONES ?? '')
-      .split(',')
-      .map((item) => normalizePhilippineMobile(item.trim()))
-      .includes(phone);
-  }
+  /*
+   * isAdministratorPhone removed: admin role is stored on the User record,
+   * not derived from env vars. If you need to promote a user, update
+   * User.role in the database.
+   */
 }

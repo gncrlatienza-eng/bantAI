@@ -14,6 +14,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { LoginDto } from './dto/login.dto';
+import { PortalRegisterDto } from './dto/portal-register.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -25,6 +27,20 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.CREATED)
+  @Post('portal/register')
+  portalRegister(@Body() dto: PortalRegisterDto) {
+    return this.authService.registerPortal(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('login')
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
   // 5 OTP requests per IP per minute — prevents SMS-flooding abuse

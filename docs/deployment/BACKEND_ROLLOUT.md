@@ -13,17 +13,18 @@ run it on a platform that can reach PostgreSQL and the AI service privately.
       `AI_SERVICE_URL`.
 - [ ] Create distinct production secrets in the platform secret manager; never
       place them in GitHub variables, an APK, or a web bundle:
-      `DATABASE_URL`, `JWT_SECRET`, `OTP_HASH_SECRET`, `SENDER_HASH_SECRET`,
-      `ADMIN_PHONES`, `AI_SERVICE_API_KEY`, `AI_CAMPAIGNS_API_KEY`, `AI_MODELS_API_KEY`,
-      `AI_INDICATORS_API_KEY`, and `SEMAPHORE_API_KEY`.
+      `DATABASE_URL`, `JWT_SECRET`, `FIREBASE_PROJECT_ID`, `SENDER_HASH_SECRET`,
+      `AI_SERVICE_API_KEY`, `AI_CAMPAIGNS_API_KEY`, `AI_MODELS_API_KEY`,
+      and `AI_INDICATORS_API_KEY`.
 - [ ] Set `CORS_ORIGINS` to the exact deployed dashboard origins. Wildcards are
       not permitted.
 - [ ] Keep `API_DOCS_ENABLED=false` externally. If documentation is needed,
       expose it only through an authenticated internal gateway.
 - [ ] Set `TRUST_PROXY_HOPS` to the exact proxy count supplied by the host; use
       `0` when there is no trusted reverse proxy.
-- [ ] Obtain a production Semaphore account and verify the sender/OTP delivery
-      policy. The backend fails closed when delivery is unavailable.
+- [ ] Enable Firebase Phone Authentication, restrict the SMS region policy to
+      the Philippines, register the Android signing fingerprints, and verify
+      real-device delivery before release.
 
 ## Build and release
 

@@ -1,20 +1,31 @@
 package com.bantai.ui.components
 
 import androidx.compose.ui.graphics.Color
+import com.bantai.ui.theme.AvatarGreen
+import com.bantai.ui.theme.AvatarPink
+import com.bantai.ui.theme.AvatarPurple
+import com.bantai.ui.theme.AvatarRed
+import com.bantai.ui.theme.AvatarTeal
+import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.Suspicious
 
 fun getAvatarColor(sender: String): Color {
     val colors =
         listOf(
-            Color(0xFFFF4444),
-            Color(0xFF00BCD4),
-            Color(0xFFE91E8C),
-            Color(0xFF4CAF50),
-            Color(0xFFFF9500),
-            Color(0xFF9C27B0),
-            Color(0xFF5B4FE8),
+            AvatarRed,
+            AvatarTeal,
+            AvatarPink,
+            AvatarGreen,
+            Suspicious,
+            AvatarPurple,
+            Indigo,
             Color(0xFFFF6B35),
         )
-    return colors[kotlin.math.abs(sender.hashCode()) % colors.size]
+    // abs() must wrap the modulo, not the raw hashCode -- kotlin.math.abs(Int.MIN_VALUE)
+    // overflows back to Int.MIN_VALUE (two's complement has no positive counterpart),
+    // which would throw ArrayIndexOutOfBoundsException on the list access below. The
+    // remainder is always within (-colors.size, colors.size), far from that edge case.
+    return colors[kotlin.math.abs(sender.hashCode() % colors.size)]
 }
 
 fun getInitialsFromSender(sender: String): String =

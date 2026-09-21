@@ -44,6 +44,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
+import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
@@ -61,12 +63,12 @@ private data class TipEntry(
 
 private val tips =
     listOf(
-        TipEntry("gcash", "FINANCE", "How to spot a GCash scam", Icons.Filled.Shield, Color(0xFFFF3B30), Color(0xFF2A0A0A)),
-        TipEntry("urgency", "PSYCHOLOGY", "Why scammers use urgency", Icons.Filled.Bolt, Color(0xFFFF9500), Color(0xFF2A1A00)),
-        TipEntry("links", "TECHNICAL", "Safe links vs phishing links", Icons.Filled.Link, Color(0xFF5B4FE8), Color(0xFF16163A)),
-        TipEntry("otp", "FINANCE", "OTP scams explained", Icons.Filled.Key, Color(0xFFFF9500), Color(0xFF2A1A00)),
-        TipEntry("action", "ACTION", "What to do when scammed", Icons.AutoMirrored.Filled.Help, Color(0xFF8A8A8A), Color(0xFF1A1A1A)),
-        TipEntry("shap", "AI/ML", "Understanding SHAP scores", Icons.Filled.Psychology, Color(0xFF5B4FE8), Color(0xFF16163A)),
+        TipEntry("gcash", "FINANCE", "How to spot a GCash scam", Icons.Filled.Shield, Danger, Color(0xFF2A0A0A)),
+        TipEntry("urgency", "PSYCHOLOGY", "Why scammers use urgency", Icons.Filled.Bolt, Suspicious, Color(0xFF2A1A00)),
+        TipEntry("links", "TECHNICAL", "Safe links vs phishing links", Icons.Filled.Link, Indigo, Color(0xFF16163A)),
+        TipEntry("otp", "FINANCE", "OTP scams explained", Icons.Filled.Key, Suspicious, Color(0xFF2A1A00)),
+        TipEntry("action", "ACTION", "What to do when scammed", Icons.AutoMirrored.Filled.Help, TextSecondary, Surface),
+        TipEntry("shap", "AI/ML", "Understanding SHAP scores", Icons.Filled.Psychology, Indigo, Color(0xFF16163A)),
     )
 
 @Composable

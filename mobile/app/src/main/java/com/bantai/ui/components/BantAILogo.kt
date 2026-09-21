@@ -13,12 +13,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bantai.R
+import com.bantai.ui.theme.DarkIndigo
 
 @Composable
 fun BantAILogo(
     containerSize: Dp = 80.dp,
     iconSize: Dp = 44.dp,
-    backgroundColor: Color = Color(0xFF1A1A2E),
+    backgroundColor: Color = DarkIndigo,
 ) {
     Box(
         modifier =

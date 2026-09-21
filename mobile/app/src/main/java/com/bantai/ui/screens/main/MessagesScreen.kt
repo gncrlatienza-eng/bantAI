@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -67,6 +66,7 @@ import androidx.navigation.NavController
 import com.bantai.data.model.SmsMessage
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.BadgeType
+import com.bantai.ui.components.ListSkeleton
 import com.bantai.ui.components.MessageItem
 import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.getAvatarColor
@@ -221,14 +221,7 @@ fun MessagesScreen(
                 contentPadding = innerPadding,
             ) {
                 if (isLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(28.dp))
-                        }
-                    }
+                    item { ListSkeleton(rows = 6) }
                 } else if (errorMessage != null) {
                     item {
                         Box(

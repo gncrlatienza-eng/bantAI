@@ -7,7 +7,17 @@ object AuthApi {
         val accessToken: String,
     )
 
-    suspend fun requestOtp(phone: String): Result<Unit> = HttpClient.post("/auth/request-otp", JSONObject().put("phone", phone)).map { }
+    /**
+     * Requests an OTP through the backend's configured SMS provider.
+     * The backend owns delivery and verification; the mobile client does not
+     * need Firebase Auth credentials or a Firebase ID-token exchange.
+     */
+    suspend fun requestOtp(phone: String): Result<Unit> =
+        HttpClient
+            .post(
+                "/auth/request-otp",
+                JSONObject().put("phone", phone),
+            ).map { }
 
     /**
      * The backend deliberately omits a `user` object from this response (no
@@ -33,6 +43,4 @@ object AuthApi {
         if (lastName.isNotEmpty()) body.put("lastName", lastName)
         return HttpClient.put("/users/me", body, token = token).map { }
     }
-
-    suspend fun deleteAccount(token: String): Result<Unit> = HttpClient.delete("/users/me", token)
 }

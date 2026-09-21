@@ -155,7 +155,6 @@ dependencies {
     // tint. dev.chrisbanes.haze, stable since 1.2.0's hazeSource/hazeEffect API.
     implementation("dev.chrisbanes.haze:haze:1.5.3")
     debugImplementation(libs.androidx.ui.tooling)
-
     if (googleServicesFile.exists()) {
         implementation(platform(libs.firebase.bom))
         implementation(libs.firebase.crashlytics)

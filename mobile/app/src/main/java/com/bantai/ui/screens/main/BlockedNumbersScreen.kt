@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.ui.components.ListSkeleton
 import com.bantai.ui.theme.*
 import com.bantai.util.BlockHelper
 import com.bantai.viewmodel.BlockedNumbersViewModel
@@ -36,7 +37,7 @@ fun BlockedNumbersScreen(
     numberToUnblock?.let { entry ->
         AlertDialog(
             onDismissRequest = { numberToUnblock = null },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = Surface,
             title = {
                 Text("Unblock number?", color = White, fontWeight = FontWeight.Bold)
             },
@@ -52,7 +53,7 @@ fun BlockedNumbersScreen(
                     viewModel.unblockNumber(entry)
                     numberToUnblock = null
                 }) {
-                    Text("Unblock", color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold)
+                    Text("Unblock", color = Indigo, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -70,35 +71,31 @@ fun BlockedNumbersScreen(
                 .background(Black),
     ) {
         // Top bar
-        Row(
+        Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
-            Icon(
-                Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = White,
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .clickable { navController.popBackStack() },
-            )
-            Spacer(Modifier.width(16.dp))
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+            }
             Text(
                 "Blocked Numbers",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
+                fontSize = 17.sp,
+                modifier = Modifier.align(Alignment.Center),
             )
         }
+        HorizontalDivider(color = Surface)
 
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFF5B4FE8))
-            }
+            ListSkeleton(rows = 6)
         } else if (blockedNumbers.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -137,7 +134,7 @@ fun BlockedNumbersScreen(
                         Icon(
                             Icons.Default.Block,
                             contentDescription = null,
-                            tint = Color(0xFFFF3B30),
+                            tint = Danger,
                             modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.width(12.dp))
@@ -165,7 +162,7 @@ fun BlockedNumbersScreen(
                         )
                     }
                     HorizontalDivider(
-                        color = Color(0xFF1A1A1A),
+                        color = Surface,
                         thickness = 0.5.dp,
                         modifier = Modifier.padding(horizontal = 20.dp),
                     )

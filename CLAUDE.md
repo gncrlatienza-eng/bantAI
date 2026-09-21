@@ -9,7 +9,7 @@ bantAI is a thesis project: an SMS smishing/scam detection system for Filipino m
 **Team:**
 - Gio (`gncrlatienza-eng`) — Mobile, PR merges, docs/WBS ownership
 - Maxene — AI/ML
-- Reymark De Castro — Backend
+- Reymark De Castro — Backend, PR merges (added 2026-09-21)
 - Daryl De Castro — Web
 
 ---
@@ -21,13 +21,15 @@ First draft — written 2026-08-16, confirm/correct the boundaries below rather 
 | Area | Owner | Notes |
 |---|---|---|
 | `docs/development/WBS.md`, `DEV_LOG.md`, both `.xlsx` trackers | **Gio only** | Don't edit these on someone else's say-so alone — even a completed task should be reported to Gio for him (or his Claude session) to mark, not flipped directly by another track's session. |
-| Git merges into `develop`/`main` | **Gio only** | Teammates open PRs from feature branches; Gio reviews and merges. Never push directly to `develop`. |
+| Git merges into `develop`/`main` | **Gio and Reymark** | Added 2026-09-21: Reymark now has the same merge authority Gio does — review, verify, and merge PRs into `develop` himself. Other teammates still open PRs from feature branches for one of the two to review. Never push directly to `develop`. |
 | `backend/` | Reymark | Track A |
 | `ai/` | Maxene | Track B |
 | `mobile/` | Gio | Track C |
 | `web/` | Daryl | Track D |
 
-**Cross-track edits are fine when unblocking your own track** — e.g. Gio added two small backend endpoints (`/ai/summarize` proxy, `BlockedNumbersModule`) to unblock Sprint 4 mobile work rather than waiting on Reymark. When this happens: keep the change small and scoped to exactly what's needed, and say so plainly in the `DEV_LOG.md` entry (who touched what, and why it wasn't the track owner) rather than blending it in silently.
+**Cross-track edits are fine when unblocking your own track** — this applies to anyone on the team, not just Gio; confirmed explicitly for Reymark, 2026-09-21 (he can edit outside `backend/` the same way Gio has, when he states why). e.g. Gio added two small backend endpoints (`/ai/summarize` proxy, `BlockedNumbersModule`) to unblock Sprint 4 mobile work rather than waiting on Reymark. When this happens: keep the change small and scoped to exactly what's needed, and say so plainly in the `DEV_LOG.md` entry (who touched what, and why it wasn't the track owner) rather than blending it in silently.
+
+**Reymark can also run full-codebase audits**, not just within `backend/` — the same kind of systematic bug/validation/UI sweep-with-direct-fixes Gio's session ran across `mobile/` on 2026-09-21 — since reviewing PRs for merge now means being able to evaluate work across tracks, not just his own.
 
 ---
 

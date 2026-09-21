@@ -158,7 +158,7 @@ fun OnboardingConfirmNumberScreen(
         PrimaryButton(
             text = "Send verification code",
             onClick = {
-                viewModel.requestOtp(phoneNumber) {
+                viewModel.requestVerificationCode(phoneNumber) {
                     navController.navigate(Screen.OnboardingEnterCode.route)
                 }
             },

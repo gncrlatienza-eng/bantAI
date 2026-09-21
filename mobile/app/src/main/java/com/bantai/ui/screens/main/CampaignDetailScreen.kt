@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -44,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.CampaignsApi
+import com.bantai.ui.components.DetailSkeleton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.GlassStroke
@@ -103,10 +103,7 @@ fun CampaignDetailScreen(
         }
 
         when {
-            isLoading ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = TextSecondary)
-                }
+            isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(errorMessage ?: "Could not load this campaign", color = Danger, fontSize = 14.sp)

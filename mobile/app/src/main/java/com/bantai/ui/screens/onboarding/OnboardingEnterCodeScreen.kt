@@ -70,6 +70,13 @@ fun OnboardingEnterCodeScreen(
     val digits = remember { mutableStateListOf("", "", "", "", "", "") }
     val focusRequesters = remember { List(6) { FocusRequester() } }
 
+    // Fires after the backend accepts the typed OTP and the JWT is persisted.
+    LaunchedEffect(Unit) {
+        viewModel.onboardingAuthComplete.collect {
+            navController.navigate(Screen.OnboardingTerms.route)
+        }
+    }
+
     // Ticks once a second purely to re-derive the resend/lockout countdowns below
     // from state.resendAvailableAtMs / verifyLockedUntilMs -- those timestamps are
     // the source of truth, this is just what forces the UI to recompute against them.
@@ -150,7 +157,10 @@ fun OnboardingEnterCodeScreen(
                     "Resend code",
                     color = Indigo,
                     fontSize = 15.sp,
-                    modifier = Modifier.clickable { viewModel.resendOtp() },
+                    modifier =
+                        Modifier.clickable {
+                            viewModel.resendVerificationCode()
+                        },
                 )
             }
         }
@@ -159,11 +169,7 @@ fun OnboardingEnterCodeScreen(
 
         PrimaryButton(
             text = if (verifyLockedRemainingSec > 0) "Try again in ${verifyLockedRemainingSec}s" else "Verify",
-            onClick = {
-                viewModel.verifyOtp {
-                    navController.navigate(Screen.OnboardingTerms.route)
-                }
-            },
+            onClick = { viewModel.verifyCode() },
             enabled = !state.isLoading && verifyLockedRemainingSec == 0L,
             isLoading = state.isLoading,
         )

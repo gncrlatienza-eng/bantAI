@@ -7,7 +7,9 @@ import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.AuthApi
 import com.bantai.util.isValidName
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -17,10 +19,10 @@ import kotlinx.coroutines.launch
 private const val PH_MOBILE_DIGIT_COUNT = 10
 private const val PH_MOBILE_LEADING_DIGIT = '9'
 
-// Client-side abuse-prevention only, defense-in-depth on top of whatever the
-// backend enforces (unverified from mobile) -- this just stops the UI from
-// firing OTP request/verify calls as fast as a user (or a script driving the
-// same endpoints) can tap.
+// Client-side abuse-prevention only, defense-in-depth on top of whatever
+// the backend enforces server-side -- this just stops the UI from firing OTP
+// request/verify calls as fast as a user (or a script driving the same flow)
+// can tap.
 private const val RESEND_COOLDOWN_MS = 30_000L
 private const val MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT = 5
 private const val VERIFY_LOCKOUT_MS = 30_000L
@@ -67,6 +69,12 @@ class OnboardingViewModel(
 
     private val _state = MutableStateFlow(OnboardingUiState())
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
+
+    // Fires once backend OTP verification and local token persistence complete.
+    // The enter-code screen collects this to navigate onward instead of
+    // duplicating the success transition in the UI.
+    private val _onboardingAuthComplete = MutableSharedFlow<Unit>()
+    val onboardingAuthComplete: SharedFlow<Unit> = _onboardingAuthComplete
 
     init {
         viewModelScope.launch {
@@ -198,9 +206,12 @@ class OnboardingViewModel(
             ?.let { "+63$it" }
     }
 
-    fun requestOtp(
+    /**
+     * Requests a backend OTP for [rawPhone].
+     */
+    fun requestVerificationCode(
         rawPhone: String,
-        onSuccess: () -> Unit,
+        onCodeSent: () -> Unit,
     ) {
         val phone = normalizePhone(rawPhone)
         if (phone == null) {
@@ -215,10 +226,11 @@ class OnboardingViewModel(
                     _state.update {
                         it.copy(
                             isLoading = false,
+                            errorMessage = null,
                             resendAvailableAtMs = System.currentTimeMillis() + RESEND_COOLDOWN_MS,
                         )
                     }
-                    onSuccess()
+                    onCodeSent()
                 }.onFailure { error ->
                     _state.update {
                         it.copy(isLoading = false, errorMessage = error.message ?: "Could not reach the server")
@@ -227,21 +239,18 @@ class OnboardingViewModel(
         }
     }
 
-    fun resendOtp() {
+    fun resendVerificationCode() {
         val current = _state.value
-        if (current.phoneNumber.isEmpty() || current.isLoading) return
-        if (System.currentTimeMillis() < current.resendAvailableAtMs) return
-        requestOtp(current.phoneNumber) {}
+        val onCooldown = current.isLoading || System.currentTimeMillis() < current.resendAvailableAtMs
+        if (current.phoneNumber.isEmpty() || onCooldown) return
+        requestVerificationCode(current.phoneNumber) {}
     }
 
-    fun verifyOtp(onSuccess: () -> Unit) {
+    fun verifyCode() {
         val current = _state.value
-        if (System.currentTimeMillis() < current.verifyLockedUntilMs) {
-            _state.update { it.copy(errorMessage = "Too many attempts. Please wait before trying again.") }
-            return
-        }
-        if (current.otpCode.length != 6) {
-            _state.update { it.copy(errorMessage = "Enter the 6-digit code") }
+        val validationError = codeEntryError(current)
+        if (validationError != null) {
+            _state.update { it.copy(errorMessage = validationError) }
             return
         }
         _state.update { it.copy(isLoading = true, errorMessage = null) }
@@ -250,22 +259,42 @@ class OnboardingViewModel(
                 .verifyOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
                     userPreferences.saveAuth(auth.accessToken, current.phoneNumber)
-                    _state.update { it.copy(isLoading = false, failedVerifyAttempts = 0) }
-                    onSuccess()
-                }.onFailure { error ->
                     _state.update {
-                        val attempts = it.failedVerifyAttempts + 1
-                        val lockedOut = attempts >= MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT
-                        val lockedUntil =
-                            if (lockedOut) System.currentTimeMillis() + VERIFY_LOCKOUT_MS else it.verifyLockedUntilMs
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Could not reach the server",
-                            failedVerifyAttempts = if (lockedOut) 0 else attempts,
-                            verifyLockedUntilMs = lockedUntil,
+                            errorMessage = null,
+                            failedVerifyAttempts = 0,
+                            verifyLockedUntilMs = 0L,
                         )
                     }
+                    _onboardingAuthComplete.emit(Unit)
+                }.onFailure { error ->
+                    handleVerifyFailure(error.message ?: "Could not reach the server")
                 }
+        }
+    }
+
+    private fun codeEntryError(current: OnboardingUiState): String? =
+        when {
+            System.currentTimeMillis() < current.verifyLockedUntilMs ->
+                "Too many attempts. Please wait before trying again."
+            current.otpCode.length != 6 -> "Enter the 6-digit code"
+            current.phoneNumber.isEmpty() -> "Verification session expired. Please resend the code."
+            else -> null
+        }
+
+    private fun handleVerifyFailure(message: String) {
+        _state.update {
+            val attempts = it.failedVerifyAttempts + 1
+            val lockedOut = attempts >= MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT
+            val lockedUntil =
+                if (lockedOut) System.currentTimeMillis() + VERIFY_LOCKOUT_MS else it.verifyLockedUntilMs
+            it.copy(
+                isLoading = false,
+                errorMessage = message,
+                failedVerifyAttempts = if (lockedOut) 0 else attempts,
+                verifyLockedUntilMs = lockedUntil,
+            )
         }
     }
 

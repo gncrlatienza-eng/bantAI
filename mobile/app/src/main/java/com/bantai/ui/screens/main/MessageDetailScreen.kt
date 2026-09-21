@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,6 +77,7 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
+import com.bantai.ui.components.ChatThreadSkeleton
 import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.getRelativeTime
 import com.bantai.ui.theme.Black
@@ -362,9 +362,7 @@ fun MessageDetailScreen(
 
         // Conversation thread
         if (isLoading) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Indigo, modifier = Modifier.size(32.dp))
-            }
+            ChatThreadSkeleton(modifier = Modifier.weight(1f).fillMaxWidth())
         } else if (errorMessage != null) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(errorMessage ?: "Couldn't load this conversation", color = Danger, fontSize = 14.sp)

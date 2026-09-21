@@ -197,8 +197,10 @@ pattern is a legitimate Colab convention, not a violation).
     campaigns between clustering snapshots (`campaign_evolution.py`).
   - ✅ **Automated retraining pipeline** (`retraining/snapshot.py`,
     `retraining/reports.py`, `retraining/pipeline.py`, `scripts/retrain.py`).
-    Report sources: `NullReportSource` (default), `FileReportSource`, and
-    `DatabaseReportSource` (Track A's `UserReport` table via `GET /reports`).
+    Report sources: `NullReportSource` (default) and `FileReportSource`.
+    `DatabaseReportSource` exists but live backend ingestion is deliberately
+    disabled -- the backend retains privacy-masked SMS only and must not become
+    a raw-message training source (see `RETRAINING.md`).
     Three real GPU runs on Colab (2026-08-17, 08-26, 08-27); the 08-27 candidate
     was promoted on 2026-08-30. See [`RETRAINING.md`](RETRAINING.md).
 - **Sprint 5 (Track B done):**

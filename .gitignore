@@ -70,6 +70,10 @@ ai/datasets/processed/**/*.json
 # alongside the vectors -- real personal SMS, same reason as the CSVs. Also
 # large and fully regenerable via scripts/embed_dataset.py.
 ai/datasets/processed/*.npz
+# Recursive for the same reason as **/*.json above: a backup copy in a
+# subfolder (exploratory_backup/, 2026-09-21) was not covered by the bare rule
+# and would have been committed with 16,772 real message texts inside.
+ai/datasets/processed/**/*.npz
 
 # Raw source corpora + generated labeled data (real personal SMS — never push).
 # sample.csv (format reference) and the *.md guides stay tracked.

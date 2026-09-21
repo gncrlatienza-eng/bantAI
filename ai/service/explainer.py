@@ -90,15 +90,43 @@ def _matches_keyword(token: str, keyword: str) -> bool:
     return len(token) >= 5 and any(w.startswith(token) for w in words)
 
 
-def _tokens_to_tags(scored_tokens: Sequence[tuple]) -> List[IndicatorTag]:
+def _phrase_present(keyword: str, low: str, text: Optional[str]) -> bool:
+    """Whether a multi-word keyword may be matched against a lone token.
+
+    Single-word entries always may -- the token *is* the keyword. Multi-word
+    entries may only when the phrase actually occurs in the message, so one
+    common word cannot drag in a tag the message never earned.
+    """
+    if text is None or len(_keyword_words(keyword)) < 2:
+        return True
+    return keyword.lower() in low
+
+
+def _tokens_to_tags(scored_tokens: Sequence[tuple], text: Optional[str] = None) -> List[IndicatorTag]:
     """Map (token, shap_value) pairs onto indicator tags.
 
     A tag's weight is the summed positive Shapley mass of the tokens that
     matched its keyword vocabulary -- i.e. "how much of this prediction did
     this indicator actually account for", which is the quantity the manuscript
     describes and is more meaningful to a user than a raw per-token number.
+
+    ``text`` is the masked message the tokens came from. When it is supplied, a
+    **multi-word** dictionary entry only counts if that phrase actually occurs
+    in the message. Without it, ``_matches_keyword`` will fire a tag on any one
+    word of a phrase: "work from home" makes *work*, *from* and *home* each a
+    standalone Fake Job Offer trigger, and **16.9% of Ham messages contain one
+    of the existing trigger words**. A single-word entry is unaffected -- it is
+    the whole keyword, so matching the token is matching the phrase.
+
+    This is also closer to what the manuscript describes. Stage 6 maps "top
+    contributing tokens ... through a curated dictionary"; a dictionary of
+    phrases silently word-split is a looser thing than that sentence implies.
+
+    ``text=None`` keeps the old lenient behaviour, for callers that have tokens
+    but no message.
     """
     totals: Dict[str, float] = {}
+    low = (text or "").lower()
 
     for raw_token, value in scored_tokens:
         token = _clean_token(raw_token)
@@ -110,7 +138,7 @@ def _tokens_to_tags(scored_tokens: Sequence[tuple]) -> List[IndicatorTag]:
         if len(token) < 4 or value <= 0:
             continue
         for tag, keywords in TAG_KEYWORDS.items():
-            if any(_matches_keyword(token, kw) for kw in keywords):
+            if any(_matches_keyword(token, kw) for kw in keywords if _phrase_present(kw, low, text)):
                 totals[tag] = totals.get(tag, 0.0) + float(value)
 
     if not totals:
@@ -202,7 +230,7 @@ def _explain_with_shap(
     scored.sort(key=lambda p: abs(p[1]), reverse=True)
     top = scored[:TOP_K_TOKENS]
 
-    tags = _tokens_to_tags(top)
+    tags = _tokens_to_tags(top, masked_text)
     if not tags:
         # SHAP ran but nothing mapped to a known indicator (e.g. the decisive
         # tokens are outside the curated vocabulary). Structural signals -- a

@@ -1438,6 +1438,18 @@ Approved, per the adviser:
    *as documented in this section*, which covers this item since it was
    already the standing default rather than an open deviation.
 
+5. **Confidence-threshold routing** — per-class thresholds (Ham 0.50, Spam
+   0.60, Scam 0.90), the 0.15 margin gate, and the fourth "unknown" bucket, in
+   place of the manuscript's single shared threshold pair (deviations log A3).
+   *Added 2026-09-21 from Maxene's own account of the conversation, given
+   2026-09-18.* This section originally listed items 1–4 only, because it was
+   written from the briefing document, which covered the campaign items; the
+   routing design shipped in Sprint 2 and was not in that document. Maxene was
+   in the conversation and this note was reconstructed afterwards, so her
+   account governs. Still open, if it can be recalled: which parts of the
+   routing (the thresholds, the margin gate, the Ham/Spam/Scam naming) were
+   actually discussed.
+
 **Deliberately not covered by this sign-off:** whether to promote a
 retraining candidate — a separate branch (see `RETRAINING.md` and
 [[bantai-stage5b-threshold-finding]]). The 2026-08-17 and 2026-08-26

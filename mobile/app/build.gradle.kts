@@ -155,20 +155,8 @@ dependencies {
     // tint. dev.chrisbanes.haze, stable since 1.2.0's hazeSource/hazeEffect API.
     implementation("dev.chrisbanes.haze:haze:1.5.3")
     debugImplementation(libs.androidx.ui.tooling)
-    // Bridges Firebase's Task<T> callback API (FirebaseAuth.signInWithCredential,
-    // FirebaseUser.getIdToken) into suspend functions via .await() -- used by
-    // OnboardingViewModel's Firebase phone-auth flow.
-    implementation(libs.kotlinx.coroutines.play.services)
-    // Unconditional, unlike firebase-crashlytics below: OnboardingViewModel
-    // unconditionally imports FirebaseAuth/PhoneAuthProvider/etc, so gating this
-    // on googleServicesFile.exists() broke `compileDebugKotlin` on every CI run
-    // (CI never has google-services.json -- it's gitignored). The library itself
-    // compiles fine without the file; only actually initializing FirebaseApp at
-    // runtime needs it, which CI never does.
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-
     if (googleServicesFile.exists()) {
+        implementation(platform(libs.firebase.bom))
         implementation(libs.firebase.crashlytics)
     }
 }

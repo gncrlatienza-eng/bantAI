@@ -8,15 +8,28 @@ object AuthApi {
     )
 
     /**
-     * Exchanges a Firebase phone-auth ID token for a bantAI JWT. Firebase itself
-     * sends and verifies the SMS code on-device (see OnboardingViewModel) — the
-     * backend never sees the OTP, only this token, which it verifies against
-     * FIREBASE_PROJECT_ID. The backend deliberately omits a `user` object from
-     * the response (no PII in the auth payload — see auth.service.spec.ts).
+     * Requests an OTP through the backend's configured SMS provider.
+     * The backend owns delivery and verification; the mobile client does not
+     * need Firebase Auth credentials or a Firebase ID-token exchange.
      */
-    suspend fun exchangeFirebaseToken(idToken: String): Result<AuthResult> =
+    suspend fun requestOtp(phone: String): Result<Unit> =
         HttpClient
-            .post("/auth/mobile/firebase", JSONObject().put("idToken", idToken))
+            .post(
+                "/auth/request-otp",
+                JSONObject().put("phone", phone),
+            ).map { }
+
+    /**
+     * The backend deliberately omits a `user` object from this response (no
+     * PII in the auth payload — see auth.service.spec.ts); the caller already
+     * knows the phone number it just verified, so only the token is needed.
+     */
+    suspend fun verifyOtp(
+        phone: String,
+        otp: String,
+    ): Result<AuthResult> =
+        HttpClient
+            .post("/auth/verify-otp", JSONObject().put("phone", phone).put("otp", otp))
             .mapCatching { body ->
                 AuthResult(accessToken = JSONObject(body).getString("access_token"))
             }

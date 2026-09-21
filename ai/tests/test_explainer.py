@@ -120,3 +120,35 @@ def test_explain_never_raises_on_bad_input():
     """Explanation failure must never break classification."""
     for bad in ("", "   ", "▁" * 50):
         explain(bad)
+
+
+# --- multi-word entries match as phrases (2026-09-18) -------------------------
+def test_a_common_word_cannot_fire_a_phrase_it_is_merely_part_of():
+    """Without the message text, "work from home" makes *work*, *from* and
+    *home* each a standalone Fake Job Offer trigger -- and 16.9% of Ham
+    messages contain one of the existing trigger words. With the text, the
+    phrase has to actually be there."""
+    text = "Can you pick me up from work? I'll be home by six."
+    tokens = [("▁work", 0.4), ("▁from", 0.3), ("▁home", 0.3)]
+    assert _tokens_to_tags(tokens, text) == []
+
+
+def test_a_phrase_that_is_present_still_fires():
+    text = "Earn P2,000 daily! Work from home, no experience needed."
+    tags = _tokens_to_tags([("▁work", 0.4), ("▁home", 0.3)], text)
+    assert "Fake Job Offer" in {t.tag for t in tags}
+
+
+def test_single_word_entries_are_unaffected_by_the_phrase_check():
+    """A one-word keyword *is* the whole phrase, so matching the token is
+    matching the keyword -- tightening must not cost these anything."""
+    tokens = [("▁homebased", 0.5)]
+    # Identical result with and without the message text: the phrase check
+    # must never apply to a one-word entry.
+    assert _tokens_to_tags(tokens, "Homebased onliner needed") == _tokens_to_tags(tokens)
+    assert "Fake Job Offer" in {t.tag for t in _tokens_to_tags(tokens, "Homebased onliner needed")}
+
+
+def test_without_text_the_old_lenient_behaviour_is_kept():
+    """Callers that hold tokens but no message get word-level matching, as before."""
+    assert "Fake Job Offer" in {t.tag for t in _tokens_to_tags([("▁from", 0.4)])}

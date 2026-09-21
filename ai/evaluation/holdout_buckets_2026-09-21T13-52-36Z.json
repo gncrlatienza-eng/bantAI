@@ -1,0 +1,87 @@
+{
+  "buckets": {
+    "ham_blocked": 8,
+    "n_unknown": 12,
+    "per_class": {
+      "Ham": {
+        "correct": 1749,
+        "total": 1787,
+        "unknown": 8,
+        "wrong_bucket": 30
+      },
+      "Scam": {
+        "correct": 468,
+        "total": 491,
+        "unknown": 2,
+        "wrong_bucket": 21
+      },
+      "Spam": {
+        "correct": 911,
+        "total": 958,
+        "unknown": 2,
+        "wrong_bucket": 45
+      }
+    },
+    "scam_shown_as_safe": 10,
+    "table": {
+      "Ham": {
+        "blocked": 8,
+        "safe": 1749,
+        "spam": 22,
+        "unknown": 8
+      },
+      "Scam": {
+        "blocked": 468,
+        "safe": 10,
+        "spam": 11,
+        "unknown": 2
+      },
+      "Spam": {
+        "blocked": 12,
+        "safe": 33,
+        "spam": 911,
+        "unknown": 2
+      }
+    }
+  },
+  "checkpoint_integrity": "unverifiable",
+  "evaluated_at": "2026-09-21T13:52:36.420315+00:00",
+  "holdout_csv": "datasets/holdout/holdout.csv",
+  "holdout_integrity": "ok",
+  "holdout_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
+  "model_dir": "models/retraining_runs/2026-09-21-colab-C/candidate",
+  "model_version": null,
+  "n_total": 3236,
+  "raw_argmax_confusion_matrix": {
+    "Ham": {
+      "Ham": 1752,
+      "Scam": 10,
+      "Spam": 25
+    },
+    "Scam": {
+      "Ham": 10,
+      "Scam": 470,
+      "Spam": 11
+    },
+    "Spam": {
+      "Ham": 33,
+      "Scam": 13,
+      "Spam": 912
+    }
+  },
+  "raw_argmax_macro_f1": 0.9635,
+  "release_gate": {
+    "failures": [],
+    "ham_blocked_rate": 0.0045,
+    "max_ham_blocked": 0.01,
+    "max_scam_shown_as_safe": 0.05,
+    "passed": true,
+    "scam_shown_as_safe_rate": 0.0204
+  },
+  "thresholds": {
+    "block": 0.9,
+    "review_margin": 0.15,
+    "safe": 0.5,
+    "spam": 0.6
+  }
+}

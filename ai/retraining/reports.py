@@ -17,7 +17,10 @@ implementations, and which one you get is always an explicit choice:
   route: hand-built experiments, and the export that carries reports to a GPU
   box (Colab cannot reach a laptop's ``localhost:3000``).
 - :class:`DatabaseReportSource` -- reads ``GET /reports`` off the NestJS
-  backend and keeps the ``Validated`` ones. The production path.
+  backend and keeps the ``Validated`` ones. Built and verified against a live
+  backend (2026-08-18), but **not a supported live path**: the backend retains
+  privacy-masked SMS only and must not become a raw-message training source.
+  ``scripts/retrain.py`` does not wire it. See ``RETRAINING.md``.
 
 None of them is auto-selected. ``scripts/retrain.py`` requires you to name the
 source, because inferring "there is a backend URL in the environment, so

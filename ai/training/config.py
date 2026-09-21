@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import dataclasses
+import json
+import os
 from dataclasses import dataclass, field
 from typing import Dict
+
+#: Optional per-run settings file. The Colab package for a variant carries one,
+#: so the uploaded zip alone determines how that run trains.
+OVERRIDES_FILE = "training_overrides.json"
 
 # Three-way training head, ordered benign -> severe. These are the *dataset*
 # labels the model is trained to predict; the user-facing buckets (Safe /
@@ -70,5 +77,31 @@ class TrainingConfig:
     # Set False to train with the standard unweighted cross-entropy.
     class_weighted_loss: bool = True
 
+    # Strength of that weighting, as an exponent on the inverse-frequency
+    # weights: 1.0 = full inverse frequency (default, unchanged behaviour),
+    # 0.5 = square root (softer), 0.0 = no weighting. Added 2026-09-21: on the
+    # real-only corpus, full weighting makes a Scam mistake cost ~6x a Ham
+    # mistake, and every model retrained since flagged 11-14 legitimate holdout
+    # messages as Scam against 5 for the live model. 0.5 (~2.5x) is variant C.
+    class_weight_power: float = 1.0
+
     # Output
     output_dir: str = "models/xlm-roberta-smishing"
+
+
+def load_config(path: str = OVERRIDES_FILE) -> TrainingConfig:
+    """``TrainingConfig``, with fields overridden by ``path`` when it exists.
+
+    Unknown keys raise instead of being ignored: a misspelt setting would
+    otherwise train silently with the default and report it as the variant.
+    """
+    config = TrainingConfig()
+    if not os.path.isfile(path):
+        return config
+    with open(path, encoding="utf-8") as handle:
+        overrides = json.load(handle)
+    known = {f.name for f in dataclasses.fields(TrainingConfig)}
+    unknown = sorted(set(overrides) - known)
+    if unknown:
+        raise ValueError(f"{path}: unknown training setting(s) {unknown}")
+    return dataclasses.replace(config, **overrides)

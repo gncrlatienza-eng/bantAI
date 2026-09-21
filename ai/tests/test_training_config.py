@@ -155,3 +155,52 @@ def test_warmup_steps_equal_transformers_own_warmup_ratio_math():
     for n_train in (1, 16, 17, 11140, 15150):
         total = math.ceil(4 * max(math.ceil(n_train / 16), 1))
         assert warmup_steps_for(n_train, 16, 1, 4, 0.1) == args.get_warmup_steps(total)
+
+
+# --- weight strength + per-run settings file (2026-09-21, variant C) ---------
+def test_class_weight_power_softens_the_weights():
+    from training.train import compute_class_weights
+
+    ds = {"labels": [0] * 60 + [1] * 30 + [2] * 10}
+    full = compute_class_weights(ds, 3)
+    soft = compute_class_weights(ds, 3, power=0.5)
+    assert soft == [w**0.5 for w in full]
+    # Still favours Scam, just by less.
+    assert soft[2] > soft[0]
+    assert soft[2] / soft[0] < full[2] / full[0]
+
+
+def test_class_weight_power_zero_is_unweighted():
+    from training.train import compute_class_weights
+
+    assert compute_class_weights({"labels": [0] * 60 + [1] * 30 + [2] * 10}, 3, power=0.0) == [1.0, 1.0, 1.0]
+
+
+def test_default_weight_power_is_unchanged():
+    assert TrainingConfig().class_weight_power == 1.0
+
+
+def test_load_config_without_a_file_is_the_default(tmp_path):
+    from training.config import load_config
+
+    assert load_config(str(tmp_path / "missing.json")) == TrainingConfig()
+
+
+def test_load_config_applies_the_settings_file(tmp_path):
+    from training.config import load_config
+
+    path = tmp_path / "training_overrides.json"
+    path.write_text('{"class_weight_power": 0.5}', encoding="utf-8")
+    assert load_config(str(path)).class_weight_power == 0.5
+
+
+def test_load_config_rejects_a_misspelt_setting(tmp_path):
+    """Otherwise a typo would train with the default and be reported as the variant."""
+    import pytest
+
+    from training.config import load_config
+
+    path = tmp_path / "training_overrides.json"
+    path.write_text('{"class_weigth_power": 0.5}', encoding="utf-8")
+    with pytest.raises(ValueError, match="class_weigth_power"):
+        load_config(str(path))

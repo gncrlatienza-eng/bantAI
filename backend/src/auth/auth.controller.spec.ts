@@ -5,8 +5,9 @@ import { AuthService } from './auth.service';
 
 const mockAuthService = {
   register: jest.fn(),
-  requestOtp: jest.fn(),
-  verifyOtp: jest.fn(),
+  registerPortal: jest.fn(),
+  login: jest.fn(),
+  firebaseLogin: jest.fn(),
   getMe: jest.fn(),
 };
 
@@ -28,7 +29,7 @@ describe('AuthController', () => {
   });
 
   it('delegates register to AuthService', async () => {
-    const dto = { phone: '+639171234567' } as any;
+    const dto = { phone: '+639171234567' };
     mockAuthService.register.mockResolvedValue({
       message: 'User registered successfully.',
       user: {},
@@ -39,27 +40,38 @@ describe('AuthController', () => {
     expect(mockAuthService.register).toHaveBeenCalledWith(dto);
   });
 
-  it('delegates requestOtp to AuthService', async () => {
-    const dto = { phone: '+639171234567' };
-    mockAuthService.requestOtp.mockResolvedValue({
-      message: 'OTP generated successfully.',
-    });
+  it('delegates portal registration to AuthService', async () => {
+    const dto = {
+      email: 'client@example.com',
+      password: 'strong-password',
+      company: 'Example Co',
+    };
+    mockAuthService.registerPortal.mockResolvedValue({ access_token: 'tok' });
 
-    await controller.requestOtp(dto);
+    await controller.portalRegister(dto);
 
-    expect(mockAuthService.requestOtp).toHaveBeenCalledWith(dto);
+    expect(mockAuthService.registerPortal).toHaveBeenCalledWith(dto);
   });
 
-  it('delegates verifyOtp to AuthService', async () => {
-    const dto = { phone: '+639171234567', otp: '123456' };
-    mockAuthService.verifyOtp.mockResolvedValue({
+  it('delegates email/password login to AuthService', async () => {
+    const dto = { email: 'client@example.com', password: 'strong-password' };
+    mockAuthService.login.mockResolvedValue({ access_token: 'tok' });
+
+    await controller.login(dto);
+
+    expect(mockAuthService.login).toHaveBeenCalledWith(dto);
+  });
+
+  it('delegates Firebase mobile login to AuthService', async () => {
+    const dto = { idToken: 'firebase-id-token' };
+    mockAuthService.firebaseLogin.mockResolvedValue({
       message: 'Authentication successful.',
       access_token: 'tok',
     });
 
-    await controller.verifyOtp(dto);
+    await controller.firebaseLogin(dto);
 
-    expect(mockAuthService.verifyOtp).toHaveBeenCalledWith(dto);
+    expect(mockAuthService.firebaseLogin).toHaveBeenCalledWith(dto);
   });
 
   it('delegates me to AuthService.getMe using userId from request', async () => {

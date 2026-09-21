@@ -64,7 +64,6 @@ export class UsersService {
           });
         }
       }
-      await tx.otpCode.deleteMany({ where: { phone: user.phone } });
       await tx.user.delete({ where: { id: userId } });
       const clusterIds = [
         ...new Set(

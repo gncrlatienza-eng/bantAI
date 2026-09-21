@@ -4,7 +4,7 @@
 
 Receives a single SMS message from the Android app, stores it, runs it through the classification pipeline, and returns the result with a routing action.
 
-**Auth:** Bearer JWT (obtained from `POST /api/auth/verify-otp`)
+**Auth:** Bearer JWT (obtained from `POST /api/auth/mobile/firebase` on Android or `POST /api/auth/login` on the web)
 
 ### Request
 

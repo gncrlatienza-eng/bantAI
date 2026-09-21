@@ -30,6 +30,25 @@ from .routers import classify, health, retrain, summarize
 logger = logging.getLogger(__name__)
 
 
+def warm_up_model() -> None:
+    """Load the model and run one prediction before the service takes traffic.
+
+    The classifier loads lazily, so without this the first /classify after
+    every restart pays the full load: measured 12.2 s on 2026-09-21, against
+    the backend's 3.5 s timeout -- the first real SMS after a restart would
+    always fall back to the phone's keyword check. Non-fatal, like the other
+    startup steps: with no model installed the service still starts and
+    /classify keeps answering 503.
+    """
+    if not classify.classifier._has_weights():
+        logger.warning("No model installed; skipping warm-up. /classify will answer 503.")
+        return
+    try:
+        classify.classifier.classify_full("warm-up")
+    except Exception:  # noqa: BLE001 -- a failed warm-up must not stop the service
+        logger.exception("Model warm-up failed; the first /classify will retry the load.")
+
+
 def load_campaign_centroids() -> None:
     """Populate the campaign matcher before serving traffic.
 
@@ -158,6 +177,7 @@ async def lifespan(_app: FastAPI):
         )
     load_campaign_centroids()
     check_served_version()
+    warm_up_model()
     yield
 
 

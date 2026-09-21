@@ -71,6 +71,56 @@ class _StubClassifier:
         )
 
 
+def test_classify_never_runs_shap_inline(monkeypatch):
+    """SHAP takes 10-45 s per message; the backend gives up on /classify after
+    3.5 s. If SHAP ever runs inside the request again, every message times out
+    and the app silently stops using the model -- which is what happened on
+    2026-09-20. This fails loudly instead.
+
+    Records the call rather than raising inside it: ``explain()`` swallows any
+    SHAP exception and falls back, so a raise would be hidden and the test
+    would pass against the slow code too."""
+    from service import explainer
+
+    stub = _StubClassifier()
+    stub._model, stub._tokenizer = object(), object()  # a loaded model is present
+    shap_calls = []
+
+    monkeypatch.setattr(explainer, "shap_available", lambda: True)
+
+    def _fake_shap(*args, **kwargs):
+        shap_calls.append(args)
+        return explainer.Explanation(tags=[], method="shap", top_tokens=[])
+
+    monkeypatch.setattr(explainer, "_explain_with_shap", _fake_shap)
+    monkeypatch.setattr(routers.classify, "classifier", stub)
+    monkeypatch.setattr(routers.classify, "matcher", CampaignMatcher([]))
+
+    body = client.post("/classify", json={"message": "hi"}).json()
+    assert shap_calls == [], "SHAP ran inside /classify"
+    assert body["explanation_method"] == "keyword-fallback"
+
+
+class _EchoClassifier(_StubClassifier):
+    """Returns the real message as the masked text, so the tagger has words."""
+
+    def classify_full(self, message):
+        from dataclasses import replace
+
+        return replace(super().classify_full(message), masked_text=message)
+
+
+def test_classify_returns_keyword_indicators(monkeypatch):
+    """The indicator tags still reach the app through /classify."""
+    monkeypatch.setattr(routers.classify, "classifier", _EchoClassifier())
+    monkeypatch.setattr(routers.classify, "matcher", CampaignMatcher([]))
+    body = client.post(
+        "/classify",
+        json={"message": "Congratulations! You won P50,000. Claim your prize now at bit.ly/claim-prize"},
+    ).json()
+    assert body["indicators"], "a prize-bait scam should carry at least one indicator tag"
+
+
 def test_campaign_is_null_at_cold_start(monkeypatch):
     """No centroids loaded yet -- report nothing rather than a misleading
     'no match', and stay backward-compatible for callers ignoring the field."""
@@ -184,3 +234,45 @@ def test_an_overlong_trigger_is_rejected():
 
     resp = client.post("/retrain", json={"trigger": "t" * (MAX_TRIGGER_CHARS + 1)})
     assert resp.status_code == 422
+
+
+# --- startup warm-up (2026-09-21) ---------------------------------------------
+class _CountingClassifier(_StubClassifier):
+    def __init__(self, has_weights=True, fail=False):
+        self.calls, self._weights, self._fail = 0, has_weights, fail
+
+    def _has_weights(self):
+        return self._weights
+
+    def classify_full(self, message):
+        self.calls += 1
+        if self._fail:
+            raise RuntimeError("corrupt checkpoint")
+        return super().classify_full(message)
+
+
+def test_warm_up_loads_the_model_before_traffic(monkeypatch):
+    """Without it the first /classify after a restart paid the ~12 s load and
+    timed out at the backend's 3.5 s limit."""
+    from service import main
+
+    stub = _CountingClassifier()
+    monkeypatch.setattr(routers.classify, "classifier", stub)
+    main.warm_up_model()
+    assert stub.calls == 1
+
+
+def test_warm_up_is_skipped_without_a_model(monkeypatch):
+    from service import main
+
+    stub = _CountingClassifier(has_weights=False)
+    monkeypatch.setattr(routers.classify, "classifier", stub)
+    main.warm_up_model()
+    assert stub.calls == 0
+
+
+def test_a_failed_warm_up_does_not_stop_the_service(monkeypatch):
+    from service import main
+
+    monkeypatch.setattr(routers.classify, "classifier", _CountingClassifier(fail=True))
+    main.warm_up_model()  # must not raise

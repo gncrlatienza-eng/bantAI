@@ -51,13 +51,15 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         match = matcher.match(result.embedding, req.message)
         campaign = CampaignMatch(**match.to_dict())
 
-    explanation = explain(
-        req.message,
-        result.masked_text,
-        getattr(classifier, "_model", None),
-        getattr(classifier, "_tokenizer", None),
-        predicted_label=result.label,
-    )
+    # Keyword tagger only -- deliberately no model/tokenizer, so real SHAP never
+    # runs inside this request. SHAP needs hundreds of forward passes: measured
+    # 9.7-45.7 s per message on 2026-09-21 (13-26 s in July), while the backend
+    # abandons /classify after 3.5 s (backend/src/ai/ai.service.ts) and the phone
+    # after 5 s. Running it here made every message time out and fall back to
+    # the phone's keyword heuristic, so no SMS got a model verdict at all. The
+    # keyword tags are instant and still reach the app; full SHAP has to run
+    # after the response, not before it (docs/api/explainability.md).
+    explanation = explain(req.message, result.masked_text, predicted_label=result.label)
 
     return ClassifyResponse(
         label=result.label,

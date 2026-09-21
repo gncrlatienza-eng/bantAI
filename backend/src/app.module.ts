@@ -17,6 +17,7 @@ import { RetrainingModule } from './retraining/retraining.module';
 import { BlockedNumbersModule } from './blocked-numbers/blocked-numbers.module';
 import { DataRetentionModule } from './data-retention/data-retention.module';
 import { PortalOrganizationsModule } from './portal-organizations/portal-organizations.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PortalOrganizationsModule } from './portal-organizations/portal-organiz
     DataRetentionModule,
     PortalOrganizationsModule,
   ],
+  controllers: [AppController],
   providers: [
     // Apply throttle globally; individual routes can override with @Throttle()
     { provide: APP_GUARD, useClass: ThrottlerGuard },

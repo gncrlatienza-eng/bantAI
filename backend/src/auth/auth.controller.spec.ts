@@ -7,7 +7,8 @@ const mockAuthService = {
   register: jest.fn(),
   registerPortal: jest.fn(),
   login: jest.fn(),
-  firebaseLogin: jest.fn(),
+  requestOtp: jest.fn(),
+  verifyOtp: jest.fn(),
   getMe: jest.fn(),
 };
 
@@ -40,6 +41,17 @@ describe('AuthController', () => {
     expect(mockAuthService.register).toHaveBeenCalledWith(dto);
   });
 
+  it('delegates requestOtp to AuthService', async () => {
+    const dto = { phone: '+639171234567' };
+    mockAuthService.requestOtp.mockResolvedValue({
+      message: 'OTP generated successfully.',
+    });
+
+    await controller.requestOtp(dto);
+
+    expect(mockAuthService.requestOtp).toHaveBeenCalledWith(dto);
+  });
+
   it('delegates portal registration to AuthService', async () => {
     const dto = {
       email: 'client@example.com',
@@ -62,16 +74,16 @@ describe('AuthController', () => {
     expect(mockAuthService.login).toHaveBeenCalledWith(dto);
   });
 
-  it('delegates Firebase mobile login to AuthService', async () => {
-    const dto = { idToken: 'firebase-id-token' };
-    mockAuthService.firebaseLogin.mockResolvedValue({
+  it('delegates verifyOtp to AuthService', async () => {
+    const dto = { phone: '+639171234567', otp: '123456' };
+    mockAuthService.verifyOtp.mockResolvedValue({
       message: 'Authentication successful.',
       access_token: 'tok',
     });
 
-    await controller.firebaseLogin(dto);
+    await controller.verifyOtp(dto);
 
-    expect(mockAuthService.firebaseLogin).toHaveBeenCalledWith(dto);
+    expect(mockAuthService.verifyOtp).toHaveBeenCalledWith(dto);
   });
 
   it('delegates me to AuthService.getMe using userId from request', async () => {

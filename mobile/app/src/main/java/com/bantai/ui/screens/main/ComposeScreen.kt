@@ -1,8 +1,11 @@
 package com.bantai.ui.screens.main
 
+import android.provider.ContactsContract
 import android.provider.Telephony
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +82,34 @@ fun ComposeScreen(
             if (!justSent) viewModel.saveDraft(recipient, messageBody, previousRecipient = initialRecipient)
         }
     }
+
+    // PickContact's returned URI carries its own temporary read grant, so this
+    // works without holding READ_CONTACTS at runtime.
+    val contactPickerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use
+                val hasPhoneIndex = cursor.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER)
+                if (hasPhoneIndex < 0 || cursor.getInt(hasPhoneIndex) <= 0) return@use
+                val contactId = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID))
+                context.contentResolver
+                    .query(
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                        arrayOf(contactId),
+                        null,
+                    )?.use { phoneCursor ->
+                        if (phoneCursor.moveToFirst()) {
+                            recipient =
+                                phoneCursor.getString(
+                                    phoneCursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                                )
+                        }
+                    }
+            }
+        }
 
     // Accept E.164 (+[1-15 digits]) or local all-digit numbers (7-15 digits).
     // Rejects alphanumeric sender IDs (which are receive-only) and short codes
@@ -234,7 +265,12 @@ fun ComposeScreen(
                     inner()
                 },
             )
-            Icon(Icons.Default.PersonAdd, contentDescription = "Add contact", tint = Indigo, modifier = Modifier.size(20.dp))
+            IconButton(
+                onClick = { contactPickerLauncher.launch(null) },
+                modifier = Modifier.size(20.dp),
+            ) {
+                Icon(Icons.Default.PersonAdd, contentDescription = "Add contact", tint = Indigo, modifier = Modifier.size(20.dp))
+            }
         }
         HorizontalDivider(color = BorderColor)
 

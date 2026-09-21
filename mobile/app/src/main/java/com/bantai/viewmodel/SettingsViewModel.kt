@@ -40,6 +40,12 @@ class SettingsViewModel(
     private val _profileSaved = MutableStateFlow(false)
     val profileSaved: StateFlow<Boolean> = _profileSaved.asStateFlow()
 
+    // Surfaced when the local save succeeds but syncing the change to the
+    // backend fails -- without this, a failed sync looked identical to a
+    // successful one and the server-side name silently went stale.
+    private val _profileSyncError = MutableStateFlow<String?>(null)
+    val profileSyncError: StateFlow<String?> = _profileSyncError.asStateFlow()
+
     private val _firstNameError = MutableStateFlow<String?>(null)
     val firstNameError: StateFlow<String?> = _firstNameError.asStateFlow()
 
@@ -68,11 +74,6 @@ class SettingsViewModel(
     // without needing a real SMS to arrive first.
     private val _simulateStatus = MutableStateFlow<String?>(null)
     val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
-
-    private val _accountDeleteError = MutableStateFlow<String?>(null)
-    val accountDeleteError: StateFlow<String?> = _accountDeleteError.asStateFlow()
-    private val _accountDeleting = MutableStateFlow(false)
-    val accountDeleting: StateFlow<Boolean> = _accountDeleting.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -161,14 +162,32 @@ class SettingsViewModel(
             _lastNameError.value = "Name should only contain letters"
             return
         }
+        _profileSyncError.value = null
         viewModelScope.launch {
             userPreferences.saveProfile(
                 firstName = trimmedFirst,
                 lastName = trimmedLast,
                 avatarColor = _editAvatarColor.value,
             )
-            _profileSaved.value = true
-            onSuccess()
+            // Local save always happens so the avatar color and name are never
+            // lost, but "saved" only means something to the caller once the
+            // backend actually has the new name too -- otherwise GET /auth/me
+            // silently disagrees with what the app displays from then on.
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) {
+                _profileSaved.value = true
+                onSuccess()
+                return@launch
+            }
+            AuthApi
+                .updateProfile(token, trimmedFirst, trimmedLast)
+                .onSuccess {
+                    _profileSaved.value = true
+                    onSuccess()
+                }.onFailure { error ->
+                    _profileSyncError.value =
+                        error.message ?: "Saved on this device, but couldn't sync to the server."
+                }
         }
     }
 
@@ -204,31 +223,19 @@ class SettingsViewModel(
         }
     }
 
-    // There is no backend account-deletion endpoint yet (only auth/profile
-    // ones) -- this clears the local session only. Named/labeled as "sign
-    // out" rather than "delete account" so the UI doesn't claim server-side
-    // deletion it doesn't actually do.
+    // Clears only the local session (token + preferences). This must never call
+    // DELETE /users/me -- "Sign out" previously did exactly that via a
+    // now-removed AuthApi.deleteAccount binding, which permanently deletes the
+    // user's row and all their data server-side (see UsersService.deleteMe),
+    // even though the confirmation dialog told the user they could just verify
+    // their phone number again to come back. There is currently no UI path
+    // that performs real account deletion, and adding one needs its own
+    // explicit, separately-labeled, clearly-worded confirmation -- not this
+    // one.
     fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
-            if (_accountDeleting.value) return@launch
-            _accountDeleteError.value = null
-            _accountDeleting.value = true
-            val token = userPreferences.userData.first().authToken
-            if (token.isEmpty()) {
-                _accountDeleteError.value = "Your session has expired. Please sign in again."
-                _accountDeleting.value = false
-                return@launch
-            }
-            AuthApi
-                .deleteAccount(token)
-                .onSuccess {
-                    userPreferences.clearAll()
-                    _accountDeleting.value = false
-                    onComplete()
-                }.onFailure {
-                    _accountDeleteError.value = "Could not delete account. Please try again."
-                    _accountDeleting.value = false
-                }
+            userPreferences.clearAll()
+            onComplete()
         }
     }
 

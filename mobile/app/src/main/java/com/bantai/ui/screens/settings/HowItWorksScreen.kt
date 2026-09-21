@@ -3,19 +3,19 @@
 package com.bantai.ui.screens.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,47 +45,59 @@ fun HowItWorksScreen(navController: NavController) {
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Black)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .background(Black),
     ) {
-        Row(
+        Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
-            Icon(
-                Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = White,
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .clickable { navController.popBackStack() },
-            )
-            Spacer(Modifier.width(16.dp))
-            Text("How BantAI Works", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
-
-        sections.forEach { (title, body) ->
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-                        .padding(16.dp),
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Text(title, color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(body, color = TextSecondary, fontSize = 13.sp, lineHeight = 20.sp)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
             }
-            Spacer(Modifier.height(10.dp))
+            Text(
+                "How BantAI Works",
+                color = White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
+        HorizontalDivider(color = Surface)
 
-        // Bottom clearance matches the floating tab bar's footprint (see
-        // MainScreen) -- this screen now renders behind that persistent bar.
-        Spacer(Modifier.height(116.dp))
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
+        ) {
+            Spacer(Modifier.height(16.dp))
+
+            sections.forEach { (title, body) ->
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(12.dp))
+                            .padding(16.dp),
+                ) {
+                    Text(title, color = Indigo, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text(body, color = TextSecondary, fontSize = 13.sp, lineHeight = 20.sp)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+
+            // Bottom clearance matches the floating tab bar's footprint (see
+            // MainScreen) -- this screen now renders behind that persistent bar.
+            Spacer(Modifier.height(116.dp))
+        }
     }
 }

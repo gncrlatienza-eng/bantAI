@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,10 +66,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.data.remote.SmsApi
+import com.bantai.ui.components.MessageRowSkeleton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
@@ -296,11 +297,10 @@ private fun ThreatAlertsTab(
 
                 when {
                     alertsLoading ->
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
+                        Column {
+                            repeat(2) {
+                                MessageRowSkeleton(avatarSize = 32.dp, horizontalPadding = 0.dp, verticalPadding = 6.dp)
+                            }
                         }
                     recentAlerts.isEmpty() ->
                         NotificationItem(
@@ -427,7 +427,7 @@ private fun NotificationItem(
                     Box(
                         modifier =
                             Modifier
-                                .background(Color(0xFF2A2A2A), RoundedCornerShape(100.dp))
+                                .background(BorderColor, RoundedCornerShape(100.dp))
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text("Dismiss", color = White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -462,7 +462,7 @@ private fun ToggleRow(
             colors =
                 SwitchDefaults.colors(
                     checkedThumbColor = White,
-                    checkedTrackColor = Color(0xFF5B4FE8),
+                    checkedTrackColor = Indigo,
                 ),
         )
     }
@@ -511,7 +511,7 @@ private fun WeeklyDigestTab() {
                     StatColumn("284", "Scanned", "this week", White)
                     StatColumn("6", "Smishing", "detected", Danger)
                     StatColumn("11", "Suspicious", "flagged", Suspicious)
-                    StatColumn("6", "Blocked", "auto-blocked", Color(0xFF34C759))
+                    StatColumn("6", "Blocked", "auto-blocked", Safe)
                 }
 
                 Text("Threat breakdown", color = TextSecondary, fontSize = 12.sp)
@@ -526,13 +526,13 @@ private fun WeeklyDigestTab() {
                 ) {
                     Box(modifier = Modifier.fillMaxWidth(0.021f).height(8.dp).background(Danger))
                     Box(modifier = Modifier.fillMaxWidth(0.040f).height(8.dp).background(Suspicious))
-                    Box(modifier = Modifier.weight(1f).height(8.dp).background(Color(0xFF34C759)))
+                    Box(modifier = Modifier.weight(1f).height(8.dp).background(Safe))
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     LegendDot(Danger, "Smishing 2.1%")
                     LegendDot(Suspicious, "Suspicious 3.9%")
-                    LegendDot(Color(0xFF34C759), "Safe 94%")
+                    LegendDot(Safe, "Safe 94%")
                 }
 
                 Row(

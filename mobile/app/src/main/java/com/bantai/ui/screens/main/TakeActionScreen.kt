@@ -60,6 +60,7 @@ import com.bantai.data.remote.ReportsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
+import com.bantai.ui.theme.ContactBadge
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Safe
@@ -495,7 +496,7 @@ private fun ActionButton(
         colors =
             ButtonDefaults.buttonColors(
                 containerColor = Indigo,
-                disabledContainerColor = Color(0xFF3A3A5C),
+                disabledContainerColor = ContactBadge,
                 contentColor = White,
                 disabledContentColor = TextSecondary,
             ),

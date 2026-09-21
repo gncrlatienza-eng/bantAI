@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.ListSkeleton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
@@ -115,11 +115,7 @@ fun AlertsScreen(
 
         when {
             isLoading ->
-                item {
-                    Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
-                    }
-                }
+                item { ListSkeleton(rows = 5) }
             errorMessage != null ->
                 item {
                     Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)

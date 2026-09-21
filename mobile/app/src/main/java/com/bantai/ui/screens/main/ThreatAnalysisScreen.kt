@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.SmsApi
+import com.bantai.ui.components.DetailSkeleton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
@@ -101,10 +101,7 @@ fun ThreatAnalysisScreen(
         HorizontalDivider(color = Surface)
 
         when {
-            isLoading ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = TextSecondary)
-                }
+            isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
@@ -167,7 +164,7 @@ private fun ThreatAnalysisContent(
                         Text(alert.label ?: "Suspicious", color = Suspicious, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                 }
-                HorizontalDivider(color = Color(0xFF2A2A2A))
+                HorizontalDivider(color = BorderColor)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),

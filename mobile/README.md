@@ -38,6 +38,33 @@ The backend base URL is injected at build time (`BACKEND_BASE_URL` in
 
 ---
 
+## Firebase Setup (required to build)
+
+Phone-number sign-in uses Firebase Phone Authentication (the backend's `POST /auth/mobile/firebase`
+verifies the resulting ID token — see `docs/api/auth.md`). This means, unlike Crashlytics,
+**`google-services.json` is now required for `mobile/` to compile at all**, not just for a feature
+to work — `OnboardingViewModel.kt` references Firebase Auth classes unconditionally.
+
+1. Get `mobile/app/google-services.json` for the shared `bantai-f5eed` Firebase project from
+   whoever holds/distributes it (ask Gio) — it's per-project config, not a secret, but is
+   intentionally gitignored so it isn't hardcoded per environment. Place it at `mobile/app/`.
+2. Its `project_id` must match the backend's `FIREBASE_PROJECT_ID` env var exactly, or every
+   phone-auth token exchange will 401 even though both sides look individually correct.
+3. For local dev without burning real SMS: add test phone numbers + fixed codes under Firebase
+   Console → Authentication → Sign-in method → Phone → "Phone numbers for testing" (e.g.
+   `+639171234567` → `123456`). Entering that number/code pair always succeeds without Firebase
+   sending anything.
+4. Real-device testing needs the app's signing certificate's SHA-1 (and ideally SHA-256) added to
+   the Firebase Android app config (Firebase Console → Project settings → Your apps) — required
+   for Play Integrity–based silent verification. Add the debug keystore's SHA-1 at minimum
+   (`keytool -list -v -keystore ~/.android/debug.keystore`, password `android`); add release
+   signing's SHA before any release build ships real phone auth.
+
+Without `google-services.json` present, `:app:compileDebugKotlin` fails with "Unresolved
+reference" errors on `FirebaseAuth`/`PhoneAuthProvider`/etc. — this is expected, not a bug.
+
+---
+
 ## Project Structure
 
 ```

@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -39,6 +38,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.CampaignsApi
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.MessageRowSkeleton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
@@ -133,15 +133,15 @@ private fun SectionHeader(label: String) {
 
 @Composable
 private fun LoadingRow() {
-    Row(
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(18.dp))
-                .padding(20.dp),
-        horizontalArrangement = Arrangement.Center,
+                .background(SurfaceElevated, RoundedCornerShape(18.dp)),
     ) {
-        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
+        repeat(2) {
+            MessageRowSkeleton(avatarSize = 36.dp, horizontalPadding = 16.dp, verticalPadding = 10.dp)
+        }
     }
 }
 

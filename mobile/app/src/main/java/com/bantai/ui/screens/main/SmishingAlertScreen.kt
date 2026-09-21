@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -43,7 +42,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.DetailSkeleton
 import com.bantai.ui.theme.Black
+import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
@@ -102,10 +103,7 @@ fun SmishingAlertScreen(
         }
 
         when {
-            isLoading ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = TextSecondary)
-                }
+            isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
@@ -189,7 +187,7 @@ private fun SmishingAlertContent(
                 // link target; the data has been available in GET /sms/alerts all
                 // along, just never parsed on the mobile side until now.
                 alert.clusterId?.let { clusterId ->
-                    HorizontalDivider(color = Color(0xFF2A2A2A))
+                    HorizontalDivider(color = BorderColor)
                     Row(
                         modifier =
                             Modifier
@@ -389,7 +387,7 @@ private fun SmishingAlertContent(
                                         .height(4.dp)
                                         .clip(RoundedCornerShape(2.dp)),
                                 color = Danger,
-                                trackColor = Color(0xFF2A2A2A),
+                                trackColor = BorderColor,
                             )
                             Text(severityLabel(indicator.weight), color = TextSecondary, fontSize = 13.sp)
                         }

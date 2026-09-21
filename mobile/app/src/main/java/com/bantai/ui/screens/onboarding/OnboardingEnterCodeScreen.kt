@@ -1,5 +1,6 @@
 package com.bantai.ui.screens.onboarding
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,9 +68,18 @@ fun OnboardingEnterCodeScreen(
     navController: NavController,
     viewModel: OnboardingViewModel,
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val digits = remember { mutableStateListOf("", "", "", "", "", "") }
     val focusRequesters = remember { List(6) { FocusRequester() } }
+
+    // Fires whether the code was typed manually or auto-retrieved by Play
+    // Services -- see OnboardingViewModel.signInWithCredential.
+    LaunchedEffect(Unit) {
+        viewModel.onboardingAuthComplete.collect {
+            navController.navigate(Screen.OnboardingTerms.route)
+        }
+    }
 
     // Ticks once a second purely to re-derive the resend/lockout countdowns below
     // from state.resendAvailableAtMs / verifyLockedUntilMs -- those timestamps are
@@ -150,7 +161,10 @@ fun OnboardingEnterCodeScreen(
                     "Resend code",
                     color = Indigo,
                     fontSize = 15.sp,
-                    modifier = Modifier.clickable { viewModel.resendOtp() },
+                    modifier =
+                        Modifier.clickable {
+                            (context as? Activity)?.let { viewModel.resendVerificationCode(it) }
+                        },
                 )
             }
         }
@@ -159,11 +173,7 @@ fun OnboardingEnterCodeScreen(
 
         PrimaryButton(
             text = if (verifyLockedRemainingSec > 0) "Try again in ${verifyLockedRemainingSec}s" else "Verify",
-            onClick = {
-                viewModel.verifyOtp {
-                    navController.navigate(Screen.OnboardingTerms.route)
-                }
-            },
+            onClick = { viewModel.verifyCode() },
             enabled = !state.isLoading && verifyLockedRemainingSec == 0L,
             isLoading = state.isLoading,
         )

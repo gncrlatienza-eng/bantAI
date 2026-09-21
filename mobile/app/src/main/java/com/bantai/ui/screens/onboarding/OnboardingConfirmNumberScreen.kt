@@ -1,6 +1,7 @@
 package com.bantai.ui.screens.onboarding
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.telephony.TelephonyManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -158,8 +159,11 @@ fun OnboardingConfirmNumberScreen(
         PrimaryButton(
             text = "Send verification code",
             onClick = {
-                viewModel.requestOtp(phoneNumber) {
-                    navController.navigate(Screen.OnboardingEnterCode.route)
+                val activity = context as? Activity
+                if (activity != null) {
+                    viewModel.requestVerificationCode(activity, phoneNumber) {
+                        navController.navigate(Screen.OnboardingEnterCode.route)
+                    }
                 }
             },
             enabled = !state.isLoading && phoneNumber.isNotBlank(),

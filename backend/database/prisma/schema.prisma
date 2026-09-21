@@ -87,6 +87,23 @@ model Contact {
   @@unique([userId, phone])
 }
 
+model OtpCode {
+  id         String   @id @default(uuid())
+
+  phone      String   @unique
+  codeHash   String
+
+  expiresAt  DateTime
+  verified   Boolean  @default(false)
+  attempts   Int      @default(0)
+  requestCount Int    @default(0)
+  requestWindowStart DateTime @default(now())
+
+  createdAt  DateTime @default(now())
+
+  @@index([phone, verified, createdAt])
+}
+
 model SmsMessage {
   id         String   @id @default(uuid())
 

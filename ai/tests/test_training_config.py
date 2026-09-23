@@ -204,3 +204,59 @@ def test_load_config_rejects_a_misspelt_setting(tmp_path):
     path.write_text('{"class_weigth_power": 0.5}', encoding="utf-8")
     with pytest.raises(ValueError, match="class_weigth_power"):
         load_config(str(path))
+
+
+# --- class_weight_power validation (review, 2026-09-21) ----------------------
+def _overrides(tmp_path, value):
+    import json
+
+    path = tmp_path / "training_overrides.json"
+    path.write_text(json.dumps({"class_weight_power": value}), encoding="utf-8")
+    return str(path)
+
+
+def test_negative_weight_power_is_rejected(tmp_path):
+    """A negative exponent inverts the weighting: Scam would get *less* weight
+    than Ham, training the opposite of what the variant claims."""
+    import pytest
+
+    from training.config import load_config
+
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        load_config(_overrides(tmp_path, -1.0))
+
+
+def test_nan_and_inf_weight_power_are_rejected(tmp_path):
+    import pytest
+
+    from training.config import load_config
+
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="finite"):
+            load_config(_overrides(tmp_path, bad))
+
+
+def test_weight_power_above_one_is_rejected(tmp_path):
+    import pytest
+
+    from training.config import load_config
+
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        load_config(_overrides(tmp_path, 5.0))
+
+
+def test_non_numeric_weight_power_is_rejected(tmp_path):
+    import pytest
+
+    from training.config import load_config
+
+    for bad in ("0.5", None, True):
+        with pytest.raises(ValueError, match="must be a number"):
+            load_config(_overrides(tmp_path, bad))
+
+
+def test_valid_weight_powers_are_accepted(tmp_path):
+    from training.config import load_config
+
+    for good in (0.0, 0.5, 1, 1.0):
+        assert load_config(_overrides(tmp_path, good)).class_weight_power == float(good)

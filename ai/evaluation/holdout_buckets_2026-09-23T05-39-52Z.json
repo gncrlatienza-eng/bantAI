@@ -1,78 +1,78 @@
 {
   "buckets": {
-    "ham_blocked": 8,
-    "n_unknown": 12,
+    "ham_blocked": 7,
+    "n_unknown": 11,
     "per_class": {
       "Ham": {
-        "correct": 1749,
+        "correct": 1744,
         "total": 1787,
-        "unknown": 8,
-        "wrong_bucket": 30
+        "unknown": 6,
+        "wrong_bucket": 37
       },
       "Scam": {
-        "correct": 468,
+        "correct": 466,
         "total": 491,
         "unknown": 2,
-        "wrong_bucket": 21
+        "wrong_bucket": 23
       },
       "Spam": {
-        "correct": 911,
+        "correct": 918,
         "total": 958,
-        "unknown": 2,
-        "wrong_bucket": 45
+        "unknown": 3,
+        "wrong_bucket": 37
       }
     },
     "scam_shown_as_safe": 10,
     "table": {
       "Ham": {
-        "blocked": 8,
-        "safe": 1749,
-        "spam": 22,
-        "unknown": 8
+        "blocked": 7,
+        "safe": 1744,
+        "spam": 30,
+        "unknown": 6
       },
       "Scam": {
-        "blocked": 468,
+        "blocked": 466,
         "safe": 10,
-        "spam": 11,
+        "spam": 13,
         "unknown": 2
       },
       "Spam": {
-        "blocked": 12,
-        "safe": 33,
-        "spam": 911,
-        "unknown": 2
+        "blocked": 9,
+        "safe": 28,
+        "spam": 918,
+        "unknown": 3
       }
     }
   },
-  "checkpoint_integrity": "unverifiable",
-  "evaluated_at": "2026-09-21T13:52:36.420315+00:00",
+  "checkpoint_integrity": "ok",
+  "evaluated_at": "2026-09-23T05:39:52.361089+00:00",
   "holdout_csv": "datasets/holdout/holdout.csv",
   "holdout_integrity": "ok",
   "holdout_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
-  "model_dir": "models/retraining_runs/2026-09-21-colab-C/candidate",
-  "model_version": null,
+  "model_dir": "models/retraining_runs/2026-09-21-colab-B/candidate",
+  "model_version": "v2026-09-21-colab-B",
   "n_total": 3236,
   "raw_argmax_confusion_matrix": {
     "Ham": {
-      "Ham": 1752,
-      "Scam": 10,
-      "Spam": 25
+      "Ham": 1746,
+      "Scam": 11,
+      "Spam": 30
     },
     "Scam": {
       "Ham": 10,
-      "Scam": 470,
-      "Spam": 11
+      "Scam": 468,
+      "Spam": 13
     },
     "Spam": {
-      "Ham": 33,
-      "Scam": 13,
-      "Spam": 912
+      "Ham": 28,
+      "Scam": 11,
+      "Spam": 919
     }
   },
-  "raw_argmax_macro_f1": 0.9635,
+  "raw_argmax_macro_f1": 0.9631,
   "release_gate": {
     "failures": [],
-    "ham_blocked_rate": 0.0045,
+    "ham_blocked_rate": 0.0039,
     "max_ham_blocked": 0.01,
     "max_scam_shown_as_safe": 0.05,
     "passed": true,

@@ -1,0 +1,118 @@
+/*
+ * BantAI semantic tokens (Layer 2: named tokens components consume)
+ *
+ * Scoped under [data-theme="mineral"] to avoid colliding with the legacy
+ * dark-theme tokens still defined on :root in tokens.css. Any page or subtree
+ * that opts in (by setting data-theme="mineral" on <html>, <body>, or the
+ * AppShell root) picks up this palette. Pages we have not migrated yet keep
+ * the legacy tokens untouched.
+ *
+ * Components reference these tokens only. Direct references to --palette-* in
+ * component code are a review reject; the whole point of Layer 2 is that we can
+ * change the physical color later without touching components.
+ *
+ * Rules (enforced in code review):
+ *   1. Threat colors (--status-threat, --status-critical) appear only inside
+ *      status badges or confirmed destructive-action contexts.
+ *   2. Amber (--status-suspicious) is only for the "investigate" state.
+ *   3. Teal (--status-verified) is only for the "verified/benign" state.
+ *   4. Mulberry (--brand-*) is identity only: brand, primary action, active nav,
+ *      selection, focus. Never for danger, safety, or confidence.
+ *   5. Petrol (--info-*) is informational only: AI-generated insight, model
+ *      metadata, analytical explanations. Never for brand or threat.
+ *   6. Classification determines color. Confidence uses neutral number/bar/text.
+ *      No token here maps confidence to hue, brightness, or saturation.
+ */
+
+[data-theme='mineral'] {
+  /* Surfaces */
+  --surface-canvas: var(--palette-mineral-fog);
+  --surface-raised: var(--palette-porcelain);
+  --surface-selected: var(--palette-mist-mulberry);
+
+  /* Borders (against light surfaces; mist-mulberry is too pale to read) */
+  --border-default: color-mix(
+    in srgb,
+    var(--palette-warm-ink) 14%,
+    transparent
+  );
+  --border-strong: color-mix(in srgb, var(--palette-warm-ink) 28%, transparent);
+
+  /* Text */
+  --text-primary: var(--palette-warm-ink);
+  --text-secondary: var(--palette-ash-violet);
+  --text-on-brand: var(--palette-porcelain);
+  --text-on-threat: var(--palette-porcelain);
+  --text-on-info: var(--palette-porcelain);
+
+  /* Identity + primary action */
+  --brand-primary: var(--palette-mulberry);
+  --brand-soft: var(--palette-mist-mulberry);
+  --action-primary-bg: var(--palette-mulberry);
+  --action-primary-text: var(--palette-porcelain);
+
+  /* Informational (AI, model, analytical insight) */
+  --info-fg: var(--palette-petrol);
+
+  /* Semantic states (classification only, never confidence) */
+  --status-unknown: var(--palette-dust);
+  --status-verified: var(--palette-muted-teal);
+  --status-suspicious: var(--palette-burnt-amber);
+  --status-threat: var(--palette-carmine);
+  --status-critical: var(--palette-deep-carmine);
+
+  /* Chart categorical palette (draw in order, no threat colors) */
+  --chart-1: var(--palette-mulberry);
+  --chart-2: var(--palette-petrol);
+  --chart-3: var(--palette-ash-violet);
+  --chart-4: var(--palette-warm-ink);
+  --chart-5: var(--palette-muted-teal);
+
+  /* Motion (locked per correction 6) */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Typography tokens (font loading deferred to Phase C) */
+  --font-sans:
+    'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --font-mono:
+    'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  /* Landing-page typography scale (larger than portal defaults) */
+  --font-size-display: clamp(2.6rem, 5vw, 4.4rem);
+  --font-size-h2: clamp(2rem, 3vw, 2.9rem);
+  --font-size-h3: 1.35rem;
+  --font-size-lede: 1.2rem;
+  --font-size-body: 1.05rem;
+  --font-size-eyebrow: 0.82rem;
+
+  --line-height-display: 1.02;
+  --line-height-h2: 1.1;
+  --line-height-body: 1.6;
+
+  --content-max-page: 1280px;
+  --content-max-prose: 680px;
+
+  --space-section-lg: 140px;
+  --space-section-md: 96px;
+  --space-section-sm: 80px;
+
+  /* Plum opacity variants — depth without new palette entries */
+  --plum-08: color-mix(in srgb, var(--brand-primary) 8%, transparent);
+  --plum-14: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+  --plum-35: color-mix(in srgb, var(--brand-primary) 35%, transparent);
+  --plum-60: color-mix(in srgb, var(--brand-primary) 60%, transparent);
+}
+
+/* Reduced motion: collapse to instant */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='mineral'] {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}

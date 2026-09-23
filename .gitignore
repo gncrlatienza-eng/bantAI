@@ -5,6 +5,14 @@
 ~$*.doc
 ~$*.pptx
 
+# ─── Local agent/tooling caches ───────────────────────────────────────────────
+.claude-flow/
+.audit/
+.playwright-mcp/
+.codex/
+.ruff_cache/
+graphify-out/
+
 # ─── Next.js ───────────────────────────────────────────────────────────────────
 node_modules/
 .next/

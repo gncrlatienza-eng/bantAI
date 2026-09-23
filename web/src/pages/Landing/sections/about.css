@@ -1,0 +1,68 @@
+.about {
+  padding-top: var(--landing-section-sm, 72px);
+  padding-bottom: var(--landing-section-sm, 72px);
+}
+
+.about__copy {
+  max-width: 560px;
+}
+
+.about__architecture {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.about-arch {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 660 / 420;
+}
+
+.about__legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.about__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.about__legend-swatch {
+  width: 14px;
+  height: 12px;
+  display: inline-block;
+  border-radius: 2px;
+}
+
+.about__legend-swatch--stay {
+  background: var(--plum-14);
+  border: 1px solid var(--plum-35);
+}
+
+.about__legend-swatch--flow {
+  background: transparent;
+  border-top: 2px solid var(--brand-primary);
+  height: 2px;
+  align-self: center;
+}
+
+.about__legend-swatch--read {
+  background: transparent;
+  border-top: 2px dashed var(--brand-primary);
+  height: 2px;
+  align-self: center;
+}

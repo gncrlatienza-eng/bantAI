@@ -1,0 +1,378 @@
+/*
+ * Hero visual — animation timeline.
+ *
+ * The scene runs once and holds its end state (no infinite loop). Reduced
+ * motion collapses every element straight to the end state.
+ *
+ * Timeline:
+ *   0.0–1.0 s   phone frame settles in
+ *   1.0–2.5 s   SMS bubble slides up
+ *   2.5–4.0 s   suspicious highlighter marks draw (urgency → URL → amount)
+ *   4.0–5.5 s   "Analyzing…" progress bar sweeps
+ *   5.5–7.0 s   analyzing fades out, verdict chip fades in
+ *   7.0–8.5 s   reason chips settle in
+ *   8.5–10.0 s  three variant cards fade in around the phone
+ *  10.0–12.0 s  connecting lines draw from anchor to variants
+ *  12.0–13.5 s  campaign match badge lands
+ *  13.5 s      end state holds
+ */
+
+.hero {
+  padding-top: 120px;
+  padding-bottom: 96px;
+}
+
+@media (min-width: 960px) {
+  .hero {
+    padding-top: 144px;
+    padding-bottom: 112px;
+  }
+}
+
+.hero__copy {
+  max-width: 540px;
+}
+
+/*
+ * Stage: landscape composition, not a square card. Let the SVG dictate its
+ * aspect via the viewBox and only clamp max width so the composition never
+ * gets absurdly wide on ultra-wide screens.
+ */
+.hero__stage {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  justify-self: center;
+}
+
+@media (min-width: 960px) {
+  .hero__stage {
+    justify-self: end;
+  }
+}
+
+.hero-vis {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+/* ————————————————————————————————————————————— */
+/*  Phone frame entrance (0.0–1.0 s)                */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__phone {
+  opacity: 0;
+  transform-origin: 205px 270px;
+  animation: hero-vis-phone-in 1000ms var(--motion-ease, ease) 0ms forwards;
+}
+
+@keyframes hero-vis-phone-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  SMS bubble (1.0–2.5 s)                          */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__sms {
+  opacity: 0;
+  transform-origin: 205px 193px;
+  animation: hero-vis-sms-in 900ms var(--motion-ease, ease) 1000ms forwards;
+}
+
+@keyframes hero-vis-sms-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Highlighter marks (2.5–4.0 s, staggered)        */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__mark {
+  transform: scaleX(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: hero-vis-mark-in 520ms var(--motion-ease, ease) forwards;
+}
+
+.hero-vis__mark--urgency {
+  animation-delay: 2500ms;
+}
+.hero-vis__mark--url {
+  animation-delay: 2950ms;
+}
+.hero-vis__mark--amount {
+  animation-delay: 3400ms;
+}
+
+@keyframes hero-vis-mark-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.hero-vis__ul {
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  animation: hero-vis-ul-draw 600ms var(--motion-ease, ease) 2950ms forwards;
+}
+
+@keyframes hero-vis-ul-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Analyzing state (4.0–5.5 s in, fade out 5.5–6.0)*/
+/* ————————————————————————————————————————————— */
+
+.hero-vis__analyzing {
+  opacity: 0;
+  animation: hero-vis-analyzing 2000ms var(--motion-ease, ease) 4000ms forwards;
+}
+
+@keyframes hero-vis-analyzing {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.hero-vis__analyzing-progress {
+  transform: scaleX(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: hero-vis-progress 1400ms var(--motion-ease, ease) 4100ms forwards;
+}
+
+@keyframes hero-vis-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Verdict chip (5.5–7.0 s)                        */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__verdict {
+  opacity: 0;
+  transform-origin: 205px 304px;
+  animation: hero-vis-verdict-in 800ms var(--motion-ease, ease) 5500ms forwards;
+}
+
+@keyframes hero-vis-verdict-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Reason chips (7.0–8.5 s, staggered)             */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__reason {
+  opacity: 0;
+  transform-origin: center;
+  animation: hero-vis-reason-in 460ms var(--motion-ease, ease) forwards;
+}
+
+.hero-vis__reason--1 {
+  animation-delay: 7000ms;
+}
+.hero-vis__reason--2 {
+  animation-delay: 7200ms;
+}
+.hero-vis__reason--3 {
+  animation-delay: 7400ms;
+}
+
+@keyframes hero-vis-reason-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Variant cards (8.5–10.0 s, staggered)           */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__variant {
+  opacity: 0;
+  transform-origin: center;
+  animation: hero-vis-variant-in 680ms var(--motion-ease, ease) forwards;
+}
+
+.hero-vis__variant--en {
+  animation-delay: 8500ms;
+}
+.hero-vis__variant--tl {
+  animation-delay: 8900ms;
+}
+.hero-vis__variant--tag {
+  animation-delay: 9300ms;
+}
+
+@keyframes hero-vis-variant-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Anchor node + edges (10.0–12.0 s)               */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__anchor {
+  opacity: 0;
+  animation: hero-vis-fade-in 400ms var(--motion-ease, ease) 9800ms forwards;
+}
+
+.hero-vis__edge {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  opacity: 0.9;
+  animation: hero-vis-edge-draw 900ms var(--motion-ease, ease) forwards;
+}
+
+.hero-vis__edge--en {
+  animation-delay: 10000ms;
+}
+.hero-vis__edge--tl {
+  animation-delay: 10300ms;
+}
+.hero-vis__edge--tag {
+  animation-delay: 10600ms;
+}
+
+@keyframes hero-vis-edge-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hero-vis-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Campaign match badge (12.0–13.5 s)              */
+/* ————————————————————————————————————————————— */
+
+.hero-vis__badge {
+  opacity: 0;
+  transform-origin: 360px 544px;
+  animation: hero-vis-badge-in 900ms var(--motion-ease, ease) 12000ms forwards;
+}
+
+@keyframes hero-vis-badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Responsive — under 720 px viewport              */
+/* ————————————————————————————————————————————— */
+
+/*
+ * At narrow widths the cluster + badge crowd the phone. Keep the phone as the
+ * focal point and hide the satellite variants + edges + campaign badge; the
+ * hero copy already carries the campaign story in prose so nothing is lost.
+ */
+@media (max-width: 720px) {
+  .hero-vis__cluster,
+  .hero-vis__badge {
+    display: none;
+  }
+}
+
+/* ————————————————————————————————————————————— */
+/*  Reduced motion                                  */
+/* ————————————————————————————————————————————— */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-vis__phone,
+  .hero-vis__sms,
+  .hero-vis__mark,
+  .hero-vis__ul,
+  .hero-vis__analyzing,
+  .hero-vis__analyzing-progress,
+  .hero-vis__verdict,
+  .hero-vis__reason,
+  .hero-vis__variant,
+  .hero-vis__anchor,
+  .hero-vis__edge,
+  .hero-vis__badge {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .hero-vis__mark {
+    transform: scaleX(1) !important;
+  }
+  .hero-vis__analyzing-progress {
+    transform: scaleX(1) !important;
+  }
+  /* End state hides the transient Analyzing block */
+  .hero-vis__analyzing {
+    opacity: 0 !important;
+  }
+}

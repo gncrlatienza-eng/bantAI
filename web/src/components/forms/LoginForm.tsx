@@ -1,107 +1,137 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../constants/routes';
-import { requestOtp } from '../../services/authService';
-import { Button } from '../common/Button';
+import { getCurrentUser, login } from '../../services/authService';
 import { Input } from '../common/Input';
 
-interface LoginFormProps {
-  admin?: boolean;
-}
+/*
+ * LoginForm — one calm, unified sign-in.
+ *
+ * There is no admin / client toggle. The visitor enters their work email and
+ * password; after login, getCurrentUser() tells us the role and we route to
+ * /admin/overview for ADMIN or /client/overview otherwise. The backend is the
+ * only place role is decided — the surface never asks the user to declare it.
+ *
+ * The form is a single step. An email-first step was previously used but did
+ * not branch to any real authentication decision (no SSO discovery, no
+ * passkey routing), so it added a click without value and broke password
+ * managers that expect email and password on the same page. We collapsed it.
+ *
+ * Access is licensed, so this form does not offer account creation. A quiet
+ * "Request access →" link points to the public request-access page.
+ *
+ * Authentication failures return a single generic message. We do not tell the
+ * caller whether the email exists.
+ */
 
-export const LoginForm: React.FC<LoginFormProps> = ({ admin = false }) => {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const GENERIC_AUTH_FAILURE =
+  'Those credentials did not work. Check your email and password and try again.';
+
+export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
-  const [error, setError] = useState<string | undefined>();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState<string | undefined>();
+  const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [formError, setFormError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!phone.trim()) {
-      setError('Enter your Philippine mobile number.');
-      return;
+    setEmailError(undefined);
+    setPasswordError(undefined);
+    setFormError(undefined);
+
+    const trimmedEmail = email.trim();
+    let hasError = false;
+
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      setEmailError('Enter a valid work email.');
+      hasError = true;
     }
+    if (!password) {
+      setPasswordError('Enter your password.');
+      hasError = true;
+    }
+    if (hasError) return;
 
     setLoading(true);
     try {
-      await requestOtp(phone.trim());
-      void navigate(ROUTES.TWO_FACTOR, {
-        state: { admin, phone: phone.trim() },
-      });
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Could not send a verification code.',
-      );
+      await login(trimmedEmail, password);
+      const me = await getCurrentUser();
+      void navigate(me.role === 'ADMIN' ? '/admin/overview' : '/client/overview');
+    } catch {
+      // Never surface whether the account exists or which field was wrong.
+      setFormError(GENERIC_AUTH_FAILURE);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <form
-      className="auth-form"
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
+      className="bantai-auth-card__form"
+      onSubmit={handleSubmit}
+      noValidate
     >
       <Input
-        label="Philippine mobile number"
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel"
-        placeholder="e.g. +639171234567"
-        value={phone}
+        label="Work email"
+        type="email"
+        name="email"
+        autoComplete="username"
+        inputMode="email"
+        placeholder="name@organization.com"
+        value={email}
         onChange={(e) => {
-          setPhone(e.target.value);
-          setError(undefined);
+          setEmail(e.target.value);
+          setEmailError(undefined);
+          setFormError(undefined);
         }}
-        error={error}
-        helpText="We send a one-time code to verify access."
+        error={emailError}
+        autoFocus
+        required
       />
 
-      <Button
-        type="submit"
-        variant="primary"
-        size="lg"
-        fullWidth
-        loading={loading}
-        style={{ marginTop: 12 }}
-      >
-        {admin ? 'Send administrator code' : 'Send access code'}
-      </Button>
-
-      <div
-        style={{
-          textAlign: 'center',
-          marginTop: 16,
-          fontSize: '0.8125rem',
-          color: 'var(--text-secondary)',
+      <Input
+        label="Password"
+        type="password"
+        name="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          setPasswordError(undefined);
+          setFormError(undefined);
         }}
-      >
-        {admin ? (
-          <>
-            Client organization?{' '}
-            <Link
-              to={ROUTES.LOGIN}
-              style={{ color: 'var(--accent-light)', fontWeight: 600 }}
-            >
-              Client Portal →
-            </Link>
-          </>
-        ) : (
-          <>
-            BantAI administrator?{' '}
-            <Link
-              to={ROUTES.ADMIN_LOGIN}
-              style={{ color: 'var(--accent-light)', fontWeight: 600 }}
-            >
-              Admin Portal →
-            </Link>
-          </>
-        )}
+        error={passwordError}
+        required
+      />
+
+      {formError && (
+        <div
+          className="bantai-auth-card__form-error"
+          role="alert"
+          aria-live="polite"
+        >
+          {formError}
+        </div>
+      )}
+
+      <div className="bantai-auth-card__actions">
+        <button
+          type="submit"
+          className="bantai-auth-card__primary"
+          disabled={loading}
+          aria-disabled={loading}
+        >
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
       </div>
+
+      <p className="bantai-auth-card__foot">
+        Need access? <Link to="/request-access">Request access →</Link>
+      </p>
     </form>
   );
 };

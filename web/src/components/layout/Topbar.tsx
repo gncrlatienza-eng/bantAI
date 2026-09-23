@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, Search, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Bell, X } from 'lucide-react';
 import { ProfileDropdown } from '../navigation/ProfileDropdown';
 import { useUserAvatar } from '../../context/UserAvatarContext';
 import { UserAvatar } from '../common/UserAvatar';
+import { getCurrentUser, type CurrentUser } from '../../services/authService';
 
 interface TopbarProps {
   role: 'client' | 'admin';
@@ -12,94 +13,6 @@ interface TopbarProps {
   userInitials: string;
 }
 
-interface NotificationItem {
-  id: string;
-  title: string;
-  body: string;
-  time: string;
-  tone: 'red' | 'amber' | 'blue' | 'green';
-  read: boolean;
-  route: string;
-}
-
-const ADMIN_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    title: 'Critical Campaign Outbreak',
-    body: 'Operation GCash Clone #17 spiked +380% in last hour.',
-    time: '2m ago',
-    tone: 'red',
-    read: false,
-    route: '/admin/campaigns',
-  },
-  {
-    id: 'n2',
-    title: 'Concept Drift Alert',
-    body: 'False negative rate increased 1.4% over 7 days.',
-    time: '38m ago',
-    tone: 'amber',
-    read: false,
-    route: '/admin/model',
-  },
-  {
-    id: 'n3',
-    title: 'Daily Report Ready',
-    body: '312 user reports classified today - 23 confirmed smishing.',
-    time: '2h ago',
-    tone: 'blue',
-    read: false,
-    route: '/admin/export',
-  },
-  {
-    id: 'n4',
-    title: 'High API Latency Peak',
-    body: 'Peak latency reached 312ms at 12:00 PST.',
-    time: '4h ago',
-    tone: 'amber',
-    read: true,
-    route: '/admin/api-logs',
-  },
-];
-
-const CLIENT_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    title: 'Critical Campaign Outbreak',
-    body: 'Operation GCash Clone #17 spiked +380% in last hour.',
-    time: '2m ago',
-    tone: 'red',
-    read: false,
-    route: '/client/campaigns',
-  },
-  {
-    id: 'n2',
-    title: 'System Telemetry Update',
-    body: 'Telemetry sync completed successfully for 1,420 devices.',
-    time: '38m ago',
-    tone: 'amber',
-    read: false,
-    route: '/client/overview',
-  },
-  {
-    id: 'n3',
-    title: 'Intelligence Feed Export Ready',
-    body: '312 threat records generated for CSV export download.',
-    time: '2h ago',
-    tone: 'blue',
-    read: false,
-    route: '/client/export',
-  },
-  {
-    id: 'n4',
-    title: 'API Consumption Normal',
-    body: '8,241 total API requests processed cleanly today.',
-    time: '4h ago',
-    tone: 'amber',
-    read: true,
-    route: '/client/overview',
-  },
-];
-
 export const Topbar: React.FC<TopbarProps> = ({
   role,
   title,
@@ -107,47 +20,21 @@ export const Topbar: React.FC<TopbarProps> = ({
   userInitials,
 }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { adminAvatar, clientAvatar } = useUserAvatar();
   const currentAvatar = role === 'admin' ? adminAvatar : clientAvatar;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showTagTooltip, setShowTagTooltip] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(
-    role === 'admin' ? ADMIN_NOTIFICATIONS : CLIENT_NOTIFICATIONS,
-  );
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const handleNotificationClick = (notif: NotificationItem) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
-    );
-    setShowNotifications(false);
-
-    let targetRoute = notif.route;
-    if (role === 'admin') {
-      if (
-        targetRoute === '/admin/clusters' ||
-        targetRoute === '/client/campaigns'
-      ) {
-        targetRoute = '/admin/campaigns';
-      } else if (
-        targetRoute === '/admin/exports' ||
-        targetRoute === '/client/export'
-      ) {
-        targetRoute = '/admin/export';
-      } else if (targetRoute.startsWith('/client/')) {
-        targetRoute = '/admin/overview';
-      }
-    }
-    navigate(targetRoute);
-  };
-
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  React.useEffect(() => {
+    void getCurrentUser()
+      .then(setUser)
+      .catch(() => setUser(null));
+  }, []);
+  const derivedInitials = user
+    ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() ||
+      user.phone.slice(-2)
+    : userInitials;
 
   const pathParts = location.pathname.split('/').filter(Boolean);
   const breadcrumbs = pathParts
@@ -181,30 +68,6 @@ export const Topbar: React.FC<TopbarProps> = ({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {/* Live Search */}
-        <div style={{ position: 'relative', width: 220 }}>
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search threats, IP, domains..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ height: 36, fontSize: '0.8125rem', paddingLeft: 32 }}
-          />
-          <span
-            style={{
-              position: 'absolute',
-              left: 10,
-              top: 10,
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <Search size={14} />
-          </span>
-        </div>
-
         {/* Notifications Button */}
         <button
           type="button"
@@ -225,28 +88,6 @@ export const Topbar: React.FC<TopbarProps> = ({
           }}
         >
           <Bell size={18} />
-          {unreadCount > 0 && (
-            <span
-              aria-label={`${unreadCount} unread notifications`}
-              style={{
-                position: 'absolute',
-                top: -2,
-                right: -2,
-                background: 'var(--accent-primary)',
-                color: '#fff',
-                fontSize: '0.625rem',
-                fontWeight: 800,
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {unreadCount}
-            </span>
-          )}
         </button>
 
         {/* Tag Pill with Hover Description Tooltip */}
@@ -328,8 +169,8 @@ export const Topbar: React.FC<TopbarProps> = ({
                 }}
               >
                 {role === 'admin'
-                  ? 'Super Admins hold root privileges to manage AI model retraining, validate FP/FN review queues, audit user accounts, monitor system health, and execute full threat telemetry exports.'
-                  : 'Client Portal users have read access to real-time smishing campaigns, threat analytics, verified classification logs, and intelligence export feeds.'}
+                  ? 'Administrator role confirmed by the authenticated /auth/me response.'
+                  : 'Client role confirmed by the authenticated /auth/me response.'}
               </p>
             </div>
           )}
@@ -344,7 +185,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             avatar={currentAvatar}
             role={role}
             size={36}
-            fallbackInitials={userInitials}
+            fallbackInitials={derivedInitials}
           />
         </div>
 
@@ -385,26 +226,8 @@ export const Topbar: React.FC<TopbarProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <strong>Notification Center</strong>
-                {unreadCount > 0 && (
-                  <span className="badge badge-purple">{unreadCount} new</span>
-                )}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllRead}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--accent-light)',
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Mark all read
-                  </button>
-                )}
                 <button
                   onClick={() => setShowNotifications(false)}
                   aria-label="Close notifications"
@@ -434,61 +257,10 @@ export const Topbar: React.FC<TopbarProps> = ({
                 overflowY: 'auto',
               }}
             >
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => handleNotificationClick(n)}
-                  style={{
-                    padding: 10,
-                    borderRadius: 8,
-                    background: n.read
-                      ? 'rgba(255,255,255,0.02)'
-                      : 'var(--bg-surface-elevated)',
-                    border: `1px solid ${n.read ? 'var(--border-subtle)' : 'var(--border-active)'}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    position: 'relative',
-                  }}
-                  className="panel-hover"
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: 4,
-                    }}
-                  >
-                    <strong
-                      style={{
-                        color: n.read
-                          ? 'var(--text-secondary)'
-                          : 'var(--text-primary)',
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      {n.title}
-                    </strong>
-                    <small
-                      style={{
-                        color: 'var(--text-muted)',
-                        fontSize: '0.6875rem',
-                      }}
-                    >
-                      {n.time}
-                    </small>
-                  </div>
-                  <p
-                    style={{
-                      color: 'var(--text-secondary)',
-                      fontSize: '0.8125rem',
-                      margin: 0,
-                    }}
-                  >
-                    {n.body}
-                  </p>
-                </div>
-              ))}
+              <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                Notifications are unavailable because the backend does not yet
+                expose an authenticated notification endpoint.
+              </p>
             </div>
           </div>
         )}

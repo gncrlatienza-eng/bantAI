@@ -12,14 +12,18 @@ export interface ClassificationResult {
 
 export interface SmsAlertItem {
   id: string;
-  userId: string;
-  clusterId?: string | null;
-  sender: string;
-  body: string;
-  receivedAt: string;
-  classification?: ClassificationResult | null;
-  alerts?: Array<{ id: string; status: string; createdAt: string }>;
-  cluster?: { id: string; label?: string | null } | null;
+  status: string;
+  createdAt: string;
+  message: {
+    id: string;
+    sourceId: string;
+    receivedAt: string;
+    clusterId?: string | null;
+    classification?: Pick<
+      ClassificationResult,
+      'label' | 'score' | 'bucket'
+    > | null;
+  };
 }
 
 export async function getSmsAlerts(): Promise<SmsAlertItem[]> {

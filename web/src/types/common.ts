@@ -17,3 +17,25 @@ export interface TableData {
   rows: string[][];
   footer?: string;
 }
+
+export type Metric = MetricItem;
+
+export interface NavItem {
+  label: string;
+  path: string;
+}
+
+export interface NavSection {
+  title?: string;
+  items: NavItem[];
+}
+
+export interface CampaignCard {
+  title: string;
+  status: string;
+  tone: 'green' | 'gray';
+  messages: string;
+  domains: string;
+  since: string;
+  tags: string[];
+}

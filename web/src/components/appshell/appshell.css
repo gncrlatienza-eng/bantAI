@@ -1,0 +1,348 @@
+/*
+ * BantAI AppShell styles.
+ *
+ * All values reference semantic tokens defined in styles/tokens/semantic.css.
+ * Nothing here references raw palette hex or legacy tokens.
+ *
+ * Layout contract (locked per plan corrections):
+ *   - Sidebar: 248px persistent at >=1280px, 72px rail at 1024-1279px,
+ *     off-canvas drawer at <1024px.
+ *   - TopBar: 60px (within the 56-64px spec).
+ *   - Content padding: 32px horizontal, 28px top on desktop.
+ *   - Motion: uses --motion-fast/base with --motion-ease.
+ *   - No gradient, glow, or floating-pill navigation.
+ */
+
+.bantai-shell {
+  --shell-sidebar-width: 248px;
+  --shell-sidebar-rail: 72px;
+  --shell-topbar-height: 60px;
+  --shell-content-x: 32px;
+  --shell-content-top: 28px;
+
+  min-height: 100dvh;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  display: grid;
+  grid-template-columns: var(--shell-sidebar-width) 1fr;
+  grid-template-rows: var(--shell-topbar-height) 1fr;
+  grid-template-areas:
+    'sidebar topbar'
+    'sidebar content';
+}
+
+/* Compact desktop: sidebar becomes a rail */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .bantai-shell {
+    grid-template-columns: var(--shell-sidebar-rail) 1fr;
+  }
+}
+
+/* Below 1024: sidebar collapses out of the flow, becomes off-canvas drawer */
+@media (max-width: 1023px) {
+  .bantai-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'topbar'
+      'content';
+  }
+}
+
+/* Sidebar */
+.bantai-sidebar {
+  grid-area: sidebar;
+  background: var(--surface-raised);
+  border-right: 1px solid var(--surface-selected);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bantai-sidebar__brand {
+  height: var(--shell-topbar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--brand-primary);
+  border-bottom: 1px solid var(--surface-selected);
+  white-space: nowrap;
+}
+
+.bantai-sidebar__brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--brand-primary);
+  color: var(--action-primary-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.bantai-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bantai-sidebar__group-label {
+  padding: 0 20px;
+  margin: 0 0 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.bantai-sidebar__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--surface-selected);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Nav item */
+.bantai-navitem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  position: relative;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.bantai-navitem:hover {
+  background: var(--surface-selected);
+}
+
+.bantai-navitem:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -2px;
+}
+
+.bantai-navitem[aria-current='page'] {
+  background: var(--surface-selected);
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+.bantai-navitem[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-primary);
+}
+
+.bantai-navitem__icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.bantai-navitem[aria-current='page'] .bantai-navitem__icon {
+  color: var(--brand-primary);
+}
+
+/* Rail (compact desktop): hide labels, center icons */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .bantai-sidebar__brand span:not(.bantai-sidebar__brand-mark) {
+    display: none;
+  }
+  .bantai-sidebar__brand {
+    justify-content: center;
+    padding: 0;
+  }
+  .bantai-sidebar__group-label {
+    display: none;
+  }
+  .bantai-navitem {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .bantai-navitem__label {
+    display: none;
+  }
+  .bantai-navitem[aria-current='page']::before {
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+  }
+  .bantai-sidebar__footer {
+    display: none;
+  }
+}
+
+/* Below 1024: sidebar becomes off-canvas drawer */
+@media (max-width: 1023px) {
+  .bantai-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--shell-sidebar-width);
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform var(--motion-base) var(--motion-ease);
+    box-shadow: 0 8px 24px rgba(33, 31, 36, 0.12);
+  }
+  .bantai-shell[data-drawer='open'] .bantai-sidebar {
+    transform: translateX(0);
+  }
+}
+
+/* Scrim for open drawer on small screens */
+.bantai-shell__scrim {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .bantai-shell[data-drawer='open'] .bantai-shell__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(33, 31, 36, 0.36);
+    z-index: 30;
+    animation: bantai-scrim-in var(--motion-base) var(--motion-ease);
+  }
+}
+
+@keyframes bantai-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* TopBar */
+.bantai-topbar {
+  grid-area: topbar;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--surface-selected);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--shell-content-x);
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.bantai-topbar__menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+
+.bantai-topbar__menu-btn:hover {
+  background: var(--surface-selected);
+}
+
+.bantai-topbar__menu-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1023px) {
+  .bantai-topbar__menu-btn {
+    display: inline-flex;
+  }
+}
+
+.bantai-topbar__context {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bantai-topbar__utility {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Content */
+.bantai-shell__content {
+  grid-area: content;
+  padding: var(--shell-content-top) var(--shell-content-x) 48px;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+/* PageHeader */
+.bantai-pageheader {
+  margin-bottom: 24px;
+}
+
+.bantai-pageheader__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bantai-pageheader__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.bantai-pageheader__description {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  max-width: 65ch;
+}
+
+.bantai-pageheader__meta {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.bantai-pageheader__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

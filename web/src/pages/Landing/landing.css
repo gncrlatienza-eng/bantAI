@@ -1,0 +1,351 @@
+/*
+ * Landing-page shared layout and motion vocabulary.
+ *
+ * Motion verbs (used across every section so the page feels like one system):
+ *   .anim-slide-up      : incoming SMS  (translate + fade)
+ *   .anim-pill-appear   : detected indicator (scale + fade)
+ *   .anim-connect       : relationship line drawing (stroke-dashoffset)
+ *   .anim-morph         : campaign evolution (opacity crossfade of node label)
+ *   .anim-drift         : idle CTA background nodes drifting inward
+ *
+ * All respect prefers-reduced-motion.
+ */
+
+.landing {
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: clip;
+
+  /*
+   * Landing-local spacing overrides. The global tokens are tuned for the
+   * portal; the marketing page needs tighter rhythm so sequential sections
+   * read as one document instead of separate slides.
+   */
+  --landing-section-lg: 112px;
+  --landing-section-md: 88px;
+  --landing-section-sm: 72px;
+  --landing-gutter: 32px;
+  --landing-max: 1200px;
+}
+
+/*
+ * Section anchors sit under a 72-80px sticky nav. scroll-margin-top ensures
+ * that anchor-scrolling from /#how-it-works or /#about lands with the heading
+ * fully visible instead of hidden behind the header.
+ */
+.landing [id] {
+  scroll-margin-top: 96px;
+}
+
+.landing__section-inner {
+  max-width: var(--landing-max, 1200px);
+  margin: 0 auto;
+  padding: 0 var(--landing-gutter, 32px);
+  width: 100%;
+}
+
+.landing__eyebrow {
+  color: var(--brand-primary);
+  font-size: var(--font-size-eyebrow, 0.82rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 16px;
+}
+
+.landing__display {
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-display);
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  margin: 0 0 20px;
+  color: var(--text-primary);
+  max-width: 18ch;
+}
+
+.landing__h2 {
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-h2);
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: var(--text-primary);
+  max-width: 20ch;
+}
+
+.landing__lede {
+  font-size: var(--font-size-lede);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 56ch;
+  margin: 0 0 28px;
+}
+
+.landing__body {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--text-primary);
+  max-width: var(--content-max-prose, 680px);
+  margin: 0 0 16px;
+}
+
+.landing__body--secondary {
+  color: var(--text-secondary);
+}
+
+.landing__cta-primary,
+.landing__cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 150ms var(--motion-ease, ease),
+    background 150ms var(--motion-ease, ease);
+  border: 0;
+}
+
+.landing__cta-primary {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-text);
+}
+
+.landing__cta-primary:hover {
+  filter: brightness(1.06);
+}
+
+.landing__cta-ghost {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.landing__cta-ghost:hover {
+  background: var(--surface-selected);
+}
+
+.landing__cta-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* Section scaffolding */
+
+.landing__section {
+  padding: var(--landing-section-md, 88px) 0;
+}
+
+.landing__section--tight {
+  padding: var(--landing-section-sm, 72px) 0;
+}
+
+.landing__section--wide {
+  padding: var(--landing-section-lg, 112px) 0;
+}
+
+.landing__section--warm {
+  background: color-mix(in srgb, var(--surface-canvas) 92%, var(--palette-warm-ink) 8%);
+}
+
+.landing__section--plum {
+  background: var(--brand-primary);
+  color: var(--text-on-brand);
+}
+
+.landing__section--plum .landing__display,
+.landing__section--plum .landing__h2,
+.landing__section--plum .landing__body {
+  color: var(--text-on-brand);
+}
+
+.landing__section--plum .landing__lede,
+.landing__section--plum .landing__body--secondary {
+  color: color-mix(in srgb, var(--text-on-brand) 78%, transparent);
+}
+
+.landing__section--plum .landing__eyebrow {
+  color: color-mix(in srgb, var(--text-on-brand) 80%, transparent);
+}
+
+/* Two-column grid used by hero, product showcase, about */
+
+.landing__grid {
+  display: grid;
+  gap: 48px;
+  align-items: center;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .landing__grid--hero {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 56px;
+  }
+  .landing__grid--product {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  .landing__grid--about {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+  .landing__grid--split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* -------------------------------------------------- */
+/*  Motion vocabulary                                  */
+/* -------------------------------------------------- */
+
+@keyframes bantai-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bantai-pill-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bantai-connect {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes bantai-drift {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(-8px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.anim-slide-up {
+  animation: bantai-slide-up 480ms var(--motion-ease, ease) both;
+}
+
+.anim-pill-appear {
+  animation: bantai-pill-appear 320ms var(--motion-ease, ease) both;
+}
+
+.anim-connect {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: bantai-connect 900ms var(--motion-ease, ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-slide-up,
+  .anim-pill-appear,
+  .anim-connect {
+    animation: none !important;
+  }
+  .anim-connect {
+    stroke-dashoffset: 0 !important;
+  }
+}
+
+/* -------------------------------------------------- */
+/*  Scroll-reveal microinteractions (opt-in per node) */
+/* -------------------------------------------------- */
+
+/*
+ * Nodes tagged with `data-reveal` inside a section whose root has
+ * `.is-reveal-active` (added by the useReveal hook when JS attaches) start
+ * hidden, then settle when the observer adds `.is-in`.
+ *
+ * Structured this way so non-JS renders, headless captures, and print
+ * views never leave a `data-reveal` block invisible. The reveal is a
+ * pure enhancement on top of already-rendered content.
+ */
+.landing .is-reveal-active [data-reveal] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 520ms var(--motion-ease, ease),
+    transform 520ms var(--motion-ease, ease);
+  will-change: opacity, transform;
+}
+
+.landing .is-reveal-active [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.landing .is-reveal-active [data-reveal-delay='1'] { transition-delay: 60ms; }
+.landing .is-reveal-active [data-reveal-delay='2'] { transition-delay: 120ms; }
+.landing .is-reveal-active [data-reveal-delay='3'] { transition-delay: 200ms; }
+.landing .is-reveal-active [data-reveal-delay='4'] { transition-delay: 280ms; }
+.landing .is-reveal-active [data-reveal-delay='5'] { transition-delay: 360ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing .is-reveal-active [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* -------------------------------------------------- */
+/*  Section transitions — continuous story feel      */
+/* -------------------------------------------------- */
+
+/*
+ * Sections butt up against each other with no visible seam. When a warm or
+ * plum band meets a cream one, a subtle 40px linear gradient at the seam
+ * bleeds the color instead of a hard edge.
+ */
+.landing__section--seam-top {
+  position: relative;
+}
+.landing__section--seam-top::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 48px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface-canvas) 100%, transparent 0%),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Shared focus ring for landing CTAs / anchors. Slightly stronger than the
+ * portal default because the cream surface is high-luminance. */
+.landing a:focus-visible,
+.landing button:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 3px;
+  border-radius: 6px;
+}

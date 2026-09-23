@@ -1,0 +1,899 @@
+/*
+ * BantAI shared primitives styles.
+ *
+ * All classes prefixed with .bantai-p- to avoid collision with existing
+ * component classes still living on legacy tokens. Every color reference is
+ * a semantic Layer 2 token. No palette or legacy tokens are used.
+ */
+
+/* ---------- Button ---------- */
+
+.bantai-p-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 10px 16px;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+  white-space: nowrap;
+}
+
+.bantai-p-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.bantai-p-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bantai-p-btn--size-sm {
+  padding: 6px 12px;
+  font-size: 0.825rem;
+}
+
+.bantai-p-btn--size-lg {
+  padding: 12px 20px;
+  font-size: 1rem;
+}
+
+.bantai-p-btn--full {
+  width: 100%;
+}
+
+/* Primary: Mulberry background, porcelain text */
+.bantai-p-btn--primary {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-text);
+}
+.bantai-p-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* Secondary: canvas background (darker than raised parent) + subtle border */
+.bantai-p-btn--secondary {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.bantai-p-btn--secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+}
+
+/* Ghost: no background, warm ink text. Reveals on hover. */
+.bantai-p-btn--ghost {
+  background: transparent;
+  color: var(--text-primary);
+}
+.bantai-p-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-selected);
+}
+
+/* Destructive: canvas background, threat text, subtle border. Escalates on confirm. */
+.bantai-p-btn--destructive {
+  background: var(--surface-canvas);
+  color: var(--status-threat);
+  border-color: var(--border-default);
+}
+.bantai-p-btn--destructive:hover:not(:disabled) {
+  border-color: var(--status-threat);
+}
+.bantai-p-btn--destructive-confirm {
+  background: var(--status-threat);
+  color: var(--text-on-threat);
+}
+.bantai-p-btn--destructive-confirm:hover:not(:disabled) {
+  background: var(--status-critical);
+}
+
+/* ---------- Input ---------- */
+
+.bantai-p-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bantai-p-field__label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bantai-p-input {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+  width: 100%;
+}
+
+.bantai-p-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.bantai-p-input:hover {
+  border-color: var(--text-secondary);
+}
+
+.bantai-p-input:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--brand-primary) 20%, transparent);
+  outline: none;
+}
+
+.bantai-p-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bantai-p-input[aria-invalid='true'] {
+  border-color: var(--status-threat);
+}
+
+.bantai-p-input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--status-threat) 20%, transparent);
+}
+
+.bantai-p-field__help {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.bantai-p-field__error {
+  font-size: 0.75rem;
+  color: var(--status-threat);
+}
+
+/* ---------- StatusBadge ---------- */
+
+.bantai-p-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.bantai-p-status__icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.bantai-p-status--unknown {
+  background: color-mix(
+    in srgb,
+    var(--status-unknown) 12%,
+    var(--surface-raised)
+  );
+  color: var(--status-unknown);
+}
+.bantai-p-status--verified {
+  background: color-mix(
+    in srgb,
+    var(--status-verified) 14%,
+    var(--surface-raised)
+  );
+  color: var(--status-verified);
+}
+.bantai-p-status--suspicious {
+  background: color-mix(
+    in srgb,
+    var(--status-suspicious) 14%,
+    var(--surface-raised)
+  );
+  color: var(--status-suspicious);
+}
+.bantai-p-status--threat {
+  background: var(--status-threat);
+  color: var(--text-on-threat);
+}
+.bantai-p-status--critical {
+  background: var(--status-critical);
+  color: var(--text-on-threat);
+}
+
+/* Solid variant (badges on cards / tables where the softer tint gets lost) */
+.bantai-p-status--solid.bantai-p-status--unknown {
+  background: var(--status-unknown);
+  color: var(--text-on-brand);
+}
+.bantai-p-status--solid.bantai-p-status--verified {
+  background: var(--status-verified);
+  color: var(--text-on-brand);
+}
+.bantai-p-status--solid.bantai-p-status--suspicious {
+  background: var(--status-suspicious);
+  color: var(--text-on-brand);
+}
+
+/* ---------- InfoBadge (petrol, for AI / model insight) ---------- */
+
+.bantai-p-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--info-fg) 12%, var(--surface-raised));
+  color: var(--info-fg);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.bantai-p-info__icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+/* ---------- ConfidenceMeter ---------- */
+
+.bantai-p-confidence {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+  font-family: var(--font-sans);
+}
+
+.bantai-p-confidence__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bantai-p-confidence__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.bantai-p-confidence__value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.bantai-p-confidence__track {
+  display: block;
+  height: 4px;
+  background: var(--border-default);
+  border-radius: 2px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.bantai-p-confidence__fill {
+  display: block;
+  height: 100%;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  transition: width var(--motion-base) var(--motion-ease);
+}
+
+/* Confidence is neutral. NEVER map value to hue. Fill stays --text-secondary
+   regardless of value or associated classification. */
+
+/*
+ * Compact variant: horizontal single-line layout for use inside dense table
+ * cells. Bar to the left, percentage to the right. Bar is fixed narrow width
+ * so percentage columns still stack vertically at the right edge.
+ */
+.bantai-p-confidence--compact {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bantai-p-confidence--compact .bantai-p-confidence__track {
+  flex: 0 0 56px;
+  width: 56px;
+}
+
+.bantai-p-confidence--compact .bantai-p-confidence__row {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  min-width: 3ch;
+}
+
+/* ---------- Tabs ---------- */
+
+.bantai-p-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bantai-p-tabs__list {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-default);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.bantai-p-tabs__tab {
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  transition: color var(--motion-fast) var(--motion-ease);
+  white-space: nowrap;
+}
+
+.bantai-p-tabs__tab:hover {
+  color: var(--text-primary);
+}
+
+.bantai-p-tabs__tab:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.bantai-p-tabs__tab[aria-selected='true'] {
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+.bantai-p-tabs__tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--brand-primary);
+}
+
+/* ---------- EmptyState ---------- */
+
+.bantai-p-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.bantai-p-empty__icon {
+  font-size: 2rem;
+  color: var(--text-secondary);
+}
+
+.bantai-p-empty__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bantai-p-empty__description {
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: 40ch;
+}
+
+.bantai-p-empty__action {
+  margin-top: 8px;
+}
+
+/* ---------- Skeleton ---------- */
+
+.bantai-p-skeleton {
+  display: block;
+  background: color-mix(in srgb, var(--palette-warm-ink) 8%, transparent);
+  border-radius: 4px;
+  animation: bantai-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.bantai-p-skeleton--line {
+  height: 12px;
+  margin-bottom: 6px;
+}
+
+.bantai-p-skeleton--row {
+  height: 48px;
+  border-radius: 6px;
+}
+
+@keyframes bantai-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bantai-p-skeleton {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
+/* ---------- LoadingState + spinner ---------- */
+
+.bantai-p-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.bantai-p-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--brand-primary);
+  border-radius: 50%;
+  animation: bantai-spinner 800ms linear infinite;
+}
+
+@keyframes bantai-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bantai-p-spinner {
+    animation-duration: 3s;
+  }
+}
+
+.bantai-p-loading__label {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ---------- ErrorState ---------- */
+
+.bantai-p-errorstate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+  color: var(--status-threat);
+}
+
+.bantai-p-errorstate__icon {
+  font-size: 2rem;
+  color: var(--status-threat);
+}
+
+.bantai-p-errorstate__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bantai-p-errorstate__description {
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: 48ch;
+  color: var(--text-secondary);
+}
+
+.bantai-p-errorstate__action {
+  margin-top: 8px;
+}
+
+/* ---------- Metric ---------- */
+
+.bantai-p-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bantai-p-metric__label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.bantai-p-metric__value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.bantai-p-metric__meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.bantai-p-metric-row {
+  display: grid;
+  gap: 24px;
+}
+
+/* ---------- DataTable ---------- */
+
+.bantai-p-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.bantai-p-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.bantai-p-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-align: left;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+}
+
+.bantai-p-table th[data-align='right'],
+.bantai-p-table td[data-align='right'] {
+  text-align: right;
+}
+
+.bantai-p-table th[data-align='center'],
+.bantai-p-table td[data-align='center'] {
+  text-align: center;
+}
+
+.bantai-p-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: middle;
+}
+
+.bantai-p-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.bantai-p-table tbody tr {
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+
+.bantai-p-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.bantai-p-table tbody tr:hover {
+  background: var(--surface-canvas);
+}
+
+.bantai-p-table tbody tr[aria-selected='true'] {
+  background: var(--surface-selected);
+}
+
+.bantai-p-table__sort-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bantai-p-table__sort-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.bantai-p-table__sort-indicator {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.bantai-p-table__cell--truncate {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bantai-p-table__number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.bantai-p-table__state {
+  padding: 24px;
+}
+
+/* ---------- Select ---------- */
+
+.bantai-p-select-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+}
+
+.bantai-p-select {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 10px 36px 10px 12px;
+  width: 100%;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.bantai-p-select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.bantai-p-select:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--brand-primary) 20%, transparent);
+}
+
+.bantai-p-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bantai-p-select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* ---------- SearchInput ---------- */
+
+.bantai-p-search {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+}
+
+.bantai-p-search__icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+  font-size: 0.95rem;
+}
+
+.bantai-p-search__input {
+  padding-left: 36px;
+  padding-right: 36px;
+}
+
+.bantai-p-search__clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+
+.bantai-p-search__clear:hover {
+  color: var(--text-primary);
+  background: var(--surface-selected);
+}
+
+.bantai-p-search__clear:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* ---------- IconButton ---------- */
+
+.bantai-p-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.bantai-p-iconbtn:hover:not(:disabled) {
+  background: var(--surface-selected);
+}
+
+.bantai-p-iconbtn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.bantai-p-iconbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bantai-p-iconbtn--outlined {
+  border-color: var(--border-default);
+}
+
+.bantai-p-iconbtn--outlined:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+/* ---------- Dialog ---------- */
+
+.bantai-p-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 31, 36, 0.42);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: bantai-dialog-fade var(--motion-base) var(--motion-ease);
+}
+
+@keyframes bantai-dialog-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bantai-p-dialog {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(33, 31, 36, 0.24);
+  max-width: 480px;
+  width: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: bantai-dialog-in var(--motion-base) var(--motion-ease);
+}
+
+@keyframes bantai-dialog-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bantai-p-dialog-backdrop,
+  .bantai-p-dialog {
+    animation: none;
+  }
+}
+
+.bantai-p-dialog__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bantai-p-dialog__description {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.bantai-p-dialog__actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

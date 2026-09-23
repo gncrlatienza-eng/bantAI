@@ -5,16 +5,18 @@ export function useTimer(initialSeconds: number = 300) {
   const [isActive, setIsActive] = useState<boolean>(true);
 
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isActive && secondsLeft > 0) {
       interval = setInterval(() => {
         setSecondsLeft((prev) => prev - 1);
       }, 1000);
     } else if (secondsLeft === 0) {
       setIsActive(false);
-      clearInterval(interval);
+      if (interval !== undefined) clearInterval(interval);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval !== undefined) clearInterval(interval);
+    };
   }, [isActive, secondsLeft]);
 
   const resetTimer = (newTime: number = initialSeconds) => {

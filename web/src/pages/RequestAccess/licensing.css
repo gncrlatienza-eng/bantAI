@@ -1,0 +1,690 @@
+/*
+ * Licensing page — scoped styles for the Request Access surface.
+ *
+ * The page mounts inside AuthLayout so cream canvas, plum accents, warm ink
+ * text, monospaced eyebrows, and dashed decor already come from there. This
+ * file adds only what's specific to the licensing content: the two tier
+ * cards, the comparison table, the workflow strip, the founding-pilot note,
+ * the license-terms panel, and the form / confirmation states.
+ *
+ * The AuthLayout's right-hand slot is normally capped at 560px for the
+ * Sign-In card. Licensing is wider (two cards, a comparison table), so this
+ * file relaxes the slot on desktop only when the .licensing root is present.
+ * The Sign-In card behavior is untouched.
+ */
+
+/* Widen the AuthLayout slot for licensing content on desktop.
+   Everything below 1024px keeps AuthLayout's single-column defaults. */
+@media (min-width: 1024px) {
+  .bantai-auth-layout__main:has(.licensing) {
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+    padding-top: max(56px, 8vh);
+  }
+  .bantai-auth-layout__main:has(.licensing) .bantai-auth-layout__slot {
+    max-width: 880px;
+    padding-left: 32px;
+    padding-right: 8px;
+  }
+  .bantai-auth-layout__main:has(.licensing) .bantai-auth-layout__decor {
+    min-height: 640px;
+    opacity: 0.75;
+  }
+}
+
+.licensing {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  padding-bottom: 24px;
+}
+
+/* Every flex-column child gets min-width: 0 so the intrinsic min-content of a
+   wide child (like the comparison table) never expands the licensing column
+   past the viewport. Without this, flex items refuse to shrink below their
+   content's min-width and cause horizontal overflow on narrow screens. */
+.licensing > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .licensing {
+    gap: 36px;
+  }
+}
+
+/* ————— Intro ————— */
+
+.licensing__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.licensing__eyebrow {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--brand-primary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.licensing__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.licensing__lede {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.licensing__section-eyebrow {
+  margin: 0 0 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.licensing__section-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+
+.licensing__compare-head {
+  margin-bottom: 20px;
+  max-width: 620px;
+}
+
+/* ————— Tier cards ————— */
+
+.licensing__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 840px) {
+  .licensing__cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.licensing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 26px 24px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px
+    color-mix(in srgb, var(--palette-warm-ink, #211f24) 4%, transparent);
+}
+
+.licensing-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.licensing-card__eyebrow {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+
+.licensing-card__descriptor {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.licensing-card__price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--border-default);
+}
+
+.licensing-card__price-annual {
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.licensing-card__price-period {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.licensing-card__price-monthly {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.licensing-card__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.licensing-card__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.licensing-card__check {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin-top: 3px;
+  color: var(--brand-primary);
+}
+
+.licensing-card__cta {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: var(--brand-primary);
+  color: var(--text-on-brand);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 46px;
+  transition:
+    filter 150ms var(--motion-ease, ease),
+    background 150ms var(--motion-ease, ease);
+}
+
+.licensing-card__cta:hover {
+  filter: brightness(1.06);
+}
+
+.licensing-card__helper {
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* ————— Comparison table ————— */
+
+.licensing__compare {
+  display: flex;
+  flex-direction: column;
+}
+
+.licensing__compare-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.licensing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  min-width: 560px;
+}
+
+.licensing-table thead th {
+  text-align: left;
+  padding: 14px 16px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-canvas);
+}
+
+.licensing-table tbody th,
+.licensing-table tbody td {
+  padding: 12px 16px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--palette-warm-ink) 6%, transparent);
+  vertical-align: top;
+  line-height: 1.4;
+}
+
+.licensing-table tbody tr:first-child th,
+.licensing-table tbody tr:first-child td {
+  border-top: 0;
+}
+
+.licensing-table__row-head {
+  font-weight: 500;
+  color: var(--text-secondary);
+  width: 34%;
+  /* Overrides a legacy dashboard rule that paints every <th> with the dark
+     elevated surface. Without this, the row-header column bleeds dark on
+     the cream canvas. */
+  background: var(--surface-raised);
+}
+
+.licensing-table tbody td {
+  background: var(--surface-raised);
+}
+
+.licensing-table tbody td {
+  font-weight: 500;
+}
+
+/* ————— Workflow ————— */
+
+.licensing-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  counter-reset: step;
+}
+
+@media (max-width: 720px) {
+  .licensing-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.licensing-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.licensing-step__n {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--brand-primary);
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+.licensing-step__label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+}
+
+.licensing-step__body {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* ————— Founding pilot ————— */
+
+.licensing__pilot {
+  padding: 20px 22px;
+  border-radius: 10px;
+  border: 1px dashed var(--plum-35);
+  background: color-mix(in srgb, var(--brand-primary) 4%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.licensing__pilot-body {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+/* ————— License & data use ————— */
+
+.licensing__terms {
+  display: flex;
+  flex-direction: column;
+}
+
+.licensing__terms-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.licensing__terms-list li {
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.licensing__terms-list strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.licensing__terms-links {
+  margin: 16px 0 0;
+  display: inline-flex;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.licensing__terms-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 150ms var(--motion-ease, ease);
+}
+
+.licensing__terms-links a:hover {
+  color: var(--text-primary);
+}
+
+/* ————— Form view ————— */
+
+.licensing-form {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 32px 28px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px
+    color-mix(in srgb, var(--palette-warm-ink, #211f24) 6%, transparent);
+}
+
+@media (max-width: 640px) {
+  .licensing-form {
+    padding: 24px 20px 22px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+}
+
+.licensing-form__back {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: color 150ms var(--motion-ease, ease);
+}
+
+.licensing-form__back:hover {
+  color: var(--text-primary);
+}
+
+.licensing-form__selected {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+}
+
+.licensing-form__selected-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.licensing-form__selected-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.98rem;
+}
+
+.licensing-form__selected-price {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+.licensing-form__head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.licensing-form__subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Reuse the existing auth-card input treatment: cream fill, plum focus. */
+.licensing-form__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.licensing-form__form .form-input {
+  background: var(--surface-canvas);
+  border: 1px solid
+    color-mix(in srgb, var(--palette-warm-ink) 14%, transparent);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.98rem;
+  font-family: inherit;
+  transition:
+    border-color 150ms var(--motion-ease, ease),
+    box-shadow 150ms var(--motion-ease, ease);
+}
+
+.licensing-form__form .form-input:hover {
+  border-color: color-mix(in srgb, var(--palette-warm-ink) 24%, transparent);
+}
+
+.licensing-form__form .form-input:focus,
+.licensing-form__form .form-input:focus-visible {
+  outline: none;
+  background: var(--surface-canvas);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--plum-14);
+}
+
+.licensing-form__form .form-input.error {
+  border-color: color-mix(in srgb, var(--status-threat) 60%, transparent);
+}
+
+.licensing-form__form .form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.licensing-form__form textarea.form-input {
+  min-height: 88px;
+  line-height: 1.5;
+}
+
+.licensing-form__form .error-text {
+  color: var(--status-threat);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.licensing-form__form .form-input:-webkit-autofill,
+.licensing-form__form .form-input:-webkit-autofill:hover,
+.licensing-form__form .form-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--surface-canvas) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Billing-period radios on the pre-checkout confirmation page. Two visible
+   labels, native radios kept for keyboard/accessibility support. */
+.licensing-form__radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 150ms var(--motion-ease, ease);
+}
+
+.licensing-form__radio:hover {
+  border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
+}
+
+.licensing-form__radio input[type='radio'] {
+  accent-color: var(--brand-primary);
+}
+
+.licensing-form__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.licensing-form__actions-helper {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.licensing-form__return {
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.licensing-form__return a {
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.licensing-form__return a:hover {
+  text-decoration: underline;
+}
+
+/* ————— Submission confirmation ————— */
+
+.licensing-confirm {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 32px 28px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px
+    color-mix(in srgb, var(--palette-warm-ink, #211f24) 6%, transparent);
+}
+
+.licensing-confirm .bantai-auth-card__status {
+  align-self: flex-start;
+}
+
+.licensing-confirm .bantai-auth-card__status-dot[data-tone='verified'] {
+  background: var(--status-verified);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--status-verified) 18%, transparent);
+}
+
+.licensing-confirm__ref {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary);
+}
+
+.licensing-confirm__next {
+  margin: 0;
+  padding-left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.licensing-confirm__actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .licensing-confirm__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

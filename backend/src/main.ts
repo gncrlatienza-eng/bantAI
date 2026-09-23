@@ -44,6 +44,11 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app: INestApplication = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    // Stripe signature verification requires the exact raw body Stripe signed.
+    // Enabling rawBody here makes `req.rawBody` available on every request,
+    // and we install a route-scoped raw parser below for the webhook path
+    // specifically so JSON parsing keeps working everywhere else.
+    rawBody: true,
   });
 
   // Express must trust only the exact number of deployed reverse proxies;

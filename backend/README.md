@@ -135,13 +135,13 @@ set an explicit `CORS_ORIGINS` list. There is no production fallback secret.
 - ✅ Global validation (`whitelist` + `forbidNonWhitelisted`)
 - ✅ CORS configuration
 
-### Authentication (phone OTP — no passwords)
+### Authentication
 
-- ✅ Firebase phone authentication with backend ID-token exchange
-- ✅ JWT issued on successful verification (Passport JWT strategy + guard)
+- ✅ Mobile phone verification through backend-generated OTPs delivered by Semaphore
+- ✅ JWT issued after successful OTP verification (Passport JWT strategy + guard)
 - ✅ Auto-creates a user on first OTP verification for unknown numbers
 - ✅ Protected `GET /auth/me` for token validation
-- ⚠️ Dev-only OTP delivery: codes are printed to the backend console (`OTP for <phone>: <code>`), not sent by SMS yet
+- ✅ Separate email/password authentication for the web portal
 
 ### Users
 
@@ -169,7 +169,10 @@ GET /api/health/ready  (database readiness)
 
 ```
 POST /api/auth/register
-POST /api/auth/mobile/firebase → verifies Firebase phone token, returns JWT
+POST /api/auth/request-otp     → sends a six-digit code through Semaphore
+POST /api/auth/verify-otp      → verifies the code and returns JWT
+POST /api/auth/portal/register → creates a web portal account
+POST /api/auth/login           → authenticates a web portal account
 GET  /api/auth/me            🔒 Bearer token
 ```
 

@@ -17,6 +17,8 @@ import { RetrainingModule } from './retraining/retraining.module';
 import { BlockedNumbersModule } from './blocked-numbers/blocked-numbers.module';
 import { DataRetentionModule } from './data-retention/data-retention.module';
 import { PortalOrganizationsModule } from './portal-organizations/portal-organizations.module';
+import { AccessRequestsModule } from './access-requests/access-requests.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -40,6 +42,8 @@ import { AppController } from './app.controller';
     BlockedNumbersModule,
     DataRetentionModule,
     PortalOrganizationsModule,
+    AccessRequestsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

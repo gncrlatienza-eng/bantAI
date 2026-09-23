@@ -13,18 +13,18 @@ run it on a platform that can reach PostgreSQL and the AI service privately.
       `AI_SERVICE_URL`.
 - [ ] Create distinct production secrets in the platform secret manager; never
       place them in GitHub variables, an APK, or a web bundle:
-      `DATABASE_URL`, `JWT_SECRET`, `FIREBASE_PROJECT_ID`, `SENDER_HASH_SECRET`,
+      `DATABASE_URL`, `JWT_SECRET`, `OTP_HASH_SECRET`, `SENDER_HASH_SECRET`,
       `AI_SERVICE_API_KEY`, `AI_CAMPAIGNS_API_KEY`, `AI_MODELS_API_KEY`,
-      and `AI_INDICATORS_API_KEY`.
+      `AI_INDICATORS_API_KEY`, and `SEMAPHORE_API_KEY`.
 - [ ] Set `CORS_ORIGINS` to the exact deployed dashboard origins. Wildcards are
       not permitted.
 - [ ] Keep `API_DOCS_ENABLED=false` externally. If documentation is needed,
       expose it only through an authenticated internal gateway.
 - [ ] Set `TRUST_PROXY_HOPS` to the exact proxy count supplied by the host; use
       `0` when there is no trusted reverse proxy.
-- [ ] Enable Firebase Phone Authentication, restrict the SMS region policy to
-      the Philippines, register the Android signing fingerprints, and verify
-      real-device delivery before release.
+- [ ] Configure an approved Semaphore sender name, fund the production account,
+      restrict operational access to its API key, and verify real-device OTP
+      delivery in the Philippines before release.
 
 ## Build and release
 
@@ -76,20 +76,17 @@ Do not run `prisma migrate dev` in production.
 
 ## Secure admin credential issuance
 
-Admin access is issued by phone ownership, not by a reusable browser API key.
+Admin access is controlled by the persisted `User.role` field, not by a phone
+number environment variable or a reusable browser API key.
 
-1. Obtain the administrator's canonical Philippine mobile number through a
-   separate verified channel.
-2. Add it to the `ADMIN_PHONES` secret in the platform secret manager.
-3. Redeploy or restart the backend so the secret is loaded.
-4. The administrator completes normal OTP verification; the backend issues a
-   role-bearing JWT with `ADMIN` access.
-5. Confirm an administrator-only endpoint succeeds and a regular user receives
+1. Provision the administrator's user record through the approved database
+   seed, migration, or admin-management workflow.
+2. The administrator completes normal OTP verification; the backend preserves
+   the persisted `ADMIN` role when issuing the role-bearing JWT.
+3. Confirm an administrator-only endpoint succeeds and a regular user receives
    HTTP 403.
-6. To revoke access, remove the number from `ADMIN_PHONES`, restart the service,
-   and invalidate the user's active sessions by rotating `JWT_SECRET` if an
-   immediate global logout is required.
+4. To revoke access, change the persisted role and invalidate active sessions
+   by rotating `JWT_SECRET` if an immediate global logout is required.
 
-Never manually edit database roles as a credential-issuance mechanism, never
-share a JWT between administrators, and never include `ADMIN_PHONES` or any AI
-service key in client-side configuration.
+Never share a JWT between administrators or include any AI service key in
+client-side configuration.

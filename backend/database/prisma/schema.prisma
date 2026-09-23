@@ -311,6 +311,84 @@ model UserReport {
   @@index([status, validatedAt])
 }
 
+// ————— Licensing / access requests —————
+//
+// Prospective licensees submit an access request from the public site. A
+// human reviewer (ADMIN) then APPROVES or DECLINES. Approval mints a
+// single-use AccessRequestToken; the applicant lands on a confirmation
+// screen and creates a Stripe Checkout Session. Access becomes ACTIVE
+// only after Stripe's verified webhook confirms `checkout.session.completed`
+// — never when the browser reaches the success URL.
+
+enum AccessRequestTier {
+  RESEARCH
+  ORGANIZATION
+}
+
+enum AccessRequestStatus {
+  RECEIVED         // just submitted
+  UNDER_REVIEW     // admin picked it up
+  APPROVED         // admin approved; applicant may proceed to checkout
+  DECLINED         // admin declined; end state
+  PAYMENT_PENDING  // Stripe Checkout Session created
+  ACTIVE           // webhook confirmed payment; license active
+  CANCELLED        // applicant or admin cancelled
+  EXPIRED          // approval or subscription lapsed
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+model AccessRequest {
+  id             String              @id @default(uuid())
+
+  tier           AccessRequestTier
+  fullName       String
+  email          String
+  organization   String
+  intendedUse    String
+  reason         String
+
+  status         AccessRequestStatus @default(RECEIVED)
+
+  approvedAt     DateTime?
+  approvedBy     String?             // User.id of the admin who approved
+  declinedAt     DateTime?
+  declinedReason String?
+
+  billingPeriod           BillingPeriod?
+  stripeCustomerId        String?
+  stripeCheckoutSessionId String?    @unique
+  stripeSubscriptionId    String?    @unique
+  activatedAt             DateTime?
+  expiresAt               DateTime?
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tokens         AccessRequestToken[]
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+// Emailed to an approved applicant so they can reach the confirmation-
+// before-Stripe screen without needing a full user account beforehand.
+// Single use; expires; regenerated on demand if the applicant loses it.
+model AccessRequestToken {
+  id              String        @id @default(uuid())
+  tokenHash       String        @unique
+  accessRequestId String
+  accessRequest   AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@index([accessRequestId, usedAt])
+}
+
 // Tracks every model version that was ever promoted to production.
 // Used for promotion gating (McNemar + F1 floor) and rollback.
 model ModelVersion {

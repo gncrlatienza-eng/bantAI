@@ -34,7 +34,9 @@ export function ExportPage() {
           Sign out
         </Button>
       }
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated account</span>}
+      footer={
+        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+      }
     >
       <PageHeader
         title="Export"
@@ -43,7 +45,9 @@ export function ExportPage() {
       <EmptyState
         title="Client exports not connected"
         description="Server-generated exports scoped to your account require an authenticated endpoint that has not shipped yet."
-        action={<InfoBadge>Requires GET /users/me/export on the backend</InfoBadge>}
+        action={
+          <InfoBadge>Requires GET /users/me/export on the backend</InfoBadge>
+        }
       />
     </AppShell>
   );

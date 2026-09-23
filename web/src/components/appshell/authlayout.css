@@ -230,8 +230,7 @@
 
 .bantai-auth-card .form-input {
   background: var(--surface-canvas);
-  border: 1px solid
-    color-mix(in srgb, var(--palette-warm-ink) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 14%, transparent);
   color: var(--text-primary);
   border-radius: 8px;
   padding: 12px 14px;
@@ -409,8 +408,7 @@
 .bantai-auth-card__form-error {
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid
-    color-mix(in srgb, var(--status-threat) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-threat) 32%, transparent);
   background: color-mix(in srgb, var(--status-threat) 6%, transparent);
   color: var(--status-threat);
   font-size: 0.85rem;
@@ -436,8 +434,7 @@
   padding: 6px 10px 6px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--palette-warm-ink) 5%, transparent);
-  border: 1px solid
-    color-mix(in srgb, var(--palette-warm-ink) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 12%, transparent);
   color: var(--text-secondary);
   font-family: var(--font-mono, monospace);
   font-size: 0.72rem;
@@ -462,8 +459,7 @@
   padding: 14px 16px;
   border-radius: 10px;
   background: var(--surface-canvas);
-  border: 1px solid
-    color-mix(in srgb, var(--palette-warm-ink) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 10%, transparent);
 }
 
 @media (max-width: 480px) {

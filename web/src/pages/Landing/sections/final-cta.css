@@ -55,7 +55,8 @@
   font-size: 1.05rem;
   font-weight: 600;
   text-decoration: none;
-  transition: filter 150ms var(--motion-ease, ease),
+  transition:
+    filter 150ms var(--motion-ease, ease),
     transform 200ms var(--motion-ease, ease);
 }
 

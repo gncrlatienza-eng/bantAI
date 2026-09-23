@@ -352,8 +352,7 @@ function HeroVisual() {
             fill="var(--text-primary)"
             fontFamily="var(--font-sans)"
           >
-            Ref:{' '}
-            <tspan fontWeight="700">PHP 15,000</tspan>
+            Ref: <tspan fontWeight="700">PHP 15,000</tspan>
           </text>
 
           {/* Small underline glyph beneath the URL (draws in with the URL mark) */}
@@ -453,7 +452,12 @@ function HeroVisual() {
 
         {/* Reason chips ————————————————————————————— */}
         <g className="hero-vis__reasons">
-          <ReasonChip x={94} y={346} label="Urgency" delayClass="hero-vis__reason--1" />
+          <ReasonChip
+            x={94}
+            y={346}
+            label="Urgency"
+            delayClass="hero-vis__reason--1"
+          />
           <ReasonChip
             x={162}
             y={346}
@@ -728,20 +732,10 @@ function VariantCard({
         SIM 0.9{lang === 'EN' ? '4' : lang === 'TL' ? '1' : '2'}
       </text>
       {/* Body text */}
-      <text
-        x={x + 12}
-        y={y + 52}
-        fontSize="11"
-        fill="var(--text-primary)"
-      >
+      <text x={x + 12} y={y + 52} fontSize="11" fill="var(--text-primary)">
         {line1}
       </text>
-      <text
-        x={x + 12}
-        y={y + 70}
-        fontSize="11"
-        fill="var(--text-primary)"
-      >
+      <text x={x + 12} y={y + 70} fontSize="11" fill="var(--text-primary)">
         {line2}
       </text>
       {/* Small threat dot */}

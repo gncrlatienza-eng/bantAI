@@ -122,20 +122,12 @@ export function ReportsPage() {
     const needle = search.trim().toLowerCase();
     if (needle) {
       mapped = mapped.filter((r) =>
-        [
-          r.id,
-          r.submitter,
-          r.originalLabel,
-          r.reportedLabel,
-          r.status,
-        ]
+        [r.id, r.submitter, r.originalLabel, r.reportedLabel, r.status]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(needle)),
       );
     }
-    mapped.sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
-    );
+    mapped.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     return mapped;
   }, [reports, statusFilter, search]);
 
@@ -318,7 +310,9 @@ export function ReportsPage() {
               <Select
                 label="Status"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as StatusFilter)
+                }
                 options={[
                   { value: 'all', label: 'All' },
                   { value: 'PENDING', label: 'Pending' },

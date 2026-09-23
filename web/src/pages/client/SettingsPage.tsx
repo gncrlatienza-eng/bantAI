@@ -27,7 +27,10 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
       currentPath={location.pathname}
       onNavigate={(p) => void navigate(p)}
       topbarContext={
-        <span>Operations &middot; {notifications ? 'Notifications' : 'Account settings'}</span>
+        <span>
+          Operations &middot;{' '}
+          {notifications ? 'Notifications' : 'Account settings'}
+        </span>
       }
       topbarUtility={
         <Button
@@ -41,7 +44,9 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
           Sign out
         </Button>
       }
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated account</span>}
+      footer={
+        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+      }
     >
       <PageHeader
         title={notifications ? 'Notifications' : 'Account settings'}
@@ -55,7 +60,9 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
         <EmptyState
           title="Notification preferences not connected"
           description="Choose which alerts reach you via mobile push, email, or in-app once the backend endpoint ships."
-          action={<InfoBadge>Requires GET/PUT /users/me/notifications</InfoBadge>}
+          action={
+            <InfoBadge>Requires GET/PUT /users/me/notifications</InfoBadge>
+          }
         />
       ) : (
         <ProfileForm />

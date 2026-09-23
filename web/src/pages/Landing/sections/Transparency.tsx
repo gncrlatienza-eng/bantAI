@@ -68,7 +68,12 @@ export function Transparency() {
             </p>
           </div>
 
-          <div className="tp__panel" aria-live="polite" data-reveal data-reveal-delay="1">
+          <div
+            className="tp__panel"
+            aria-live="polite"
+            data-reveal
+            data-reveal-delay="1"
+          >
             <div className="tp__panel-head">
               <span className="tp__panel-eyebrow">Public model summary</span>
               <span
@@ -91,28 +96,28 @@ export function Transparency() {
                 <div className="tp__metric">
                   <span className="tp__metric-label">Macro-F1</span>
                   <span className="tp__metric-value">
-                    {summary!.macroF1!.toFixed(3)}
+                    {summary.macroF1!.toFixed(3)}
                   </span>
                 </div>
-                {summary!.accuracy != null && (
+                {summary.accuracy != null && (
                   <div className="tp__metric tp__metric--sub">
                     <span className="tp__metric-label">Accuracy</span>
                     <span className="tp__metric-value tp__metric-value--sub">
-                      {summary!.accuracy.toFixed(3)}
+                      {summary.accuracy.toFixed(3)}
                     </span>
                   </div>
                 )}
                 <dl className="tp__meta">
-                  {summary!.versionTag && (
+                  {summary.versionTag && (
                     <>
                       <dt>Active version</dt>
-                      <dd>{summary!.versionTag}</dd>
+                      <dd>{summary.versionTag}</dd>
                     </>
                   )}
-                  {summary!.promotedAt && (
+                  {summary.promotedAt && (
                     <>
                       <dt>Promoted</dt>
-                      <dd>{formatDate(summary!.promotedAt)}</dd>
+                      <dd>{formatDate(summary.promotedAt)}</dd>
                     </>
                   )}
                 </dl>

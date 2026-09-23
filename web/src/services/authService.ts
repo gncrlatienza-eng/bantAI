@@ -20,14 +20,27 @@ export interface CurrentUser {
   role: 'ADMIN' | 'USER';
 }
 
-export async function login(email: string, password: string): Promise<VerifyOtpResponse> {
-  const result = await fetchApi<VerifyOtpResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+export async function login(
+  email: string,
+  password: string,
+): Promise<VerifyOtpResponse> {
+  const result = await fetchApi<VerifyOtpResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
   if (result.access_token) setStoredToken(result.access_token);
   return result;
 }
 
-export async function registerPortal(email: string, password: string, company?: string): Promise<VerifyOtpResponse> {
-  const result = await fetchApi<VerifyOtpResponse>('/auth/portal/register', { method: 'POST', body: JSON.stringify({ email, password, company }) });
+export async function registerPortal(
+  email: string,
+  password: string,
+  company?: string,
+): Promise<VerifyOtpResponse> {
+  const result = await fetchApi<VerifyOtpResponse>('/auth/portal/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, company }),
+  });
   if (result.access_token) setStoredToken(result.access_token);
   return result;
 }

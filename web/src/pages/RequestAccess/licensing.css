@@ -521,8 +521,7 @@
 
 .licensing-form__form .form-input {
   background: var(--surface-canvas);
-  border: 1px solid
-    color-mix(in srgb, var(--palette-warm-ink) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 14%, transparent);
   color: var(--text-primary);
   border-radius: 8px;
   padding: 12px 14px;

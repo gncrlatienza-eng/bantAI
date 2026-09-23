@@ -67,10 +67,7 @@ export function AppRoutes() {
         path="/how-it-works"
         element={<Navigate to="/#how-it-works" replace />}
       />
-      <Route
-        path="/about"
-        element={<Navigate to="/#about" replace />}
-      />
+      <Route path="/about" element={<Navigate to="/#about" replace />} />
       <Route path="/research" element={<Navigate to="/" replace />} />
       <Route path="/request-access" element={<RequestAccessPage />} />
       {/* Approved applicants land here from the emailed link. */}
@@ -79,10 +76,7 @@ export function AppRoutes() {
         element={<CheckoutConfirmationPage />}
       />
       {/* Stripe success_url and cancel_url land here — neither grants access. */}
-      <Route
-        path="/request-access/pending"
-        element={<CheckoutPendingPage />}
-      />
+      <Route path="/request-access/pending" element={<CheckoutPendingPage />} />
       <Route
         path="/request-access/cancelled"
         element={<CheckoutCancelledPage />}

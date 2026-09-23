@@ -139,21 +139,13 @@ export function MessagesInbox() {
     const needle = search.trim().toLowerCase();
     if (needle) {
       mapped = mapped.filter((r) =>
-        [
-          r.id,
-          r.messageId,
-          r.sourceId,
-          r.status,
-          r.classificationLabel,
-        ]
+        [r.id, r.messageId, r.sourceId, r.status, r.classificationLabel]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(needle)),
       );
     }
 
-    mapped.sort(
-      (a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt),
-    );
+    mapped.sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt));
     return mapped;
   }, [alerts, labelFilter, search]);
 
@@ -212,7 +204,10 @@ export function MessagesInbox() {
       key: 'classification',
       header: 'Classification',
       render: (r) => (
-        <StatusBadge kind={r.classificationKind} label={r.classificationLabel} />
+        <StatusBadge
+          kind={r.classificationKind}
+          label={r.classificationLabel}
+        />
       ),
       width: '18%',
     },
@@ -363,7 +358,12 @@ export function MessagesInbox() {
                     kind={selected.classificationKind}
                     label={selected.classificationLabel}
                   />
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <span
+                    style={{
+                      fontSize: '0.8rem',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
                     {selected.status}
                   </span>
                 </div>
@@ -399,15 +399,30 @@ export function MessagesInbox() {
                 }}
               >
                 <dt style={{ color: 'var(--text-secondary)' }}>Alert ID</dt>
-                <dd style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>
+                <dd
+                  style={{
+                    margin: 0,
+                    fontFamily: 'var(--font-mono, monospace)',
+                  }}
+                >
                   {selected.id}
                 </dd>
                 <dt style={{ color: 'var(--text-secondary)' }}>Message ID</dt>
-                <dd style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>
+                <dd
+                  style={{
+                    margin: 0,
+                    fontFamily: 'var(--font-mono, monospace)',
+                  }}
+                >
                   {selected.messageId}
                 </dd>
                 <dt style={{ color: 'var(--text-secondary)' }}>Source</dt>
-                <dd style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>
+                <dd
+                  style={{
+                    margin: 0,
+                    fontFamily: 'var(--font-mono, monospace)',
+                  }}
+                >
                   {selected.sourceId || '—'}
                 </dd>
                 <dt style={{ color: 'var(--text-secondary)' }}>Confidence</dt>

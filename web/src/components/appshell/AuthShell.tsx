@@ -46,18 +46,14 @@ export function AuthShell({
             B
           </div>
           <h1 className="bantai-auth-card__title">{title}</h1>
-          {subtitle && (
-            <p className="bantai-auth-card__subtitle">{subtitle}</p>
-          )}
+          {subtitle && <p className="bantai-auth-card__subtitle">{subtitle}</p>}
           {warningStrip && (
             <div className="bantai-auth-card__warning" role="note">
               {warningStrip}
             </div>
           )}
           <div className="bantai-auth-card__body">{children}</div>
-          {footer && (
-            <div className="bantai-auth-card__footer">{footer}</div>
-          )}
+          {footer && <div className="bantai-auth-card__footer">{footer}</div>}
         </div>
       </main>
     </div>

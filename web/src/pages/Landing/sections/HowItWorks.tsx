@@ -79,10 +79,10 @@ export function HowItWorks() {
       setActiveIdx(bestIdx);
     };
 
-    const observer = new IntersectionObserver(
-      () => pickActive(),
-      { rootMargin: '-30% 0px -30% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] },
-    );
+    const observer = new IntersectionObserver(() => pickActive(), {
+      rootMargin: '-30% 0px -30% 0px',
+      threshold: [0, 0.25, 0.5, 0.75, 1],
+    });
 
     stepRefs.current.forEach((el) => {
       if (el) observer.observe(el);
@@ -234,11 +234,32 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
         <rect x="260.4" y="61" width="1.4" height="4" rx="0.3" />
         <rect x="262.6" y="60" width="1.4" height="5" rx="0.3" />
         {/* Wifi arcs */}
-        <path d="M 268 64 A 3 3 0 0 1 274 64" fill="none" stroke="var(--text-primary)" strokeWidth="0.9" strokeLinecap="round" />
-        <path d="M 269.2 63.4 A 1.8 1.8 0 0 1 272.8 63.4" fill="none" stroke="var(--text-primary)" strokeWidth="0.9" strokeLinecap="round" />
+        <path
+          d="M 268 64 A 3 3 0 0 1 274 64"
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth="0.9"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 269.2 63.4 A 1.8 1.8 0 0 1 272.8 63.4"
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth="0.9"
+          strokeLinecap="round"
+        />
         <circle cx="271" cy="64.2" r="0.6" />
         {/* Battery */}
-        <rect x="278" y="60.5" width="10" height="4.5" rx="1" fill="none" stroke="var(--text-primary)" strokeWidth="0.7" />
+        <rect
+          x="278"
+          y="60.5"
+          width="10"
+          height="4.5"
+          rx="1"
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth="0.7"
+        />
         <rect x="288" y="61.8" width="1" height="2" rx="0.3" />
         <rect x="279" y="61.5" width="7.5" height="2.5" rx="0.4" />
       </g>
@@ -293,13 +314,25 @@ function StageDetect() {
         >
           B
         </text>
-        <text x="200" y="110" fontSize="10" fill="var(--text-primary)" fontWeight="600">
+        <text
+          x="200"
+          y="110"
+          fontSize="10"
+          fill="var(--text-primary)"
+          fontWeight="600"
+        >
           BDO-INFO
         </text>
         <text x="200" y="122" fontSize="8" fill="var(--text-secondary)">
           Your BDO account will be suspended…
         </text>
-        <text x="284" y="110" fontSize="7" fill="var(--text-secondary)" textAnchor="end">
+        <text
+          x="284"
+          y="110"
+          fontSize="7"
+          fill="var(--text-secondary)"
+          textAnchor="end"
+        >
           9:38
         </text>
 
@@ -308,11 +341,23 @@ function StageDetect() {
 
         {/* Ambient rows */}
         <g opacity="0.35">
-          <line x1="176" y1="140" x2="284" y2="140" stroke="var(--border-default)" />
+          <line
+            x1="176"
+            y1="140"
+            x2="284"
+            y2="140"
+            stroke="var(--border-default)"
+          />
           <text x="200" y="156" fontSize="8" fill="var(--text-secondary)">
             GCash 9:12 AM
           </text>
-          <line x1="176" y1="170" x2="284" y2="170" stroke="var(--border-default)" />
+          <line
+            x1="176"
+            y1="170"
+            x2="284"
+            y2="170"
+            stroke="var(--border-default)"
+          />
           <text x="200" y="186" fontSize="8" fill="var(--text-secondary)">
             +63 917 555 0132
           </text>
@@ -364,7 +409,13 @@ function StageDetect() {
         >
           01 · INTAKE
         </text>
-        <text x="20" y="128" fontSize="10" fill="var(--text-primary)" fontWeight="600">
+        <text
+          x="20"
+          y="128"
+          fontSize="10"
+          fill="var(--text-primary)"
+          fontWeight="600"
+        >
           Local capture
         </text>
         <text x="20" y="142" fontSize="9" fill="var(--text-secondary)">
@@ -390,7 +441,13 @@ function StageClassify() {
         >
           BANTAI · VERDICT
         </text>
-        <line x1="176" y1="94" x2="284" y2="94" stroke="var(--border-default)" />
+        <line
+          x1="176"
+          y1="94"
+          x2="284"
+          y2="94"
+          stroke="var(--border-default)"
+        />
 
         {/* SMS quote */}
         <rect
@@ -402,7 +459,13 @@ function StageClassify() {
           fill="var(--surface-raised)"
           stroke="var(--border-default)"
         />
-        <text x="184" y="120" fontSize="7" fill="var(--text-secondary)" fontFamily="var(--font-mono, monospace)">
+        <text
+          x="184"
+          y="120"
+          fontSize="7"
+          fill="var(--text-secondary)"
+          fontFamily="var(--font-mono, monospace)"
+        >
           BDO-INFO · 9:38
         </text>
         <text x="184" y="134" fontSize="8" fill="var(--text-primary)">
@@ -411,7 +474,13 @@ function StageClassify() {
         <text x="184" y="146" fontSize="8" fill="var(--text-primary)">
           suspended in 24 hours.
         </text>
-        <text x="184" y="158" fontSize="8" fill="var(--brand-primary)" fontFamily="var(--font-mono, monospace)">
+        <text
+          x="184"
+          y="158"
+          fontSize="8"
+          fill="var(--brand-primary)"
+          fontFamily="var(--font-mono, monospace)"
+        >
           bdo-secure.link
         </text>
 
@@ -425,7 +494,13 @@ function StageClassify() {
           fill="var(--surface-raised)"
           stroke="var(--border-default)"
         />
-        <rect x="176" y="176" width="3" height="52" fill="var(--status-threat)" />
+        <rect
+          x="176"
+          y="176"
+          width="3"
+          height="52"
+          fill="var(--status-threat)"
+        />
         <text
           x="186"
           y="192"
@@ -436,7 +511,13 @@ function StageClassify() {
         >
           CLASS
         </text>
-        <text x="186" y="205" fontSize="10" fill="var(--text-primary)" fontWeight="700">
+        <text
+          x="186"
+          y="205"
+          fontSize="10"
+          fill="var(--text-primary)"
+          fontWeight="700"
+        >
           Smishing
         </text>
         <text x="186" y="220" fontSize="8" fill="var(--text-secondary)">
@@ -454,8 +535,22 @@ function StageClassify() {
         >
           CONFIDENCE
         </text>
-        <rect x="176" y="254" width="108" height="4" rx="2" fill="var(--plum-14)" />
-        <rect x="176" y="254" width="102" height="4" rx="2" fill="var(--brand-primary)" />
+        <rect
+          x="176"
+          y="254"
+          width="108"
+          height="4"
+          rx="2"
+          fill="var(--plum-14)"
+        />
+        <rect
+          x="176"
+          y="254"
+          width="102"
+          height="4"
+          rx="2"
+          fill="var(--brand-primary)"
+        />
         <text
           x="284"
           y="272"
@@ -471,7 +566,14 @@ function StageClassify() {
 
       {/* Side annotation */}
       <g>
-        <line x1="60" y1="180" x2="152" y2="210" stroke="var(--plum-35)" strokeWidth="1" />
+        <line
+          x1="60"
+          y1="180"
+          x2="152"
+          y2="210"
+          stroke="var(--plum-35)"
+          strokeWidth="1"
+        />
         <text
           x="20"
           y="172"
@@ -482,7 +584,13 @@ function StageClassify() {
         >
           02 · MODEL
         </text>
-        <text x="20" y="188" fontSize="10" fill="var(--text-primary)" fontWeight="600">
+        <text
+          x="20"
+          y="188"
+          fontSize="10"
+          fill="var(--text-primary)"
+          fontWeight="600"
+        >
           Ham / Spam / Scam
         </text>
         <text x="20" y="202" fontSize="9" fill="var(--text-secondary)">
@@ -507,7 +615,13 @@ function StageExplain() {
         >
           WHY THIS DECISION
         </text>
-        <line x1="176" y1="94" x2="284" y2="94" stroke="var(--border-default)" />
+        <line
+          x1="176"
+          y1="94"
+          x2="284"
+          y2="94"
+          stroke="var(--border-default)"
+        />
 
         {/* Annotated message */}
         <text x="176" y="112" fontSize="8" fill="var(--text-primary)">
@@ -520,13 +634,22 @@ function StageExplain() {
         </text>
         <text x="176" y="136" fontSize="8" fill="var(--text-primary)">
           Verify at{' '}
-          <tspan fill="var(--brand-primary)" fontFamily="var(--font-mono, monospace)">
+          <tspan
+            fill="var(--brand-primary)"
+            fontFamily="var(--font-mono, monospace)"
+          >
             bdo-secure.link
           </tspan>
         </text>
 
         {/* Indicator list */}
-        <line x1="176" y1="152" x2="284" y2="152" stroke="var(--border-default)" />
+        <line
+          x1="176"
+          y1="152"
+          x2="284"
+          y2="152"
+          stroke="var(--border-default)"
+        />
         {[
           ['Urgency', '0.42'],
           ['Look-alike URL', '0.31'],
@@ -554,7 +677,14 @@ function StageExplain() {
 
       {/* Side annotation */}
       <g>
-        <line x1="60" y1="140" x2="152" y2="150" stroke="var(--plum-35)" strokeWidth="1" />
+        <line
+          x1="60"
+          y1="140"
+          x2="152"
+          y2="150"
+          stroke="var(--plum-35)"
+          strokeWidth="1"
+        />
         <text
           x="20"
           y="132"
@@ -565,7 +695,13 @@ function StageExplain() {
         >
           03 · EVIDENCE
         </text>
-        <text x="20" y="148" fontSize="10" fill="var(--text-primary)" fontWeight="600">
+        <text
+          x="20"
+          y="148"
+          fontSize="10"
+          fill="var(--text-primary)"
+          fontWeight="600"
+        >
           Named indicators
         </text>
         <text x="20" y="162" fontSize="9" fill="var(--text-secondary)">

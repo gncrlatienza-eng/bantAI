@@ -59,7 +59,8 @@ export function RequestAccessPage() {
     // screen-reader users land at the top of the application.
     if (view === 'form' && formRef.current) {
       formRef.current.scrollIntoView({ block: 'start' });
-      const firstInput = formRef.current.querySelector<HTMLInputElement>('input');
+      const firstInput =
+        formRef.current.querySelector<HTMLInputElement>('input');
       firstInput?.focus();
     }
   }, [view]);
@@ -103,10 +104,7 @@ export function RequestAccessPage() {
         )}
 
         {view === 'submitted' && tier && confirmation && (
-          <SubmissionConfirmation
-            tier={tier}
-            confirmation={confirmation}
-          />
+          <SubmissionConfirmation tier={tier} confirmation={confirmation} />
         )}
       </div>
     </AuthLayout>
@@ -132,8 +130,10 @@ function AccessRequestForm({ tier, onCancel, onSubmitted }: FormProps) {
   function validate() {
     const next: Record<string, string> = {};
     if (!fullName.trim()) next.fullName = 'Enter your full name.';
-    if (!EMAIL_RE.test(email.trim())) next.email = 'Enter a valid work or school email.';
-    if (!organization.trim()) next.organization = 'Enter your organization or institution.';
+    if (!EMAIL_RE.test(email.trim()))
+      next.email = 'Enter a valid work or school email.';
+    if (!organization.trim())
+      next.organization = 'Enter your organization or institution.';
     if (!intendedUse.trim() || intendedUse.trim().length < 10)
       next.intendedUse = 'Describe the intended use in a sentence or two.';
     if (!reason.trim() || reason.trim().length < 10)
@@ -166,7 +166,8 @@ function AccessRequestForm({ tier, onCancel, onSubmitted }: FormProps) {
       // it comes through as a Response error via fetchApi; anything else we
       // treat as a transient outage.
       const message =
-        err instanceof Error && !/failed to fetch|networkerror/i.test(err.message)
+        err instanceof Error &&
+        !/failed to fetch|networkerror/i.test(err.message)
           ? err.message
           : 'We couldn’t submit your request right now. Please try again shortly, or contact the research team if this keeps happening.';
       setFormError(message);
@@ -177,11 +178,7 @@ function AccessRequestForm({ tier, onCancel, onSubmitted }: FormProps) {
 
   return (
     <section className="licensing-form" aria-labelledby="licensing-form-title">
-      <button
-        type="button"
-        className="licensing-form__back"
-        onClick={onCancel}
-      >
+      <button type="button" className="licensing-form__back" onClick={onCancel}>
         ← Back to licenses
       </button>
 
@@ -202,12 +199,16 @@ function AccessRequestForm({ tier, onCancel, onSubmitted }: FormProps) {
           Tell us about your access request.
         </h1>
         <p className="licensing-form__subtitle">
-          No payment is taken at this stage. A reviewer will follow up with
-          next steps by email.
+          No payment is taken at this stage. A reviewer will follow up with next
+          steps by email.
         </p>
       </header>
 
-      <form className="licensing-form__form" onSubmit={handleSubmit} noValidate>
+      <form
+        className="licensing-form__form"
+        onSubmit={(e) => void handleSubmit(e)}
+        noValidate
+      >
         <Input
           label="Full name"
           name="fullName"
@@ -335,10 +336,7 @@ function SubmissionConfirmation({ tier, confirmation }: ConfirmationProps) {
 
       <header>
         <p className="licensing__eyebrow">Access request</p>
-        <h1
-          id="licensing-confirm-title"
-          className="licensing__title"
-        >
+        <h1 id="licensing-confirm-title" className="licensing__title">
           Your {TIER_LABEL[tier].toLowerCase()} request is in review.
         </h1>
       </header>
@@ -355,8 +353,8 @@ function SubmissionConfirmation({ tier, confirmation }: ConfirmationProps) {
           fit and follow up by email.
         </li>
         <li>
-          <strong>Approval &amp; payment.</strong> If approved, you will
-          receive a proposal, an invoice, and a secure Stripe link.
+          <strong>Approval &amp; payment.</strong> If approved, you will receive
+          a proposal, an invoice, and a secure Stripe link.
         </li>
         <li>
           <strong>Access.</strong> The license activates only after payment is
@@ -365,9 +363,7 @@ function SubmissionConfirmation({ tier, confirmation }: ConfirmationProps) {
         </li>
       </ol>
 
-      <div
-        className="licensing-form__actions licensing-confirm__actions"
-      >
+      <div className="licensing-form__actions licensing-confirm__actions">
         <Link to="/" className="bantai-auth-card__primary">
           Back to website
         </Link>

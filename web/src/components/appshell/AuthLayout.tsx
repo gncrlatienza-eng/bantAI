@@ -36,7 +36,11 @@ export function AuthLayout({ children, decor = 'network' }: AuthLayoutProps) {
   return (
     <div className="bantai-auth-layout" data-theme="mineral">
       <header className="bantai-auth-layout__header">
-        <Link to="/" className="bantai-auth-layout__brand" aria-label="BantAI home">
+        <Link
+          to="/"
+          className="bantai-auth-layout__brand"
+          aria-label="BantAI home"
+        >
           <span className="bantai-auth-layout__brand-mark" aria-hidden>
             <BrandMark />
           </span>

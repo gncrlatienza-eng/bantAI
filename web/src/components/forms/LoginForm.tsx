@@ -60,7 +60,9 @@ export const LoginForm: React.FC = () => {
     try {
       await login(trimmedEmail, password);
       const me = await getCurrentUser();
-      void navigate(me.role === 'ADMIN' ? '/admin/overview' : '/client/overview');
+      void navigate(
+        me.role === 'ADMIN' ? '/admin/overview' : '/client/overview',
+      );
     } catch {
       // Never surface whether the account exists or which field was wrong.
       setFormError(GENERIC_AUTH_FAILURE);
@@ -72,7 +74,7 @@ export const LoginForm: React.FC = () => {
   return (
     <form
       className="bantai-auth-card__form"
-      onSubmit={handleSubmit}
+      onSubmit={(e) => void handleSubmit(e)}
       noValidate
     >
       <Input

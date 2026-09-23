@@ -30,10 +30,10 @@ export function CheckoutPendingPage() {
           </h1>
         </header>
         <p className="licensing__lede">
-          Your license will activate as soon as Stripe’s signed webhook
-          reaches BantAI. This is usually near-instant, but access is not
-          granted by this page alone — the webhook is the only signal we
-          trust to flip a license to <strong>Active</strong>.
+          Your license will activate as soon as Stripe’s signed webhook reaches
+          BantAI. This is usually near-instant, but access is not granted by
+          this page alone — the webhook is the only signal we trust to flip a
+          license to <strong>Active</strong>.
         </p>
         <p className="licensing__lede">
           You will receive a confirmation email once your license is active.
@@ -61,7 +61,9 @@ export function CheckoutCancelledPage() {
         </span>
         <header>
           <p className="licensing__eyebrow">Checkout</p>
-          <h1 className="licensing__title">You cancelled the secure payment.</h1>
+          <h1 className="licensing__title">
+            You cancelled the secure payment.
+          </h1>
         </header>
         <p className="licensing__lede">
           No payment was taken. Your approval is still valid — reopen the link

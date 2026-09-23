@@ -86,10 +86,7 @@ export function PublicShell({ children }: PublicShellProps) {
             </span>
           </button>
 
-          <nav
-            className="bantai-public__nav"
-            aria-label="Public sections"
-          >
+          <nav className="bantai-public__nav" aria-label="Public sections">
             {NAV_LINKS.map((link) => (
               <button
                 key={link.hash}

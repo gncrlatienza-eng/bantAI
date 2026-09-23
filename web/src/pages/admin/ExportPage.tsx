@@ -169,7 +169,13 @@ export function ExportPage() {
               onClick={() =>
                 downloadCsv(
                   'bantai-reports.csv',
-                  ['id', 'originalLabel', 'reportedLabel', 'status', 'createdAt'],
+                  [
+                    'id',
+                    'originalLabel',
+                    'reportedLabel',
+                    'status',
+                    'createdAt',
+                  ],
                   bundle.reports.map((item) => [
                     item.id,
                     item.originalLabel,

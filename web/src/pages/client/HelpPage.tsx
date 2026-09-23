@@ -34,7 +34,9 @@ export function HelpPage() {
           Sign out
         </Button>
       }
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated account</span>}
+      footer={
+        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+      }
     >
       <PageHeader
         title="Help"
@@ -43,7 +45,9 @@ export function HelpPage() {
       <EmptyState
         title="Managed help content not connected"
         description="Curated help articles targeted by user context require an authenticated content endpoint that has not shipped yet."
-        action={<InfoBadge>Requires GET /help/articles on the backend</InfoBadge>}
+        action={
+          <InfoBadge>Requires GET /help/articles on the backend</InfoBadge>
+        }
       />
     </AppShell>
   );

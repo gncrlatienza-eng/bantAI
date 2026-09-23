@@ -22,17 +22,37 @@ const SIDEBAR_GROUPS: NavGroupDef[] = [
   {
     label: 'Threat Intelligence',
     items: [
-      { label: 'Overview', path: '/client/overview', icon: <NavOverviewIcon /> },
-      { label: 'Messages', path: '/client/messages', icon: <NavMessagesIcon /> },
-      { label: 'Campaigns', path: '/client/campaigns', icon: <NavCampaignsIcon /> },
-      { label: 'Analytics', path: '/client/analytics', icon: <NavAnalyticsIcon /> },
+      {
+        label: 'Overview',
+        path: '/client/overview',
+        icon: <NavOverviewIcon />,
+      },
+      {
+        label: 'Messages',
+        path: '/client/messages',
+        icon: <NavMessagesIcon />,
+      },
+      {
+        label: 'Campaigns',
+        path: '/client/campaigns',
+        icon: <NavCampaignsIcon />,
+      },
+      {
+        label: 'Analytics',
+        path: '/client/analytics',
+        icon: <NavAnalyticsIcon />,
+      },
     ],
   },
   {
     label: 'Operations',
     items: [
       { label: 'Help', path: '/client/help', icon: <NavReportsIcon /> },
-      { label: 'Account settings', path: '/client/settings', icon: <NavSystemIcon /> },
+      {
+        label: 'Account settings',
+        path: '/client/settings',
+        icon: <NavSystemIcon />,
+      },
     ],
   },
 ];
@@ -61,7 +81,9 @@ export function AnalyticsPage() {
           Sign out
         </Button>
       }
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated account</span>}
+      footer={
+        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+      }
     >
       <PageHeader
         title="Analytics"

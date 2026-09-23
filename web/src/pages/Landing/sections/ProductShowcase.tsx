@@ -25,8 +25,8 @@ export function ProductShowcase() {
             From personal protection to campaign intelligence.
           </h2>
           <p className="landing__lede">
-            The same detection drives the alert on someone's phone and the
-            analyst's campaign view.
+            The same detection drives the alert on someone&apos;s phone and the
+            analyst&apos;s campaign view.
           </p>
         </div>
 
@@ -84,9 +84,30 @@ function AndroidMock() {
         strokeWidth="1"
       />
       {/* Side buttons (power + volume rocker) — small realism cue */}
-      <rect x="6" y="150" width="2" height="50" rx="1" fill="color-mix(in srgb, var(--text-primary) 55%, transparent)" />
-      <rect x="6" y="220" width="2" height="34" rx="1" fill="color-mix(in srgb, var(--text-primary) 55%, transparent)" />
-      <rect x="312" y="170" width="2" height="60" rx="1" fill="color-mix(in srgb, var(--text-primary) 55%, transparent)" />
+      <rect
+        x="6"
+        y="150"
+        width="2"
+        height="50"
+        rx="1"
+        fill="color-mix(in srgb, var(--text-primary) 55%, transparent)"
+      />
+      <rect
+        x="6"
+        y="220"
+        width="2"
+        height="34"
+        rx="1"
+        fill="color-mix(in srgb, var(--text-primary) 55%, transparent)"
+      />
+      <rect
+        x="312"
+        y="170"
+        width="2"
+        height="60"
+        rx="1"
+        fill="color-mix(in srgb, var(--text-primary) 55%, transparent)"
+      />
       {/* Screen */}
       <rect
         x="18"
@@ -98,7 +119,13 @@ function AndroidMock() {
       />
       {/* Hole-punch camera — smaller, matches modern devices */}
       <circle cx="160" cy="36" r="4" fill="var(--text-primary)" />
-      <circle cx="160" cy="36" r="2.4" fill="color-mix(in srgb, var(--text-primary) 55%, var(--brand-primary) 45%)" opacity="0.6" />
+      <circle
+        cx="160"
+        cy="36"
+        r="2.4"
+        fill="color-mix(in srgb, var(--text-primary) 55%, var(--brand-primary) 45%)"
+        opacity="0.6"
+      />
 
       {/* Status bar — real signal / wifi / battery glyphs */}
       <text
@@ -118,17 +145,44 @@ function AndroidMock() {
         <rect x="250" y="45" width="2.5" height="7" rx="0.5" />
         <rect x="254" y="43" width="2.5" height="9" rx="0.5" />
         {/* Wifi glyph (three arcs + dot) */}
-        <path d="M 264 51 A 6 6 0 0 1 276 51" fill="none" stroke="var(--text-primary)" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M 266 50 A 4 4 0 0 1 274 50" fill="none" stroke="var(--text-primary)" strokeWidth="1.2" strokeLinecap="round" />
+        <path
+          d="M 264 51 A 6 6 0 0 1 276 51"
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 266 50 A 4 4 0 0 1 274 50"
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
         <circle cx="270" cy="51.5" r="1" />
         {/* Battery capsule */}
-        <rect x="282" y="45" width="16" height="8" rx="2" fill="none" stroke="var(--text-primary)" strokeWidth="1" />
+        <rect
+          x="282"
+          y="45"
+          width="16"
+          height="8"
+          rx="2"
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth="1"
+        />
         <rect x="298" y="47" width="1.5" height="4" rx="0.5" />
         <rect x="284" y="47" width="12" height="4" rx="1" />
       </g>
 
       {/* App top-app-bar — back arrow + overflow, like Material 3 */}
-      <g fill="none" stroke="var(--text-primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <g
+        fill="none"
+        stroke="var(--text-primary)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M 30 82 L 22 88 L 30 94" />
         <path d="M 22 88 L 40 88" />
       </g>
@@ -148,7 +202,14 @@ function AndroidMock() {
         BantAI · Alert
       </text>
 
-      <text x="24" y="128" fontSize="21" fontWeight="700" fill="var(--text-primary)" letterSpacing="-0.01em">
+      <text
+        x="24"
+        y="128"
+        fontSize="21"
+        fontWeight="700"
+        fill="var(--text-primary)"
+        letterSpacing="-0.01em"
+      >
         Message flagged
       </text>
       <text x="24" y="146" fontSize="12" fill="var(--text-secondary)">
@@ -166,7 +227,14 @@ function AndroidMock() {
         stroke="var(--border-default)"
         filter="url(#ps-card-elev)"
       />
-      <rect x="24" y="158" width="4" height="72" rx="2" fill="var(--status-threat)" />
+      <rect
+        x="24"
+        y="158"
+        width="4"
+        height="72"
+        rx="2"
+        fill="var(--status-threat)"
+      />
       <text
         x="40"
         y="180"
@@ -177,7 +245,13 @@ function AndroidMock() {
       >
         VERDICT
       </text>
-      <text x="40" y="202" fontSize="18" fontWeight="700" fill="var(--text-primary)">
+      <text
+        x="40"
+        y="202"
+        fontSize="18"
+        fontWeight="700"
+        fill="var(--text-primary)"
+      >
         Likely Smishing
       </text>
       <text
@@ -228,7 +302,13 @@ function AndroidMock() {
       >
         B
       </text>
-      <text x="58" y="282" fontSize="12" fontWeight="600" fill="var(--text-primary)">
+      <text
+        x="58"
+        y="282"
+        fontSize="12"
+        fontWeight="600"
+        fill="var(--text-primary)"
+      >
         BDO-INFO
       </text>
       <text x="58" y="294" fontSize="10" fill="var(--text-secondary)">
@@ -248,7 +328,13 @@ function AndroidMock() {
           bdo-secure.link
         </tspan>
       </text>
-      <text x="40" y="358" fontSize="12" fill="var(--text-primary)" fontWeight="600">
+      <text
+        x="40"
+        y="358"
+        fontSize="12"
+        fill="var(--text-primary)"
+        fontWeight="600"
+      >
         Ref: PHP 15,000
       </text>
 
@@ -274,7 +360,14 @@ function AndroidMock() {
             {label}
           </text>
           {/* Weight bar (relative to max 0.42) */}
-          <rect x="220" y={405} width="46" height="4" rx="2" fill="var(--plum-14)" />
+          <rect
+            x="220"
+            y={405}
+            width="46"
+            height="4"
+            rx="2"
+            fill="var(--plum-14)"
+          />
           <rect
             x="220"
             y={405}
@@ -329,19 +422,38 @@ function AndroidMock() {
       >
         23
       </text>
-      <text x="66" y="533" fontSize="13" fill="var(--text-primary)" fontWeight="600">
+      <text
+        x="66"
+        y="533"
+        fontSize="13"
+        fill="var(--text-primary)"
+        fontWeight="600"
+      >
         Campaign PH-023
       </text>
       <text x="66" y="551" fontSize="11" fill="var(--text-secondary)">
         12 related variants · first seen Sep 4
       </text>
       {/* Chevron */}
-      <g fill="none" stroke="var(--brand-primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <g
+        fill="none"
+        stroke="var(--brand-primary)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M 278 534 L 284 540 L 278 546" />
       </g>
 
       {/* Actions — Material 3 filled + tonal button pair */}
-      <rect x="24" y="582" width="130" height="46" rx="23" fill="var(--brand-primary)" />
+      <rect
+        x="24"
+        y="582"
+        width="130"
+        height="46"
+        rx="23"
+        fill="var(--brand-primary)"
+      />
       <text
         x="89"
         y="610"
@@ -439,21 +551,60 @@ function PortalMock() {
       />
 
       {/* Browser chrome */}
-      <rect x="0" y="0" width="900" height="34" rx="12" fill="var(--surface-canvas)" />
+      <rect
+        x="0"
+        y="0"
+        width="900"
+        height="34"
+        rx="12"
+        fill="var(--surface-canvas)"
+      />
       <rect x="0" y="24" width="900" height="10" fill="var(--surface-canvas)" />
       <line x1="0" y1="34" x2="900" y2="34" stroke="var(--border-default)" />
       <circle cx="20" cy="17" r="5" fill="#E97F7F" />
       <circle cx="38" cy="17" r="5" fill="#E9C874" />
       <circle cx="56" cy="17" r="5" fill="#78C58A" />
       {/* Tab pill */}
-      <path d="M 84 34 L 90 22 L 194 22 L 200 34 Z" fill="var(--surface-raised)" stroke="var(--border-default)" />
-      <text x="102" y="30" fontSize="9" fill="var(--text-primary)" fontFamily="var(--font-sans)">
+      <path
+        d="M 84 34 L 90 22 L 194 22 L 200 34 Z"
+        fill="var(--surface-raised)"
+        stroke="var(--border-default)"
+      />
+      <text
+        x="102"
+        y="30"
+        fontSize="9"
+        fill="var(--text-primary)"
+        fontFamily="var(--font-sans)"
+      >
         BantAI · Admin
       </text>
-      <rect x="220" y="8" width="480" height="18" rx="9" fill="var(--surface-raised)" stroke="var(--border-default)" />
+      <rect
+        x="220"
+        y="8"
+        width="480"
+        height="18"
+        rx="9"
+        fill="var(--surface-raised)"
+        stroke="var(--border-default)"
+      />
       {/* Lock icon */}
-      <rect x="230" y="13" width="6" height="6" rx="1" fill="none" stroke="var(--text-secondary)" strokeWidth="0.8" />
-      <path d="M 231.5 13 L 231.5 11.5 A 1.5 1.5 0 0 1 234.5 11.5 L 234.5 13" fill="none" stroke="var(--text-secondary)" strokeWidth="0.8" />
+      <rect
+        x="230"
+        y="13"
+        width="6"
+        height="6"
+        rx="1"
+        fill="none"
+        stroke="var(--text-secondary)"
+        strokeWidth="0.8"
+      />
+      <path
+        d="M 231.5 13 L 231.5 11.5 A 1.5 1.5 0 0 1 234.5 11.5 L 234.5 13"
+        fill="none"
+        stroke="var(--text-secondary)"
+        strokeWidth="0.8"
+      />
       <text
         x="460"
         y="21"
@@ -466,15 +617,34 @@ function PortalMock() {
       </text>
 
       {/* Sidebar */}
-      <rect x="0" y="34" width="180" height="506" fill="var(--surface-canvas)" />
+      <rect
+        x="0"
+        y="34"
+        width="180"
+        height="506"
+        fill="var(--surface-canvas)"
+      />
       <line x1="180" y1="34" x2="180" y2="540" stroke="var(--border-default)" />
       {/* Logo mark */}
       <g transform="translate(20, 54)">
         <circle cx="8" cy="8" r="8" fill="var(--brand-primary)" />
-        <text x="24" y="12" fontSize="12" fontWeight="700" fill="var(--text-primary)">
+        <text
+          x="24"
+          y="12"
+          fontSize="12"
+          fontWeight="700"
+          fill="var(--text-primary)"
+        >
           BantAI
         </text>
-        <text x="24" y="24" fontSize="9" fill="var(--text-secondary)" letterSpacing="0.14em" fontFamily="var(--font-mono, monospace)">
+        <text
+          x="24"
+          y="24"
+          fontSize="9"
+          fill="var(--text-secondary)"
+          letterSpacing="0.14em"
+          fontFamily="var(--font-mono, monospace)"
+        >
           ADMIN
         </text>
       </g>
@@ -489,13 +659,34 @@ function PortalMock() {
         <g key={String(label)} transform={`translate(0, ${i * 32})`}>
           {active && (
             <>
-              <rect x="8" y={100} width="164" height="30" rx="8" fill="var(--plum-14)" />
+              <rect
+                x="8"
+                y={100}
+                width="164"
+                height="30"
+                rx="8"
+                fill="var(--plum-14)"
+              />
               {/* Left active-indicator bar */}
-              <rect x="0" y={106} width="3" height="18" rx="1.5" fill="var(--brand-primary)" />
+              <rect
+                x="0"
+                y={106}
+                width="3"
+                height="18"
+                rx="1.5"
+                fill="var(--brand-primary)"
+              />
             </>
           )}
           {/* Icon glyph */}
-          <rect x="20" y={110} width="10" height="10" rx="2" fill={active ? 'var(--brand-primary)' : 'var(--text-secondary)'} />
+          <rect
+            x="20"
+            y={110}
+            width="10"
+            height="10"
+            rx="2"
+            fill={active ? 'var(--brand-primary)' : 'var(--text-secondary)'}
+          />
           <text
             x="42"
             y={119}
@@ -506,7 +697,15 @@ function PortalMock() {
             {label}
           </text>
           {active && (
-            <text x="164" y={119} fontSize="10" fill="var(--brand-primary)" textAnchor="end" fontFamily="var(--font-mono, monospace)" fontWeight="700">
+            <text
+              x="164"
+              y={119}
+              fontSize="10"
+              fill="var(--brand-primary)"
+              textAnchor="end"
+              fontFamily="var(--font-mono, monospace)"
+              fontWeight="700"
+            >
               12
             </text>
           )}
@@ -515,10 +714,24 @@ function PortalMock() {
       {/* Footer avatar row */}
       <line x1="8" y1="490" x2="172" y2="490" stroke="var(--border-default)" />
       <circle cx="24" cy="510" r="10" fill="var(--plum-14)" />
-      <text x="24" y="514" fontSize="9" fontWeight="700" fill="var(--brand-primary)" textAnchor="middle" fontFamily="var(--font-mono, monospace)">
+      <text
+        x="24"
+        y="514"
+        fontSize="9"
+        fontWeight="700"
+        fill="var(--brand-primary)"
+        textAnchor="middle"
+        fontFamily="var(--font-mono, monospace)"
+      >
         R
       </text>
-      <text x="42" y="508" fontSize="11" fill="var(--text-primary)" fontWeight="600">
+      <text
+        x="42"
+        y="508"
+        fontSize="11"
+        fill="var(--text-primary)"
+        fontWeight="600"
+      >
         R. De Castro
       </text>
       <text x="42" y="520" fontSize="9" fill="var(--text-secondary)">
@@ -527,13 +740,29 @@ function PortalMock() {
 
       {/* Main header — breadcrumb + title + status pill */}
       <g transform="translate(204, 60)">
-        <text fontSize="10" fontFamily="var(--font-mono, monospace)" fill="var(--text-secondary)" letterSpacing="0.14em">
+        <text
+          fontSize="10"
+          fontFamily="var(--font-mono, monospace)"
+          fill="var(--text-secondary)"
+          letterSpacing="0.14em"
+        >
           <tspan>CAMPAIGNS</tspan>
-          <tspan dx="6" fill="var(--text-secondary)">/</tspan>
-          <tspan dx="6" fill="var(--brand-primary)">PH-023</tspan>
+          <tspan dx="6" fill="var(--text-secondary)">
+            /
+          </tspan>
+          <tspan dx="6" fill="var(--brand-primary)">
+            PH-023
+          </tspan>
         </text>
       </g>
-      <text x="204" y="94" fontSize="22" fontWeight="700" fill="var(--text-primary)" letterSpacing="-0.01em">
+      <text
+        x="204"
+        y="94"
+        fontSize="22"
+        fontWeight="700"
+        fill="var(--text-primary)"
+        letterSpacing="-0.01em"
+      >
         E-wallet account-suspension lure
       </text>
       {/* Active status pill */}
@@ -547,7 +776,15 @@ function PortalMock() {
         stroke="color-mix(in srgb, var(--status-threat) 32%, transparent)"
       />
       <circle cx="598" cy="88" r="3" fill="var(--status-threat)" />
-      <text x="608" y="92" fontSize="10" fill="var(--status-threat)" fontWeight="700" fontFamily="var(--font-mono, monospace)" letterSpacing="0.08em">
+      <text
+        x="608"
+        y="92"
+        fontSize="10"
+        fill="var(--status-threat)"
+        fontWeight="700"
+        fontFamily="var(--font-mono, monospace)"
+        letterSpacing="0.08em"
+      >
         ACTIVE
       </text>
       <text x="204" y="112" fontSize="12" fill="var(--text-secondary)">
@@ -564,37 +801,98 @@ function PortalMock() {
 
       {/* Toolbar — real filter chips + button-styled export */}
       <g transform="translate(204, 214)">
-        <text x="0" y="14" fontSize="13" fill="var(--text-primary)" fontWeight="700">
+        <text
+          x="0"
+          y="14"
+          fontSize="13"
+          fill="var(--text-primary)"
+          fontWeight="700"
+        >
           Variants
         </text>
-        <text x="60" y="14" fontSize="11" fill="var(--text-secondary)" fontFamily="var(--font-mono, monospace)">
+        <text
+          x="60"
+          y="14"
+          fontSize="11"
+          fill="var(--text-secondary)"
+          fontFamily="var(--font-mono, monospace)"
+        >
           12 total
         </text>
         {/* Filter chips */}
         <g transform="translate(160, 0)">
-          <rect x="0" y="0" width="86" height="24" rx="12" fill="var(--plum-14)" />
+          <rect
+            x="0"
+            y="0"
+            width="86"
+            height="24"
+            rx="12"
+            fill="var(--plum-14)"
+          />
           <circle cx="12" cy="12" r="3" fill="var(--brand-primary)" />
-          <text x="22" y="16" fontSize="10.5" fill="var(--brand-primary)" fontWeight="600">
+          <text
+            x="22"
+            y="16"
+            fontSize="10.5"
+            fill="var(--brand-primary)"
+            fontWeight="600"
+          >
             Language · 3
           </text>
         </g>
         <g transform="translate(254, 0)">
-          <rect x="0" y="0" width="106" height="24" rx="12" fill="var(--surface-canvas)" stroke="var(--border-default)" />
+          <rect
+            x="0"
+            y="0"
+            width="106"
+            height="24"
+            rx="12"
+            fill="var(--surface-canvas)"
+            stroke="var(--border-default)"
+          />
           <text x="12" y="16" fontSize="10.5" fill="var(--text-primary)">
             Sep 1 – Sep 20
           </text>
           <path d="M 92 10 L 98 10 L 95 14 Z" fill="var(--text-secondary)" />
         </g>
         <g transform="translate(368, 0)">
-          <rect x="0" y="0" width="72" height="24" rx="12" fill="var(--surface-canvas)" stroke="var(--border-default)" />
-          <text x="36" y="16" fontSize="10.5" fill="var(--text-primary)" textAnchor="middle">
+          <rect
+            x="0"
+            y="0"
+            width="72"
+            height="24"
+            rx="12"
+            fill="var(--surface-canvas)"
+            stroke="var(--border-default)"
+          />
+          <text
+            x="36"
+            y="16"
+            fontSize="10.5"
+            fill="var(--text-primary)"
+            textAnchor="middle"
+          >
             All domains
           </text>
         </g>
         {/* Export button (proper filled tonal button) */}
         <g transform="translate(600, 0)">
-          <rect x="0" y="0" width="76" height="24" rx="6" fill="var(--brand-primary)" />
-          <text x="38" y="16" fontSize="10.5" fill="var(--text-on-brand)" textAnchor="middle" fontWeight="600">
+          <rect
+            x="0"
+            y="0"
+            width="76"
+            height="24"
+            rx="6"
+            fill="var(--brand-primary)"
+          />
+          <text
+            x="38"
+            y="16"
+            fontSize="10.5"
+            fill="var(--text-on-brand)"
+            textAnchor="middle"
+            fontWeight="600"
+          >
             Export CSV
           </text>
         </g>
@@ -602,23 +900,70 @@ function PortalMock() {
 
       {/* Table header */}
       <g transform="translate(204, 254)">
-        <rect x="0" y="0" width="676" height="28" fill="var(--surface-canvas)" />
+        <rect
+          x="0"
+          y="0"
+          width="676"
+          height="28"
+          fill="var(--surface-canvas)"
+        />
         <line x1="0" y1="0" x2="676" y2="0" stroke="var(--border-default)" />
         <line x1="0" y1="28" x2="676" y2="28" stroke="var(--border-default)" />
-        <text x="14" y="18" fontSize="10" fill="var(--text-secondary)" letterSpacing="0.1em" fontFamily="var(--font-mono, monospace)" fontWeight="600">
+        <text
+          x="14"
+          y="18"
+          fontSize="10"
+          fill="var(--text-secondary)"
+          letterSpacing="0.1em"
+          fontFamily="var(--font-mono, monospace)"
+          fontWeight="600"
+        >
           MESSAGE
         </text>
-        <text x="330" y="18" fontSize="10" fill="var(--text-secondary)" letterSpacing="0.1em" fontFamily="var(--font-mono, monospace)" fontWeight="600">
+        <text
+          x="330"
+          y="18"
+          fontSize="10"
+          fill="var(--text-secondary)"
+          letterSpacing="0.1em"
+          fontFamily="var(--font-mono, monospace)"
+          fontWeight="600"
+        >
           LANG
         </text>
-        <text x="400" y="18" fontSize="10" fill="var(--brand-primary)" letterSpacing="0.1em" fontFamily="var(--font-mono, monospace)" fontWeight="700">
+        <text
+          x="400"
+          y="18"
+          fontSize="10"
+          fill="var(--brand-primary)"
+          letterSpacing="0.1em"
+          fontFamily="var(--font-mono, monospace)"
+          fontWeight="700"
+        >
           SIM
         </text>
         <path d="M 428 12 L 434 12 L 431 16 Z" fill="var(--brand-primary)" />
-        <text x="490" y="18" fontSize="10" fill="var(--text-secondary)" letterSpacing="0.1em" fontFamily="var(--font-mono, monospace)" fontWeight="600">
+        <text
+          x="490"
+          y="18"
+          fontSize="10"
+          fill="var(--text-secondary)"
+          letterSpacing="0.1em"
+          fontFamily="var(--font-mono, monospace)"
+          fontWeight="600"
+        >
           DOMAIN
         </text>
-        <text x="640" y="18" fontSize="10" fill="var(--text-secondary)" letterSpacing="0.1em" fontFamily="var(--font-mono, monospace)" fontWeight="600" textAnchor="end">
+        <text
+          x="640"
+          y="18"
+          fontSize="10"
+          fill="var(--text-secondary)"
+          letterSpacing="0.1em"
+          fontFamily="var(--font-mono, monospace)"
+          fontWeight="600"
+          textAnchor="end"
+        >
           SEEN
         </text>
       </g>
@@ -667,9 +1012,21 @@ function PortalMock() {
           )}
           {/* Zebra hint every other row */}
           {i % 2 === 1 && (
-            <rect x="0" y="0" width="676" height="42" fill="color-mix(in srgb, var(--surface-canvas) 55%, transparent)" />
+            <rect
+              x="0"
+              y="0"
+              width="676"
+              height="42"
+              fill="color-mix(in srgb, var(--surface-canvas) 55%, transparent)"
+            />
           )}
-          <line x1="0" y1="42" x2="676" y2="42" stroke="var(--border-default)" />
+          <line
+            x1="0"
+            y1="42"
+            x2="676"
+            y2="42"
+            stroke="var(--border-default)"
+          />
           <text x="14" y="26" fontSize="12" fill="var(--text-primary)">
             {row.msg}
           </text>
@@ -705,8 +1062,22 @@ function PortalMock() {
           >
             {row.sim}
           </text>
-          <rect x="434" y="20" width="42" height="4" rx="2" fill="var(--plum-14)" />
-          <rect x="434" y="20" width={Number(row.sim) * 42} height="4" rx="2" fill="var(--brand-primary)" />
+          <rect
+            x="434"
+            y="20"
+            width="42"
+            height="4"
+            rx="2"
+            fill="var(--plum-14)"
+          />
+          <rect
+            x="434"
+            y="20"
+            width={Number(row.sim) * 42}
+            height="4"
+            rx="2"
+            fill="var(--brand-primary)"
+          />
           <text
             x="490"
             y="26"
@@ -729,7 +1100,13 @@ function PortalMock() {
       ))}
 
       {/* Footer strip — pagination */}
-      <line x1="204" y1="502" x2="880" y2="502" stroke="var(--border-default)" />
+      <line
+        x1="204"
+        y1="502"
+        x2="880"
+        y2="502"
+        stroke="var(--border-default)"
+      />
       <text
         x="204"
         y="522"
@@ -741,18 +1118,76 @@ function PortalMock() {
       </text>
       {/* Pagination controls */}
       <g transform="translate(760, 508)">
-        <rect x="0" y="0" width="24" height="20" rx="4" fill="var(--surface-canvas)" stroke="var(--border-default)" />
-        <path d="M 14 6 L 10 10 L 14 14" fill="none" stroke="var(--text-secondary)" strokeWidth="1.4" strokeLinecap="round" />
-        <rect x="30" y="0" width="24" height="20" rx="4" fill="var(--brand-primary)" />
-        <text x="42" y="14" fontSize="10" fill="var(--text-on-brand)" textAnchor="middle" fontWeight="700" fontFamily="var(--font-mono, monospace)">
+        <rect
+          x="0"
+          y="0"
+          width="24"
+          height="20"
+          rx="4"
+          fill="var(--surface-canvas)"
+          stroke="var(--border-default)"
+        />
+        <path
+          d="M 14 6 L 10 10 L 14 14"
+          fill="none"
+          stroke="var(--text-secondary)"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <rect
+          x="30"
+          y="0"
+          width="24"
+          height="20"
+          rx="4"
+          fill="var(--brand-primary)"
+        />
+        <text
+          x="42"
+          y="14"
+          fontSize="10"
+          fill="var(--text-on-brand)"
+          textAnchor="middle"
+          fontWeight="700"
+          fontFamily="var(--font-mono, monospace)"
+        >
           1
         </text>
-        <rect x="60" y="0" width="24" height="20" rx="4" fill="var(--surface-canvas)" stroke="var(--border-default)" />
-        <text x="72" y="14" fontSize="10" fill="var(--text-primary)" textAnchor="middle" fontFamily="var(--font-mono, monospace)">
+        <rect
+          x="60"
+          y="0"
+          width="24"
+          height="20"
+          rx="4"
+          fill="var(--surface-canvas)"
+          stroke="var(--border-default)"
+        />
+        <text
+          x="72"
+          y="14"
+          fontSize="10"
+          fill="var(--text-primary)"
+          textAnchor="middle"
+          fontFamily="var(--font-mono, monospace)"
+        >
           2
         </text>
-        <rect x="90" y="0" width="24" height="20" rx="4" fill="var(--surface-canvas)" stroke="var(--border-default)" />
-        <path d="M 100 6 L 104 10 L 100 14" fill="none" stroke="var(--text-secondary)" strokeWidth="1.4" strokeLinecap="round" />
+        <rect
+          x="90"
+          y="0"
+          width="24"
+          height="20"
+          rx="4"
+          fill="var(--surface-canvas)"
+          stroke="var(--border-default)"
+        />
+        <path
+          d="M 100 6 L 104 10 L 100 14"
+          fill="none"
+          stroke="var(--text-secondary)"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
       </g>
     </svg>
   );
@@ -771,7 +1206,15 @@ function MetricBlock({
 }) {
   return (
     <g transform={`translate(${x}, 0)`}>
-      <rect x="0" y="-4" width="152" height="64" rx="10" fill="var(--surface-canvas)" stroke="var(--border-default)" />
+      <rect
+        x="0"
+        y="-4"
+        width="152"
+        height="64"
+        rx="10"
+        fill="var(--surface-canvas)"
+        stroke="var(--border-default)"
+      />
       <text
         x="14"
         y="16"
@@ -782,7 +1225,15 @@ function MetricBlock({
       >
         {label.toUpperCase()}
       </text>
-      <text x="14" y="44" fontSize="22" fontWeight="700" fill="var(--text-primary)" fontFamily="var(--font-mono, monospace)" style={{ fontVariantNumeric: 'tabular-nums' }}>
+      <text
+        x="14"
+        y="44"
+        fontSize="22"
+        fontWeight="700"
+        fill="var(--text-primary)"
+        fontFamily="var(--font-mono, monospace)"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
         {value}
       </text>
       {delta && (

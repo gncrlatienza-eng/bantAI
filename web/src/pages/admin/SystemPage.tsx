@@ -47,7 +47,11 @@ const SIDEBAR_GROUPS: NavGroupDef[] = [
   {
     label: 'Intelligence',
     items: [
-      { label: 'Campaigns', path: '/admin/campaigns', icon: <NavCampaignsIcon /> },
+      {
+        label: 'Campaigns',
+        path: '/admin/campaigns',
+        icon: <NavCampaignsIcon />,
+      },
       { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
       { label: 'Reports', path: '/admin/reports', icon: <NavReportsIcon /> },
     ],

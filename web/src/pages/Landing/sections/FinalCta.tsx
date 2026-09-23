@@ -13,18 +13,27 @@ import './final-cta.css';
 export function FinalCta() {
   const rootRef = useReveal<HTMLElement>();
   return (
-    <section ref={rootRef} className="landing__section landing__section--plum fc">
+    <section
+      ref={rootRef}
+      className="landing__section landing__section--plum fc"
+    >
       <div className="fc__backdrop" aria-hidden>
         <FcClusterBackdrop />
       </div>
 
       <div className="landing__section-inner fc__inner">
-        <h2 className="landing__h2" data-reveal>Ready to explore BantAI?</h2>
+        <h2 className="landing__h2" data-reveal>
+          Ready to explore BantAI?
+        </h2>
         <p className="landing__lede" data-reveal data-reveal-delay="1">
           Access the platform for testing, research, or project evaluation.
         </p>
 
-        <div className="landing__cta-row fc__actions" data-reveal data-reveal-delay="2">
+        <div
+          className="landing__cta-row fc__actions"
+          data-reveal
+          data-reveal-delay="2"
+        >
           <Link to="/request-access" className="fc__cta-primary">
             Request access →
           </Link>

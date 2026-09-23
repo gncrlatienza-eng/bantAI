@@ -58,7 +58,9 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
         <EmptyState
           title="Notification preferences not connected"
           description="Delivery channel selection (email, in-app, SMS) requires an authenticated endpoint."
-          action={<InfoBadge>Requires GET/PUT /users/me/notifications</InfoBadge>}
+          action={
+            <InfoBadge>Requires GET/PUT /users/me/notifications</InfoBadge>
+          }
         />
       ) : (
         <ProfileForm />

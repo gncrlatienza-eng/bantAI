@@ -15,7 +15,10 @@ import './campaign-intelligence.css';
 export function CampaignIntelligence() {
   const rootRef = useReveal<HTMLElement>();
   return (
-    <section ref={rootRef} className="landing__section landing__section--plum ci">
+    <section
+      ref={rootRef}
+      className="landing__section landing__section--plum ci"
+    >
       <div className="landing__section-inner">
         <div className="ci__intro" data-reveal>
           <p className="landing__eyebrow">Campaign intelligence</p>
@@ -23,13 +26,18 @@ export function CampaignIntelligence() {
             Threats change. Campaign context persists.
           </h2>
           <p className="landing__lede">
-            Wording drifts and domains rotate. What survives across variants
-            is the campaign identity — that's what BantAI tracks.
+            Wording drifts and domains rotate. What survives across variants is
+            the campaign identity — that&apos;s what BantAI tracks.
           </p>
         </div>
 
         <div className="ci__grid">
-          <div className="ci__stage" aria-hidden data-reveal data-reveal-delay="1">
+          <div
+            className="ci__stage"
+            aria-hidden
+            data-reveal
+            data-reveal-delay="1"
+          >
             <ClusterGraph />
 
             <div className="ci__legend" aria-hidden>
@@ -52,7 +60,12 @@ export function CampaignIntelligence() {
             </div>
           </div>
 
-          <aside className="ci__panel" aria-label="Campaign PH-023 summary" data-reveal data-reveal-delay="2">
+          <aside
+            className="ci__panel"
+            aria-label="Campaign PH-023 summary"
+            data-reveal
+            data-reveal-delay="2"
+          >
             <p className="ci__panel-label">Campaign detail</p>
             <p className="ci__panel-id">PH-023</p>
             <h3 className="ci__panel-title">
@@ -296,7 +309,13 @@ function DomainPin({
   const tx = align === 'end' ? cx + 8 : cx - 8;
   return (
     <g>
-      <rect x={cx - 3} y={cy - 3} width="6" height="6" fill="rgba(255,255,255,0.9)" />
+      <rect
+        x={cx - 3}
+        y={cy - 3}
+        width="6"
+        height="6"
+        fill="rgba(255,255,255,0.9)"
+      />
       <text
         x={tx}
         y={cy + 3}

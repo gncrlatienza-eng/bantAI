@@ -14,10 +14,7 @@ import {
   LoadingState,
   StatusBadge,
 } from '../../components/primitives';
-import {
-  getCurrentUser,
-  type CurrentUser,
-} from '../../services/authService';
+import { getCurrentUser, type CurrentUser } from '../../services/authService';
 import { updateMyProfile } from '../../services/usersService';
 
 function errorText(e: unknown): string {

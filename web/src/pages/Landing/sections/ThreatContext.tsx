@@ -53,7 +53,10 @@ const VARIANTS: Variant[] = [
 export function ThreatContext() {
   const rootRef = useReveal<HTMLElement>();
   return (
-    <section ref={rootRef} className="landing__section landing__section--warm tc">
+    <section
+      ref={rootRef}
+      className="landing__section landing__section--warm tc"
+    >
       <div className="landing__section-inner">
         <div className="landing__grid landing__grid--split">
           <div data-reveal>
@@ -63,9 +66,9 @@ export function ThreatContext() {
             </h2>
             <p className="landing__body">
               A rule tuned to one wording misses the next; a rule tuned to a
-              domain misses tomorrow's. BantAI groups variants by semantic
-              similarity and URL overlap so the campaign stays traceable
-              across drift.
+              domain misses tomorrow&apos;s. BantAI groups variants by semantic
+              similarity and URL overlap so the campaign stays traceable across
+              drift.
             </p>
           </div>
 

@@ -162,22 +162,61 @@ interface Row {
 }
 
 const COMPARISON: Row[] = [
-  { label: 'License', research: 'Non-commercial research', organization: 'Commercial internal use' },
+  {
+    label: 'License',
+    research: 'Non-commercial research',
+    organization: 'Commercial internal use',
+  },
   { label: 'Masked dataset', research: 'Included', organization: 'Included' },
-  { label: 'Historical dataset', research: 'Included', organization: 'Included' },
-  { label: 'Campaign intelligence', research: 'Included', organization: 'Included' },
-  { label: 'CSV / JSON export', research: 'Included', organization: 'Included' },
-  { label: 'Freshness', research: 'Standard updates', organization: 'Highest available' },
-  { label: 'Bulk download', research: 'Reasonable research limits', organization: 'Full' },
+  {
+    label: 'Historical dataset',
+    research: 'Included',
+    organization: 'Included',
+  },
+  {
+    label: 'Campaign intelligence',
+    research: 'Included',
+    organization: 'Included',
+  },
+  {
+    label: 'CSV / JSON export',
+    research: 'Included',
+    organization: 'Included',
+  },
+  {
+    label: 'Freshness',
+    research: 'Standard updates',
+    organization: 'Highest available',
+  },
+  {
+    label: 'Bulk download',
+    research: 'Reasonable research limits',
+    organization: 'Full',
+  },
   { label: 'Multiple users', research: 'Limited', organization: 'Included' },
-  { label: 'Commercial use', research: 'Not permitted', organization: 'Included' },
-  { label: 'API access', research: 'Not included', organization: 'Included when released' },
-  { label: 'Redistribution', research: 'Not permitted', organization: 'Not permitted, unless separately licensed' },
+  {
+    label: 'Commercial use',
+    research: 'Not permitted',
+    organization: 'Included',
+  },
+  {
+    label: 'API access',
+    research: 'Not included',
+    organization: 'Included when released',
+  },
+  {
+    label: 'Redistribution',
+    research: 'Not permitted',
+    organization: 'Not permitted, unless separately licensed',
+  },
 ];
 
 export function LicensingComparison() {
   return (
-    <section className="licensing__compare" aria-labelledby="licensing-compare-title">
+    <section
+      className="licensing__compare"
+      aria-labelledby="licensing-compare-title"
+    >
       <header className="licensing__compare-head">
         <p className="licensing__section-eyebrow">Compare full access</p>
         <h2 id="licensing-compare-title" className="licensing__section-title">
@@ -189,7 +228,9 @@ export function LicensingComparison() {
         <table className="licensing-table">
           <thead>
             <tr>
-              <th scope="col" className="licensing-table__row-head">&nbsp;</th>
+              <th scope="col" className="licensing-table__row-head">
+                &nbsp;
+              </th>
               <th scope="col">Research</th>
               <th scope="col">Organization</th>
             </tr>
@@ -216,12 +257,27 @@ export function LicensingComparison() {
 export function LicensingWorkflow() {
   const steps = [
     { n: '01', label: 'Request', body: 'Submit the short access form.' },
-    { n: '02', label: 'Review', body: 'Manual review of use case and license fit.' },
-    { n: '03', label: 'Approval & Payment', body: 'Proposal, invoice, and secure payment via Stripe.' },
-    { n: '04', label: 'Access', body: 'License activated after payment is confirmed.' },
+    {
+      n: '02',
+      label: 'Review',
+      body: 'Manual review of use case and license fit.',
+    },
+    {
+      n: '03',
+      label: 'Approval & Payment',
+      body: 'Proposal, invoice, and secure payment via Stripe.',
+    },
+    {
+      n: '04',
+      label: 'Access',
+      body: 'License activated after payment is confirmed.',
+    },
   ];
   return (
-    <section className="licensing__workflow" aria-labelledby="licensing-workflow-title">
+    <section
+      className="licensing__workflow"
+      aria-labelledby="licensing-workflow-title"
+    >
       <header className="licensing__compare-head">
         <p className="licensing__section-eyebrow">Access workflow</p>
         <h2 id="licensing-workflow-title" className="licensing__section-title">
@@ -261,7 +317,10 @@ export function LicensingPilot() {
 
 export function LicensingTerms() {
   return (
-    <section className="licensing__terms" aria-labelledby="licensing-terms-title">
+    <section
+      className="licensing__terms"
+      aria-labelledby="licensing-terms-title"
+    >
       <header className="licensing__compare-head">
         <p className="licensing__section-eyebrow">License &amp; data use</p>
         <h2 id="licensing-terms-title" className="licensing__section-title">

@@ -174,10 +174,7 @@ export function AnalyticsView() {
           label="User reports submitted"
           value={data.totalReports.toLocaleString()}
         />
-        <Metric
-          label="Distinct classifications"
-          value={labelRows.length}
-        />
+        <Metric label="Distinct classifications" value={labelRows.length} />
       </MetricRow>
 
       <section style={{ marginTop: 32 }}>

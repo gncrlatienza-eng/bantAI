@@ -72,7 +72,8 @@ export function CheckoutConfirmationPage() {
       window.location.assign(url);
     } catch (err) {
       const message =
-        err instanceof Error && !/failed to fetch|networkerror/i.test(err.message)
+        err instanceof Error &&
+        !/failed to fetch|networkerror/i.test(err.message)
           ? err.message
           : 'We couldn’t start the secure payment right now. Please try again shortly.';
       setCheckoutError(message);
@@ -88,7 +89,9 @@ export function CheckoutConfirmationPage() {
             <span className="bantai-auth-card__status-dot" aria-hidden />
             Link problem
           </span>
-          <h1 className="licensing__title">Your approval link couldn’t be verified.</h1>
+          <h1 className="licensing__title">
+            Your approval link couldn’t be verified.
+          </h1>
           <p className="licensing__lede">{loadError}</p>
           <div className="licensing-form__actions licensing-confirm__actions">
             <Link to="/request-access" className="bantai-auth-card__primary">
@@ -132,7 +135,8 @@ export function CheckoutConfirmationPage() {
         <header>
           <p className="licensing__eyebrow">Checkout</p>
           <h1 className="licensing__title">
-            Continue to secure payment for your {TIER_LABEL[record.tier].toLowerCase()}.
+            Continue to secure payment for your{' '}
+            {TIER_LABEL[record.tier].toLowerCase()}.
           </h1>
         </header>
 
@@ -193,7 +197,7 @@ export function CheckoutConfirmationPage() {
           <button
             type="button"
             className="bantai-auth-card__primary"
-            onClick={handleContinue}
+            onClick={() => void handleContinue()}
             disabled={loading}
             aria-disabled={loading}
           >

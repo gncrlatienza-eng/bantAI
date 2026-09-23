@@ -35,12 +35,17 @@ export function About() {
             </p>
             <p className="landing__body landing__body--secondary">
               A research prototype, not a commercial product. Raw SMS bodies
-              stay on the phone; only the classification result, indicators,
-              and URL domains cross the wire.
+              stay on the phone; only the classification result, indicators, and
+              URL domains cross the wire.
             </p>
           </div>
 
-          <div className="about__architecture" aria-hidden data-reveal data-reveal-delay="1">
+          <div
+            className="about__architecture"
+            aria-hidden
+            data-reveal
+            data-reveal-delay="1"
+          >
             <ArchitectureDiagram />
             <ul className="about__legend" aria-hidden>
               <li>
@@ -152,12 +157,7 @@ function ArchitectureDiagram() {
         >
           STAYS ON DEVICE
         </text>
-        <text
-          x="10"
-          y="22"
-          fontSize="9"
-          fill="var(--brand-primary)"
-        >
+        <text x="10" y="22" fontSize="9" fill="var(--brand-primary)">
           Raw SMS body and sender
         </text>
       </g>
@@ -251,7 +251,8 @@ function ArchNode({
   variant = 'default',
 }: ArchNodeProps) {
   const fill = variant === 'stay' ? 'var(--plum-08)' : 'var(--surface-raised)';
-  const stroke = variant === 'stay' ? 'var(--plum-35)' : 'var(--border-default)';
+  const stroke =
+    variant === 'stay' ? 'var(--plum-35)' : 'var(--border-default)';
   const height = 160;
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -286,7 +287,17 @@ function ArchNode({
       />
       {rows.map((r, i) => (
         <g key={r} transform={`translate(16, ${76 + i * 22})`}>
-          <rect x="0" y="-6" width="3" height="3" fill={variant === 'stay' ? 'var(--brand-primary)' : 'var(--text-primary)'} />
+          <rect
+            x="0"
+            y="-6"
+            width="3"
+            height="3"
+            fill={
+              variant === 'stay'
+                ? 'var(--brand-primary)'
+                : 'var(--text-primary)'
+            }
+          />
           <text x="10" y="0" fontSize="11" fill="var(--text-primary)">
             {r}
           </text>

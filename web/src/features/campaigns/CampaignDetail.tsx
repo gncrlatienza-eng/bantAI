@@ -95,7 +95,9 @@ function toMessageRow(m: CampaignMessageSummary): MessageRow {
     classificationLabel: label,
     classificationKind: labelToStatusKind(m.classification?.label),
     confidence:
-      typeof m.classification?.score === 'number' ? m.classification.score : null,
+      typeof m.classification?.score === 'number'
+        ? m.classification.score
+        : null,
   };
 }
 
@@ -191,7 +193,10 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
       key: 'classification',
       header: 'Classification',
       render: (r) => (
-        <StatusBadge kind={r.classificationKind} label={r.classificationLabel} />
+        <StatusBadge
+          kind={r.classificationKind}
+          label={r.classificationLabel}
+        />
       ),
       width: '16%',
     },
@@ -243,10 +248,7 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
           </p>
         </div>
         {canDeactivate && (
-          <Button
-            variant="destructive"
-            onClick={() => setDeactivateOpen(true)}
-          >
+          <Button variant="destructive" onClick={() => setDeactivateOpen(true)}>
             Deactivate
           </Button>
         )}

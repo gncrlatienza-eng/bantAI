@@ -60,7 +60,11 @@ const SIDEBAR_GROUPS: NavGroupDef[] = [
   {
     label: 'Intelligence',
     items: [
-      { label: 'Campaigns', path: '/admin/campaigns', icon: <NavCampaignsIcon /> },
+      {
+        label: 'Campaigns',
+        path: '/admin/campaigns',
+        icon: <NavCampaignsIcon />,
+      },
       { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
       { label: 'Reports', path: '/admin/reports', icon: <NavReportsIcon /> },
     ],
@@ -302,10 +306,7 @@ function ConceptDriftTab() {
   return (
     <>
       <MetricRow columns={4}>
-        <Metric
-          label="Trigger active"
-          value={data.triggered ? 'Yes' : 'No'}
-        />
+        <Metric label="Trigger active" value={data.triggered ? 'Yes' : 'No'} />
         <Metric
           label="Validated reports"
           value={data.validatedCount.toLocaleString()}
@@ -403,9 +404,7 @@ function FpFnTab() {
     try {
       const all = await getAllReports();
       setRows(
-        all
-          .filter((r) => r.originalLabel !== r.reportedLabel)
-          .map(toReportRow),
+        all.filter((r) => r.originalLabel !== r.reportedLabel).map(toReportRow),
       );
     } catch (e) {
       setError(errorText(e));

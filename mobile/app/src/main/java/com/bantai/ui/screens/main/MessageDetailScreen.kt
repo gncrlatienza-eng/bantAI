@@ -77,6 +77,7 @@ import com.bantai.data.local.BackendMessageIdStore
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.model.summarizeThread
 import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
@@ -103,6 +104,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+// Caps the AI Summary's TF-IDF scoring pass to the most recent incoming
+// messages in a very long-running thread, rather than the whole history.
+private const val MAX_AI_SUMMARY_SOURCE_MESSAGES = 50
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -206,16 +211,36 @@ fun MessageDetailScreen(
     val hasUnknown = conversation.any { it.classification == "unknown" }
     var showAISummary by remember { mutableStateOf(false) }
     var summaryText by remember { mutableStateOf<String?>(null) }
+    var summaryLoading by remember { mutableStateOf(false) }
+    var summarySourceCount by remember { mutableStateOf(0) }
 
     // Reset whenever the thread changes so a stale summary from a previous
     // conversation can never be shown against this one.
     LaunchedEffect(sender) {
         summaryText = null
+        summarySourceCount = 0
     }
 
+    // Computed on-device (TF-IDF extractive, data/model/SmsConversations.kt) --
+    // the backend's POST /ai/summarize is disabled (410 Gone) in privacy-first
+    // mode, there is no remote summarizer to call here. Only incoming messages
+    // go in; the most recent ones, capped, so a very long thread doesn't stall
+    // this on the scoring pass.
     LaunchedEffect(showAISummary, sender) {
         if (showAISummary && summaryText == null) {
-            summaryText = "Remote message summarization is disabled to keep SMS content on your device."
+            summaryLoading = true
+            val incoming = conversation.filter { !it.isOutgoing }.takeLast(MAX_AI_SUMMARY_SOURCE_MESSAGES)
+            val result = withContext(Dispatchers.Default) { summarizeThread(incoming) }
+            if (result != null) {
+                summaryText = result
+                // Only set on a real summary -- the sheet uses this to show a
+                // "Summary of N messages" caption, which shouldn't appear next
+                // to the "not enough content" fallback below.
+                summarySourceCount = incoming.size
+            } else {
+                summaryText = "Not enough content to summarize this conversation."
+            }
+            summaryLoading = false
         }
     }
 
@@ -223,7 +248,8 @@ fun MessageDetailScreen(
         AISummaryBottomSheet(
             isSuspicious = hasSuspicious || hasUnknown,
             summary = summaryText,
-            isLoadingSummary = false,
+            sourceMessageCount = summarySourceCount.takeIf { it > 0 },
+            isLoadingSummary = summaryLoading,
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false

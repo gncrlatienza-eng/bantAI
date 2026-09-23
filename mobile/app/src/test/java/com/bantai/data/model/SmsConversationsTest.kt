@@ -79,4 +79,49 @@ class SmsConversationsTest {
         val messages = listOf(message(1, "Globe", "Just one message here.", 100, isRead = false))
         assertNull(summarizeUnreadThread(messages))
     }
+
+    @Test
+    fun `summarizeThread returns a non-blank result for a multi-sentence thread`() {
+        val messages =
+            listOf(
+                message(1, "Globe", "Your bill is now available online for viewing and payment.", timestamp = 100),
+                message(2, "Globe", "Your data promo has expired, reload now to continue browsing.", timestamp = 200),
+                message(3, "Globe", "Thank you for choosing Globe as your service provider.", timestamp = 300),
+            )
+        val summary = summarizeThread(messages)
+        assertTrue(summary != null && summary.isNotBlank())
+    }
+
+    @Test
+    fun `summarizeThread returns null for fewer than two sentences`() {
+        val messages = listOf(message(1, "Globe", "Just one message here.", timestamp = 100))
+        assertNull(summarizeThread(messages))
+    }
+
+    @Test
+    fun `summarizeThread restores chronological order regardless of score`() {
+        // Selecting all sentences (maxSentences >= total) forces the result
+        // back into chronological order even though "unique distinctive rare
+        // terms" (the second sentence) would score higher than "the the the"
+        // (deliberately full of a stop word) if order weren't restored.
+        val messages =
+            listOf(
+                message(1, "Globe", "the the the.", timestamp = 100),
+                message(2, "Globe", "unique distinctive rare terms.", timestamp = 200),
+            )
+        val summary = summarizeThread(messages, maxSentences = 2, maxChars = 200)
+        assertTrue(summary != null && summary.startsWith("the the the"))
+    }
+
+    @Test
+    fun `summarizeThread respects maxChars`() {
+        val messages =
+            listOf(
+                message(1, "Globe", "This is the first fairly long sentence in the thread.", timestamp = 100),
+                message(2, "Globe", "This is the second fairly long sentence in the thread.", timestamp = 200),
+                message(3, "Globe", "This is the third fairly long sentence in the thread.", timestamp = 300),
+            )
+        val summary = summarizeThread(messages, maxSentences = 3, maxChars = 20)
+        assertTrue(summary != null && summary.length <= 20)
+    }
 }

@@ -27,6 +27,15 @@ class AlertDetailViewModel(
     private val _indicators = MutableStateFlow<List<SmsApi.IndicatorTag>>(emptyList())
     val indicators: StateFlow<List<SmsApi.IndicatorTag>> = _indicators.asStateFlow()
 
+    // Separate from isLoading (which gates the whole screen's skeleton) so the
+    // alert itself, sender, and message body can render immediately while
+    // indicators -- a second, independent network call -- are still coming in.
+    // Previously nothing ever called SmsApi.getIndicators at all, so
+    // `indicators` stayed permanently empty and the alert screen always showed
+    // "Still computing..." no matter how long you waited.
+    private val _indicatorsLoading = MutableStateFlow(false)
+    val indicatorsLoading: StateFlow<Boolean> = _indicatorsLoading.asStateFlow()
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -61,6 +70,7 @@ class AlertDetailViewModel(
             _isLoading.value = true
             _errorMessage.value = null
             _resolvedSender.value = ""
+            _indicators.value = emptyList()
 
             val token = userPreferences.userData.first().authToken
             if (token.isEmpty()) {
@@ -80,7 +90,24 @@ class AlertDetailViewModel(
                 }.onFailure { error -> _errorMessage.value = error.toUserMessage("Could not reach the server") }
 
             _isLoading.value = false
+
+            if (_alert.value != null) {
+                loadIndicators(token, messageId)
+            }
         }
+    }
+
+    private suspend fun loadIndicators(
+        token: String,
+        messageId: String,
+    ) {
+        _indicatorsLoading.value = true
+        // A failure here (network blip, indicators genuinely not computed yet)
+        // leaves the list empty rather than surfacing a second error banner --
+        // the rest of the alert (sender, body, score) is already showing, and
+        // the empty-indicators state already reads as "none recorded".
+        SmsApi.getIndicators(token, messageId).onSuccess { _indicators.value = it }
+        _indicatorsLoading.value = false
     }
 
     private suspend fun resolveSender(sourceId: String?): String {

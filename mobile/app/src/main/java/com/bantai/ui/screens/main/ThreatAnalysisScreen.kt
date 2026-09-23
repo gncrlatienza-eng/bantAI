@@ -232,7 +232,14 @@ private fun ThreatAnalysisContent(
                             .background(Surface, RoundedCornerShape(16.dp))
                             .padding(16.dp),
                 ) {
-                    Text("Detailed indicators are unavailable because message text remains on this device.", color = TextSecondary, fontSize = 13.sp)
+                    // Stale claim removed: indicators are server-computed from
+                    // the masked text the backend already receives, unrelated
+                    // to raw-body-on-device privacy -- see SmishingAlertScreen's
+                    // identical fix. This screen itself is currently unwired
+                    // (no navigation reaches it), but its indicators source is
+                    // the same AlertDetailViewModel, so it'll show real tags
+                    // too whenever it's wired back in.
+                    Text("No specific indicators were recorded for this message.", color = TextSecondary, fontSize = 13.sp)
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

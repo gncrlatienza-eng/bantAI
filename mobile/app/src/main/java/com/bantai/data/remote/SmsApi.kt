@@ -84,8 +84,14 @@ object SmsApi {
     suspend fun getAlerts(token: String): Result<List<AlertSummary>> = HttpClient.get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
 
     /**
-     * Legacy indicator endpoint. Privacy-first ingestion has no raw message
-     * body to analyze, so callers should treat the response as unavailable.
+     * GET /sms/:messageId/indicators -- returns the tags the classifier
+     * (keyword tagger and/or SHAP, see `explanation_method` in `ai/service`)
+     * recorded for this message at classify time, or an empty list if none
+     * were recorded. These are computed server-side from the masked text the
+     * backend already receives at ingest -- unrelated to, and not blocked by,
+     * raw message bodies staying on-device. Called by
+     * AlertDetailViewModel.load() to populate SmishingAlertScreen/
+     * ThreatAnalysisScreen's "why it was flagged" section.
      */
     suspend fun getIndicators(
         token: String,

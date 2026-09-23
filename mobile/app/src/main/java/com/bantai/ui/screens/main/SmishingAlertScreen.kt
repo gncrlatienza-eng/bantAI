@@ -69,6 +69,7 @@ fun SmishingAlertScreen(
 ) {
     val alert by viewModel.alert.collectAsState()
     val indicators by viewModel.indicators.collectAsState()
+    val indicatorsLoading by viewModel.indicatorsLoading.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val resolvedSender by viewModel.resolvedSender.collectAsState()
@@ -113,7 +114,7 @@ fun SmishingAlertScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No alert details available", color = TextSecondary, fontSize = 14.sp)
                 }
-            else -> SmishingAlertContent(alert!!, resolvedSender, indicators, navController)
+            else -> SmishingAlertContent(alert!!, resolvedSender, indicators, indicatorsLoading, navController)
         }
     }
 }
@@ -124,6 +125,7 @@ private fun SmishingAlertContent(
     alert: SmsApi.AlertSummary,
     resolvedSender: String,
     indicators: List<SmsApi.IndicatorTag>,
+    indicatorsLoading: Boolean,
     navController: NavController,
 ) {
     LazyColumn(
@@ -311,28 +313,26 @@ private fun SmishingAlertContent(
 
         // Why flagged section label
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    "WHY BANTAI FLAGGED THIS",
-                    color = Color(0xFF666666),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
-                if (indicators.isEmpty()) {
-                    Text(
-                        "Detailed server-side indicators are unavailable because message text stays on your device.",
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                    )
-                }
-            }
+            Text(
+                "WHY BANTAI FLAGGED THIS",
+                color = Color(0xFF666666),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.8.sp,
+            )
         }
 
-        // SHAP feature bars
+        // Indicator tags -- server-computed (keyword tagger / SHAP, whichever
+        // ran; see explanation_method), fetched by AlertDetailViewModel.load()
+        // via GET /sms/:messageId/indicators. Previously that endpoint was
+        // never actually called from mobile at all, so `indicators` was always
+        // empty and this always showed "Still computing" no matter how long
+        // you waited, alongside a stale claim that indicators were
+        // unavailable because message text stays on the device -- the backend
+        // has always computed these server-side from the masked text it does
+        // receive, unrelated to raw-body-on-device privacy.
         item {
-            if (indicators.isEmpty()) {
+            if (indicatorsLoading) {
                 Column(
                     modifier =
                         Modifier
@@ -340,7 +340,17 @@ private fun SmishingAlertContent(
                             .background(Surface, RoundedCornerShape(16.dp))
                             .padding(16.dp),
                 ) {
-                    Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
+                    Text("Loading threat indicators…", color = TextSecondary, fontSize = 13.sp)
+                }
+            } else if (indicators.isEmpty()) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                ) {
+                    Text("No specific indicators were recorded for this message.", color = TextSecondary, fontSize = 13.sp)
                 }
             } else {
                 Column(

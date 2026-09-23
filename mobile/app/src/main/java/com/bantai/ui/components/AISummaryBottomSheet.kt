@@ -39,11 +39,18 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 /**
- * @param summary Real TF-IDF extractive summary of the thread (WBS 4.3.9/4.3.11,
- *   `POST /ai/summarize`), oldest-sentence-first. Null while loading; blank is a
- *   legitimate "nothing worth extracting" result, not an error — falls back to
- *   generic verdict-based guidance rather than an empty sheet.
- * @param isLoadingSummary True while the summarize call is in flight.
+ * @param summary Extractive summary text for this thread, computed entirely
+ *   on-device (`data/model/SmsConversations.kt`'s TF-IDF sentence scoring,
+ *   `MessageDetailScreen`'s only current caller) -- the backend's `POST
+ *   /ai/summarize` is deliberately disabled (410 Gone) in privacy-first mode,
+ *   so there is no remote summarizer for a caller to use here. Null while
+ *   loading; blank is a legitimate "nothing worth extracting" result, not an
+ *   error -- falls back to generic verdict-based guidance rather than an
+ *   empty sheet.
+ * @param sourceMessageCount How many messages fed the summary, shown as a
+ *   caption so the summary is never mistaken for the whole thread (only
+ *   shown when set and > 0).
+ * @param isLoadingSummary True while the summary is being produced.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +59,7 @@ fun AISummaryBottomSheet(
     onViewFullAnalysis: () -> Unit,
     isSuspicious: Boolean = true,
     summary: String? = null,
+    sourceMessageCount: Int? = null,
     isLoadingSummary: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -131,6 +139,18 @@ fun AISummaryBottomSheet(
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                 )
+                // Only shown alongside a real generated summary (never the
+                // verdict-based fallback text above) -- see docs/api/summarize.md:
+                // the summary must never be presented as if it were the whole
+                // thread.
+                if (sourceMessageCount != null && sourceMessageCount > 0) {
+                    val plural = if (sourceMessageCount == 1) "" else "s"
+                    Text(
+                        "Summary of $sourceMessageCount message$plural · generated on this device",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                    )
+                }
             }
 
             Row(
@@ -146,7 +166,7 @@ fun AISummaryBottomSheet(
             ) {
                 Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
                 Text(
-                    "View full threat analysis",
+                    "Review & take action",
                     color = Indigo,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,

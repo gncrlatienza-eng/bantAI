@@ -7,6 +7,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.SmsApi
+import com.bantai.data.remote.toUserMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,7 +88,7 @@ class AlertsViewModel(
                     .getAlerts(token)
                     .onSuccess { alerts -> _alerts.value = alerts }
                     .onFailure { error ->
-                        if (!silent) _errorMessage.value = error.message ?: "Could not reach the server"
+                        if (!silent) _errorMessage.value = error.toUserMessage("Could not reach the server")
                     }
                 if (!silent) _isLoading.value = false
             }

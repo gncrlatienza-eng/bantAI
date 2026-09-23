@@ -20,6 +20,15 @@ class ApiException(
 ) : Exception(message)
 
 /**
+ * ApiException's message is always safe to show a user -- it's either the
+ * backend's own validation message or a generic "Request failed (HTTP …)"
+ * (see HttpClient.parseErrorMessage). Any other Throwable reaching here
+ * (timeouts, DNS failures, JSON parse errors) carries a raw exception message
+ * never meant for display, so it falls back to a safe, caller-supplied string.
+ */
+fun Throwable.toUserMessage(fallback: String): String = if (this is ApiException) (message ?: fallback) else fallback
+
+/**
  * Shared HTTP plumbing for every backend API client (AuthApi, SmsApi,
  * CampaignsApi, BlockedNumbersApi, SummarizeApi) — a plain HttpURLConnection
  * wrapper rather than Retrofit, matching the project's existing style. Each

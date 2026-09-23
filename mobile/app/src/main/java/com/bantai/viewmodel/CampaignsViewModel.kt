@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.CampaignsApi
+import com.bantai.data.remote.toUserMessage
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,14 +61,14 @@ class CampaignsViewModel(
                     CampaignsApi
                         .list(token)
                         .onSuccess { _activeCampaigns.value = it }
-                        .onFailure { _errorMessage.value = it.message ?: "Could not reach the server" }
+                        .onFailure { _errorMessage.value = it.toUserMessage("Could not reach the server") }
                     _isLoading.value = false
                 }
                 launch {
                     CampaignsApi
                         .listInactive(token)
                         .onSuccess { _inactiveCampaigns.value = it }
-                        .onFailure { _inactiveErrorMessage.value = it.message ?: "Could not reach the server" }
+                        .onFailure { _inactiveErrorMessage.value = it.toUserMessage("Could not reach the server") }
                     _isLoadingInactive.value = false
                 }
             }

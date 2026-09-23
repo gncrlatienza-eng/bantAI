@@ -71,9 +71,20 @@ fun OnboardingEnterCodeScreen(
     val focusRequesters = remember { List(6) { FocusRequester() } }
 
     // Fires after the backend accepts the typed OTP and the JWT is persisted.
+    // A returning user (401 bounced them back here with onboardingComplete
+    // already true -- see NavGraph's AuthEventBus.sessionExpired handler) has
+    // already been through Terms/Profile/Protected; re-verifying their phone
+    // number is not a fresh signup, so this sends them straight back into the
+    // app instead of forcing the whole onboarding flow again.
     LaunchedEffect(Unit) {
         viewModel.onboardingAuthComplete.collect {
-            navController.navigate(Screen.OnboardingTerms.route)
+            if (viewModel.userData.value.onboardingComplete) {
+                navController.navigate(Screen.Main.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            } else {
+                navController.navigate(Screen.OnboardingTerms.route)
+            }
         }
     }
 

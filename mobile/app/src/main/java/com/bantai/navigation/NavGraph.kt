@@ -191,6 +191,8 @@ private val takeActionArguments =
 fun NavGraph(
     requestedTab: Int? = null,
     requestedConversationSender: String? = null,
+    requestedComposeRecipient: String? = null,
+    requestedComposeBody: String = "",
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -213,8 +215,14 @@ fun NavGraph(
     }
 
     LaunchedEffect(Unit) {
-        val prefs = UserPreferences(context)
-        val userData = prefs.userData.first()
+        // SecureTokenStore's first read does synchronous Keystore/crypto I/O
+        // (EncryptedSharedPreferences.create() + getString()) -- off the main
+        // thread here so that work (and this LaunchedEffect otherwise running on
+        // Compose's Main dispatcher) never blocks the first frame.
+        val userData =
+            withContext(Dispatchers.IO) {
+                UserPreferences(context).userData.first()
+            }
         // onboardingComplete alone isn't "logged in" -- the token can be cleared
         // independently (e.g. the 401 handler below) while that flag stays true.
         // Route straight back to re-authentication in that case rather than
@@ -489,5 +497,16 @@ fun NavGraph(
         if (conversationExists) {
             navController.navigate(Screen.Detail.createRoute(sender))
         }
+    }
+
+    // An sms:/smsto: intent from another app (Contacts, Dialer's "Message"
+    // action, etc. -- see MainActivity.resolveComposeRequest) opens Compose
+    // pre-filled with that recipient/body, the same way every other SMS app on
+    // Android handles this intent shape. No existence check is needed here
+    // (unlike requestedConversationSender above) -- Compose already validates
+    // an arbitrary recipient itself before allowing a send.
+    LaunchedEffect(requestedComposeRecipient) {
+        val recipient = requestedComposeRecipient ?: return@LaunchedEffect
+        navController.navigate(Screen.Compose.createRoute(recipient, requestedComposeBody))
     }
 }

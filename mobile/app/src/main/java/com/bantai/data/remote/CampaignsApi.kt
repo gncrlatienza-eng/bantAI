@@ -55,7 +55,7 @@ object CampaignsApi {
     private fun parseCampaignSummary(json: JSONObject): CampaignSummary =
         CampaignSummary(
             id = json.getString("id"),
-            label = json.optString("label").takeIf { it.isNotEmpty() },
+            label = json.optNullableString("label"),
             urlDomains = json.optJSONArray("urlDomains").toStringList(),
             isActive = json.optBoolean("isActive", true),
             messageCount = json.optInt("messageCount", 0),
@@ -67,7 +67,7 @@ object CampaignsApi {
         val messages = json.optJSONArray("messages")
         return CampaignDetail(
             id = json.getString("id"),
-            label = json.optString("label").takeIf { it.isNotEmpty() },
+            label = json.optNullableString("label"),
             urlDomains = json.optJSONArray("urlDomains").toStringList(),
             isActive = json.optBoolean("isActive", true),
             messageCount = json.optInt("messageCount", 0),
@@ -83,9 +83,9 @@ object CampaignsApi {
             id = json.getString("id"),
             body = json.optString("body"),
             receivedAt = json.optString("receivedAt"),
-            label = classification?.optString("label")?.takeIf { it.isNotEmpty() },
+            label = classification?.optNullableString("label"),
             score = classification?.takeIf { it.has("score") }?.optDouble("score"),
-            bucket = classification?.optString("bucket")?.takeIf { it.isNotEmpty() },
+            bucket = classification?.optNullableString("bucket"),
         )
     }
 

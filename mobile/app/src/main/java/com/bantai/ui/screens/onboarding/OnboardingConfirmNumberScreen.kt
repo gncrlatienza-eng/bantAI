@@ -56,7 +56,7 @@ private fun normalizePhNumber(raw: String?): String? {
             digits.length == 10 && digits.startsWith("9") -> digits
             digits.length == 11 && digits.startsWith("09") -> digits.substring(1)
             digits.length == 12 && digits.startsWith("639") -> digits.substring(2)
-            digits.length == 13 && digits.startsWith("0063") -> digits.substring(3)
+            digits.length == 14 && digits.startsWith("0063") -> digits.substring(4)
             else -> null
         } ?: return null
     return "+63 ${tenDigit.substring(0, 3)} ${tenDigit.substring(3, 6)} ${tenDigit.substring(6)}"

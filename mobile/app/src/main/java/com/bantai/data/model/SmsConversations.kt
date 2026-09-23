@@ -40,20 +40,42 @@ private const val MINIMUM_UNREAD_MESSAGES_FOR_SUMMARY = 2
 private const val MAXIMUM_SUMMARY_SENTENCES = 2
 private const val MAXIMUM_SUMMARY_CHARACTERS = 220
 
+private const val DEFAULT_THREAD_SUMMARY_SENTENCES = 3
+private const val DEFAULT_THREAD_SUMMARY_CHARACTERS = 400
+
 /**
- * Produces a small TF-IDF-style extractive summary entirely in memory.
- *
- * The input is newest-first because it comes from the SMS provider. Sentences
- * are selected by their distinctive terms, then restored to chronological
- * order so the preview reads naturally. This intentionally does not use a
- * network model or persist a derived copy of the message content.
+ * Unread-preview variant used by the Messages list. The input is newest-first
+ * because it comes from the SMS provider; it's reversed before summarizing.
  */
 fun summarizeUnreadThread(messages: List<SmsMessage>): String? {
     if (messages.count { !it.isRead } < MINIMUM_UNREAD_MESSAGES_FOR_SUMMARY) return null
+    return summarizeThread(
+        messages.asReversed(),
+        maxSentences = MAXIMUM_SUMMARY_SENTENCES,
+        maxChars = MAXIMUM_SUMMARY_CHARACTERS,
+    )
+}
 
+/**
+ * Produces a small TF-IDF-style extractive summary entirely in memory.
+ *
+ * Sentences are selected by their distinctive terms, then restored to
+ * chronological order so the result reads naturally. Extractive only: every
+ * sentence returned was actually sent. This intentionally does not use a
+ * network model or persist a derived copy of the message content -- the
+ * backend's POST /ai/summarize is disabled (410) in privacy-first mode, so
+ * this is what backs the in-thread AI Summary sheet too.
+ *
+ * @param messagesOldestFirst thread messages in chronological order.
+ * @return null when there are fewer than two sentences to choose between.
+ */
+fun summarizeThread(
+    messagesOldestFirst: List<SmsMessage>,
+    maxSentences: Int = DEFAULT_THREAD_SUMMARY_SENTENCES,
+    maxChars: Int = DEFAULT_THREAD_SUMMARY_CHARACTERS,
+): String? {
     val sentences =
-        messages
-            .asReversed()
+        messagesOldestFirst
             .flatMap { message -> splitSentences(message.body) }
             .filter { it.isNotBlank() }
     if (sentences.size < 2) return null
@@ -87,12 +109,12 @@ fun summarizeUnreadThread(messages: List<SmsMessage>): String? {
             }.sortedWith(
                 compareByDescending<Pair<Int, Double>> { it.second }
                     .thenBy { it.first },
-            ).take(MAXIMUM_SUMMARY_SENTENCES)
+            ).take(maxSentences)
             .map { it.first }
             .sorted()
 
     val summary = selectedIndices.joinToString(" ") { sentences[it] }.trim()
-    return summary.take(MAXIMUM_SUMMARY_CHARACTERS).trim().takeIf { it.isNotBlank() }
+    return summary.take(maxChars).trim().takeIf { it.isNotBlank() }
 }
 
 private fun splitSentences(body: String): List<String> =

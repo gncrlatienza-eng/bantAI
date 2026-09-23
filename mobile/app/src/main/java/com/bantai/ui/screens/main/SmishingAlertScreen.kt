@@ -69,8 +69,10 @@ fun SmishingAlertScreen(
 ) {
     val alert by viewModel.alert.collectAsState()
     val indicators by viewModel.indicators.collectAsState()
+    val indicatorsLoading by viewModel.indicatorsLoading.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val resolvedSender by viewModel.resolvedSender.collectAsState()
 
     LaunchedEffect(messageId) { viewModel.load(messageId) }
 
@@ -112,7 +114,7 @@ fun SmishingAlertScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No alert details available", color = TextSecondary, fontSize = 14.sp)
                 }
-            else -> SmishingAlertContent(alert!!, indicators, navController)
+            else -> SmishingAlertContent(alert!!, resolvedSender, indicators, indicatorsLoading, navController)
         }
     }
 }
@@ -121,7 +123,9 @@ fun SmishingAlertScreen(
 @Suppress("LongMethod", "MagicNumber", "MaxLineLength")
 private fun SmishingAlertContent(
     alert: SmsApi.AlertSummary,
+    resolvedSender: String,
     indicators: List<SmsApi.IndicatorTag>,
+    indicatorsLoading: Boolean,
     navController: NavController,
 ) {
     LazyColumn(
@@ -216,28 +220,30 @@ private fun SmishingAlertContent(
 
         // Blocked message content header
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    "FLAGGED MESSAGE CONTENT",
-                    color = Color(0xFF666666),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier =
-                        Modifier
-                            .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Box(modifier = Modifier.size(6.dp).background(Danger, CircleShape))
-                    Text("Flagged", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "FLAGGED MESSAGE CONTENT",
+                        color = Color(0xFF666666),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.8.sp,
+                    )
+                    Row(
+                        modifier =
+                            Modifier
+                                .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).background(Danger, CircleShape))
+                        Text("Flagged", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -249,8 +255,11 @@ private fun SmishingAlertContent(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     buildString {
-                        alert.score?.let { append("${(it * 100).roundToInt()}% confidence · ") }
-                        append(alert.sender)
+                        alert.score?.let { append("${(it * 100).roundToInt()}% confidence") }
+                        if (resolvedSender.isNotEmpty()) {
+                            if (isNotEmpty()) append(" · ")
+                            append(resolvedSender)
+                        }
                     },
                     color = TextSecondary,
                     fontSize = 13.sp,
@@ -302,50 +311,28 @@ private fun SmishingAlertContent(
             }
         }
 
-        // Why flagged -- one grouped card of plain rows (reason, then how strong
-        // a signal it was) instead of a progress bar per indicator; reads faster
-        // and matches the rest of this screen's flatter, simpler card language.
-        item {
-            SectionLabel("WHY IT WAS FLAGGED")
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceElevated, RoundedCornerShape(18.dp)),
-            ) {
-                if (indicators.isEmpty()) {
-                    Text(
-                        "Still computing explainability for this message.",
-                        color = TextSecondary,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-            }
-        }
-
         // Why flagged section label
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    "WHY BANTAI FLAGGED THIS",
-                    color = Color(0xFF666666),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
-                Text(
-                    "Detailed server-side indicators are unavailable because message text stays on your device.",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                )
-            }
+            Text(
+                "WHY BANTAI FLAGGED THIS",
+                color = Color(0xFF666666),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.8.sp,
+            )
         }
 
-        // SHAP feature bars
+        // Indicator tags -- server-computed (keyword tagger / SHAP, whichever
+        // ran; see explanation_method), fetched by AlertDetailViewModel.load()
+        // via GET /sms/:messageId/indicators. Previously that endpoint was
+        // never actually called from mobile at all, so `indicators` was always
+        // empty and this always showed "Still computing" no matter how long
+        // you waited, alongside a stale claim that indicators were
+        // unavailable because message text stays on the device -- the backend
+        // has always computed these server-side from the masked text it does
+        // receive, unrelated to raw-body-on-device privacy.
         item {
-            if (indicators.isEmpty()) {
+            if (indicatorsLoading) {
                 Column(
                     modifier =
                         Modifier
@@ -353,7 +340,17 @@ private fun SmishingAlertContent(
                             .background(Surface, RoundedCornerShape(16.dp))
                             .padding(16.dp),
                 ) {
-                    Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
+                    Text("Loading threat indicators…", color = TextSecondary, fontSize = 13.sp)
+                }
+            } else if (indicators.isEmpty()) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                ) {
+                    Text("No specific indicators were recorded for this message.", color = TextSecondary, fontSize = 13.sp)
                 }
             } else {
                 Column(
@@ -410,7 +407,12 @@ private fun SmishingAlertContent(
                         .fillMaxWidth()
                         .background(SurfaceElevated, RoundedCornerShape(18.dp))
                         .clickable {
-                            navController.navigate(Screen.TakeAction.createRoute(alert.messageId, alert.sender))
+                            // resolvedSender (from the local SMS provider, via
+                            // AlertDetailViewModel) is used here instead of
+                            // alert.sender, which the backend always sends as ""
+                            // (privacy placeholder) -- passing that through
+                            // unconditionally made Block fail every time.
+                            navController.navigate(Screen.TakeAction.createRoute(alert.messageId, resolvedSender))
                         }.padding(horizontal = 16.dp, vertical = 15.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,

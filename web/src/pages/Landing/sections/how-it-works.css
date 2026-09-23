@@ -1,0 +1,284 @@
+/*
+ * How It Works — Detect → Classify → Explain → Connect.
+ *
+ * Desktop layout is a two-column grid. Left column stacks four step blocks
+ * that the reader scrolls at their own pace. Right column pins a single
+ * visual pane whose contents crossfade as the active step changes.
+ *
+ * The waypoints deliberately sit close together (12vh gap) so the section
+ * doesn't feel like four separate slides — the whole story stays in one
+ * viewport-ish column.
+ */
+
+.hiw {
+  padding-top: var(--landing-section-lg, 112px);
+  padding-bottom: var(--landing-section-lg, 112px);
+}
+
+.hiw__intro {
+  max-width: 640px;
+  margin-bottom: 56px;
+}
+
+.hiw__scroller {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+}
+
+@media (min-width: 960px) {
+  .hiw__scroller {
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+    gap: 72px;
+    align-items: start;
+  }
+}
+
+.hiw__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+@media (min-width: 960px) {
+  .hiw__steps {
+    /*
+     * Trimmed from 14vh / 20vh padding. The steps still read as sequential
+     * scroll waypoints for the sticky pane, but there is far less blank
+     * space between them and the section no longer feels like four slides.
+     */
+    gap: 9vh;
+    padding: 2vh 0 10vh;
+  }
+}
+
+/*
+ * Each step is a small block: a plum rail on the left, then number + title on
+ * the same row, then the body. Inactive steps stay readable (0.72) so the
+ * whole list can be scanned; the active step gets full contrast plus a
+ * highlighted rail so the eye still knows where it is.
+ */
+.hiw__step {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 20px;
+  row-gap: 8px;
+  align-items: start;
+  opacity: 0.72;
+  transition:
+    opacity 320ms var(--motion-ease, ease),
+    transform 320ms var(--motion-ease, ease);
+}
+
+.hiw__step.is-active {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.hiw__step-rail {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 2px;
+  min-height: 100%;
+  background: var(--plum-14);
+  border-radius: 1px;
+  position: relative;
+  transition: background 240ms var(--motion-ease, ease);
+}
+
+.hiw__step.is-active .hiw__step-rail {
+  background: var(--brand-primary);
+}
+
+/*
+ * Rail dot marks the active step so the reader has a fixed point of
+ * reference on the left column instead of only a color change.
+ */
+.hiw__step-rail::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 260ms var(--motion-ease, ease),
+    transform 260ms var(--motion-ease, ease);
+}
+
+.hiw__step.is-active .hiw__step-rail::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hiw__step-head {
+  grid-column: 2;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.hiw__step-number {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  letter-spacing: 0.12em;
+}
+
+.hiw__step-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.hiw__step-body {
+  grid-column: 2;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 44ch;
+}
+
+/* Mobile inline visual; hidden on desktop where the sticky pane takes over. */
+.hiw__step-viz {
+  grid-column: 2;
+  margin-top: 20px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+@media (min-width: 960px) {
+  .hiw__step-viz {
+    display: none;
+  }
+}
+
+/*
+ * Sticky visual pane on desktop. Hidden on mobile where each step renders its
+ * own inline visual.
+ */
+.hiw__viz {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .hiw__viz {
+    display: block;
+    position: sticky;
+    top: 104px;
+    height: min(calc(100vh - 160px), 600px);
+  }
+}
+
+.hiw__viz-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  padding: 24px 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.hiw__viz-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.hiw__viz-caption-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  display: inline-block;
+}
+
+.hiw__viz-slide {
+  position: absolute;
+  inset: 60px 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition:
+    opacity 420ms var(--motion-ease, ease),
+    transform 420ms var(--motion-ease, ease);
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.hiw__viz-slide.is-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.hiw-viz-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 460px;
+  aspect-ratio: 460 / 360;
+}
+
+/* ————————————————————————————————— */
+/*  Reduced motion / narrow viewports  */
+/* ————————————————————————————————— */
+
+@media (prefers-reduced-motion: reduce) {
+  .hiw__steps {
+    gap: 40px !important;
+    padding: 0 !important;
+  }
+  .hiw__step {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none;
+  }
+  .hiw__viz {
+    position: static !important;
+    height: auto !important;
+  }
+  .hiw__viz-slide {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .hiw__step-viz {
+    display: block;
+  }
+  /* On narrower viewports the sticky pane is disabled, so inactive dimming
+   * would just hurt scannability. Everything reads at full contrast. */
+  .hiw__step {
+    opacity: 1;
+    transform: none;
+  }
+  .hiw__step-rail {
+    background: var(--plum-35);
+  }
+}

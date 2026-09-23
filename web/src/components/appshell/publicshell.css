@@ -1,0 +1,258 @@
+/*
+ * PublicShell layout — mineral marketing surface.
+ * Landing-specific section/animation styles live in pages/Landing/, not here.
+ */
+
+.bantai-public {
+  min-height: 100vh;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header: transparent over hero, cream + blur once scrolled. */
+.bantai-public__header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background 200ms var(--motion-ease, ease),
+    border-color 200ms var(--motion-ease, ease),
+    backdrop-filter 200ms var(--motion-ease, ease);
+}
+
+.bantai-public__header.is-scrolled {
+  background: color-mix(in srgb, var(--surface-canvas) 88%, transparent);
+  border-bottom-color: var(--border-default);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bantai-public__header-inner {
+  max-width: var(--content-max-page, 1280px);
+  margin: 0 auto;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.bantai-public__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.bantai-public__brand:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.bantai-public__brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--brand-primary);
+  color: var(--text-on-brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.bantai-public__brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.bantai-public__brand-text strong {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.bantai-public__brand-text small {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.bantai-public__nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+}
+
+.bantai-public__nav-link {
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 500;
+  font-family: inherit;
+  transition:
+    background 150ms var(--motion-ease, ease),
+    color 150ms var(--motion-ease, ease);
+}
+
+.bantai-public__nav-link:hover,
+.bantai-public__nav-link:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  outline: none;
+}
+
+.bantai-public__nav-link:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.bantai-public__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.bantai-public__action-ghost,
+.bantai-public__action-primary {
+  padding: 9px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  transition:
+    background 150ms var(--motion-ease, ease),
+    color 150ms var(--motion-ease, ease);
+}
+
+.bantai-public__action-ghost {
+  color: var(--text-secondary);
+}
+
+.bantai-public__action-ghost:hover {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+}
+
+.bantai-public__action-primary {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-text);
+}
+
+.bantai-public__action-primary:hover {
+  filter: brightness(1.06);
+}
+
+.bantai-public__main {
+  flex: 1;
+  width: 100%;
+}
+
+/* Footer */
+.bantai-public__footer {
+  border-top: 1px solid var(--border-default);
+  padding: 40px 32px 24px;
+  background: var(--surface-raised);
+}
+
+.bantai-public__footer-inner {
+  max-width: var(--content-max-page, 1280px);
+  margin: 0 auto;
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.bantai-public__footer-inner strong {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.bantai-public__footer-tag {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  max-width: 380px;
+  line-height: 1.55;
+}
+
+.bantai-public__footer-nav {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.bantai-public__footer-nav a,
+.bantai-public__footer-nav button {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.88rem;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.bantai-public__footer-nav a:hover,
+.bantai-public__footer-nav button:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.bantai-public__footer-copy {
+  max-width: var(--content-max-page, 1280px);
+  margin: 24px auto 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* Mobile */
+@media (max-width: 720px) {
+  .bantai-public__header-inner {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 14px 20px;
+    gap: 12px;
+  }
+  .bantai-public__nav {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .bantai-public__brand-text small {
+    display: none;
+  }
+  .bantai-public__action-ghost {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bantai-public__header {
+    transition: none;
+  }
+}

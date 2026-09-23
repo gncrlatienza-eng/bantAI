@@ -1,0 +1,100 @@
+/*
+ * Threat Context — warm surface. Left prose column explains why keyword
+ * rules fail. Right column stacks three variant cards along a dashed
+ * timeline curve, each tagged with the day it was observed.
+ */
+
+.tc {
+  padding-top: var(--landing-section-md, 88px);
+  padding-bottom: var(--landing-section-md, 88px);
+}
+
+.tc__cards {
+  position: relative;
+  padding-left: 44px;
+}
+
+.tc__curve {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  height: 100%;
+}
+
+.tc__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tc__card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 18px 22px;
+  min-height: 96px;
+  position: relative;
+}
+
+.tc__card::before {
+  /* Small plum tick anchoring each card to the timeline curve on the left. */
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 24px;
+  width: 8px;
+  height: 1px;
+  background: var(--plum-60);
+}
+
+.tc__day {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.tc__body {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.tc__body mark {
+  background: var(--plum-14);
+  color: var(--brand-primary);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.tc-domain {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  color: var(--brand-primary);
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .tc__cards {
+    padding-left: 32px;
+  }
+  .tc__curve {
+    width: 28px;
+  }
+  .tc__card::before {
+    left: -18px;
+  }
+}

@@ -8,7 +8,6 @@ import {
   requestOtp,
   verifyOtp,
 } from '../../services/authService';
-import { clearSession, setSession } from '../../lib/auth';
 import { Button } from '../common/Button';
 
 interface TwoFactorFormProps {
@@ -97,17 +96,16 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
       const role = user.role === 'ADMIN' ? 'admin' : 'client';
       if (admin && role !== 'admin') {
         logout();
-        clearSession();
         setError(
           'This phone number is not authorized for administrator access.',
         );
         return;
       }
-      setSession(role);
       void navigate(
         role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW,
       );
     } catch (verificationError) {
+      logout();
       setError(
         verificationError instanceof Error
           ? verificationError.message

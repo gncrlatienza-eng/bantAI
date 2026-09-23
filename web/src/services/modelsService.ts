@@ -32,3 +32,19 @@ export async function rollbackModel(id: string): Promise<ModelVersionItem> {
     method: 'POST',
   });
 }
+
+/*
+ * Public-safe aggregate for the landing page. Returns nulls when no active
+ * model exists so the frontend hides the metric rather than showing a fake
+ * placeholder.
+ */
+export interface PublicModelSummary {
+  macroF1: number | null;
+  accuracy: number | null;
+  versionTag: string | null;
+  promotedAt: string | null;
+}
+
+export async function getPublicModelSummary(): Promise<PublicModelSummary> {
+  return fetchApi<PublicModelSummary>('/models/public-summary');
+}

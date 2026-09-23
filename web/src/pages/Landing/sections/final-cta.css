@@ -1,0 +1,104 @@
+.fc {
+  position: relative;
+  overflow: hidden;
+  padding-top: 104px;
+  padding-bottom: 120px;
+  min-height: 520px;
+}
+
+.fc__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.fc-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.fc__inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 640px;
+}
+
+.fc__inner .landing__h2 {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 14ch;
+  color: var(--text-on-brand);
+}
+
+.fc__inner .landing__lede {
+  margin-left: auto;
+  margin-right: auto;
+  color: color-mix(in srgb, var(--text-on-brand) 78%, transparent);
+}
+
+.fc__actions {
+  justify-content: center;
+  align-items: center;
+  margin-top: 32px;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fc__cta-primary {
+  padding: 16px 32px;
+  border-radius: 8px;
+  background: var(--surface-canvas);
+  color: var(--brand-primary);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    filter 150ms var(--motion-ease, ease),
+    transform 200ms var(--motion-ease, ease);
+}
+
+.fc__cta-primary:hover {
+  filter: brightness(1.03);
+  transform: translateY(-2px);
+}
+
+.fc__cta-signin {
+  color: color-mix(in srgb, var(--text-on-brand) 80%, transparent);
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.fc__cta-signin:hover {
+  color: var(--text-on-brand);
+  text-decoration: underline;
+}
+
+/* Slow ambient pulse on the central campaign mark. */
+.fc__center {
+  transform-origin: 480px 240px;
+  animation: fc-pulse 6s ease-in-out infinite;
+}
+
+@keyframes fc-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc__center {
+    animation: none !important;
+  }
+  .fc__cta-primary:hover {
+    transform: none;
+  }
+}

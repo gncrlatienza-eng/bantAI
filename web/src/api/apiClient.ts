@@ -56,6 +56,9 @@ export async function fetchApi<T>(
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearStoredToken();
+    }
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
     try {
       const errorData = (await response.json()) as {

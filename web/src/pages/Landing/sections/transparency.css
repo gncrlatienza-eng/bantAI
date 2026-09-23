@@ -1,0 +1,161 @@
+.tp {
+  padding-top: var(--landing-section-sm, 72px);
+  padding-bottom: var(--landing-section-sm, 72px);
+}
+
+.tp__grid {
+  display: grid;
+  gap: 48px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .tp__grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 64px;
+  }
+}
+
+.tp__copy {
+  max-width: 560px;
+}
+
+.tp__panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  padding: 28px 32px 32px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tp__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tp__panel-eyebrow {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tp__badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.tp__badge--live {
+  color: var(--status-verified);
+  background: color-mix(in srgb, var(--status-verified) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-verified) 40%, transparent);
+}
+
+.tp__badge--pending {
+  color: var(--text-secondary);
+  background: var(--surface-canvas);
+  border: 1px dashed var(--border-default);
+}
+
+.tp__status {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 8px 0 0;
+  max-width: 42ch;
+}
+
+.tp__metric,
+.tp__skeleton-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tp__metric-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tp__metric-value {
+  font-size: 3.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--brand-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono, monospace);
+}
+
+.tp__metric--sub,
+.tp__skeleton-metric--sub {
+  align-items: baseline;
+}
+
+.tp__metric-value--sub {
+  font-size: 1.6rem;
+  color: var(--text-primary);
+}
+
+/* Skeleton placeholder — dashed "—" values, honest about no data. */
+.tp__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tp__skeleton-value {
+  font-size: 3.6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--border-default);
+  letter-spacing: -0.02em;
+  font-family: var(--font-mono, monospace);
+}
+
+.tp__skeleton-value--sub {
+  font-size: 1.6rem;
+}
+
+.tp__meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-default);
+  font-size: 0.9rem;
+}
+
+.tp__meta--placeholder dd {
+  color: var(--border-default);
+}
+
+.tp__meta dt {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.tp__meta dd {
+  color: var(--text-primary);
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+}

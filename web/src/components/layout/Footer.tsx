@@ -31,7 +31,7 @@ export const Footer: React.FC = () => {
             </strong>
             <Link to={ROUTES.HOW_IT_WORKS}>How It Works</Link>
             <Link to={ROUTES.RESEARCH}>Research and Methodology</Link>
-            <Link to={ROUTES.LOGIN}>Client Intelligence Portal</Link>
+            <Link to={ROUTES.LOGIN}>Sign in</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <strong
@@ -40,8 +40,7 @@ export const Footer: React.FC = () => {
               Organization
             </strong>
             <Link to={ROUTES.ABOUT}>About BantAI</Link>
-            <Link to={ROUTES.LOGIN}>Client Portal</Link>
-            <Link to={ROUTES.ADMIN_LOGIN}>Admin Access</Link>
+            <Link to={ROUTES.LICENSING}>Request access</Link>
           </div>
         </div>
       </div>

@@ -1,3 +1,18 @@
+/*
+ * Import order matters:
+ *   1. Layer 1 palette (raw --palette-* hex values)
+ *   2. Legacy tokens.css (dark-theme tokens on :root, phased out per migration plan)
+ *   3. Layer 2 semantic tokens scoped to [data-theme="mineral"]. Loaded LAST so
+ *      it wins ties against legacy :root declarations at equal specificity for
+ *      any element that opts in via data-theme="mineral".
+ *   4. Animations + components.
+ *
+ * There ARE name collisions on --text-primary, --text-secondary, --font-sans,
+ * --font-mono. The scoping + late-import combo makes semantic win only for
+ * opted-in subtrees. Untouched legacy pages keep the dark palette.
+ */
+@import './tokens/palette.css';
 @import './tokens.css';
+@import './tokens/semantic.css';
 @import './animations.css';
 @import './components.css';

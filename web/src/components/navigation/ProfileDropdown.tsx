@@ -4,6 +4,11 @@ import { ROUTES } from '../../constants/routes';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useUserAvatar } from '../../context/UserAvatarContext';
 import { UserAvatar } from '../common/UserAvatar';
+import {
+  getCurrentUser,
+  logout,
+  type CurrentUser,
+} from '../../services/authService';
 
 interface ProfileDropdownProps {
   onClose: () => void;
@@ -18,22 +23,30 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const dropdownRef = useClickOutside<HTMLDivElement>(onClose);
   const { adminAvatar, clientAvatar } = useUserAvatar();
   const currentAvatar = role === 'admin' ? adminAvatar : clientAvatar;
+  const [user, setUser] = React.useState<CurrentUser | null>(null);
+  React.useEffect(() => {
+    void getCurrentUser()
+      .then(setUser)
+      .catch(() => setUser(null));
+  }, []);
 
   const handleNavigate = (path: string) => {
     onClose();
-    navigate(path);
+    void navigate(path);
   };
 
   const isClient = role === 'client';
-  const userName = isClient ? 'Maria Santos' : 'Gian Carlo Atienza';
-  const userTitle = isClient
-    ? 'Threat Intelligence Analyst'
-    : 'Super Administrator';
-  const userOrg = isClient ? 'Globe Telecom' : 'BantAI Research Team';
-  const userEmail = isClient
-    ? 'analyst@globe.com.ph'
-    : 'g.atienza@bantai.research';
-  const initials = isClient ? 'MS' : 'GA';
+  const userName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.phone
+    : 'Loading account…';
+  const userTitle =
+    user?.role === 'ADMIN' ? 'System administrator' : 'Account holder';
+  const userOrg = user?.email || user?.phone || 'Account';
+  const userEmail = user?.email || user?.phone || 'current account';
+  const initials = user
+    ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() ||
+      user.phone.slice(-2)
+    : '—';
 
   const settingsRoute = isClient
     ? ROUTES.CLIENT.SETTINGS
@@ -140,9 +153,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       <button
         type="button"
         className="dropdown-item danger"
-        onClick={() =>
-          handleNavigate(role === 'admin' ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN)
-        }
+        onClick={() => {
+          logout();
+          handleNavigate(role === 'admin' ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN);
+        }}
       >
         <span style={{ fontSize: '1rem' }}></span>
         <span>Sign Out ({userEmail})</span>

@@ -1,0 +1,233 @@
+/*
+ * Campaign Intelligence — plum surface. Two-column layout: cluster graph on
+ * the left, a metadata panel on the right that names the campaign, its
+ * languages, observation window, and top domains.
+ */
+
+.ci {
+  padding-top: var(--landing-section-lg, 112px);
+  padding-bottom: var(--landing-section-lg, 112px);
+}
+
+.ci__intro {
+  max-width: 640px;
+  margin: 0 0 56px;
+}
+
+.ci__grid {
+  display: grid;
+  gap: 40px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .ci__grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, 320px);
+    gap: 56px;
+  }
+}
+
+.ci__stage {
+  position: relative;
+}
+
+.ci-graph {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 620 / 420;
+}
+
+/* Legend row underneath the graph */
+.ci__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.ci__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-on-brand) 80%, transparent);
+}
+
+.ci__legend-swatch {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+}
+
+.ci__legend-swatch--node {
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ci__legend-swatch--domain {
+  background: rgba(255, 255, 255, 0.85);
+  width: 8px;
+  height: 8px;
+}
+
+.ci__legend-swatch--edge {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.ci__legend-swatch--edge-evo {
+  height: 1px;
+  background: transparent;
+  border-top: 1px dashed rgba(255, 255, 255, 0.9);
+}
+
+/* Right-side metadata panel */
+
+.ci__panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 28px;
+  color: var(--text-on-brand);
+}
+
+.ci__panel-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-on-brand) 72%, transparent);
+  margin: 0 0 4px;
+}
+
+.ci__panel-label--sub {
+  margin-top: 24px;
+}
+
+.ci__panel-id {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-on-brand);
+  margin: 0 0 12px;
+  letter-spacing: 0.02em;
+}
+
+.ci__panel-title {
+  font-size: 1.15rem;
+  color: var(--text-on-brand);
+  font-weight: 600;
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.ci__panel-body {
+  color: color-mix(in srgb, var(--text-on-brand) 82%, transparent);
+  font-size: 0.94rem;
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+
+.ci__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.ci__meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ci__meta dt {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-on-brand) 66%, transparent);
+  margin: 0;
+}
+
+.ci__meta dd {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.92rem;
+  color: var(--text-on-brand);
+  margin: 0;
+  font-weight: 600;
+}
+
+.ci__domain-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ci__domain-list li {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+  color: var(--text-on-brand);
+  padding-left: 14px;
+  position: relative;
+}
+
+.ci__domain-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* Evolutionary node has a subtle idle fade so viewer notices "NEW" */
+.ci-node--evo {
+  opacity: 0;
+  animation: ci-evo-fade 5s var(--motion-ease, ease) 1s forwards;
+}
+
+@keyframes ci-evo-fade {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ci-node--evo {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/*
+ * Narrow-viewport polish: on tablet and below, the cluster graph loses too
+ * much detail if it's forced under 480px wide. Add a subtle max-width so it
+ * doesn't stretch the full column, and tighten the meta grid so it doesn't
+ * collapse to two narrow columns of monospace numbers.
+ */
+@media (max-width: 720px) {
+  .ci__stage {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .ci__panel {
+    padding: 24px;
+  }
+  .ci__panel-id {
+    font-size: 1.2rem;
+  }
+}

@@ -85,7 +85,7 @@ jobs:
       - run: npm audit --audit-level=high
 
   mobile:
-    name: Mobile (ktlint, detekt, compile)
+    name: Mobile (ktlint, detekt, compile, unit tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -105,4 +105,6 @@ jobs:
       # Invoked via `bash` explicitly rather than `./gradlew` -- removes any
       # dependency on the execute bit or shebang line resolving correctly on
       # the runner, on top of the chmod above.
-      - run: bash gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin --console=plain
+      # testDebugUnitTest added alongside the mobile/app/src/test JVM unit tests
+      # (2026-09-23 audit round 3) -- previously there were no tests to run at all.
+      - run: bash gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin :app:testDebugUnitTest --console=plain

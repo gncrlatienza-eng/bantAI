@@ -1,5 +1,6 @@
 package com.bantai.ui.screens.main
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,9 +31,18 @@ fun BlockedNumbersScreen(
     navController: NavController,
     viewModel: BlockedNumbersViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
     val blockedNumbers by viewModel.blockedNumbers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val syncError by viewModel.syncError.collectAsState()
     var numberToUnblock by remember { mutableStateOf<BlockHelper.BlockedEntry?>(null) }
+
+    LaunchedEffect(syncError) {
+        if (syncError != null) {
+            Toast.makeText(context, syncError, Toast.LENGTH_LONG).show()
+            viewModel.clearSyncError()
+        }
+    }
 
     // Unblock confirmation dialog
     numberToUnblock?.let { entry ->

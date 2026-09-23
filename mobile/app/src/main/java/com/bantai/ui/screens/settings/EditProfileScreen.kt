@@ -34,6 +34,7 @@ fun EditProfileScreen(
     val firstNameError by viewModel.firstNameError.collectAsState()
     val lastNameError by viewModel.lastNameError.collectAsState()
     val syncError by viewModel.profileSyncError.collectAsState()
+    val isSaving by viewModel.profileSaving.collectAsState()
 
     var showSaved by remember { mutableStateOf(false) }
 
@@ -199,6 +200,7 @@ fun EditProfileScreen(
                         showSaved = true
                     }
                 },
+                enabled = !isSaving,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -206,10 +208,16 @@ fun EditProfileScreen(
                         // (see MainScreen) -- this screen now renders behind it.
                         .padding(bottom = 116.dp)
                         .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Indigo),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Indigo,
+                        disabledContainerColor = ContactBadge,
+                        contentColor = White,
+                        disabledContentColor = TextSecondary,
+                    ),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("Save changes", color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(if (isSaving) "Saving…" else "Save changes", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }

@@ -144,13 +144,7 @@ fun ReportSentScreen(
         }
 
         Button(
-            onClick = {
-                if (type == "block_only") {
-                    navController.navigate(Screen.BlockedNumbers.route)
-                } else {
-                    navController.popBackStack(Screen.Main.route, false)
-                }
-            },
+            onClick = { navController.popBackStack(Screen.Main.route, false) },
             modifier =
                 Modifier
                     .fillMaxWidth()

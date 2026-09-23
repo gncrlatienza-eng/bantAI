@@ -116,15 +116,8 @@ object SmsApi {
             clusterId = message.optNullableString("clusterId"),
         )
     }
-
-    // org.json's optString(name) turns a JSON `null` value into the literal 4-char
-    // string "null" (JSONObject.NULL.toString()), not a real null — so a plain
-    // isNotEmpty() check doesn't catch it. That literal string previously slipped
-    // through as a real clusterId and crashed campaign navigation.
-    private fun JSONObject.optNullableString(name: String): String? {
-        val value = optString(name)
-        return value.takeIf { it.isNotEmpty() && it != "null" }
-    }
+    // optNullableString moved to JsonExtensions.kt -- CampaignsApi needed the
+    // same null-vs-"null" fix (see that file's usage).
 
     private fun parseIndicators(json: JSONObject): List<IndicatorTag> {
         val indicators = json.optJSONArray("indicators") ?: return emptyList()

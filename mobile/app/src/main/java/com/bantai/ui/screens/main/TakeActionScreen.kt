@@ -46,6 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -68,10 +69,13 @@ import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.util.BlockHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val reportTypes = listOf("Smishing / Phishing", "Spam", "Wrong classification", "Other")
+private const val DISABLED_CARD_ALPHA = 0.4f
 
 // Maps a report-type selection to the backend's SubmitReportDto.reportedLabel
 // (Ham/Spam/Scam only, no free-text reason field exists). Only the two
@@ -125,8 +129,16 @@ private suspend fun blockIfSelected(
 ): Result<Unit> {
     if (!request.blockSelected) return Result.success(Unit)
     if (request.sender.isBlank()) return Result.failure(Exception("Can't block — no number for this message."))
-    BlockHelper.blockNumberSystem(context, request.sender)
-    if (!BlockHelper.isBlocked(context, request.sender)) {
+    // BlockHelper's calls are synchronous ContentResolver I/O (BlockedNumberContract),
+    // not suspend functions -- without Dispatchers.IO here they'd run straight on
+    // whatever dispatcher rememberCoroutineScope() gave the caller, which for a
+    // Compose scope is Main.
+    val blockedOk =
+        withContext(Dispatchers.IO) {
+            BlockHelper.blockNumberSystem(context, request.sender)
+            BlockHelper.isBlocked(context, request.sender)
+        }
+    if (!blockedOk) {
         return Result.failure(Exception("Couldn't block this number"))
     }
     val token = UserPreferences(context).userData.first().authToken
@@ -163,6 +175,10 @@ fun TakeActionScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    // submitReportIfSelected always fails without a messageId -- disable the
+    // Report option entirely at this entry point instead of letting the user
+    // walk through the whole flow to a guaranteed rejection toast.
+    val canReport = messageId.isNotBlank()
     var reportSelected by remember { mutableStateOf(false) }
     var blockSelected by remember { mutableStateOf(false) }
     var selectedReportType by remember { mutableIntStateOf(0) }
@@ -218,6 +234,7 @@ fun TakeActionScreen(
     }
 
     TakeActionContent(
+        canReport = canReport,
         reportSelected = reportSelected,
         blockSelected = blockSelected,
         selectedReportType = selectedReportType,
@@ -233,6 +250,7 @@ fun TakeActionScreen(
 
 @Composable
 private fun TakeActionContent(
+    canReport: Boolean,
     reportSelected: Boolean,
     blockSelected: Boolean,
     selectedReportType: Int,
@@ -288,13 +306,19 @@ private fun TakeActionContent(
                 ActionToggleCard(
                     modifier = Modifier.weight(1f),
                     title = "Report",
-                    description = "Flag this message for administrator review",
+                    description =
+                        if (canReport) {
+                            "Flag this message for administrator review"
+                        } else {
+                            "Not available for this message"
+                        },
                     icon = Icons.Default.Flag,
                     iconColor = Danger,
                     selected = reportSelected,
                     selectedBg = Color(0xFF2A0A0A),
                     selectedBorder = Danger,
                     checkColor = Indigo,
+                    enabled = canReport,
                     onClick = onToggleReport,
                 )
                 ActionToggleCard(
@@ -346,17 +370,19 @@ private fun ActionToggleCard(
     selectedBg: Color,
     selectedBorder: Color,
     checkColor: Color,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Box(
         modifier =
             modifier
+                .alpha(if (enabled) 1f else DISABLED_CARD_ALPHA)
                 .background(if (selected) selectedBg else Surface, RoundedCornerShape(16.dp))
                 .border(
                     if (selected) 2.dp else 1.dp,
                     if (selected) selectedBorder else BorderColor,
                     RoundedCornerShape(16.dp),
-                ).clickable(onClick = onClick)
+                ).clickable(enabled = enabled, onClick = onClick)
                 .padding(16.dp),
     ) {
         if (selected) {

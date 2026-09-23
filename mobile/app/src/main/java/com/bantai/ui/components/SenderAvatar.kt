@@ -31,11 +31,25 @@ import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextTertiary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
+import java.util.Collections
+import java.util.LinkedHashMap
+
+private const val MAX_CACHED_CONTACT_PHOTOS = 200
+private const val LRU_INITIAL_CAPACITY = 16
+private const val LRU_LOAD_FACTOR = 0.75f
 
 // Cache so scrolling lists don't re-query contacts for every row bind.
-// Null value = looked up, no photo.
-private val contactPhotoCache = ConcurrentHashMap<String, Optional<ImageBitmap>>()
+// Null value = looked up, no photo. Bounded LRU (accessOrder + removeEldestEntry
+// is the standard JDK idiom) so a long session scrolling many distinct senders
+// doesn't retain every decoded bitmap in memory forever.
+private val contactPhotoCache: MutableMap<String, Optional<ImageBitmap>> =
+    Collections.synchronizedMap(
+        object : LinkedHashMap<String, Optional<ImageBitmap>>(LRU_INITIAL_CAPACITY, LRU_LOAD_FACTOR, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, Optional<ImageBitmap>>,
+            ): Boolean = size > MAX_CACHED_CONTACT_PHOTOS
+        },
+    )
 
 private class Optional<T>(
     val value: T?,
@@ -63,11 +77,16 @@ private suspend fun loadContactPhoto(
                         ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
                         Uri.encode(sender),
                     )
+                // THUMBNAIL, not the full-size PHOTO_URI -- this is drawn at a small,
+                // fixed avatar size, and a full-resolution contact photo (easily
+                // several hundred KB to a few MB decoded) held per cache entry could
+                // still add up to a large amount of memory even with the LRU cap
+                // above capping it at MAX_CACHED_CONTACT_PHOTOS *entries*, not bytes.
                 var photoUri: String? = null
                 context.contentResolver
                     .query(
                         lookupUri,
-                        arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
+                        arrayOf(ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI),
                         null,
                         null,
                         null,

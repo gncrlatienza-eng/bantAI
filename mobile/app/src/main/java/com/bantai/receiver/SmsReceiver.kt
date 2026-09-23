@@ -47,24 +47,29 @@ class SmsReceiver : BroadcastReceiver() {
 
         val receivedAt = System.currentTimeMillis()
 
-        // Persist to the inbox before any network work, so a message still lands
-        // locally when the backend is slow or unreachable. Row ids are kept so the
-        // real classification can be attached to the right message once it's known.
-        val insertedIds = mutableMapOf<String, Long>()
-        if (isDefaultSmsApp) {
-            for ((sender, bodyBuilder) in grouped) {
-                val sentAt = sentAtBySender.getValue(sender)
-                val id = SmsIngestPipeline.storeMessage(context, sender, bodyBuilder.toString(), receivedAt, sentAt)
-                if (id != null) insertedIds[sender] = id
-            }
-        }
-
         // Classification needs the network, which onReceive cannot wait on
         // inline. goAsync() keeps the receiver alive for the request; the system
-        // kills it after roughly 10s, hence SmsApi's 5s timeout.
+        // kills it after roughly 10s, hence SmsApi's 5s timeout. The inbox insert
+        // below is also a blocking ContentResolver call, so it must run inside
+        // this async work too, not on the main thread before goAsync() -- onReceive
+        // itself only has the standard (much shorter) ANR budget.
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
+                // Persist to the inbox before any network work, so a message still
+                // lands locally when the backend is slow or unreachable. Row ids
+                // are kept so the real classification can be attached to the right
+                // message once it's known.
+                val insertedIds = mutableMapOf<String, Long>()
+                if (isDefaultSmsApp) {
+                    for ((sender, bodyBuilder) in grouped) {
+                        val sentAt = sentAtBySender.getValue(sender)
+                        val id =
+                            SmsIngestPipeline.storeMessage(context, sender, bodyBuilder.toString(), receivedAt, sentAt)
+                        if (id != null) insertedIds[sender] = id
+                    }
+                }
+
                 val token =
                     runCatching {
                         UserPreferences(context).userData.first().authToken

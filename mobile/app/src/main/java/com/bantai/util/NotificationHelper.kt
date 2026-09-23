@@ -252,6 +252,21 @@ object NotificationHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
+        // A public version stands in on the lock screen / when the notification is
+        // otherwise not private -- without it, VISIBILITY_PRIVATE just hides the
+        // whole notification there, and the app-wide FLAG_SECURE lock-screen
+        // protection (MainActivity) would be undone the moment an SMS body
+        // (which can be a forwarded OTP) shows up in a heads-up/lock-screen
+        // notification instead.
+        val publicVersion =
+            NotificationCompat
+                .Builder(context, MESSAGE_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle(safe)
+                .setContentText("New message")
+                .build()
+
         val notification =
             NotificationCompat
                 .Builder(context, MESSAGE_CHANNEL_ID)
@@ -261,6 +276,8 @@ object NotificationHelper {
                 .setContentText(preview)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(publicVersion)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .build()
@@ -297,6 +314,17 @@ object NotificationHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
+        // See sendMessageNotification's comment -- same lock-screen leak risk,
+        // since the failed body is quoted in full here too.
+        val publicVersion =
+            NotificationCompat
+                .Builder(context, SEND_STATUS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle("Message not sent")
+                .setContentText("To $safe")
+                .build()
+
         val notification =
             NotificationCompat
                 .Builder(context, SEND_STATUS_CHANNEL_ID)
@@ -306,6 +334,8 @@ object NotificationHelper {
                 .setContentText("To $safe: $preview")
                 .setStyle(NotificationCompat.BigTextStyle().bigText("Your message to $safe could not be sent: $preview"))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(publicVersion)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .build()

@@ -70,11 +70,15 @@ fun AlertsScreen(
 
     val (todayAlerts, earlierAlerts) = alerts.partition { isToday(it.receivedAt) }
 
+    // Every alert routes to SmishingAlertScreen -- it's the only alert-detail
+    // screen with a working Take Action entry point (Report/Block). Alert
+    // status is always "Pending" today: nothing in this backend (see
+    // sms.service.ts) or this app ever moves it to "Blocked", so branching on
+    // that status previously sent every single alert to ThreatAnalysisScreen
+    // instead, whose action button is permanently disabled -- Report and Block
+    // had no reachable entry point from this tab at all.
     fun onAlertClick(alert: SmsApi.AlertSummary) {
-        val blocked = alert.status.equals("Blocked", ignoreCase = true)
-        navController.navigate(
-            if (blocked) Screen.SmishingAlert.createRoute(alert.messageId) else Screen.ThreatAnalysis.createRoute(alert.messageId),
-        )
+        navController.navigate(Screen.SmishingAlert.createRoute(alert.messageId))
     }
 
     LazyColumn(

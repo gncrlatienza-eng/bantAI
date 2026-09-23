@@ -159,4 +159,8 @@ dependencies {
         implementation(platform(libs.firebase.bom))
         implementation(libs.firebase.crashlytics)
     }
+    // JVM unit tests (app/src/test) -- pure-Kotlin logic only (regexes, validators,
+    // parsers, small pure functions), no Android framework/instrumentation needed,
+    // so plain JUnit4 is enough without pulling in Robolectric.
+    testImplementation(libs.junit)
 }

@@ -58,16 +58,36 @@ class DeletedMessagesStore(
         }
     }
 
-    private fun parseEntries(json: String): List<DeletedEntry> =
-        try {
-            val array = JSONArray(json)
-            List(array.length()) { i ->
-                val obj = array.getJSONObject(i)
-                DeletedEntry(id = obj.getLong("id"), deletedAt = obj.getLong("deletedAt"))
+    /**
+     * Full wipe -- used on sign-out so the next account on this device
+     * doesn't inherit the previous one's deleted-message bookkeeping.
+     */
+    suspend fun clearAll() {
+        context.deletedMessagesDataStore.edit { it.clear() }
+    }
+
+    private fun parseEntries(json: String): List<DeletedEntry> {
+        val array =
+            try {
+                JSONArray(json)
+            } catch (_: Exception) {
+                return emptyList()
             }
-        } catch (_: Exception) {
-            emptyList()
+        val result = mutableListOf<DeletedEntry>()
+        for (i in 0 until array.length()) {
+            // Skip just this malformed entry rather than discarding every other
+            // previously-recorded soft-delete because one entry is bad -- a single
+            // corrupt row here used to make every deleted message reappear in the
+            // normal Inbox/Spam/Unknown lists at once.
+            try {
+                val obj = array.getJSONObject(i)
+                result += DeletedEntry(id = obj.getLong("id"), deletedAt = obj.getLong("deletedAt"))
+            } catch (_: Exception) {
+                // Skipped.
+            }
         }
+        return result
+    }
 
     private fun serializeEntries(entries: List<DeletedEntry>): String {
         val array = JSONArray()

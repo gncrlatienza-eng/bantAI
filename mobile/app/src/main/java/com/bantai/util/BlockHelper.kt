@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.provider.BlockedNumberContract
 import android.util.Log
+import com.bantai.BuildConfig
 
 private const val TAG = "BlockHelper"
 
@@ -25,7 +26,7 @@ object BlockHelper {
             }
             Unit
         }.onFailure { error ->
-            Log.e(TAG, "blockNumberSystem failed for $number", error)
+            if (BuildConfig.DEBUG) Log.e(TAG, "blockNumberSystem failed for $number", error)
         }
 
     fun isBlocked(
@@ -35,7 +36,7 @@ object BlockHelper {
         try {
             BlockedNumberContract.isBlocked(context, number)
         } catch (e: Exception) {
-            Log.e(TAG, "isBlocked failed for $number", e)
+            if (BuildConfig.DEBUG) Log.e(TAG, "isBlocked failed for $number", e)
             false
         }
 
@@ -50,7 +51,7 @@ object BlockHelper {
                 arrayOf(number),
             )
         } catch (e: Exception) {
-            Log.e(TAG, "unblockNumberSystem failed for $number", e)
+            if (BuildConfig.DEBUG) Log.e(TAG, "unblockNumberSystem failed for $number", e)
         }
     }
 

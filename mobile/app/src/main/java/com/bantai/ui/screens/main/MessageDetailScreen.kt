@@ -53,6 +53,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,12 +66,14 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.SmsRepository
+import com.bantai.data.local.BackendMessageIdStore
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
@@ -93,8 +96,13 @@ import com.bantai.ui.theme.White
 import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsLinkSafety
 import com.bantai.util.SmsSender
+import com.bantai.util.isValidSmsRecipient
 import com.bantai.viewmodel.MessageDetailViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -104,6 +112,7 @@ fun MessageDetailScreen(
     viewModel: MessageDetailViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val conversation by viewModel.conversation.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -117,6 +126,12 @@ fun MessageDetailScreen(
     var replyPrefilled by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var senderVerification by remember(sender) { mutableStateOf<VerificationApi.SenderVerification?>(null) }
+    // The backend messageId for this thread's most recently flagged message --
+    // TakeAction's Report needs this backend UUID, which the SMS provider row
+    // itself has no column for (see BackendMessageIdStore). Previously the
+    // banners below navigated to TakeAction with no messageId at all, which
+    // silently disabled Report for every in-thread entry point.
+    var flaggedMessageId by remember(sender) { mutableStateOf("") }
 
     BackHandler(enabled = selectionMode) { viewModel.exitSelectionMode() }
 
@@ -127,6 +142,16 @@ fun MessageDetailScreen(
         if (token.isNotEmpty()) {
             senderVerification = VerificationApi.verifySender(token, sender).getOrNull()
         }
+    }
+
+    LaunchedEffect(conversation) {
+        val flagged = conversation.lastOrNull { it.classification == "blocked" || it.classification == "unknown" }
+        flaggedMessageId =
+            if (flagged != null) {
+                withContext(Dispatchers.IO) { BackendMessageIdStore(context).get(flagged.id) }.orEmpty()
+            } else {
+                ""
+            }
     }
 
     // Resume any unsent reply left from a previous visit, once — after that, typing
@@ -155,20 +180,25 @@ fun MessageDetailScreen(
     }
 
     fun retryFailedMessage(msg: SmsMessage) {
-        try {
-            val repo = SmsRepository(context)
-            repo.updateMessageType(msg.id, Telephony.Sms.MESSAGE_TYPE_OUTBOX)
-            viewModel.loadConversation(sender)
-            SmsSender.send(context, sender, msg.body) { success, error ->
-                repo.updateMessageType(msg.id, if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
-                if (!success) {
-                    Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
-                    NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))
+        val repo = SmsRepository(context)
+        coroutineScope.launch {
+            try {
+                // updateMessageType is a blocking ContentResolver call -- off Main.
+                withContext(Dispatchers.IO) { repo.updateMessageType(msg.id, Telephony.Sms.MESSAGE_TYPE_OUTBOX) }
+                viewModel.loadConversation(sender)
+                SmsSender.send(context, sender, msg.body) { success, error ->
+                    coroutineScope.launch(Dispatchers.IO) {
+                        repo.updateMessageType(msg.id, if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
+                    }
+                    if (!success) {
+                        Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
+                        NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("MessageDetailScreen", "Failed to retry message ${msg.id}", e)
+                Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
             }
-        } catch (e: Exception) {
-            Log.e("MessageDetailScreen", "Failed to retry message ${msg.id}", e)
-            Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -197,7 +227,11 @@ fun MessageDetailScreen(
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false
-                navController.navigate(Screen.ThreatAnalysis.createRoute())
+                // Same reasoning as the in-thread warning banners below: Take
+                // Action is the only screen with a working Report/Block entry
+                // point, ThreatAnalysisScreen's action button is permanently
+                // disabled.
+                navController.navigate(Screen.TakeAction.createRoute(messageId = flaggedMessageId, sender = sender))
             },
         )
     }
@@ -313,21 +347,26 @@ fun MessageDetailScreen(
 
         HorizontalDivider(color = Surface)
 
-        // Suspicious warning banner
+        // Suspicious warning banner -- goes straight to Take Action (Report/Block)
+        // rather than the disabled-action ThreatAnalysisScreen; see
+        // flaggedMessageId's comment above for why this needs its own lookup.
         if (hasSuspicious) {
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF2A1A00))
-                        .clickable { navController.navigate(Screen.ThreatAnalysis.createRoute()) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .clickable {
+                            navController.navigate(
+                                Screen.TakeAction.createRoute(messageId = flaggedMessageId, sender = sender),
+                            )
+                        }.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
                 Text(
-                    "Suspicious messages detected — tap for threat details",
+                    "Suspicious messages detected — tap to report",
                     color = Suspicious,
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f),
@@ -341,8 +380,11 @@ fun MessageDetailScreen(
                     Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF2A1A00))
-                        .clickable { navController.navigate(Screen.TakeAction.createRoute(sender = sender)) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .clickable {
+                            navController.navigate(
+                                Screen.TakeAction.createRoute(messageId = flaggedMessageId, sender = sender),
+                            )
+                        }.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -501,61 +543,92 @@ fun MessageDetailScreen(
             }
         }
 
-        // Reply bar
-        HorizontalDivider(color = Surface)
-        Row(
+        // Reply bar -- an alphanumeric sender ID (e.g. "GCash", "PLDTHome") has no
+        // SMS return path at all, so replying would always fail after SmsSender's
+        // 20s timeout with no way to succeed; show a disabled notice instead.
+        if (isValidSmsRecipient(sender)) {
+            ReplyBar(
+                sender = sender,
+                replyText = replyText,
+                onReplyTextChange = { replyText = it },
+                viewModel = viewModel,
+                coroutineScope = coroutineScope,
+            )
+        } else {
+            UnreachableSenderNotice(sender)
+        }
+    }
+}
+
+@Composable
+private fun ReplyBar(
+    sender: String,
+    replyText: String,
+    onReplyTextChange: (String) -> Unit,
+    viewModel: MessageDetailViewModel,
+    coroutineScope: CoroutineScope,
+) {
+    val context = LocalContext.current
+    HorizontalDivider(color = Surface)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .weight(1f)
+                    .background(Surface, RoundedCornerShape(22.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .background(Surface, RoundedCornerShape(22.dp))
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-            ) {
-                BasicTextField(
-                    value = replyText,
-                    onValueChange = { replyText = it },
-                    textStyle = TextStyle(color = White, fontSize = 14.sp),
-                    cursorBrush = SolidColor(Indigo),
-                    modifier = Modifier.fillMaxWidth(),
-                    decorationBox = { inner ->
-                        if (replyText.isEmpty()) {
-                            Text("Message", color = TextSecondary, fontSize = 14.sp)
-                        }
-                        inner()
-                    },
-                )
-            }
-            Box(
-                modifier =
-                    Modifier
-                        .size(44.dp)
-                        .background(if (replyText.isNotEmpty()) Indigo else Surface, CircleShape)
-                        .clickable {
-                            val body = replyText.trim()
-                            if (body.isEmpty()) return@clickable
+            BasicTextField(
+                value = replyText,
+                onValueChange = onReplyTextChange,
+                textStyle = TextStyle(color = White, fontSize = 14.sp),
+                cursorBrush = SolidColor(Indigo),
+                modifier = Modifier.fillMaxWidth(),
+                decorationBox = { inner ->
+                    if (replyText.isEmpty()) {
+                        Text("Message", color = TextSecondary, fontSize = 14.sp)
+                    }
+                    inner()
+                },
+            )
+        }
+        Box(
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(if (replyText.isNotEmpty()) Indigo else Surface, CircleShape)
+                    .clickable {
+                        val body = replyText.trim()
+                        if (body.isEmpty()) return@clickable
+                        val repo = SmsRepository(context)
+                        coroutineScope.launch {
                             try {
                                 // Record as Outbox and clear the box immediately — the new
                                 // bubble shows a "Sending…" state right away instead of
                                 // waiting on the network round trip for anything to appear.
-                                val repo = SmsRepository(context)
-                                val outboxId = repo.insertOutgoingMessage(sender, body)
+                                // insertOutgoingMessage is a blocking ContentResolver call,
+                                // so it runs on IO rather than this composable's Main-backed
+                                // coroutine scope.
+                                val outboxId = withContext(Dispatchers.IO) { repo.insertOutgoingMessage(sender, body) }
                                 viewModel.clearDraft()
-                                replyText = ""
+                                onReplyTextChange("")
                                 viewModel.loadConversation(sender)
                                 SmsSender.send(context, sender, body) { success, error ->
                                     if (outboxId != null) {
-                                        repo.updateMessageType(
-                                            outboxId,
-                                            if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
-                                        )
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            repo.updateMessageType(
+                                                outboxId,
+                                                if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
+                                            )
+                                        }
                                     }
                                     if (!success) {
                                         Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
@@ -571,16 +644,36 @@ fun MessageDetailScreen(
                                 Log.e("MessageDetailScreen", "Failed to send reply", e)
                                 Toast.makeText(context, "Failed to send", Toast.LENGTH_SHORT).show()
                             }
-                        },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Send",
-                    tint = if (replyText.isNotEmpty()) White else TextSecondary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+                        }
+                    },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Send",
+                tint = if (replyText.isNotEmpty()) White else TextSecondary,
+                modifier = Modifier.size(20.dp),
+            )
         }
+    }
+}
+
+@Composable
+private fun UnreachableSenderNotice(sender: String) {
+    HorizontalDivider(color = Surface)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            "Can't reply to $sender — this sender doesn't accept text replies.",
+            color = TextSecondary,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+        )
     }
 }

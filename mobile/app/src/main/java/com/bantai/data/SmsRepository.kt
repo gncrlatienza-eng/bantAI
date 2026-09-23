@@ -17,6 +17,12 @@ import kotlinx.coroutines.runBlocking
 
 private const val TAG = "SmsRepository"
 
+// SQLite's default host-parameter cap is ~999; chunking a batch IN (...) query/
+// delete keeps every call well under that regardless of how many ids are passed.
+private const val SQLITE_IN_CLAUSE_CHUNK_SIZE = 900
+
+private fun <T> Collection<T>.chunkedForSqliteIn(): List<List<T>> = toList().chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE)
+
 class SmsRepository(
     private val context: Context,
 ) {
@@ -48,10 +54,16 @@ class SmsRepository(
         }
     }
 
-    // All read methods below are only ever called from a Dispatchers.IO coroutine
-    // (every ViewModel in this app loads via viewModelScope.launch(Dispatchers.IO)),
-    // so a single blocking DataStore read per query here is cheap and safe — it
-    // avoids making every read method in this class suspend just for this lookup.
+    // Called by getInboxMessages, getMessageById, getConversationBySender,
+    // getMessagesByIds, and getInboxMessagesByPeriod -- every one of them is only
+    // ever invoked from a Dispatchers.IO coroutine (every ViewModel in this app
+    // loads via viewModelScope.launch(Dispatchers.IO) or withContext(Dispatchers.IO)),
+    // so a single blocking DataStore read per query here is cheap and safe -- it
+    // avoids making all five of those methods suspend just for this lookup.
+    // IMPORTANT: calling any of those five methods from Dispatchers.Main will
+    // deadlock (runBlocking on the main thread blocks the very thread the
+    // underlying coroutine needs to resume on) -- this is a real, load-bearing
+    // invariant, not a stylistic preference.
     private fun storedClassifications(): Map<Long, String> =
         try {
             runBlocking { classificationStore.classifications.first() }
@@ -329,64 +341,81 @@ class SmsRepository(
 
     // Backs the Recently Deleted view — queries the full table (not just Inbox) since
     // a soft-deleted conversation can include the user's own outgoing replies too.
+    private fun queryMessagesChunk(
+        chunk: List<Long>,
+        stored: Map<Long, String>,
+    ): List<SmsMessage> {
+        val messages = mutableListOf<SmsMessage>()
+        val placeholders = chunk.joinToString(",") { "?" }
+        val cursor =
+            context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE),
+                "${Telephony.Sms._ID} IN ($placeholders)",
+                chunk.map { it.toString() }.toTypedArray(),
+                "${Telephony.Sms.DATE} DESC",
+            )
+        cursor?.use {
+            val idCol = it.getColumnIndexOrThrow(Telephony.Sms._ID)
+            val addressCol = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+            val bodyCol = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
+            val dateCol = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
+            val typeCol = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
+            while (it.moveToNext()) {
+                val id = it.getLong(idCol)
+                val sender = it.getString(addressCol) ?: "Unknown"
+                val body = it.getString(bodyCol) ?: ""
+                val isOutgoing = it.getInt(typeCol) != Telephony.Sms.MESSAGE_TYPE_INBOX
+                messages.add(
+                    SmsMessage(
+                        id = id,
+                        sender = sender,
+                        body = body,
+                        timestamp = it.getLong(dateCol),
+                        classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
+                        isOutgoing = isOutgoing,
+                    ),
+                )
+            }
+        }
+        return messages
+    }
+
     fun getMessagesByIds(ids: Set<Long>): List<SmsMessage> {
         if (!hasReadSmsPermission() || ids.isEmpty()) return emptyList()
         val messages = mutableListOf<SmsMessage>()
         val stored = storedClassifications()
         try {
-            val placeholders = ids.joinToString(",") { "?" }
-            val cursor =
-                context.contentResolver.query(
-                    Telephony.Sms.CONTENT_URI,
-                    arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE),
-                    "${Telephony.Sms._ID} IN ($placeholders)",
-                    ids.map { it.toString() }.toTypedArray(),
-                    "${Telephony.Sms.DATE} DESC",
-                )
-            cursor?.use {
-                val idCol = it.getColumnIndexOrThrow(Telephony.Sms._ID)
-                val addressCol = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-                val bodyCol = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-                val dateCol = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-                val typeCol = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
-                while (it.moveToNext()) {
-                    val id = it.getLong(idCol)
-                    val sender = it.getString(addressCol) ?: "Unknown"
-                    val body = it.getString(bodyCol) ?: ""
-                    val isOutgoing = it.getInt(typeCol) != Telephony.Sms.MESSAGE_TYPE_INBOX
-                    messages.add(
-                        SmsMessage(
-                            id = id,
-                            sender = sender,
-                            body = body,
-                            timestamp = it.getLong(dateCol),
-                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
-                            isOutgoing = isOutgoing,
-                        ),
-                    )
-                }
+            for (chunk in ids.chunkedForSqliteIn()) {
+                messages.addAll(queryMessagesChunk(chunk, stored))
             }
         } catch (e: Exception) {
             Log.e(TAG, "SMS provider query failed", e)
         }
-        return messages
+        // Each chunk is independently ordered by DATE DESC; re-sort across chunks
+        // so a caller passing >900 ids still gets one globally-ordered result.
+        return messages.sortedByDescending { it.timestamp }
     }
 
     // Real, irreversible deletion from the phone's actual SMS database. Only the
     // default SMS app may call this at all — the OS silently deletes 0 rows otherwise.
     fun deletePermanently(ids: Collection<Long>): Int {
         if (ids.isEmpty()) return 0
-        return try {
-            val placeholders = ids.joinToString(",") { "?" }
-            context.contentResolver.delete(
-                Telephony.Sms.CONTENT_URI,
-                "${Telephony.Sms._ID} IN ($placeholders)",
-                ids.map { it.toString() }.toTypedArray(),
-            )
+        var deleted = 0
+        try {
+            for (chunk in ids.chunkedForSqliteIn()) {
+                val placeholders = chunk.joinToString(",") { "?" }
+                deleted +=
+                    context.contentResolver.delete(
+                        Telephony.Sms.CONTENT_URI,
+                        "${Telephony.Sms._ID} IN ($placeholders)",
+                        chunk.map { it.toString() }.toTypedArray(),
+                    )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Permanent delete failed", e)
-            0
         }
+        return deleted
     }
 
     fun getStartTimestamp(period: String): Long {

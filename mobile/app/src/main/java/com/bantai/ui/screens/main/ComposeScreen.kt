@@ -35,6 +35,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,7 +59,11 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsSender
+import com.bantai.util.isValidSmsRecipient
 import com.bantai.viewmodel.ComposeViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ComposeScreen(
@@ -68,6 +73,7 @@ fun ComposeScreen(
     viewModel: ComposeViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var recipient by remember { mutableStateOf(initialRecipient) }
     var messageBody by remember { mutableStateOf(initialBody) }
     var isSending by remember { mutableStateOf(false) }
@@ -111,23 +117,6 @@ fun ComposeScreen(
             }
         }
 
-    // Accept E.164 (+[1-15 digits]) or local all-digit numbers (7-15 digits).
-    // Rejects alphanumeric sender IDs (which are receive-only) and short codes
-    // below 7 digits to prevent accidental sends to premium-rate services.
-    //
-    // Intentionally separate from OnboardingViewModel's normalizePhone: signup
-    // requires a real PH mobile line to receive an OTP, so it validates and
-    // rewrites to +63 form. Compose just needs "is this a plausible SMS-capable
-    // recipient" for any number, PH or not — don't merge the two.
-    fun isValidRecipient(number: String): Boolean {
-        val cleaned = number.replace(Regex("[\\s\\-()]"), "")
-        if (cleaned.startsWith("+")) {
-            val digits = cleaned.drop(1)
-            return digits.all { it.isDigit() } && digits.length in 7..15
-        }
-        return cleaned.all { it.isDigit() } && cleaned.length in 7..15
-    }
-
     fun sendMessage() {
         val to = recipient.trim().replace(Regex("[\\s\\-()]"), "")
         val body = messageBody.trim()
@@ -135,7 +124,7 @@ fun ComposeScreen(
             Toast.makeText(context, "Enter a recipient", Toast.LENGTH_SHORT).show()
             return
         }
-        if (!isValidRecipient(to)) {
+        if (!isValidSmsRecipient(to)) {
             Toast.makeText(context, "Enter a valid phone number", Toast.LENGTH_SHORT).show()
             return
         }
@@ -144,36 +133,42 @@ fun ComposeScreen(
             return
         }
         isSending = true
-        try {
-            // Record it as Outbox and jump into the thread immediately — like a
-            // normal messaging app, the message shows right away with a "Sending…"
-            // state instead of the UI just sitting there through the network round trip.
-            val repo = SmsRepository(context)
-            val outboxId = repo.insertOutgoingMessage(to, body)
-            viewModel.clearDraft(to)
-            justSent = true
-            isSending = false
-            navController.navigate(Screen.Detail.createRoute(to)) {
-                popUpTo(Screen.Compose.route) { inclusive = true }
-            }
-            SmsSender.send(context, to, body) { success, error ->
-                if (outboxId != null) {
-                    repo.updateMessageType(
-                        outboxId,
-                        if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
-                    )
+        val repo = SmsRepository(context)
+        coroutineScope.launch {
+            try {
+                // Record it as Outbox and jump into the thread immediately — like a
+                // normal messaging app, the message shows right away with a "Sending…"
+                // state instead of the UI just sitting there through the network round
+                // trip. insertOutgoingMessage is a blocking ContentResolver call, so it
+                // runs on IO rather than this composable's Main-backed coroutine scope.
+                val outboxId = withContext(Dispatchers.IO) { repo.insertOutgoingMessage(to, body) }
+                viewModel.clearDraft(to)
+                justSent = true
+                isSending = false
+                navController.navigate(Screen.Detail.createRoute(to)) {
+                    popUpTo(Screen.Compose.route) { inclusive = true }
                 }
-                if (!success) {
-                    Log.w("ComposeScreen", "Send failed: $error")
-                    // Real-time, not just the in-thread indicator — the result can
-                    // resolve well after the user has moved past this screen.
-                    NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))
+                SmsSender.send(context, to, body) { success, error ->
+                    if (outboxId != null) {
+                        coroutineScope.launch(Dispatchers.IO) {
+                            repo.updateMessageType(
+                                outboxId,
+                                if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
+                            )
+                        }
+                    }
+                    if (!success) {
+                        Log.w("ComposeScreen", "Send failed: $error")
+                        // Real-time, not just the in-thread indicator — the result can
+                        // resolve well after the user has moved past this screen.
+                        NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("ComposeScreen", "Failed to send message", e)
+                Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
+                isSending = false
             }
-        } catch (e: Exception) {
-            Log.e("ComposeScreen", "Failed to send message", e)
-            Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
-            isSending = false
         }
     }
 

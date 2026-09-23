@@ -39,11 +39,17 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.White
 
 /**
- * @param summary Real TF-IDF extractive summary of the thread (WBS 4.3.9/4.3.11,
- *   `POST /ai/summarize`), oldest-sentence-first. Null while loading; blank is a
- *   legitimate "nothing worth extracting" result, not an error — falls back to
- *   generic verdict-based guidance rather than an empty sheet.
- * @param isLoadingSummary True while the summarize call is in flight.
+ * @param summary Summary text shown for this thread. `SummarizeApi`/`POST
+ *   /ai/summarize` (WBS 4.3.9/4.3.11) exist and are fully implemented
+ *   backend-to-mobile, but MessageDetailScreen -- the only current caller of
+ *   this sheet -- doesn't call them: it always passes a static "summarization
+ *   is disabled to keep SMS content on your device" string instead. This
+ *   param and [isLoadingSummary] are kept generic (not "isn't wired to the
+ *   real summarizer yet" specific) so a future caller that actually does call
+ *   SummarizeApi doesn't need this doc corrected again. Null while loading;
+ *   blank is a legitimate "nothing worth extracting" result, not an error --
+ *   falls back to generic verdict-based guidance rather than an empty sheet.
+ * @param isLoadingSummary True while the summary is being produced.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

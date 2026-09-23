@@ -9,6 +9,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsRepository
+import com.bantai.data.local.BackendMessageIdStore
+import com.bantai.data.local.ClassificationStore
 import com.bantai.data.local.DeletedMessagesStore
 import com.bantai.data.local.DraftsStore
 import com.bantai.data.local.UserPreferences
@@ -45,6 +47,8 @@ class MessagesViewModel(
     private val userPreferences = UserPreferences(application)
     private val deletedMessagesStore = DeletedMessagesStore(application)
     private val draftsStore = DraftsStore(application)
+    private val classificationStore = ClassificationStore(application)
+    private val backendMessageIdStore = BackendMessageIdStore(application)
 
     private val allMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
 
@@ -399,6 +403,12 @@ class MessagesViewModel(
             val ids = expandDeletedSelectionToSenders(selectedRows)
             smsRepository.deletePermanently(ids)
             deletedMessagesStore.clear(ids)
+            // The row is gone from the SMS provider for good -- its cached
+            // classification and backend-message-id mapping are meaningless
+            // now and would otherwise sit in these stores forever (a real SMS
+            // row id is never reused, so nothing will ever look them up again).
+            classificationStore.remove(ids)
+            backendMessageIdStore.remove(ids)
             exitSelectionMode()
             loadMessages()
         }

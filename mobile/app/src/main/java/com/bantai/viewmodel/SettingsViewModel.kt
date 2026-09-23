@@ -4,10 +4,15 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.local.BackendMessageIdStore
+import com.bantai.data.local.ClassificationStore
+import com.bantai.data.local.DeletedMessagesStore
+import com.bantai.data.local.DraftsStore
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.AuthApi
 import com.bantai.data.remote.SmsApi
+import com.bantai.data.remote.toUserMessage
 import com.bantai.util.OnnxBenchmark
 import com.bantai.util.isValidName
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +44,12 @@ class SettingsViewModel(
 
     private val _profileSaved = MutableStateFlow(false)
     val profileSaved: StateFlow<Boolean> = _profileSaved.asStateFlow()
+
+    // Guards saveProfile() against double-submit: without this, rapid double-taps
+    // on Save launched concurrent saves whose network responses could land out of
+    // order and overwrite a correct success/failure state with a stale one.
+    private val _profileSaving = MutableStateFlow(false)
+    val profileSaving: StateFlow<Boolean> = _profileSaving.asStateFlow()
 
     // Surfaced when the local save succeeds but syncing the change to the
     // backend fails -- without this, a failed sync looked identical to a
@@ -162,7 +173,9 @@ class SettingsViewModel(
             _lastNameError.value = "Name should only contain letters"
             return
         }
+        if (_profileSaving.value) return
         _profileSyncError.value = null
+        _profileSaving.value = true
         viewModelScope.launch {
             userPreferences.saveProfile(
                 firstName = trimmedFirst,
@@ -176,6 +189,7 @@ class SettingsViewModel(
             val token = userPreferences.userData.first().authToken
             if (token.isEmpty()) {
                 _profileSaved.value = true
+                _profileSaving.value = false
                 onSuccess()
                 return@launch
             }
@@ -183,10 +197,12 @@ class SettingsViewModel(
                 .updateProfile(token, trimmedFirst, trimmedLast)
                 .onSuccess {
                     _profileSaved.value = true
+                    _profileSaving.value = false
                     onSuccess()
                 }.onFailure { error ->
                     _profileSyncError.value =
-                        error.message ?: "Saved on this device, but couldn't sync to the server."
+                        error.toUserMessage("Saved on this device, but couldn't sync to the server.")
+                    _profileSaving.value = false
                 }
         }
     }
@@ -235,6 +251,16 @@ class SettingsViewModel(
     fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
             userPreferences.clearAll()
+            // Per-message local stores are keyed by device SMS provider row id,
+            // not by account -- without this, whatever the previous account had
+            // classified/soft-deleted/drafted stays attached to the same local
+            // ids and silently reappears (wrong classifications, "deleted"
+            // messages back in the inbox, stale reply drafts) for the next
+            // account that signs in on this device.
+            ClassificationStore(getApplication()).clear()
+            DeletedMessagesStore(getApplication()).clearAll()
+            DraftsStore(getApplication()).clearAll()
+            BackendMessageIdStore(getApplication()).clear()
             onComplete()
         }
     }

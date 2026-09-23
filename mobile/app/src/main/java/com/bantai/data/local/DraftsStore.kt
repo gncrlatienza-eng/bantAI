@@ -70,6 +70,14 @@ class DraftsStore(
         }
     }
 
+    /**
+     * Full wipe -- used on sign-out so the next account on this device
+     * doesn't inherit the previous one's unsent drafts.
+     */
+    suspend fun clearAll() {
+        context.draftsDataStore.edit { it.clear() }
+    }
+
     private fun parseEntries(json: String): List<DraftEntry> =
         try {
             val array = JSONArray(json)

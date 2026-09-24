@@ -16,7 +16,8 @@ import { AccessRequestsService } from './access-requests.service';
 import { CreateAccessRequestDto } from './dto/create-access-request.dto';
 import { DeclineAccessRequestDto } from './dto/decide-access-request.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 /*
  * Public + admin surface for the licensing workflow.
@@ -51,21 +52,24 @@ export class AccessRequestsController {
   }
 
   @SkipThrottle()
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('access_requests:manage')
   @Get('admin/access-requests')
   list(@Query('status') status?: AccessRequestStatus) {
     return this.svc.list({ status });
   }
 
   @SkipThrottle()
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('access_requests:manage')
   @Get('admin/access-requests/:id')
   read(@Param('id') id: string) {
     return this.svc.getForAdmin(id);
   }
 
   @SkipThrottle()
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('access_requests:manage')
   @Post('admin/access-requests/:id/approve')
   approve(
     @Param('id') id: string,
@@ -75,7 +79,8 @@ export class AccessRequestsController {
   }
 
   @SkipThrottle()
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('access_requests:manage')
   @Post('admin/access-requests/:id/decline')
   decline(
     @Param('id') id: string,

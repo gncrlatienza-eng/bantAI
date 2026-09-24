@@ -7,6 +7,7 @@ import {
   type ApprovedAccessRequest,
   type BillingPeriod,
 } from '../../services/authService';
+import { CommerceDisclosuresCard } from '../../components/common/CommerceDisclosuresCard';
 import './licensing.css';
 
 /*
@@ -36,6 +37,7 @@ export function CheckoutConfirmationPage() {
   const [record, setRecord] = useState<ApprovedAccessRequest | null>(null);
   const [loadError, setLoadError] = useState<string | undefined>();
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('ANNUAL');
+  const [agreed, setAgreed] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
@@ -183,6 +185,14 @@ export function CheckoutConfirmationPage() {
           </label>
         </fieldset>
 
+        <CommerceDisclosuresCard
+          tier={record.tier as 'RESEARCH' | 'ORGANIZATION'}
+          billingPeriod={billingPeriod}
+          showAgreeCheckbox={true}
+          agreed={agreed}
+          onAgreeChange={setAgreed}
+        />
+
         {checkoutError && (
           <div
             className="bantai-auth-card__form-error"
@@ -198,15 +208,15 @@ export function CheckoutConfirmationPage() {
             type="button"
             className="bantai-auth-card__primary"
             onClick={() => void handleContinue()}
-            disabled={loading}
-            aria-disabled={loading}
+            disabled={loading || !agreed}
+            aria-disabled={loading || !agreed}
           >
             {loading ? 'Opening secure payment…' : 'Continue to secure payment'}
           </button>
           <p className="licensing-form__actions-helper">
-            Payment is processed by Stripe. You will return to BantAI after
-            checkout. Your license activates only after Stripe confirms the
-            payment — not simply because your browser reaches a success URL.
+            Payment is securely processed by Stripe. Your subscription will
+            renew automatically according to the selected billing period until
+            cancelled. You may cancel at any time.
           </p>
         </div>
 

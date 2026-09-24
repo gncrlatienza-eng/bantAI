@@ -61,12 +61,13 @@ export function AuthLayout({ children, decor = 'network' }: AuthLayoutProps) {
 
       <footer className="bantai-auth-layout__footer">
         <span className="bantai-auth-layout__copy">
-          © {new Date().getFullYear()} BantAI thesis project
+          © {new Date().getFullYear()} BantAI threat intelligence research
         </span>
         <nav aria-label="Auth utility" className="bantai-auth-layout__utils">
-          <a href="/#about">Privacy</a>
-          <a href="/#about">Security</a>
-          <a href="/#how-it-works">Help</a>
+          <Link to="/legal?tab=privacy">Privacy (v1.0)</Link>
+          <Link to="/legal?tab=terms">Terms (v1.0)</Link>
+          <Link to="/legal?tab=license">Licensing</Link>
+          <Link to="/legal?tab=redress">DPO / Redress</Link>
         </nav>
       </footer>
     </div>

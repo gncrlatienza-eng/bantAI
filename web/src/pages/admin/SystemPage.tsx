@@ -9,7 +9,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
 import {
   Button,
   EmptyState,
@@ -18,12 +17,6 @@ import {
   LoadingState,
   Metric,
   MetricRow,
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavReportsIcon,
-  NavUsersIcon,
-  NavModelIcon,
-  NavSystemIcon,
   StatusBadge,
   Tabs,
   type StatusKind,
@@ -36,36 +29,7 @@ import {
   type ReadinessStatus,
 } from '../../services/healthService';
 import { logout } from '../../services/authService';
-
-const SIDEBAR_GROUPS: NavGroupDef[] = [
-  {
-    label: 'Overview',
-    items: [
-      { label: 'Overview', path: '/admin/overview', icon: <NavOverviewIcon /> },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      {
-        label: 'Campaigns',
-        path: '/admin/campaigns',
-        icon: <NavCampaignsIcon />,
-      },
-      { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
-      { label: 'Reports', path: '/admin/reports', icon: <NavReportsIcon /> },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      { label: 'Users', path: '/admin/users', icon: <NavUsersIcon /> },
-      { label: 'Tips', path: '/admin/tips', icon: <NavReportsIcon /> },
-      { label: 'System', path: '/admin/system', icon: <NavSystemIcon /> },
-      { label: 'Settings', path: '/admin/settings', icon: <NavSystemIcon /> },
-    ],
-  },
-];
+import { useAdminNavGroups } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -220,6 +184,7 @@ export function SystemPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navGroups = useAdminNavGroups();
 
   const activeTab = useMemo(() => {
     const t = searchParams.get('tab') ?? 'server';
@@ -236,7 +201,7 @@ export function SystemPage() {
   return (
     <AppShell
       role="admin"
-      groups={SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={

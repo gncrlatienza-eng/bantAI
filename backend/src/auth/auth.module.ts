@@ -6,8 +6,10 @@ import { PrismaModule } from '../../database/prisma.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
+import { OtpEmailService } from './otp-email.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AdminGuard } from './guards/admin.guard';
+import { StaffGuard } from './guards/staff.guard';
 import { jwtConstants } from './constants';
 
 /*
@@ -36,7 +38,14 @@ import { jwtConstants } from './constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpSmsService, JwtStrategy, AdminGuard],
-  exports: [JwtModule, PassportModule, AdminGuard],
+  providers: [
+    AuthService,
+    OtpSmsService,
+    OtpEmailService,
+    JwtStrategy,
+    AdminGuard,
+    StaffGuard,
+  ],
+  exports: [JwtModule, PassportModule, AdminGuard, StaffGuard],
 })
 export class AuthModule {}

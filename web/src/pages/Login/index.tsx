@@ -1,25 +1,14 @@
 import React from 'react';
-import { AuthLayout } from '../../components/appshell/AuthLayout';
-import { LoginForm } from '../../components/forms/LoginForm';
+import { ClientLoginPage } from './ClientLoginPage';
+
+export { ClientLoginPage } from './ClientLoginPage';
+export { AdminLoginPage } from './AdminLoginPage';
 
 /*
- * LoginPage — single unified sign-in surface. No admin/client toggle,
- * no account creation. The backend determines the destination after
- * authentication.
+ * Default export routes to ClientLoginPage for general sign-in.
  */
 export const LoginPage: React.FC = () => {
-  return (
-    <AuthLayout>
-      <div className="bantai-auth-card">
-        <p className="bantai-auth-card__eyebrow">Sign in</p>
-        <h1 className="bantai-auth-card__title">Welcome back</h1>
-        <p className="bantai-auth-card__subtitle">
-          Sign in to continue to BantAI.
-        </p>
-        <LoginForm />
-      </div>
-    </AuthLayout>
-  );
+  return <ClientLoginPage />;
 };
 
 export default LoginPage;

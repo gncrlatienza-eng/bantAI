@@ -49,11 +49,11 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
       }
     >
       <PageHeader
-        title={notifications ? 'Notifications' : 'Account settings'}
+        title={notifications ? 'Notifications' : 'Workspace settings'}
         description={
           notifications
             ? 'Notification preferences will live here once the backend endpoint is available.'
-            : 'Manage your account profile. Phone and role are managed by the backend and shown read-only.'
+            : 'Manage your workspace profile. Workspace name, membership role, license tier, and account status are shown below.'
         }
       />
       {notifications ? (
@@ -65,7 +65,7 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
           }
         />
       ) : (
-        <ProfileForm />
+        <ProfileForm role="client" />
       )}
     </AppShell>
   );

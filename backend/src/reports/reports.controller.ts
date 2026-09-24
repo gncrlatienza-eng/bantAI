@@ -11,8 +11,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { ReviewReportDto } from './dto/review-report.dto';
 import { SubmitReportDto } from './dto/submit-report.dto';
 import { ReportsService } from './reports.service';
@@ -33,21 +34,24 @@ export class ReportsController {
   }
 
   // Admin: list all reports.
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:read')
   @Get()
   findAll() {
     return this.reportsService.findAll();
   }
 
   // Admin: list only Pending reports.
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:read')
   @Get('pending')
   findPending() {
     return this.reportsService.findPending();
   }
 
   // Admin: validate a report — accepts it into the training set.
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/validate')
   validate(@Param('id') id: string, @Body() dto: ReviewReportDto) {
@@ -55,7 +59,8 @@ export class ReportsController {
   }
 
   // Admin: reject a report — discards it from the training set.
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/reject')
   reject(@Param('id') id: string, @Body() dto: ReviewReportDto) {

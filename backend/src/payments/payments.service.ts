@@ -118,7 +118,7 @@ export class PaymentsService {
 
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
+        const session = event.data.object;
         if (
           session.payment_status !== 'paid' &&
           session.status !== 'complete'

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   adminAuthenticateStaff,
   adminVerifyMfa,
-  requestOtp,
+  requestStaffMfa,
   logout,
   type CurrentUser,
 } from '../../services/authService';
@@ -25,6 +25,7 @@ export const AdminLoginForm: React.FC = () => {
 
   // Step 2: MFA state
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials');
+  const [staffEmail, setStaffEmail] = useState('');
   const [staffUser, setStaffUser] = useState<CurrentUser | null>(null);
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
   const [mfaError, setMfaError] = useState<string | null>(null);
@@ -54,8 +55,9 @@ export const AdminLoginForm: React.FC = () => {
 
     setLoading(true);
     try {
-      const { user } = await adminAuthenticateStaff(trimmedEmail, password);
-      setStaffUser(user);
+      const authResult = await adminAuthenticateStaff(trimmedEmail, password);
+      setStaffEmail(authResult.email || trimmedEmail);
+      if (authResult.user) setStaffUser(authResult.user);
       setStep('mfa');
       resetTimer(300);
     } catch (err) {
@@ -103,16 +105,23 @@ export const AdminLoginForm: React.FC = () => {
   };
 
   const handleResendMfa = async () => {
-    if (!staffUser?.phone) {
-      setMfaError('No MFA device registered for this staff account.');
+    const targetEmail = staffEmail || email.trim();
+    if (!targetEmail) {
+      setMfaError('No staff email registered for MFA.');
       return;
     }
     try {
-      await requestOtp(staffUser.phone);
+      await requestStaffMfa(targetEmail);
       resetTimer(300);
-      setResendNotice('A new verification code has been dispatched.');
-    } catch {
-      setMfaError('Could not resend MFA verification code.');
+      setResendNotice(
+        'A new verification code has been dispatched to your email.',
+      );
+    } catch (err) {
+      setMfaError(
+        err instanceof Error
+          ? err.message
+          : 'Could not resend MFA verification code.',
+      );
     }
   };
 
@@ -128,7 +137,8 @@ export const AdminLoginForm: React.FC = () => {
     setLoading(true);
     setMfaError(null);
     try {
-      await adminVerifyMfa(staffUser?.phone || '', fullCode);
+      const targetEmail = staffEmail || email.trim();
+      await adminVerifyMfa(targetEmail, fullCode);
       void navigate('/admin/overview');
     } catch (err) {
       setMfaError(
@@ -165,9 +175,9 @@ export const AdminLoginForm: React.FC = () => {
           >
             Staff MFA challenge for{' '}
             <strong style={{ color: 'var(--text-primary)' }}>
-              {staffUser?.email || email}
+              {staffEmail || staffUser?.email || email}
             </strong>
-            . Enter the 6-digit security code.
+            . Enter the 6-digit security code sent to your Gmail/work email.
           </p>
           <div
             style={{

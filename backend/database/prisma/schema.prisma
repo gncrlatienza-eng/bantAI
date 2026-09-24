@@ -127,7 +127,8 @@ model Contact {
 model OtpCode {
   id         String   @id @default(uuid())
 
-  phone      String   @unique
+  phone      String?  @unique
+  email      String?  @unique
   codeHash   String
 
   expiresAt  DateTime
@@ -139,6 +140,7 @@ model OtpCode {
   createdAt  DateTime @default(now())
 
   @@index([phone, verified, createdAt])
+  @@index([email, verified, createdAt])
 }
 
 model SmsMessage {

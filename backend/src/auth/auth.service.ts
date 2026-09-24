@@ -20,6 +20,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { OtpSmsService } from './otp-sms.service';
+import { OtpEmailService } from './otp-email.service';
 import { normalizePhilippineMobile } from './phone';
 import { LoginDto } from './dto/login.dto';
 import { PortalRegisterDto } from './dto/portal-register.dto';
@@ -41,6 +42,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private otpSmsService: OtpSmsService,
+    private otpEmailService: OtpEmailService,
   ) {}
 
   register(dto: RegisterDto) {
@@ -129,6 +131,13 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
+    if (user.role === 'ADMIN') {
+      return {
+        message: 'MFA verification required.',
+        requiresMfa: true,
+        email: user.email,
+      };
+    }
     return this.issueToken(user.id, user.role, user.staffRole);
   }
 
@@ -150,15 +159,94 @@ export class AuthService {
   }
 
   async requestOtp(dto: RequestOtpDto) {
-    const phone = this.requirePhone(dto.phone);
-    // crypto.randomInt is cryptographically secure; Math.random() is not
+    if (dto.email) {
+      return this.requestEmailOtp(dto.email);
+    }
+    if (dto.phone) {
+      return this.requestPhoneOtp(dto.phone);
+    }
+    throw new BadRequestException('Either phone or email must be provided.');
+  }
+
+  private async requestEmailOtp(rawEmail: string) {
+    const email = rawEmail.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.role !== 'ADMIN') {
+      throw new UnauthorizedException(
+        'Staff account not found or unauthorized.',
+      );
+    }
+
+    const otp = randomInt(100_000, 1_000_000).toString();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
+    const codeHash = this.hashOtp(email, otp);
+
+    await this.withSerializationRetry(async () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.otpCode.findUnique({ where: { email } });
+          const inWindow =
+            existing &&
+            now.getTime() - existing.requestWindowStart.getTime() <
+              OTP_WINDOW_MS;
+          const requestCount = inWindow ? existing.requestCount + 1 : 1;
+          if (requestCount > OTP_MAX_REQUESTS_PER_WINDOW) {
+            throw new HttpException(
+              'Too many OTP requests. Try again later.',
+              HttpStatus.TOO_MANY_REQUESTS,
+            );
+          }
+          await tx.otpCode.upsert({
+            where: { email },
+            create: {
+              email,
+              codeHash,
+              expiresAt,
+              requestCount: 1,
+              requestWindowStart: now,
+            },
+            update: {
+              codeHash,
+              expiresAt,
+              verified: false,
+              attempts: 0,
+              requestCount,
+              requestWindowStart: inWindow ? existing.requestWindowStart : now,
+            },
+          });
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
+
+    try {
+      await this.otpEmailService.send(email, otp);
+    } catch {
+      await this.prisma.otpCode.updateMany({
+        where: { email, codeHash, verified: false },
+        data: { verified: true },
+      });
+      this.logger.warn(
+        `Staff email OTP delivery failed for ${this.redactEmail(email)}`,
+      );
+      throw new ServiceUnavailableException(
+        'OTP delivery is temporarily unavailable.',
+      );
+    }
+
+    return {
+      message: 'OTP generated successfully.',
+    };
+  }
+
+  private async requestPhoneOtp(rawPhone: string) {
+    const phone = this.requirePhone(rawPhone);
     const otp = randomInt(100_000, 1_000_000).toString();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
     const codeHash = this.hashOtp(phone, otp);
 
-    // A serializable transaction and one row per phone make replacement of the
-    // active challenge atomic under concurrent requests.
     await this.withSerializationRetry(async () =>
       this.prisma.$transaction(
         async (tx) => {
@@ -200,7 +288,6 @@ export class AuthService {
     try {
       await this.otpSmsService.send(phone, otp);
     } catch {
-      // An undelivered code must never remain usable.
       await this.prisma.otpCode.updateMany({
         where: { phone, codeHash, verified: false },
         data: { verified: true },
@@ -217,8 +304,83 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    const phone = this.requirePhone(dto.phone);
-    const codeHash = this.hashOtp(phone, dto.otp);
+    if (dto.email) {
+      return this.verifyEmailOtp(dto.email, dto.otp);
+    }
+    if (dto.phone) {
+      return this.verifyPhoneOtp(dto.phone, dto.otp);
+    }
+    throw new BadRequestException('Either phone or email must be provided.');
+  }
+
+  private async verifyEmailOtp(rawEmail: string, otp: string) {
+    const email = rawEmail.trim().toLowerCase();
+    const codeHash = this.hashOtp(email, otp);
+    const now = new Date();
+    const result = await this.withSerializationRetry(async () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const challenge = await tx.otpCode.findUnique({ where: { email } });
+          const valid =
+            challenge &&
+            !challenge.verified &&
+            challenge.expiresAt > now &&
+            challenge.attempts < OTP_MAX_ATTEMPTS &&
+            this.hashesMatch(challenge.codeHash, codeHash);
+
+          if (!valid) {
+            if (
+              challenge &&
+              !challenge.verified &&
+              challenge.attempts < OTP_MAX_ATTEMPTS
+            ) {
+              await tx.otpCode.update({
+                where: { email },
+                data: { attempts: { increment: 1 } },
+              });
+            }
+            return null;
+          }
+
+          const consumed = await tx.otpCode.updateMany({
+            where: {
+              email,
+              codeHash,
+              verified: false,
+              expiresAt: { gt: now },
+              attempts: { lt: OTP_MAX_ATTEMPTS },
+            },
+            data: { verified: true },
+          });
+          if (consumed.count !== 1) {
+            throw new BadRequestException('Invalid or expired OTP.');
+          }
+
+          const user = await tx.user.findUnique({ where: { email } });
+          if (!user || user.role !== 'ADMIN') {
+            throw new UnauthorizedException(
+              'Administrator access is required.',
+            );
+          }
+
+          return user;
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
+
+    if (!result) throw new BadRequestException('Invalid or expired OTP.');
+
+    return this.issueToken(
+      result.id,
+      result.role,
+      (result as { staffRole?: StaffRole | null }).staffRole,
+    );
+  }
+
+  private async verifyPhoneOtp(rawPhone: string, otp: string) {
+    const phone = this.requirePhone(rawPhone);
+    const codeHash = this.hashOtp(phone, otp);
     const now = new Date();
     const result = await this.withSerializationRetry(async () =>
       this.prisma.$transaction(
@@ -242,8 +404,6 @@ export class AuthService {
                 data: { attempts: { increment: 1 } },
               });
             }
-            // Do not throw inside this transaction: that would roll back the
-            // durable attempt increment and make brute-force limits ineffective.
             return null;
           }
 
@@ -260,14 +420,6 @@ export class AuthService {
           if (consumed.count !== 1) {
             throw new BadRequestException('Invalid or expired OTP.');
           }
-          /*
-           * OTP-verified sign-in creates or updates the phone-owned user with
-           * the USER role. Admin promotion is no longer derived from the
-           * phone number - admin role is set on the User record directly
-           * (seed, migration, or a dedicated admin
-           * management endpoint). Do NOT overwrite an existing ADMIN role on
-           * successful OTP verify.
-           */
           return tx.user.upsert({
             where: { phone },
             create: { phone, role: 'USER' },
@@ -280,7 +432,6 @@ export class AuthService {
 
     if (!result) throw new BadRequestException('Invalid or expired OTP.');
 
-    // Minimal payload — no PII in the token; phone is fetched from DB when needed
     return this.issueToken(
       result.id,
       result.role,
@@ -351,6 +502,15 @@ export class AuthService {
 
   private redactPhone(phone: string): string {
     return `${phone.slice(0, 3)}****${phone.slice(-2)}`;
+  }
+
+  private redactEmail(email: string): string {
+    const parts = email.split('@');
+    if (parts.length !== 2) return '***';
+    const [name, domain] = parts;
+    const maskedName =
+      name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : '***';
+    return `${maskedName}@${domain}`;
   }
 
   /*

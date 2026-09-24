@@ -19,7 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string }) {
+  async validate(payload: { sub: string; mfaPending?: boolean }) {
+    if (payload.mfaPending) {
+      throw new UnauthorizedException('MFA verification required.');
+    }
     // Role and account existence are read on every protected request so an
     // administrator demotion/deletion revokes an already-issued JWT at once.
     const user = await this.prisma.user.findUnique({

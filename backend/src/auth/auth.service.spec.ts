@@ -3,12 +3,14 @@ import {
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
+import { OtpEmailService } from './otp-email.service';
 
 describe('AuthService', () => {
   const prisma = {
@@ -33,6 +35,7 @@ describe('AuthService', () => {
     $transaction: jest.fn(),
   };
   const sms = { send: jest.fn() };
+  const email = { send: jest.fn() };
   const jwt = { signAsync: jest.fn() };
   let service: AuthService;
 
@@ -46,6 +49,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: OtpSmsService, useValue: sms },
+        { provide: OtpEmailService, useValue: email },
         { provide: JwtService, useValue: jwt },
       ],
     }).compile();
@@ -169,6 +173,142 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.otpCode.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { attempts: { increment: 1 } } }),
+    );
+  });
+
+  it('requires MFA and does not issue an access token when an ADMIN logs in with password', async () => {
+    const passwordHash = await bcrypt.hash('staff-password', 10);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'admin-1',
+      email: 'staff@bantai.ph',
+      role: 'ADMIN',
+      passwordHash,
+    });
+
+    const res = await service.login({
+      email: 'staff@bantai.ph',
+      password: 'staff-password',
+    });
+
+    expect(res).toEqual({
+      message: 'MFA verification required.',
+      requiresMfa: true,
+      email: 'staff@bantai.ph',
+    });
+    expect(res).not.toHaveProperty('access_token');
+    expect(jwt.signAsync).not.toHaveBeenCalled();
+  });
+
+  it('fails closed and invalidates the code if OTP delivery fails', async () => {
+    const phone = '+639171234567';
+    prisma.otpCode.findUnique.mockResolvedValue(null);
+    prisma.otpCode.upsert.mockResolvedValue({});
+    prisma.otpCode.updateMany.mockResolvedValue({ count: 1 });
+    sms.send.mockRejectedValue(new Error('SMS Gateway Down'));
+
+    await expect(service.requestOtp({ phone: '09171234567' })).rejects.toThrow(
+      'OTP delivery is temporarily unavailable.',
+    );
+
+    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ phone, verified: false }),
+        data: { verified: true },
+      }),
+    );
+  });
+
+  it('dispatches staff MFA OTP via email and not SMS when requested with an email', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      email: 'staff@bantai.ph',
+      role: 'ADMIN',
+    });
+    prisma.otpCode.findUnique.mockResolvedValue(null);
+    prisma.otpCode.upsert.mockResolvedValue({});
+    email.send.mockResolvedValue(undefined);
+
+    const res = await service.requestOtp({ email: 'staff@bantai.ph' });
+
+    expect(res).toEqual({ message: 'OTP generated successfully.' });
+    expect(email.send).toHaveBeenCalledWith(
+      'staff@bantai.ph',
+      expect.any(String),
+    );
+    expect(sms.send).not.toHaveBeenCalled();
+    expect(prisma.otpCode.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { email: 'staff@bantai.ph' },
+      }),
+    );
+  });
+
+  it('rejects staff email MFA request for non-admin accounts', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'customer@example.com',
+      role: 'USER',
+    });
+
+    await expect(
+      service.requestOtp({ email: 'customer@example.com' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(email.send).not.toHaveBeenCalled();
+    expect(sms.send).not.toHaveBeenCalled();
+  });
+
+  it('fails closed and invalidates email OTP code if email delivery fails', async () => {
+    const staffEmail = 'staff@bantai.ph';
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      email: staffEmail,
+      role: 'ADMIN',
+    });
+    prisma.otpCode.findUnique.mockResolvedValue(null);
+    prisma.otpCode.upsert.mockResolvedValue({});
+    prisma.otpCode.updateMany.mockResolvedValue({ count: 1 });
+    email.send.mockRejectedValue(new Error('SMTP failure'));
+
+    await expect(service.requestOtp({ email: staffEmail })).rejects.toThrow(
+      'OTP delivery is temporarily unavailable.',
+    );
+
+    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ email: staffEmail, verified: false }),
+        data: { verified: true },
+      }),
+    );
+  });
+
+  it('verifies a valid email OTP and issues a privileged staff token', async () => {
+    const staffEmail = 'staff@bantai.ph';
+    const codeHash = (service as any).hashOtp(staffEmail, '654321');
+    prisma.otpCode.findUnique.mockResolvedValue({
+      email: staffEmail,
+      codeHash,
+      verified: false,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.otpCode.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      email: staffEmail,
+      role: 'ADMIN',
+      staffRole: 'SUPERADMIN',
+    });
+    jwt.signAsync.mockResolvedValue('verified-staff-jwt');
+
+    const res = await service.verifyOtp({ email: staffEmail, otp: '654321' });
+
+    expect(res).toMatchObject({ access_token: 'verified-staff-jwt' });
+    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ email: staffEmail, verified: false }),
+        data: { verified: true },
+      }),
     );
   });
 });

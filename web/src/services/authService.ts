@@ -109,52 +109,87 @@ export async function clientLogin(
   return { token: result.access_token, user };
 }
 
+export interface StaffAuthResponse {
+  message: string;
+  requiresMfa?: boolean;
+  access_token?: string;
+  email?: string;
+}
+
+export const staffMfaConfig = {
+  requestStaffMfa: async (email: string): Promise<RequestOtpResponse> => {
+    return fetchApi<RequestOtpResponse>('/auth/request-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+};
+
+export async function requestStaffMfa(
+  email: string,
+): Promise<RequestOtpResponse> {
+  return staffMfaConfig.requestStaffMfa(email);
+}
+
 export async function adminAuthenticateStaff(
   email: string,
   password: string,
-): Promise<{ user: CurrentUser; requiresMfa: boolean }> {
+): Promise<{ user?: CurrentUser; email: string; requiresMfa: boolean }> {
   // Step 1 of Admin Login: Verify staff credentials
-  const result = await fetchApi<VerifyOtpResponse>('/auth/login', {
+  // Ensure no stale or pre-MFA token is stored in localStorage
+  clearStoredToken();
+
+  const result = await fetchApi<StaffAuthResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  if (result.access_token) {
-    setStoredToken(result.access_token);
-  }
-  const user = await getCurrentUser();
 
-  // Enforce customer account blocking: A customer account CANNOT complete Admin login
-  if (user.role !== 'ADMIN') {
+  // Enforce customer account blocking:
+  // If /auth/login returns a standard user session without requiring MFA,
+  // customer accounts CANNOT complete Admin login.
+  if (!result.requiresMfa) {
     logout();
     throw new Error(
       'Access denied: Customer accounts cannot sign in to the Internal Admin portal. Please use the Client Portal.',
     );
   }
 
-  // If user has a phone number registered, trigger MFA challenge
-  if (user.phone) {
-    try {
-      await requestOtp(user.phone);
-    } catch {
-      // In local dev/test or when SMS provider is not active, allow continuing to OTP step
-    }
-  }
+  // CRITICAL: Ensure no access_token is stored before server-side MFA verification succeeds!
+  clearStoredToken();
 
-  return { user, requiresMfa: true };
+  // Dispatch staff MFA to staff Gmail/email address
+  // Fail-closed requirement: If OTP delivery fails, the authentication flow must NOT proceed as authenticated!
+  await staffMfaConfig.requestStaffMfa(email);
+
+  return { email, requiresMfa: true };
 }
 
 export async function adminVerifyMfa(
-  phoneOrIdentifier: string,
+  emailOrIdentifier: string,
   mfaCode: string,
 ): Promise<{ token: string; user: CurrentUser }> {
   // Step 2 of Admin Login: Verify MFA challenge
+  // Ensure no stale token is active
+  clearStoredToken();
+
   let result: VerifyOtpResponse;
-  if (phoneOrIdentifier && phoneOrIdentifier.startsWith('+')) {
-    result = await verifyOtp(phoneOrIdentifier, mfaCode);
+  if (emailOrIdentifier && emailOrIdentifier.startsWith('+')) {
+    result = await verifyOtp(emailOrIdentifier, mfaCode);
   } else {
-    // If testing or simulated MFA verify
-    result = await verifyOtp(phoneOrIdentifier || '+639171234567', mfaCode);
+    // Staff MFA verification using staff email/Gmail identifier
+    result = await fetchApi<VerifyOtpResponse>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email: emailOrIdentifier, otp: mfaCode }),
+    });
   }
+
+  if (!result?.access_token) {
+    logout();
+    throw new Error('MFA verification failed: No access token issued.');
+  }
+
+  // ONLY after server-side MFA verification succeeds do we persist the privileged session!
+  setStoredToken(result.access_token);
 
   const user = await getCurrentUser();
   if (user.role !== 'ADMIN') {
@@ -164,9 +199,6 @@ export async function adminVerifyMfa(
     );
   }
 
-  if (result.access_token) {
-    setStoredToken(result.access_token);
-  }
   return { token: result.access_token, user };
 }
 

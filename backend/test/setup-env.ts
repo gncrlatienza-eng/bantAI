@@ -22,7 +22,10 @@ jest.unstable_mockModule('@nestjs/throttler', () => ({
   ThrottlerModule: { forRoot: () => ({}) },
 }));
 process.env.OTP_HASH_SECRET = 'test-otp-hash-secret';
+process.env.EMAIL_OTP_HASH_SECRET = 'test-email-otp-hash-secret';
 process.env.SENDER_HASH_SECRET = 'test-sender-hash-secret';
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
+process.env.JWT_ISSUER = 'bantai-api-test';
 // Unit tests instantiate PrismaClient without connecting to Postgres. This
 // test-only URL satisfies Prisma's constructor and never reaches a database.
 process.env.DATABASE_URL = 'postgresql://ci:ci@localhost:5432/bantai_ci';

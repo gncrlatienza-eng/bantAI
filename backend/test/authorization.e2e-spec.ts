@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
+import { AuthAudience } from '../src/auth/constants';
 import { AdminGuard } from '../src/auth/guards/admin.guard';
 import { AiModelsKeyGuard } from '../src/auth/guards/api-key.guard';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
@@ -22,9 +23,20 @@ class HeaderJwtGuard implements CanActivate {
       .switchToHttp()
       .getRequest<{ headers: Record<string, string>; user?: unknown }>();
     if (!req.headers.authorization) throw new UnauthorizedException();
+    const authorization = req.headers.authorization;
     req.user = {
       userId: 'test-user',
-      role: req.headers.authorization === 'Bearer admin' ? 'ADMIN' : 'USER',
+      role:
+        authorization === 'Bearer admin' ||
+        authorization === 'Bearer mobile-admin'
+          ? 'ADMIN'
+          : 'USER',
+      audience:
+        authorization === 'Bearer admin'
+          ? AuthAudience.ADMIN
+          : authorization === 'Bearer mobile-admin'
+            ? AuthAudience.MOBILE
+            : AuthAudience.CLIENT,
     };
     return true;
   }
@@ -84,6 +96,10 @@ describe('authorization guard wiring (e2e)', () => {
       .get('/api/models')
       .set('Authorization', 'Bearer admin')
       .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/models')
+      .set('Authorization', 'Bearer mobile-admin')
+      .expect(403);
   });
 
   it('accepts a scoped machine key only on the internal model registry route', async () => {

@@ -26,16 +26,22 @@ describe('Accessibility & Keyboard Navigation (W9)', () => {
       );
 
       // Verify accessible region and title
-      const region = screen.getByRole('region', { name: /Model Retraining Unavailable/i });
+      const region = screen.getByRole('region', {
+        name: /Model Retraining Unavailable/i,
+      });
       expect(region).toBeInTheDocument();
 
       expect(screen.getByText(/HTTP 403 Forbidden/i)).toBeInTheDocument();
       expect(
-        screen.getByText(/Your license does not permit custom model retraining./i),
+        screen.getByText(
+          /Your license does not permit custom model retraining./i,
+        ),
       ).toBeInTheDocument();
 
       // Verify button is keyboard focusable and triggerable
-      const returnBtn = screen.getByRole('button', { name: /Back to Overview/i });
+      const returnBtn = screen.getByRole('button', {
+        name: /Back to Overview/i,
+      });
       returnBtn.focus();
       expect(document.activeElement).toBe(returnBtn);
 
@@ -63,8 +69,12 @@ describe('Accessibility & Keyboard Navigation (W9)', () => {
       // Verify all policy links are rendered as accessible anchors
       const termsLink = screen.getByRole('link', { name: /Terms of Service/i });
       const privacyLink = screen.getByRole('link', { name: /Privacy Policy/i });
-      const licenseLink = screen.getByRole('link', { name: /License Agreement/i });
-      const redressLink = screen.getByRole('link', { name: /DPO Redress Protocol/i });
+      const licenseLink = screen.getByRole('link', {
+        name: /License Agreement/i,
+      });
+      const redressLink = screen.getByRole('link', {
+        name: /DPO Redress Protocol/i,
+      });
 
       expect(termsLink).toHaveAttribute('href', '/legal?tab=terms');
       expect(privacyLink).toHaveAttribute('href', '/legal?tab=privacy');
@@ -105,7 +115,13 @@ describe('Accessibility & Keyboard Navigation (W9)', () => {
         return (
           <div role="dialog" aria-modal="true" aria-labelledby="dialog-title">
             <h2 id="dialog-title">Invite Colleague to Workspace</h2>
-            <button type="button" onClick={() => { setIsOpen(false); handleClose(); }}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                handleClose();
+              }}
+            >
               Cancel
             </button>
           </div>
@@ -114,7 +130,9 @@ describe('Accessibility & Keyboard Navigation (W9)', () => {
 
       render(<ModalTestComponent />);
 
-      expect(screen.getByRole('dialog', { name: /Invite Colleague to Workspace/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('dialog', { name: /Invite Colleague to Workspace/i }),
+      ).toBeInTheDocument();
 
       // Press Escape
       fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });

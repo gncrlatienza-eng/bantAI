@@ -7,10 +7,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { jwtConstants } from '../constants';
 import { PrismaService } from '../../../database/prisma.service';
 import { UnauthorizedException } from '@nestjs/common';
-import {
-  resolveStaffPermissions,
-  type StaffRole,
-} from '../constants/staff-permissions';
+import { resolveStaffPermissions } from '../constants/staff-permissions';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -30,10 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: { id: true, role: true, staffRole: true },
     });
     if (!user) throw new UnauthorizedException('Session is no longer valid.');
-    const permissions = resolveStaffPermissions(
-      user.role,
-      user.staffRole as StaffRole | null,
-    );
+    const permissions = resolveStaffPermissions(user.role, user.staffRole);
     return {
       userId: user.id,
       role: user.role,

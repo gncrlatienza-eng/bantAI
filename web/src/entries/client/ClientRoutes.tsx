@@ -65,7 +65,10 @@ export function ClientRoutes() {
         element={clientPage(<ClientAnalyticsPage />)}
       />
       <Route path="/client/export" element={clientPage(<ClientExportPage />)} />
-      <Route path="/client/workspace" element={clientPage(<ClientWorkspacePage />)} />
+      <Route
+        path="/client/workspace"
+        element={clientPage(<ClientWorkspacePage />)}
+      />
       <Route path="/client/help" element={clientPage(<ClientHelpPage />)} />
       <Route
         path="/client/settings"

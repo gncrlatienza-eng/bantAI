@@ -1,6 +1,10 @@
-import { BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AccessRequestStatus, AccessRequestTier, BillingPeriod } from '@prisma/client';
+import {
+  AccessRequestStatus,
+  AccessRequestTier,
+  BillingPeriod,
+} from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { AccessRequestsService } from '../access-requests/access-requests.service';
 import { STRIPE_CLIENT } from './stripe.provider';
@@ -82,7 +86,8 @@ describe('PaymentsService (W8 - Preserve Checkout Activation Security)', () => {
       // Verify success_url points ONLY to the passive /request-access/pending page
       expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          success_url: 'https://bantai.ph/request-access/pending?session_id={CHECKOUT_SESSION_ID}',
+          success_url:
+            'https://bantai.ph/request-access/pending?session_id={CHECKOUT_SESSION_ID}',
           cancel_url: 'https://bantai.ph/request-access/cancelled',
           customer_email: 'researcher@example.com',
           line_items: [{ price: 'price_res_yr_123', quantity: 1 }],
@@ -124,7 +129,9 @@ describe('PaymentsService (W8 - Preserve Checkout Activation Security)', () => {
 
   describe('handleWebhook (Authoritative Activation Gate)', () => {
     it('activates access only upon receiving a verified checkout.session.completed paid event', async () => {
-      const fakeBuffer = Buffer.from(JSON.stringify({ type: 'checkout.session.completed' }));
+      const fakeBuffer = Buffer.from(
+        JSON.stringify({ type: 'checkout.session.completed' }),
+      );
       const fakeSignature = 't=123,v1=signature_hash';
 
       mockStripe.webhooks.constructEvent.mockReturnValue({
@@ -140,7 +147,9 @@ describe('PaymentsService (W8 - Preserve Checkout Activation Security)', () => {
         },
       });
 
-      mockAccessRequests.activateFromWebhook.mockResolvedValue({ activated: true });
+      mockAccessRequests.activateFromWebhook.mockResolvedValue({
+        activated: true,
+      });
 
       const res = await service.handleWebhook(fakeBuffer, fakeSignature);
 
@@ -159,9 +168,9 @@ describe('PaymentsService (W8 - Preserve Checkout Activation Security)', () => {
 
     it('rejects activation if Stripe signature is missing', async () => {
       const fakeBuffer = Buffer.from('test-body');
-      await expect(service.handleWebhook(fakeBuffer, undefined)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.handleWebhook(fakeBuffer, undefined),
+      ).rejects.toThrow(UnauthorizedException);
       expect(mockAccessRequests.activateFromWebhook).not.toHaveBeenCalled();
     });
 
@@ -171,9 +180,9 @@ describe('PaymentsService (W8 - Preserve Checkout Activation Security)', () => {
         throw new Error('Signature verification failed');
       });
 
-      await expect(service.handleWebhook(fakeBuffer, 'invalid_sig')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.handleWebhook(fakeBuffer, 'invalid_sig'),
+      ).rejects.toThrow(UnauthorizedException);
       expect(mockAccessRequests.activateFromWebhook).not.toHaveBeenCalled();
     });
 
@@ -212,7 +221,9 @@ describe('PaymentsService (W8 - Preserve Checkout Activation Security)', () => {
       });
 
       // Second delivery: row was already ACTIVE, so activated: false
-      mockAccessRequests.activateFromWebhook.mockResolvedValue({ activated: false });
+      mockAccessRequests.activateFromWebhook.mockResolvedValue({
+        activated: false,
+      });
 
       const res = await service.handleWebhook(fakeBuffer, 'valid_sig');
 

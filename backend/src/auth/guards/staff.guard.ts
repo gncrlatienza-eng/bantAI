@@ -22,7 +22,11 @@ export class StaffGuard implements CanActivate {
     );
 
     const req = context.switchToHttp().getRequest<{
-      user?: { role?: string; staffRole?: StaffRole | null; permissions?: string[] };
+      user?: {
+        role?: string;
+        staffRole?: StaffRole | null;
+        permissions?: string[];
+      };
     }>();
 
     const user = req.user;

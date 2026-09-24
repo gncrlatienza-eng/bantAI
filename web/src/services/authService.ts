@@ -15,11 +15,7 @@ export type WorkspaceMembership = 'Owner' | 'Member';
 export type AccountStatus = 'Active' | 'Pending Confirmation' | 'Under Review';
 
 export type StaffRole =
-  | 'SUPERADMIN'
-  | 'SUPPORT'
-  | 'ANALYST'
-  | 'OPERATIONS'
-  | 'PRIVACY';
+  'SUPERADMIN' | 'SUPPORT' | 'ANALYST' | 'OPERATIONS' | 'PRIVACY';
 
 export interface CurrentUser {
   id: string;

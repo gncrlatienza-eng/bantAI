@@ -217,7 +217,7 @@ export class AccessRequestsService {
     }
     if (!match) throw new NotFoundException('Approval link is invalid.');
     if (opts.requireUnused) {
-      const t = rows.find((r) => r.id === match!.id)!;
+      const t = rows.find((r) => r.id === match.id)!;
       if (t.usedAt)
         throw new BadRequestException(
           'This approval link has already been used.',

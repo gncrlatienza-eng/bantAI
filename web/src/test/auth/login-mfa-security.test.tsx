@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ClientLoginForm } from '../../components/forms/ClientLoginForm';
 import { TwoFactorForm } from '../../components/forms/TwoFactorForm';
@@ -24,8 +24,12 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       const submitBtn = screen.getByRole('button', { name: /Sign in/i });
       fireEvent.click(submitBtn);
 
-      expect(await screen.findByText('Enter a valid work email.')).toBeInTheDocument();
-      expect(await screen.findByText('Enter your password.')).toBeInTheDocument();
+      expect(
+        await screen.findByText('Enter a valid work email.'),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Enter your password.'),
+      ).toBeInTheDocument();
       expect(loginSpy).not.toHaveBeenCalled();
     });
 
@@ -40,15 +44,23 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
         </MemoryRouter>,
       );
 
-      const emailInput = container.querySelector('input[name="email"]') as HTMLInputElement;
-      const passwordInput = container.querySelector('input[name="password"]') as HTMLInputElement;
+      const emailInput = container.querySelector(
+        'input[name="email"]',
+      ) as HTMLInputElement;
+      const passwordInput = container.querySelector(
+        'input[name="password"]',
+      ) as HTMLInputElement;
       const submitBtn = screen.getByRole('button', { name: /Sign in/i });
 
       fireEvent.change(emailInput, { target: { value: 'user@company.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'WrongPassword123' } });
+      fireEvent.change(passwordInput, {
+        target: { value: 'WrongPassword123' },
+      });
       fireEvent.click(submitBtn);
 
-      expect(await screen.findByText('Invalid email or password.')).toBeInTheDocument();
+      expect(
+        await screen.findByText('Invalid email or password.'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -65,16 +77,20 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       const inputs = screen.getAllByRole('textbox');
       expect(inputs).toHaveLength(6);
 
-      const verifyBtn = screen.getByRole('button', { name: /Verify & Continue/i });
+      const verifyBtn = screen.getByRole('button', {
+        name: /Verify & Continue/i,
+      });
       fireEvent.click(verifyBtn);
 
       expect(
-        await screen.findByText(/Please enter all 6 digits of the verification code/i),
+        await screen.findByText(
+          /Please enter all 6 digits of the verification code/i,
+        ),
       ).toBeInTheDocument();
       expect(verifyOtpSpy).not.toHaveBeenCalled();
     });
 
-    it('supports pasting a 6-digit OTP code into the fields', async () => {
+    it('supports pasting a 6-digit OTP code into the fields', () => {
       render(
         <MemoryRouter>
           <TwoFactorForm phone="+639171234567" />
@@ -97,7 +113,9 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       expect((inputs[4] as HTMLInputElement).value).toBe('2');
       expect((inputs[5] as HTMLInputElement).value).toBe('1');
 
-      const verifyBtn = screen.getByRole('button', { name: /Verify & Continue/i });
+      const verifyBtn = screen.getByRole('button', {
+        name: /Verify & Continue/i,
+      });
       expect(verifyBtn).not.toBeDisabled();
     });
 
@@ -119,7 +137,9 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
         },
       });
 
-      const verifyBtn = screen.getByRole('button', { name: /Verify & Continue/i });
+      const verifyBtn = screen.getByRole('button', {
+        name: /Verify & Continue/i,
+      });
       fireEvent.click(verifyBtn);
 
       expect(

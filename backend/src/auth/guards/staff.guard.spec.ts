@@ -12,8 +12,13 @@ describe('StaffGuard', () => {
     guard = new StaffGuard(reflector);
   });
 
-  function createMockContext(user: any, requiredPermissions?: string[]): ExecutionContext {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(requiredPermissions);
+  function createMockContext(
+    user: any,
+    requiredPermissions?: string[],
+  ): ExecutionContext {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(requiredPermissions);
     return {
       switchToHttp: () => ({
         getRequest: () => ({ user }),

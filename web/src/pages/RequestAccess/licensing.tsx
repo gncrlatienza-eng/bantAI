@@ -342,8 +342,8 @@ export function LicensingTerms() {
           Attempts to re-identify individuals from masked data are prohibited.
         </li>
         <li>
-          All data is masked and aggregated in line with Philippine Republic Act No. 10173
-          (Data Privacy Act of 2012) principles.
+          All data is masked and aggregated in line with Philippine Republic Act
+          No. 10173 (Data Privacy Act of 2012) principles.
         </li>
       </ul>
       <p className="licensing__terms-links">

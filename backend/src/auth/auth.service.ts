@@ -15,6 +15,7 @@ import { JwtService } from '@nestjs/jwt';
 
 import { PrismaService } from '../../database/prisma.service';
 
+import { OrganizationInvitation } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -66,7 +67,7 @@ export class AuthService {
     });
 
     // Check for pending invitations for this email
-    let pendingInvites: any[] = [];
+    let pendingInvites: OrganizationInvitation[] = [];
     if (this.prisma.organizationInvitation) {
       const res = await this.prisma.organizationInvitation.findMany({
         where: {
@@ -115,7 +116,7 @@ export class AuthService {
       }
     }
 
-    return this.issueToken(user.id, user.role, user.staffRole as StaffRole | null);
+    return this.issueToken(user.id, user.role, user.staffRole);
   }
 
   async login(dto: LoginDto) {
@@ -128,7 +129,7 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
-    return this.issueToken(user.id, user.role, user.staffRole as StaffRole | null);
+    return this.issueToken(user.id, user.role, user.staffRole);
   }
 
   private async issueToken(
@@ -280,7 +281,11 @@ export class AuthService {
     if (!result) throw new BadRequestException('Invalid or expired OTP.');
 
     // Minimal payload — no PII in the token; phone is fetched from DB when needed
-    return this.issueToken(result.id, result.role, (result as { staffRole?: StaffRole | null }).staffRole);
+    return this.issueToken(
+      result.id,
+      result.role,
+      (result as { staffRole?: StaffRole | null }).staffRole,
+    );
   }
 
   async getMe(userId: string) {
@@ -304,10 +309,7 @@ export class AuthService {
       throw new NotFoundException('User not found.');
     }
 
-    const permissions = resolveStaffPermissions(
-      user.role,
-      user.staffRole as StaffRole | null,
-    );
+    const permissions = resolveStaffPermissions(user.role, user.staffRole);
 
     return {
       ...user,

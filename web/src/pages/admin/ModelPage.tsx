@@ -10,7 +10,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -20,12 +19,6 @@ import {
   LoadingState,
   Metric,
   MetricRow,
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavReportsIcon,
-  NavUsersIcon,
-  NavModelIcon,
-  NavSystemIcon,
   StatusBadge,
   Tabs,
   type Column,

@@ -20,11 +20,7 @@ export type StaffPermission =
   (typeof STAFF_PERMISSIONS)[keyof typeof STAFF_PERMISSIONS];
 
 export type StaffRole =
-  | 'SUPERADMIN'
-  | 'SUPPORT'
-  | 'ANALYST'
-  | 'OPERATIONS'
-  | 'PRIVACY';
+  'SUPERADMIN' | 'SUPPORT' | 'ANALYST' | 'OPERATIONS' | 'PRIVACY';
 
 export const STAFF_ROLE_PERMISSIONS: Record<StaffRole, StaffPermission[]> = {
   SUPERADMIN: Object.values(STAFF_PERMISSIONS),

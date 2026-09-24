@@ -12,7 +12,9 @@ describe('Frontend Security: Protected Routes & Bundle Boundary (W9)', () => {
   });
 
   it('redirects unauthenticated users from client protected routes to /login', async () => {
-    vi.spyOn(authService, 'getCurrentUser').mockRejectedValue(new Error('Unauthenticated'));
+    vi.spyOn(authService, 'getCurrentUser').mockRejectedValue(
+      new Error('Unauthenticated'),
+    );
 
     render(
       <MemoryRouter initialEntries={['/client/overview']}>
@@ -32,12 +34,16 @@ describe('Frontend Security: Protected Routes & Bundle Boundary (W9)', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Public Login Page')).toBeInTheDocument();
-      expect(screen.queryByText('Client Dashboard Content')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Client Dashboard Content'),
+      ).not.toBeInTheDocument();
     });
   });
 
   it('redirects unauthenticated users from admin protected routes to /admin-login', async () => {
-    vi.spyOn(authService, 'getCurrentUser').mockRejectedValue(new Error('Unauthenticated'));
+    vi.spyOn(authService, 'getCurrentUser').mockRejectedValue(
+      new Error('Unauthenticated'),
+    );
 
     render(
       <MemoryRouter initialEntries={['/admin/overview']}>
@@ -57,7 +63,9 @@ describe('Frontend Security: Protected Routes & Bundle Boundary (W9)', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Admin Login Page')).toBeInTheDocument();
-      expect(screen.queryByText('Admin Secret Dashboard')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Admin Secret Dashboard'),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -89,7 +97,9 @@ describe('Frontend Security: Protected Routes & Bundle Boundary (W9)', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Staff Login Screen')).toBeInTheDocument();
-      expect(screen.queryByText('Privileged Staff User Management')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Privileged Staff User Management'),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -121,7 +131,9 @@ describe('Frontend Security: Protected Routes & Bundle Boundary (W9)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Staff Operations Dashboard')).toBeInTheDocument();
+      expect(
+        screen.getByText('Staff Operations Dashboard'),
+      ).toBeInTheDocument();
     });
   });
 });

@@ -44,7 +44,10 @@ export class PortalOrganizationsCustomerController {
     @Request() req: { user: { userId: string } },
     @Param('id') invitationId: string,
   ) {
-    return this.workspaceService.revokeInvitation(req.user.userId, invitationId);
+    return this.workspaceService.revokeInvitation(
+      req.user.userId,
+      invitationId,
+    );
   }
 
   @Delete('members/:userId')

@@ -33,7 +33,12 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
     });
 
     it('filters sidebar items strictly for Analyst role (campaigns:read, models:read, reports:read)', () => {
-      const analystPermissions = ['overview:read', 'campaigns:read', 'models:read', 'reports:read'];
+      const analystPermissions = [
+        'overview:read',
+        'campaigns:read',
+        'models:read',
+        'reports:read',
+      ];
       const groups = getFilteredAdminSidebarGroups(analystPermissions);
 
       const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
@@ -102,14 +107,16 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
         ok: false,
         status: 403,
         statusText: 'Forbidden',
-        json: async () => ({
-          message: 'Forbidden: Insufficient privileges. Required role: ADMIN.',
-        }),
-      } as Response);
+        json: () =>
+          Promise.resolve({
+            message:
+              'Forbidden: Insufficient privileges. Required role: ADMIN.',
+          }),
+      });
 
-      await expect(fetchApi('/models/retrain', { method: 'POST' })).rejects.toThrow(
-        /Insufficient privileges/,
-      );
+      await expect(
+        fetchApi('/models/retrain', { method: 'POST' }),
+      ).rejects.toThrow(/Insufficient privileges/);
     });
   });
 });

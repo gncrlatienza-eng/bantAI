@@ -9,7 +9,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
 import {
   Button,
   EmptyState,
@@ -18,12 +17,6 @@ import {
   LoadingState,
   Metric,
   MetricRow,
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavReportsIcon,
-  NavUsersIcon,
-  NavModelIcon,
-  NavSystemIcon,
   StatusBadge,
   Tabs,
   type StatusKind,

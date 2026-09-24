@@ -3,7 +3,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CheckoutConfirmationPage } from '../../pages/RequestAccess/CheckoutConfirmationPage';
-import { CheckoutPendingPage, CheckoutCancelledPage } from '../../pages/RequestAccess/CheckoutPendingPage';
+import {
+  CheckoutPendingPage,
+  CheckoutCancelledPage,
+} from '../../pages/RequestAccess/CheckoutPendingPage';
 import * as authService from '../../services/authService';
 
 describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
@@ -30,7 +33,9 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
       });
 
       render(
-        <MemoryRouter initialEntries={['/request-access/checkout?token=valid_token']}>
+        <MemoryRouter
+          initialEntries={['/request-access/checkout?token=valid_token']}
+        >
           <Routes>
             <Route
               path="/request-access/checkout"
@@ -42,10 +47,14 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
 
       // Wait for access request data to load
       await waitFor(() => {
-        expect(screen.getByText(/Continue to secure payment for your/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Continue to secure payment for your/i),
+        ).toBeInTheDocument();
       });
 
-      const continueBtn = screen.getByRole('button', { name: /Continue to secure payment/i });
+      const continueBtn = screen.getByRole('button', {
+        name: /Continue to secure payment/i,
+      });
       expect(continueBtn).toBeDisabled();
 
       // Find the agreement checkbox in CommerceDisclosuresCard
@@ -73,10 +82,16 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
 
       const mockCreateSession = vi
         .spyOn(authService, 'createCheckoutSession')
-        .mockResolvedValue({ url: 'https://checkout.stripe.com/pay/cs_test_123' });
+        .mockResolvedValue({
+          url: 'https://checkout.stripe.com/pay/cs_test_123',
+        });
 
       render(
-        <MemoryRouter initialEntries={['/request-access/checkout?token=valid_research_token']}>
+        <MemoryRouter
+          initialEntries={[
+            '/request-access/checkout?token=valid_research_token',
+          ]}
+        >
           <Routes>
             <Route
               path="/request-access/checkout"
@@ -87,7 +102,9 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /Continue to secure payment/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { name: /Continue to secure payment/i }),
+        ).toBeInTheDocument();
       });
 
       // Switch to Monthly radio option
@@ -99,12 +116,19 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
       fireEvent.click(checkbox);
 
       // Click Continue
-      const continueBtn = screen.getByRole('button', { name: /Continue to secure payment/i });
+      const continueBtn = screen.getByRole('button', {
+        name: /Continue to secure payment/i,
+      });
       fireEvent.click(continueBtn);
 
       await waitFor(() => {
-        expect(mockCreateSession).toHaveBeenCalledWith('valid_research_token', 'MONTHLY');
-        expect(window.location.assign).toHaveBeenCalledWith('https://checkout.stripe.com/pay/cs_test_123');
+        expect(mockCreateSession).toHaveBeenCalledWith(
+          'valid_research_token',
+          'MONTHLY',
+        );
+        expect(window.location.assign).toHaveBeenCalledWith(
+          'https://checkout.stripe.com/pay/cs_test_123',
+        );
       });
     });
   });
@@ -114,7 +138,11 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
       render(
-        <MemoryRouter initialEntries={['/request-access/pending?session_id=fake_tampered_session_xyz']}>
+        <MemoryRouter
+          initialEntries={[
+            '/request-access/pending?session_id=fake_tampered_session_xyz',
+          ]}
+        >
           <Routes>
             <Route
               path="/request-access/pending"
@@ -124,9 +152,13 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
         </MemoryRouter>,
       );
 
-      expect(screen.getByText(/Thanks — Stripe accepted your payment/i)).toBeInTheDocument();
       expect(
-        screen.getByText(/the webhook is the only signal we trust to flip a license to/i),
+        screen.getByText(/Thanks — Stripe accepted your payment/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /the webhook is the only signal we trust to flip a license to/i,
+        ),
       ).toBeInTheDocument();
 
       // Critical Security Assertion: Loading the pending/success URL makes ZERO network calls
@@ -147,7 +179,9 @@ describe('Frontend Security: Checkout & Activation Security (W8/W9)', () => {
         </MemoryRouter>,
       );
 
-      expect(screen.getByText(/You cancelled the secure payment/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/You cancelled the secure payment/i),
+      ).toBeInTheDocument();
       expect(fetchSpy).not.toHaveBeenCalled();
     });
   });

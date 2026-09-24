@@ -73,7 +73,11 @@ export function StaffPermissionGate({
           denialReason ||
           `This operational section requires the "${requiredList.join(', ')}" staff permission. Your current staff role (${user?.staffRole || 'Restricted'}) does not possess this privilege.`
         }
-        currentTier={user?.staffRole ? `Staff Role: ${user.staffRole}` : 'Staff Role: Restricted'}
+        currentTier={
+          user?.staffRole
+            ? `Staff Role: ${user.staffRole}`
+            : 'Staff Role: Restricted'
+        }
         requiredTier={`Required: ${requiredList.join(', ')}`}
         returnPath="/admin/overview"
         returnLabel="Return to Admin Overview"

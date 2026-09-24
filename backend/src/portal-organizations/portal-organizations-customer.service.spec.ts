@@ -25,21 +25,36 @@ describe('PortalOrganizationsCustomerService', () => {
         userId: 'owner-1',
         role: 'TIER_1',
         createdAt: new Date(),
-        user: { id: 'owner-1', email: 'owner@acme.com', firstName: 'Alice', lastName: 'Owner' },
+        user: {
+          id: 'owner-1',
+          email: 'owner@acme.com',
+          firstName: 'Alice',
+          lastName: 'Owner',
+        },
       },
       {
         id: 'mem-2',
         userId: 'lead-1',
         role: 'TIER_1',
         createdAt: new Date(),
-        user: { id: 'lead-1', email: 'lead@acme.com', firstName: 'Bob', lastName: 'Lead' },
+        user: {
+          id: 'lead-1',
+          email: 'lead@acme.com',
+          firstName: 'Bob',
+          lastName: 'Lead',
+        },
       },
       {
         id: 'mem-3',
         userId: 'member-1',
         role: 'TIER_2',
         createdAt: new Date(),
-        user: { id: 'member-1', email: 'user@acme.com', firstName: 'Charlie', lastName: 'User' },
+        user: {
+          id: 'member-1',
+          email: 'user@acme.com',
+          firstName: 'Charlie',
+          lastName: 'User',
+        },
       },
     ],
     invitations: [],
@@ -62,7 +77,9 @@ describe('PortalOrganizationsCustomerService', () => {
       organizationInvitation: {
         create: jest.fn(),
       },
-      $transaction: jest.fn().mockImplementation((actions) => Promise.all(actions)),
+      $transaction: jest
+        .fn()
+        .mockImplementation((actions) => Promise.all(actions)),
     };
     service = new PortalOrganizationsCustomerService(prisma);
   });
@@ -98,7 +115,10 @@ describe('PortalOrganizationsCustomerService', () => {
       });
 
       await expect(
-        service.inviteMember('member-1', { email: 'new@acme.com', role: 'TIER_2' }),
+        service.inviteMember('member-1', {
+          email: 'new@acme.com',
+          role: 'TIER_2',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -146,7 +166,12 @@ describe('PortalOrganizationsCustomerService', () => {
             userId: 'lead-2',
             role: 'TIER_1',
             createdAt: new Date(),
-            user: { id: 'lead-2', email: 'lead2@acme.com', firstName: 'Dave', lastName: 'Lead' },
+            user: {
+              id: 'lead-2',
+              email: 'lead2@acme.com',
+              firstName: 'Dave',
+              lastName: 'Lead',
+            },
           },
         ],
       };

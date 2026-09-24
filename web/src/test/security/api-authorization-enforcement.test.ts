@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fetchApi, getStoredToken, setStoredToken, clearStoredToken } from '../../api/apiClient';
-import { inviteWorkspaceMember, removeWorkspaceMember, transferWorkspaceOwnership } from '../../services/workspaceService';
+import { fetchApi, getStoredToken, setStoredToken } from '../../api/apiClient';
+import {
+  inviteWorkspaceMember,
+  removeWorkspaceMember,
+  transferWorkspaceOwnership,
+} from '../../services/workspaceService';
 
 describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)', () => {
   const originalFetch = globalThis.fetch;
@@ -23,10 +27,15 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
       ok: false,
       status: 401,
       statusText: 'Unauthorized',
-      json: async () => ({ message: 'Invalid or expired authentication token.' }),
-    } as Response);
+      json: () =>
+        Promise.resolve({
+          message: 'Invalid or expired authentication token.',
+        }),
+    });
 
-    await expect(fetchApi('/system/metrics')).rejects.toThrow('Invalid or expired authentication token.');
+    await expect(fetchApi('/system/metrics')).rejects.toThrow(
+      'Invalid or expired authentication token.',
+    );
 
     // Verify token was cleared upon 401 response
     expect(getStoredToken()).toBeNull();
@@ -41,12 +50,16 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
       ok: false,
       status: 403,
       statusText: 'Forbidden',
-      json: async () => ({
-        message: 'Forbidden resource: Staff role required for platform administration.',
-      }),
-    } as Response);
+      json: () =>
+        Promise.resolve({
+          message:
+            'Forbidden resource: Staff role required for platform administration.',
+        }),
+    });
 
-    await expect(fetchApi('/users/admin-list')).rejects.toThrow(/Forbidden resource/);
+    await expect(fetchApi('/users/admin-list')).rejects.toThrow(
+      /Forbidden resource/,
+    );
   });
 
   it('proves that customer workspace invitation API rejects platform/staff role assignments', async () => {
@@ -60,16 +73,19 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
           ok: false,
           status: 400,
           statusText: 'Bad Request',
-          json: async () => ({
-            message: 'Invalid member role. Customers cannot assign platform or staff permissions.',
-          }),
-        } as Response);
+          json: () =>
+            Promise.resolve({
+              message:
+                'Invalid member role. Customers cannot assign platform or staff permissions.',
+            }),
+        });
       }
       return Promise.resolve({
         ok: true,
         status: 201,
-        json: async () => ({ message: 'Invitation sent successfully.' }),
-      } as Response);
+        json: () =>
+          Promise.resolve({ message: 'Invitation sent successfully.' }),
+      });
     });
 
     // Attempting to invite with an unauthorized staff role (e.g. bypassing UI dropdown via console)
@@ -88,10 +104,12 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
       ok: false,
       status: 403,
       statusText: 'Forbidden',
-      json: async () => ({
-        message: 'Forbidden: Only workspace owners can transfer ownership or remove members.',
-      }),
-    } as Response);
+      json: () =>
+        Promise.resolve({
+          message:
+            'Forbidden: Only workspace owners can transfer ownership or remove members.',
+        }),
+    });
 
     await expect(removeWorkspaceMember('target-user-123')).rejects.toThrow(
       /Only workspace owners can transfer ownership/,
@@ -109,8 +127,11 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
       ok: false,
       status: 401,
       statusText: 'Unauthorized',
-      json: async () => ({ message: 'Session has expired. Please sign in again.' }),
-    } as Response);
+      json: () =>
+        Promise.resolve({
+          message: 'Session has expired. Please sign in again.',
+        }),
+    });
 
     await expect(fetchApi('/portal-organizations/customer/me')).rejects.toThrow(
       /Session has expired/,

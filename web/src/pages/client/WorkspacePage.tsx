@@ -121,8 +121,14 @@ export function WorkspacePage() {
   };
 
   const handleRemove = async (member: WorkspaceMember) => {
-    const confirmName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email;
-    if (!window.confirm(`Are you sure you want to remove ${confirmName} from the workspace?`)) {
+    const confirmName =
+      `${member.firstName || ''} ${member.lastName || ''}`.trim() ||
+      member.email;
+    if (
+      !window.confirm(
+        `Are you sure you want to remove ${confirmName} from the workspace?`,
+      )
+    ) {
       return;
     }
 
@@ -270,14 +276,33 @@ export function WorkspacePage() {
         }}
       >
         <div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: 4 }}>
+          <div
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              marginBottom: 4,
+            }}
+          >
             WORKSPACE NAME
           </div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+          <div
+            style={{
+              fontSize: '1.2rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+            }}
+          >
             {organization.name}
           </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-            Your Role: <StatusBadge kind="verified" label={organization.myRole} />
+          <div
+            style={{
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+              marginTop: 2,
+            }}
+          >
+            Your Role:{' '}
+            <StatusBadge kind="verified" label={organization.myRole} />
             {organization.isOwner && (
               <span style={{ marginLeft: 6 }}>
                 <StatusBadge kind="suspicious" label="Owner" />
@@ -287,25 +312,55 @@ export function WorkspacePage() {
         </div>
 
         <div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: 4 }}>
+          <div
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              marginBottom: 4,
+            }}
+          >
             LICENSE TIER
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            <span
+              style={{
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+              }}
+            >
               {organization.license.tier}
             </span>
             <StatusBadge kind="verified" label={organization.license.status} />
           </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+          <div
+            style={{
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+              marginTop: 2,
+            }}
+          >
             Period: {organization.license.billingPeriod}
           </div>
         </div>
 
         <div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: 4 }}>
+          <div
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              marginBottom: 4,
+            }}
+          >
             SEAT UTILIZATION
           </div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+          <div
+            style={{
+              fontSize: '1.2rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+            }}
+          >
             {organization.seatsUsed} / {organization.seatLimit} Seats
           </div>
           <div
@@ -343,10 +398,23 @@ export function WorkspacePage() {
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+            <h2
+              style={{
+                fontSize: '1.15rem',
+                fontWeight: 600,
+                margin: 0,
+                color: 'var(--text-primary)',
+              }}
+            >
               Workspace Members ({members.length})
             </h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <p
+              style={{
+                margin: '4px 0 0 0',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
               Colleagues enrolled in this workspace tenant.
             </p>
           </div>
@@ -411,13 +479,27 @@ export function WorkspacePage() {
               render: (m: WorkspaceMember) => {
                 if (m.isOwner) {
                   return (
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
                       Workspace Owner
                     </span>
                   );
                 }
                 if (!canManage) {
-                  return <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>—</span>;
+                  return (
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      —
+                    </span>
+                  );
                 }
                 return (
                   <Button
@@ -438,7 +520,14 @@ export function WorkspacePage() {
       {/* Pending Invitations Section */}
       {pendingInvitations.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: 12, color: 'var(--text-primary)' }}>
+          <h2
+            style={{
+              fontSize: '1.15rem',
+              fontWeight: 600,
+              marginBottom: 12,
+              color: 'var(--text-primary)',
+            }}
+          >
             Pending Invitations ({pendingInvitations.length})
           </h2>
           <DataTable
@@ -446,16 +535,24 @@ export function WorkspacePage() {
             rowKey={(inv) => inv.id}
             rows={pendingInvitations}
             columns={[
-              { key: 'email', header: 'Invited Email', render: (inv) => inv.email },
+              {
+                key: 'email',
+                header: 'Invited Email',
+                render: (inv) => inv.email,
+              },
               {
                 key: 'role',
                 header: 'Assigned Role',
-                render: (inv) => <StatusBadge kind="unknown" label={inv.role} />,
+                render: (inv) => (
+                  <StatusBadge kind="unknown" label={inv.role} />
+                ),
               },
               {
                 key: 'status',
                 header: 'Status',
-                render: (inv) => <StatusBadge kind="verified" label={inv.status} />,
+                render: (inv) => (
+                  <StatusBadge kind="verified" label={inv.status} />
+                ),
               },
               {
                 key: 'expires',
@@ -470,16 +567,28 @@ export function WorkspacePage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={async () => {
-                        if (window.confirm(`Revoke invitation for ${inv.email}?`)) {
-                          try {
-                            const res = await revokeWorkspaceInvitation(inv.id);
-                            setActionSuccess(res.message);
-                            void loadData();
-                          } catch (err) {
-                            alert(err instanceof Error ? err.message : 'Failed to revoke invitation.');
+                      onClick={() => {
+                        void (async () => {
+                          if (
+                            window.confirm(
+                              `Revoke invitation for ${inv.email}?`,
+                            )
+                          ) {
+                            try {
+                              const res = await revokeWorkspaceInvitation(
+                                inv.id,
+                              );
+                              setActionSuccess(res.message);
+                              void loadData();
+                            } catch (err) {
+                              alert(
+                                err instanceof Error
+                                  ? err.message
+                                  : 'Failed to revoke invitation.',
+                              );
+                            }
                           }
-                        }
+                        })();
                       }}
                       style={{ color: 'var(--status-critical, #dc2626)' }}
                     >
@@ -495,7 +604,14 @@ export function WorkspacePage() {
       {/* Billing History Section (Visible to TIER_1 and Owner) */}
       {canManage && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: 12, color: 'var(--text-primary)' }}>
+          <h2
+            style={{
+              fontSize: '1.15rem',
+              fontWeight: 600,
+              marginBottom: 12,
+              color: 'var(--text-primary)',
+            }}
+          >
             Billing & Invoices
           </h2>
           {billing ? (
@@ -507,19 +623,37 @@ export function WorkspacePage() {
                 padding: '16px 20px',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 16,
+                }}
+              >
                 <div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div
+                    style={{ fontWeight: 600, color: 'var(--text-primary)' }}
+                  >
                     {billing.currentPlan}
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Status: {billing.status} &middot; Billing: {billing.billingPeriod}
+                  <div
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    Status: {billing.status} &middot; Billing:{' '}
+                    {billing.billingPeriod}
                   </div>
                 </div>
                 {billing.nextBillingDate && (
                   <div style={{ textAlign: 'right', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Next Renewal: </span>
-                    <strong>{new Date(billing.nextBillingDate).toLocaleDateString()}</strong>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      Next Renewal:{' '}
+                    </span>
+                    <strong>
+                      {new Date(billing.nextBillingDate).toLocaleDateString()}
+                    </strong>
                   </div>
                 )}
               </div>
@@ -530,7 +664,11 @@ export function WorkspacePage() {
                   rowKey={(inv) => inv.id}
                   rows={billing.invoices}
                   columns={[
-                    { key: 'id', header: 'Invoice ID', render: (inv) => inv.id },
+                    {
+                      key: 'id',
+                      header: 'Invoice ID',
+                      render: (inv) => inv.id,
+                    },
                     {
                       key: 'date',
                       header: 'Date',
@@ -545,24 +683,37 @@ export function WorkspacePage() {
                     {
                       key: 'status',
                       header: 'Status',
-                      render: (inv) => <StatusBadge kind="verified" label={inv.status} />,
+                      render: (inv) => (
+                        <StatusBadge kind="verified" label={inv.status} />
+                      ),
                     },
                   ]}
                 />
               ) : (
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <div
+                  style={{
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
                   No past invoices recorded for this billing cycle.
                 </div>
               )}
 
               <CommerceDisclosuresCard
                 tier={organization.license.tier}
-                billingPeriod={organization.license.billingPeriod === 'MONTHLY' ? 'MONTHLY' : 'ANNUAL'}
+                billingPeriod={
+                  organization.license.billingPeriod === 'MONTHLY'
+                    ? 'MONTHLY'
+                    : 'ANNUAL'
+                }
                 compact={true}
               />
             </div>
           ) : (
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <div
+              style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}
+            >
               Billing information is not configured for this workspace.
             </div>
           )}
@@ -596,15 +747,35 @@ export function WorkspacePage() {
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
             }}
           >
-            <h3 id="invite-modal-title" style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+            <h3
+              id="invite-modal-title"
+              style={{
+                margin: '0 0 8px 0',
+                fontSize: '1.2rem',
+                color: 'var(--text-primary)',
+              }}
+            >
               Invite Colleague to Workspace
             </h3>
-            <p style={{ margin: '0 0 20px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Assign an organization tier. Platform and staff privileges cannot be assigned here.
+            <p
+              style={{
+                margin: '0 0 20px 0',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Assign an organization tier. Platform and staff privileges cannot
+              be assigned here.
             </p>
 
             {inviteError && (
-              <div style={{ color: 'var(--status-critical, #dc2626)', fontSize: '0.85rem', marginBottom: 12 }}>
+              <div
+                style={{
+                  color: 'var(--status-critical, #dc2626)',
+                  fontSize: '0.85rem',
+                  marginBottom: 12,
+                }}
+              >
                 {inviteError}
               </div>
             )}
@@ -622,12 +793,21 @@ export function WorkspacePage() {
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)',
+                    marginBottom: 6,
+                  }}
+                >
                   Workspace Membership Tier
                 </label>
                 <select
                   value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as 'TIER_1' | 'TIER_2')}
+                  onChange={(e) =>
+                    setInviteRole(e.target.value as 'TIER_1' | 'TIER_2')
+                  }
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -638,12 +818,18 @@ export function WorkspacePage() {
                     fontSize: '0.9rem',
                   }}
                 >
-                  <option value="TIER_2">TIER_2 (Standard Member &middot; View Only)</option>
-                  <option value="TIER_1">TIER_1 (Workspace Lead &middot; Invite & Manage)</option>
+                  <option value="TIER_2">
+                    TIER_2 (Standard Member &middot; View Only)
+                  </option>
+                  <option value="TIER_1">
+                    TIER_1 (Workspace Lead &middot; Invite & Manage)
+                  </option>
                 </select>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}
+              >
                 <Button
                   type="button"
                   variant="secondary"
@@ -652,7 +838,11 @@ export function WorkspacePage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" variant="primary" disabled={inviteLoading}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={inviteLoading}
+                >
                   {inviteLoading ? 'Sending…' : 'Send Invitation'}
                 </Button>
               </div>
@@ -688,22 +878,49 @@ export function WorkspacePage() {
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
             }}
           >
-            <h3 id="transfer-modal-title" style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>
+            <h3
+              id="transfer-modal-title"
+              style={{
+                margin: '0 0 8px 0',
+                fontSize: '1.2rem',
+                color: 'var(--text-primary)',
+              }}
+            >
               Transfer Workspace Ownership
             </h3>
-            <p style={{ margin: '0 0 20px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Select an active member to become the new Workspace Owner. You will remain a TIER_1 member.
+            <p
+              style={{
+                margin: '0 0 20px 0',
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Select an active member to become the new Workspace Owner. You
+              will remain a TIER_1 member.
             </p>
 
             {transferError && (
-              <div style={{ color: 'var(--status-critical, #dc2626)', fontSize: '0.85rem', marginBottom: 12 }}>
+              <div
+                style={{
+                  color: 'var(--status-critical, #dc2626)',
+                  fontSize: '0.85rem',
+                  marginBottom: 12,
+                }}
+              >
                 {transferError}
               </div>
             )}
 
             <form onSubmit={(e) => void handleTransferOwnership(e)}>
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)',
+                    marginBottom: 6,
+                  }}
+                >
                   Select New Owner
                 </label>
                 <select
@@ -725,13 +942,17 @@ export function WorkspacePage() {
                     .filter((m) => !m.isOwner)
                     .map((m) => (
                       <option key={m.userId} value={m.userId}>
-                        {`${m.firstName || ''} ${m.lastName || ''}`.trim() || m.email} ({m.email})
+                        {`${m.firstName || ''} ${m.lastName || ''}`.trim() ||
+                          m.email}{' '}
+                        ({m.email})
                       </option>
                     ))}
                 </select>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}
+              >
                 <Button
                   type="button"
                   variant="secondary"

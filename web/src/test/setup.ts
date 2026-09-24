@@ -53,21 +53,24 @@ if (typeof window !== 'undefined') {
     writable: true,
   });
 
-  delete (window as any).location;
-  window.location = {
-    href: 'http://localhost:5173/',
-    origin: 'http://localhost:5173',
-    protocol: 'http:',
-    host: 'localhost:5173',
-    hostname: 'localhost',
-    port: '5173',
-    pathname: '/',
-    search: '',
-    hash: '',
-    assign: vi.fn(),
-    replace: vi.fn(),
-    reload: vi.fn(),
-  } as any;
+  Object.defineProperty(window, 'location', {
+    value: {
+      href: 'http://localhost:5173/',
+      origin: 'http://localhost:5173',
+      protocol: 'http:',
+      host: 'localhost:5173',
+      hostname: 'localhost',
+      port: '5173',
+      pathname: '/',
+      search: '',
+      hash: '',
+      assign: vi.fn(),
+      replace: vi.fn(),
+      reload: vi.fn(),
+    },
+    writable: true,
+    configurable: true,
+  });
 }
 
 afterEach(() => {

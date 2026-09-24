@@ -15,9 +15,7 @@ describe('PaymentsController (W8)', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PaymentsController],
-      providers: [
-        { provide: PaymentsService, useValue: mockPaymentsService },
-      ],
+      providers: [{ provide: PaymentsService, useValue: mockPaymentsService }],
     }).compile();
 
     controller = module.get<PaymentsController>(PaymentsController);
@@ -31,10 +29,14 @@ describe('PaymentsController (W8)', () => {
   describe('createCheckoutSession', () => {
     it('delegates to PaymentsService with DTO', async () => {
       const dto = { token: 'tok_123', billingPeriod: BillingPeriod.ANNUAL };
-      mockPaymentsService.createCheckoutSession.mockResolvedValue({ url: 'https://checkout.stripe.com/...' });
+      mockPaymentsService.createCheckoutSession.mockResolvedValue({
+        url: 'https://checkout.stripe.com/...',
+      });
 
       const result = await controller.createCheckoutSession(dto);
-      expect(mockPaymentsService.createCheckoutSession).toHaveBeenCalledWith(dto);
+      expect(mockPaymentsService.createCheckoutSession).toHaveBeenCalledWith(
+        dto,
+      );
       expect(result).toEqual({ url: 'https://checkout.stripe.com/...' });
     });
   });
@@ -45,10 +47,16 @@ describe('PaymentsController (W8)', () => {
       const req: any = { rawBody: rawBuffer };
       const signature = 't=123,v1=sig_hash';
 
-      mockPaymentsService.handleWebhook.mockResolvedValue({ received: true, activated: true });
+      mockPaymentsService.handleWebhook.mockResolvedValue({
+        received: true,
+        activated: true,
+      });
 
       const result = await controller.webhook(req, signature);
-      expect(mockPaymentsService.handleWebhook).toHaveBeenCalledWith(rawBuffer, signature);
+      expect(mockPaymentsService.handleWebhook).toHaveBeenCalledWith(
+        rawBuffer,
+        signature,
+      );
       expect(result).toEqual({ received: true, activated: true });
     });
 

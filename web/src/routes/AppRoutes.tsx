@@ -85,9 +85,18 @@ export function AppRoutes() {
 
       {/* Commerce & Legal Disclosures */}
       <Route path="/legal" element={<LegalDisclosuresPage />} />
-      <Route path="/terms" element={<Navigate to="/legal?tab=terms" replace />} />
-      <Route path="/privacy" element={<Navigate to="/legal?tab=privacy" replace />} />
-      <Route path="/license-terms" element={<Navigate to="/legal?tab=license" replace />} />
+      <Route
+        path="/terms"
+        element={<Navigate to="/legal?tab=terms" replace />}
+      />
+      <Route
+        path="/privacy"
+        element={<Navigate to="/legal?tab=privacy" replace />}
+      />
+      <Route
+        path="/license-terms"
+        element={<Navigate to="/legal?tab=license" replace />}
+      />
       <Route path="/disclosures" element={<Navigate to="/legal" replace />} />
 
       {/* Auth Pages — Separated login flows */}

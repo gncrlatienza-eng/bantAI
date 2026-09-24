@@ -213,7 +213,9 @@ export class PortalOrganizationsCustomerService {
 
     // TIER_2 caller cannot remove other members (can only leave themselves)
     if (membership.role === 'TIER_2' && userId !== targetUserId) {
-      throw new ForbiddenException('TIER_2 members cannot remove other members.');
+      throw new ForbiddenException(
+        'TIER_2 members cannot remove other members.',
+      );
     }
 
     // TIER_1 caller (non-owner) cannot remove other TIER_1 members
@@ -356,7 +358,9 @@ export class PortalOrganizationsCustomerService {
         invoices = stripeInvoices.data.map((inv) => ({
           id: inv.id,
           date: new Date(inv.created * 1000).toISOString(),
-          amount: inv.amount_paid ? inv.amount_paid / 100 : (inv.total || 0) / 100,
+          amount: inv.amount_paid
+            ? inv.amount_paid / 100
+            : (inv.total || 0) / 100,
           currency: (inv.currency || 'php').toUpperCase(),
           status: (inv.status || 'paid').toUpperCase(),
           pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url || undefined,
@@ -371,7 +375,12 @@ export class PortalOrganizationsCustomerService {
         {
           id: `sub_${org.accessRequest.stripeSubscriptionId.slice(-8)}`,
           date: org.accessRequest.activatedAt ?? org.createdAt,
-          amount: tier === 'ORGANIZATION' ? (period === 'ANNUAL' ? 120000 : 12000) : 0,
+          amount:
+            tier === 'ORGANIZATION'
+              ? period === 'ANNUAL'
+                ? 120000
+                : 12000
+              : 0,
           currency: 'PHP',
           status: 'PAID',
         },
@@ -383,7 +392,9 @@ export class PortalOrganizationsCustomerService {
       status,
       billingPeriod: period,
       nextBillingDate: org.accessRequest?.expiresAt ?? null,
-      stripeCustomerId: org.accessRequest?.stripeCustomerId ? 'Configured' : null,
+      stripeCustomerId: org.accessRequest?.stripeCustomerId
+        ? 'Configured'
+        : null,
       invoices,
     };
   }

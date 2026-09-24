@@ -3,12 +3,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import type { NavGroupDef, NavItemDef } from '../../components/appshell/AppShell';
+import type {
+  NavGroupDef,
+  NavItemDef,
+} from '../../components/appshell/AppShell';
 import {
   NavOverviewIcon,
   NavCampaignsIcon,
   NavReportsIcon,
-  NavUsersIcon,
   NavModelIcon,
   NavSystemIcon,
 } from '../../components/primitives';
@@ -95,14 +97,16 @@ export function getFilteredAdminSidebarGroups(
   if (permissions.includes('*')) {
     return ALL_ADMIN_SIDEBAR_GROUPS.map((g) => ({
       label: g.label,
-      items: g.items.map(({ permission: _, ...item }) => item),
+      items: g.items.map(({ label, path, icon }) => ({ label, path, icon })),
     }));
   }
 
   return ALL_ADMIN_SIDEBAR_GROUPS.map((g) => {
     const items = g.items
-      .filter((item) => !item.permission || permissions.includes(item.permission))
-      .map(({ permission: _, ...item }) => item);
+      .filter(
+        (item) => !item.permission || permissions.includes(item.permission),
+      )
+      .map(({ label, path, icon }) => ({ label, path, icon }));
     return {
       label: g.label,
       items,
@@ -137,6 +141,6 @@ export function useAdminNavGroups(): NavGroupDef[] {
 export const ADMIN_SIDEBAR_GROUPS: NavGroupDef[] = ALL_ADMIN_SIDEBAR_GROUPS.map(
   (g) => ({
     label: g.label,
-    items: g.items.map(({ permission: _, ...item }) => item),
+    items: g.items.map(({ label, path, icon }) => ({ label, path, icon })),
   }),
 );

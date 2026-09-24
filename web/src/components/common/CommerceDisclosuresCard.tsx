@@ -31,9 +31,13 @@ export function CommerceDisclosuresCard({
   compact = false,
 }: CommerceDisclosuresCardProps) {
   const tierPricing =
-    tier === 'RESEARCH' ? PRICING_SCHEDULE.research : PRICING_SCHEDULE.organization;
+    tier === 'RESEARCH'
+      ? PRICING_SCHEDULE.research
+      : PRICING_SCHEDULE.organization;
   const currentPrice =
-    billingPeriod === 'ANNUAL' ? tierPricing.annualPrice : tierPricing.monthlyPrice;
+    billingPeriod === 'ANNUAL'
+      ? tierPricing.annualPrice
+      : tierPricing.monthlyPrice;
 
   return (
     <div
@@ -86,43 +90,81 @@ export function CommerceDisclosuresCard({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: compact
+            ? '1fr'
+            : 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: 12,
           marginBottom: 16,
         }}
       >
         <div>
-          <div style={{ color: 'var(--text-secondary, #a0aec0)', fontSize: '0.75rem' }}>
+          <div
+            style={{
+              color: 'var(--text-secondary, #a0aec0)',
+              fontSize: '0.75rem',
+            }}
+          >
             SELLER / LICENSOR
           </div>
-          <div style={{ color: 'var(--text-primary, #ffffff)', fontWeight: 500 }}>
+          <div
+            style={{ color: 'var(--text-primary, #ffffff)', fontWeight: 500 }}
+          >
             {SELLER_IDENTITY.sellerName}
           </div>
-          <div style={{ color: 'var(--text-secondary, #a0aec0)', fontSize: '0.75rem' }}>
+          <div
+            style={{
+              color: 'var(--text-secondary, #a0aec0)',
+              fontSize: '0.75rem',
+            }}
+          >
             {SELLER_IDENTITY.location}
           </div>
         </div>
 
         <div>
-          <div style={{ color: 'var(--text-secondary, #a0aec0)', fontSize: '0.75rem' }}>
+          <div
+            style={{
+              color: 'var(--text-secondary, #a0aec0)',
+              fontSize: '0.75rem',
+            }}
+          >
             CONTACT &amp; REDRESS
           </div>
           <div style={{ color: 'var(--text-primary, #ffffff)' }}>
             Support: {SELLER_IDENTITY.supportEmail}
           </div>
-          <div style={{ color: 'var(--text-secondary, #a0aec0)', fontSize: '0.75rem' }}>
-            DPO: {SELLER_IDENTITY.dpoEmail} &middot; Billing: {SELLER_IDENTITY.billingEmail}
+          <div
+            style={{
+              color: 'var(--text-secondary, #a0aec0)',
+              fontSize: '0.75rem',
+            }}
+          >
+            DPO: {SELLER_IDENTITY.dpoEmail} &middot; Billing:{' '}
+            {SELLER_IDENTITY.billingEmail}
           </div>
         </div>
 
         <div>
-          <div style={{ color: 'var(--text-secondary, #a0aec0)', fontSize: '0.75rem' }}>
+          <div
+            style={{
+              color: 'var(--text-secondary, #a0aec0)',
+              fontSize: '0.75rem',
+            }}
+          >
             PRICING &amp; SCOPE
           </div>
-          <div style={{ color: 'var(--text-primary, #ffffff)', fontWeight: 600 }}>
-            {currentPrice} {PRICING_SCHEDULE.currency} / {billingPeriod.toLowerCase()}
+          <div
+            style={{ color: 'var(--text-primary, #ffffff)', fontWeight: 600 }}
+          >
+            {currentPrice} {PRICING_SCHEDULE.currency} /{' '}
+            {billingPeriod.toLowerCase()}
           </div>
-          <div style={{ color: 'var(--text-secondary, #a0aec0)', fontSize: '0.75rem' }}>
+          <div
+            style={{
+              color: 'var(--text-secondary, #a0aec0)',
+              fontSize: '0.75rem',
+            }}
+          >
             {tierPricing.seatLimit} seat limit &middot; {tierPricing.scope}
           </div>
         </div>
@@ -144,7 +186,10 @@ export function CommerceDisclosuresCard({
           to="/legal?tab=terms"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: 'var(--brand-primary, #b794f4)', textDecoration: 'underline' }}
+          style={{
+            color: 'var(--brand-primary, #b794f4)',
+            textDecoration: 'underline',
+          }}
         >
           Terms of Service (v{AGREEMENT_VERSIONS.TERMS.version})
         </Link>{' '}
@@ -153,7 +198,10 @@ export function CommerceDisclosuresCard({
           to="/legal?tab=privacy"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: 'var(--brand-primary, #b794f4)', textDecoration: 'underline' }}
+          style={{
+            color: 'var(--brand-primary, #b794f4)',
+            textDecoration: 'underline',
+          }}
         >
           Privacy Policy (v{AGREEMENT_VERSIONS.PRIVACY.version})
         </Link>{' '}
@@ -162,7 +210,10 @@ export function CommerceDisclosuresCard({
           to="/legal?tab=license"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: 'var(--brand-primary, #b794f4)', textDecoration: 'underline' }}
+          style={{
+            color: 'var(--brand-primary, #b794f4)',
+            textDecoration: 'underline',
+          }}
         >
           License Agreement (v{AGREEMENT_VERSIONS.LICENSE.version})
         </Link>{' '}
@@ -171,7 +222,10 @@ export function CommerceDisclosuresCard({
           to="/legal?tab=redress"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: 'var(--brand-primary, #b794f4)', textDecoration: 'underline' }}
+          style={{
+            color: 'var(--brand-primary, #b794f4)',
+            textDecoration: 'underline',
+          }}
         >
           DPO Redress Protocol (v{AGREEMENT_VERSIONS.REDRESS.version})
         </Link>
@@ -195,11 +249,13 @@ export function CommerceDisclosuresCard({
             style={{ marginTop: 2, cursor: 'pointer' }}
           />
           <span>
-            I acknowledge and agree to the <strong>Terms of Service (v1.0)</strong>,{' '}
+            I acknowledge and agree to the{' '}
+            <strong>Terms of Service (v1.0)</strong>,{' '}
             <strong>Privacy Policy (v1.0)</strong>, and{' '}
-            <strong>Threat Intelligence License Agreement (v1.0)</strong>, including the automatic
-            recurring {billingPeriod.toLowerCase()} renewal of {currentPrice}{' '}
-            {PRICING_SCHEDULE.currency} via Stripe until cancelled.
+            <strong>Threat Intelligence License Agreement (v1.0)</strong>,
+            including the automatic recurring {billingPeriod.toLowerCase()}{' '}
+            renewal of {currentPrice} {PRICING_SCHEDULE.currency} via Stripe
+            until cancelled.
           </span>
         </label>
       )}
@@ -212,7 +268,8 @@ export function CommerceDisclosuresCard({
           fontStyle: 'italic',
         }}
       >
-        [Notice: Copy is PENDING HUMAN APPROVAL by Product Owner and DPO/Legal Reviewer.]
+        [Notice: Copy is PENDING HUMAN APPROVAL by Product Owner and DPO/Legal
+        Reviewer.]
       </div>
     </div>
   );

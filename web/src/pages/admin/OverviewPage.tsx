@@ -8,7 +8,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
 import {
   Button,
   Metric,
@@ -19,12 +18,6 @@ import {
   EmptyState,
   LoadingState,
   ErrorState,
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavReportsIcon,
-  NavUsersIcon,
-  NavModelIcon,
-  NavSystemIcon,
   type Column,
   type StatusKind,
 } from '../../components/primitives';

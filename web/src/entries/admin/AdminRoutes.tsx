@@ -129,7 +129,10 @@ export function AdminRoutes() {
       />
       <Route
         path="/admin/notifications"
-        element={staffPage(<AdminSettingsPage notifications />, 'overview:read')}
+        element={staffPage(
+          <AdminSettingsPage notifications />,
+          'overview:read',
+        )}
       />
 
       {/* Dev-only surfaces */}

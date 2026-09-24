@@ -214,8 +214,9 @@ export function CheckoutConfirmationPage() {
             {loading ? 'Opening secure payment…' : 'Continue to secure payment'}
           </button>
           <p className="licensing-form__actions-helper">
-            Payment is securely processed by Stripe. Your subscription will renew automatically
-            according to the selected billing period until cancelled. You may cancel at any time.
+            Payment is securely processed by Stripe. Your subscription will
+            renew automatically according to the selected billing period until
+            cancelled. You may cancel at any time.
           </p>
         </div>
 

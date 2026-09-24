@@ -21,4 +21,3 @@ import { PortalOrganizationsCustomerService } from './portal-organizations-custo
   exports: [PortalOrganizationsService, PortalOrganizationsCustomerService],
 })
 export class PortalOrganizationsModule {}
-

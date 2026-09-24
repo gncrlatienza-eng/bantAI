@@ -6,12 +6,18 @@ import {
   HttpStatus,
   Logger,
   NotFoundException,
+  GoneException,
   ServiceUnavailableException,
   UnauthorizedException,
   ConflictException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import {
+  AccessRequestStatus,
+  EmailOtpPurpose,
+  type UserRole,
+} from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 
@@ -22,11 +28,25 @@ import { OtpSmsService } from './otp-sms.service';
 import { normalizePhilippineMobile } from './phone';
 import { LoginDto } from './dto/login.dto';
 import { PortalRegisterDto } from './dto/portal-register.dto';
+import {
+  RequestClaimEmailOtpDto,
+  RequestEmailOtpDto,
+  VerifyClaimEmailOtpDto,
+  VerifyEmailOtpDto,
+} from './dto/email-otp.dto';
+import { PortalOtpEmailService } from './portal-otp-email.service';
+import { AuthAudience, JWT_ISSUER, jwtSecretFor } from './constants';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_WINDOW_MS = 60 * 60 * 1000;
 const OTP_MAX_REQUESTS_PER_WINDOW = 5;
 const OTP_MAX_ATTEMPTS = 5;
+const EMAIL_OTP_TTL_MS = 5 * 60 * 1000;
+const EMAIL_OTP_WINDOW_MS = 60 * 60 * 1000;
+const EMAIL_OTP_MAX_REQUESTS_PER_WINDOW = 5;
+const EMAIL_OTP_MAX_ATTEMPTS = 5;
+const EMAIL_OTP_GENERIC_MESSAGE =
+  'If the account is eligible, a verification code has been sent.';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +56,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private otpSmsService: OtpSmsService,
+    private portalOtpEmailService: PortalOtpEmailService,
   ) {}
 
   register(dto: RegisterDto) {
@@ -48,22 +69,77 @@ export class AuthService {
   }
 
   async registerPortal(dto: PortalRegisterDto) {
-    const email = dto.email.trim().toLowerCase();
-    if (await this.prisma.user.findUnique({ where: { email } })) {
-      throw new ConflictException('An account already exists for this email.');
-    }
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        passwordHash: await bcrypt.hash(dto.password, 12),
-        company: dto.company?.trim() || undefined,
-        role: 'USER',
-      },
+    this.requireLegacyPasswordAuth();
+    const checkoutSessionId = dto.checkoutSessionId.trim();
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const user = await this.withSerializationRetry(async () => {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const accessRequest = await tx.accessRequest.findUnique({
+              where: { stripeCheckoutSessionId: checkoutSessionId },
+            });
+            if (
+              !accessRequest ||
+              accessRequest.status !== AccessRequestStatus.ACTIVE ||
+              !accessRequest.activatedAt
+            ) {
+              throw new BadRequestException(
+                'This checkout has not been activated for account creation.',
+              );
+            }
+            if (accessRequest.portalUserId) {
+              throw new ConflictException(
+                'An account has already been created for this license.',
+              );
+            }
+
+            const email = accessRequest.email.trim().toLowerCase();
+            if (await tx.user.findUnique({ where: { email } })) {
+              throw new ConflictException(
+                'An account already exists for this email.',
+              );
+            }
+
+            const created = await tx.user.create({
+              data: {
+                email,
+                passwordHash,
+                company: accessRequest.organization.trim(),
+                role: 'USER',
+              },
+            });
+            const claimed = await tx.accessRequest.updateMany({
+              where: {
+                id: accessRequest.id,
+                status: AccessRequestStatus.ACTIVE,
+                portalUserId: null,
+              },
+              data: { portalUserId: created.id },
+            });
+            if (claimed.count !== 1) {
+              throw new ConflictException(
+                'An account has already been created for this license.',
+              );
+            }
+            return created;
+          },
+          { isolationLevel: 'Serializable' },
+        );
+      } catch (error) {
+        if ((error as { code?: string }).code === 'P2002') {
+          throw new ConflictException(
+            'An account has already been created for this license.',
+          );
+        }
+        throw error;
+      }
     });
-    return this.issueToken(user.id, user.role);
+    return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
   }
 
   async login(dto: LoginDto) {
+    this.requireLegacyPasswordAuth();
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.trim().toLowerCase() },
     });
@@ -73,13 +149,358 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
-    return this.issueToken(user.id, user.role);
+    return this.issueToken(
+      user.id,
+      user.role,
+      user.role === 'ADMIN' ? AuthAudience.ADMIN : AuthAudience.CLIENT,
+    );
   }
 
-  private async issueToken(id: string, role: 'USER' | 'ADMIN') {
+  requestClientEmailOtp(dto: RequestEmailOtpDto) {
+    return this.requestPortalEmailOtp(
+      dto.email,
+      EmailOtpPurpose.CLIENT_SIGN_IN,
+    );
+  }
+
+  requestAdminEmailOtp(dto: RequestEmailOtpDto) {
+    return this.requestPortalEmailOtp(dto.email, EmailOtpPurpose.ADMIN_SIGN_IN);
+  }
+
+  requestClientClaimEmailOtp(dto: RequestClaimEmailOtpDto) {
+    return this.requestPortalEmailOtp(
+      dto.email,
+      EmailOtpPurpose.CLIENT_CLAIM,
+      dto.checkoutSessionId.trim(),
+    );
+  }
+
+  async verifyClientEmailOtp(dto: VerifyEmailOtpDto) {
+    const email = this.normalizeEmail(dto.email);
+    await this.consumePortalEmailOtp(
+      email,
+      EmailOtpPurpose.CLIENT_SIGN_IN,
+      dto.otp,
+    );
+    const user = await this.findEligibleClient(email);
+    if (!user) throw new BadRequestException('Invalid or expired OTP.');
+    return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
+  }
+
+  async verifyAdminEmailOtp(dto: VerifyEmailOtpDto) {
+    const email = this.normalizeEmail(dto.email);
+    await this.consumePortalEmailOtp(
+      email,
+      EmailOtpPurpose.ADMIN_SIGN_IN,
+      dto.otp,
+    );
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.role !== 'ADMIN') {
+      throw new BadRequestException('Invalid or expired OTP.');
+    }
+    return this.issueToken(user.id, user.role, AuthAudience.ADMIN);
+  }
+
+  async verifyClientClaimEmailOtp(dto: VerifyClaimEmailOtpDto) {
+    const email = this.normalizeEmail(dto.email);
+    const checkoutSessionId = dto.checkoutSessionId.trim();
+    await this.consumePortalEmailOtp(
+      email,
+      EmailOtpPurpose.CLIENT_CLAIM,
+      dto.otp,
+      checkoutSessionId,
+    );
+
+    const user = await this.withSerializationRetry(async () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const accessRequest = await tx.accessRequest.findUnique({
+            where: { stripeCheckoutSessionId: checkoutSessionId },
+            include: { license: true },
+          });
+          if (
+            !accessRequest ||
+            this.normalizeEmail(accessRequest.email) !== email ||
+            accessRequest.status !== AccessRequestStatus.ACTIVE ||
+            !accessRequest.activatedAt ||
+            !accessRequest.license ||
+            accessRequest.license.status !== 'ACTIVE'
+          ) {
+            throw new BadRequestException(
+              'This checkout is not eligible for account activation.',
+            );
+          }
+          if (accessRequest.portalUserId) {
+            throw new ConflictException(
+              'An account has already been created for this license.',
+            );
+          }
+
+          let user = await tx.user.findUnique({ where: { email } });
+          if (user?.role === 'ADMIN') {
+            throw new ConflictException(
+              'This email belongs to a staff account and cannot claim a client license.',
+            );
+          }
+          user ??= await tx.user.create({
+            data: {
+              email,
+              company: accessRequest.organization.trim(),
+              role: 'USER',
+            },
+          });
+
+          const claimed = await tx.accessRequest.updateMany({
+            where: {
+              id: accessRequest.id,
+              status: AccessRequestStatus.ACTIVE,
+              portalUserId: null,
+            },
+            data: { portalUserId: user.id },
+          });
+          if (claimed.count !== 1) {
+            throw new ConflictException(
+              'An account has already been created for this license.',
+            );
+          }
+
+          await tx.organizationMembership.upsert({
+            where: {
+              organizationId_userId: {
+                organizationId: accessRequest.license.organizationId,
+                userId: user.id,
+              },
+            },
+            create: {
+              organizationId: accessRequest.license.organizationId,
+              userId: user.id,
+              role: 'OWNER',
+            },
+            update: { role: 'OWNER' },
+          });
+          return user;
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
+
+    return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
+  }
+
+  private async requestPortalEmailOtp(
+    rawEmail: string,
+    purpose: EmailOtpPurpose,
+    binding?: string,
+  ) {
+    const email = this.normalizeEmail(rawEmail);
+    const eligible = await this.isPortalEmailOtpEligible(
+      email,
+      purpose,
+      binding,
+    );
+    // Anti-enumeration: unknown or ineligible accounts receive the same
+    // response without storing or sending a challenge.
+    if (!eligible) return { message: EMAIL_OTP_GENERIC_MESSAGE };
+
+    const code = randomInt(100_000, 1_000_000).toString();
+    const now = new Date();
+    const challengeKey = this.emailOtpChallengeKey(email, purpose, binding);
+    const codeHash = this.hashEmailOtp(email, purpose, code, binding);
+    const shouldSend = await this.withSerializationRetry(async () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.emailOtpChallenge.findUnique({
+            where: { challengeKey },
+          });
+          const inWindow =
+            existing &&
+            now.getTime() - existing.requestWindowStart.getTime() <
+              EMAIL_OTP_WINDOW_MS;
+          const requestCount = inWindow ? existing.requestCount + 1 : 1;
+          if (requestCount > EMAIL_OTP_MAX_REQUESTS_PER_WINDOW) {
+            // Keep the outward response identical for eligible and ineligible
+            // addresses so this limit cannot reveal whether an account exists.
+            return false;
+          }
+          await tx.emailOtpChallenge.upsert({
+            where: { challengeKey },
+            create: {
+              challengeKey,
+              email,
+              purpose,
+              accessRequestId: eligible.accessRequestId,
+              codeHash,
+              expiresAt: new Date(now.getTime() + EMAIL_OTP_TTL_MS),
+              requestCount,
+              requestWindowStart: now,
+            },
+            update: {
+              codeHash,
+              expiresAt: new Date(now.getTime() + EMAIL_OTP_TTL_MS),
+              consumedAt: null,
+              attempts: 0,
+              requestCount,
+              requestWindowStart: inWindow ? existing.requestWindowStart : now,
+              accessRequestId: eligible.accessRequestId,
+            },
+          });
+          return true;
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
+
+    if (!shouldSend) return { message: EMAIL_OTP_GENERIC_MESSAGE };
+
+    try {
+      await this.portalOtpEmailService.send(email, code, purpose);
+    } catch (error) {
+      await this.prisma.emailOtpChallenge.updateMany({
+        where: { challengeKey, codeHash, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      throw error;
+    }
+    return { message: EMAIL_OTP_GENERIC_MESSAGE };
+  }
+
+  private async consumePortalEmailOtp(
+    email: string,
+    purpose: EmailOtpPurpose,
+    otp: string,
+    binding?: string,
+  ) {
+    const challengeKey = this.emailOtpChallengeKey(email, purpose, binding);
+    const codeHash = this.hashEmailOtp(email, purpose, otp, binding);
+    const now = new Date();
+    const valid = await this.withSerializationRetry(async () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const challenge = await tx.emailOtpChallenge.findUnique({
+            where: { challengeKey },
+          });
+          const matches =
+            challenge &&
+            !challenge.consumedAt &&
+            challenge.expiresAt > now &&
+            challenge.attempts < EMAIL_OTP_MAX_ATTEMPTS &&
+            this.hashesMatch(challenge.codeHash, codeHash);
+          if (!matches) {
+            if (
+              challenge &&
+              !challenge.consumedAt &&
+              challenge.attempts < EMAIL_OTP_MAX_ATTEMPTS
+            ) {
+              await tx.emailOtpChallenge.update({
+                where: { challengeKey },
+                data: { attempts: { increment: 1 } },
+              });
+            }
+            return false;
+          }
+          const consumed = await tx.emailOtpChallenge.updateMany({
+            where: {
+              challengeKey,
+              codeHash,
+              consumedAt: null,
+              expiresAt: { gt: now },
+              attempts: { lt: EMAIL_OTP_MAX_ATTEMPTS },
+            },
+            data: { consumedAt: now },
+          });
+          return consumed.count === 1;
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
+    if (!valid) throw new BadRequestException('Invalid or expired OTP.');
+  }
+
+  private async isPortalEmailOtpEligible(
+    email: string,
+    purpose: EmailOtpPurpose,
+    binding?: string,
+  ): Promise<{ accessRequestId: string | null } | null> {
+    if (purpose === EmailOtpPurpose.ADMIN_SIGN_IN) {
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      return user?.role === 'ADMIN' ? { accessRequestId: null } : null;
+    }
+    if (purpose === EmailOtpPurpose.CLIENT_SIGN_IN) {
+      const user = await this.findEligibleClient(email);
+      return user ? { accessRequestId: null } : null;
+    }
+    if (!binding) return null;
+    const request = await this.prisma.accessRequest.findUnique({
+      where: { stripeCheckoutSessionId: binding },
+      include: { license: true },
+    });
+    return request &&
+      this.normalizeEmail(request.email) === email &&
+      request.status === AccessRequestStatus.ACTIVE &&
+      !request.portalUserId &&
+      request.license?.status === 'ACTIVE'
+      ? { accessRequestId: request.id }
+      : null;
+  }
+
+  private async findEligibleClient(email: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        email,
+        role: 'USER',
+        organizationMemberships: {
+          some: {
+            organization: {
+              isActive: true,
+              licenses: {
+                some: {
+                  status: 'ACTIVE',
+                  OR: [
+                    { validUntil: null },
+                    { validUntil: { gt: new Date() } },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  private issueToken(
+    id: string,
+    role: UserRole,
+    audience: AuthAudience.CLIENT | AuthAudience.ADMIN,
+  ): Promise<{
+    message: string;
+    audience: AuthAudience.CLIENT | AuthAudience.ADMIN;
+    access_token: string;
+  }>;
+  private issueToken(
+    id: string,
+    role: UserRole,
+    audience: AuthAudience.MOBILE,
+  ): Promise<{ message: string; access_token: string }>;
+  private async issueToken(id: string, role: UserRole, audience: AuthAudience) {
+    const payload = { sub: id, role };
+    if (audience === AuthAudience.MOBILE) {
+      // Keep the existing Semaphore/mobile token contract unchanged. Mobile
+      // tokens contain no web audience and continue using JWT_SECRET.
+      return {
+        message: 'Authentication successful.',
+        access_token: await this.jwtService.signAsync(payload),
+      };
+    }
     return {
       message: 'Authentication successful.',
-      access_token: await this.jwtService.signAsync({ sub: id, role }),
+      audience,
+      access_token: await this.jwtService.signAsync(payload, {
+        secret: jwtSecretFor(audience),
+        algorithm: 'HS256',
+        issuer: JWT_ISSUER,
+        audience,
+      }),
     };
   }
 
@@ -215,7 +636,7 @@ export class AuthService {
     if (!result) throw new BadRequestException('Invalid or expired OTP.');
 
     // Minimal payload — no PII in the token; phone is fetched from DB when needed
-    return this.issueToken(result.id, result.role);
+    return this.issueToken(result.id, result.role, AuthAudience.MOBILE);
   }
 
   async getMe(userId: string) {
@@ -253,6 +674,55 @@ export class AuthService {
     if (!secret)
       throw new Error('OTP_HASH_SECRET environment variable is not set.');
     return createHmac('sha256', secret).update(`${phone}:${otp}`).digest('hex');
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private emailOtpChallengeKey(
+    email: string,
+    purpose: EmailOtpPurpose,
+    binding?: string,
+  ): string {
+    const secret = this.emailOtpSecret();
+    return createHmac('sha256', secret)
+      .update(`${email}:${purpose}:${binding ?? ''}`)
+      .digest('hex');
+  }
+
+  private hashEmailOtp(
+    email: string,
+    purpose: EmailOtpPurpose,
+    otp: string,
+    binding?: string,
+  ): string {
+    const secret = this.emailOtpSecret();
+    return createHmac('sha256', secret)
+      .update(`${email}:${purpose}:${binding ?? ''}:${otp}`)
+      .digest('hex');
+  }
+
+  private emailOtpSecret(): string {
+    const secret = process.env.EMAIL_OTP_HASH_SECRET?.trim();
+    if (!secret) {
+      throw new ServiceUnavailableException(
+        'Email OTP authentication is not configured.',
+      );
+    }
+    return secret;
+  }
+
+  private requireLegacyPasswordAuth() {
+    const enabled =
+      process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH === 'true' ||
+      (process.env.NODE_ENV !== 'production' &&
+        process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH !== 'false');
+    if (!enabled) {
+      throw new GoneException(
+        'Password authentication has been replaced by email verification codes.',
+      );
+    }
   }
 
   private hashesMatch(left: string, right: string): boolean {

@@ -2,7 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { ADMIN_SESSION_COOKIE, CLIENT_SESSION_COOKIE } from './auth/constants';
 
 function assertRequiredConfiguration() {
   const required = [
@@ -19,6 +21,15 @@ function assertRequiredConfiguration() {
     'AI_INDICATORS_API_KEY',
     'SEMAPHORE_API_KEY',
   ];
+  if (process.env.NODE_ENV === 'production') {
+    required.push(
+      'EMAIL_OTP_HASH_SECRET',
+      'GMAIL_SMTP_USER',
+      'GMAIL_SMTP_APP_PASSWORD',
+      'CLIENT_JWT_SECRET',
+      'ADMIN_JWT_SECRET',
+    );
+  }
   const missing = required.filter((name) => !process.env[name]?.trim());
   if (missing.length) {
     throw new Error(`Missing required configuration: ${missing.join(', ')}`);
@@ -66,10 +77,35 @@ async function bootstrap() {
   // Security headers — must be before any route registration
   app.use(helmet());
 
+  const allowedOrigins = getAllowedOrigins();
   app.enableCors({
-    origin: getAllowedOrigins(),
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
+  });
+
+  // SameSite cookies are the first CSRF boundary. For cookie-authenticated
+  // state changes, also require an explicitly allowed browser Origin. Mobile
+  // bearer-token requests do not carry the portal cookie and remain unchanged.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    const hasPortalCookie = (req.headers.cookie ?? '')
+      .split(';')
+      .some((part) => {
+        const cookie = part.trim();
+        return (
+          cookie.startsWith(`${CLIENT_SESSION_COOKIE}=`) ||
+          cookie.startsWith(`${ADMIN_SESSION_COOKIE}=`)
+        );
+      });
+    if (mutating && hasPortalCookie) {
+      const origin = req.headers.origin;
+      if (!origin || !allowedOrigins.includes(origin)) {
+        res.status(403).json({ message: 'Origin is not allowed.' });
+        return;
+      }
+    }
+    next();
   });
 
   app.useGlobalPipes(

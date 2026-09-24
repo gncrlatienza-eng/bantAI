@@ -9,13 +9,13 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  phone     String?  @unique
-  email     String?  @unique
+  phone        String?  @unique
+  email        String?  @unique
   passwordHash String?
-  company   String?
-  role      UserRole @default(USER)
+  company      String?
+  role         UserRole @default(USER)
 
   firstName String?
   lastName  String?
@@ -23,13 +23,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages       SmsMessage[]
-  contacts       Contact[]
-  blockedNumbers BlockedNumber[]
-  reports        UserReport[]
-  senderReports  SenderReport[]
-  moderatedSenderReports SenderReport[] @relation("SenderReportReviewer")
+  messages                SmsMessage[]
+  contacts                Contact[]
+  blockedNumbers          BlockedNumber[]
+  reports                 UserReport[]
+  senderReports           SenderReport[]
+  moderatedSenderReports  SenderReport[]           @relation("SenderReportReviewer")
   organizationMemberships OrganizationMembership[]
+  licensedAccessRequest   AccessRequest?           @relation("PortalAccessRequestUser")
 }
 
 enum UserRole {
@@ -40,6 +41,7 @@ enum UserRole {
 // Dashboard tenancy is intentionally separate from the global ADMIN role.
 // A member can be permitted to inspect only their organization's masked data.
 enum OrganizationMemberRole {
+  OWNER
   TIER_1
   TIER_2
 }
@@ -51,7 +53,9 @@ model PortalOrganization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members OrganizationMembership[]
+  members               OrganizationMembership[]
+  licensedAccessRequest AccessRequest?           @relation("PortalAccessRequestOrganization")
+  licenses              License[]
 }
 
 model OrganizationMembership {
@@ -71,15 +75,15 @@ model OrganizationMembership {
 // Synced from the user's Android phone contacts.
 // Stage 1 of sender verification — checked before any external API call.
 model Contact {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   // HMAC fingerprint of a canonical phone number; raw contacts and names are
   // never retained.
-  phone     String
-  name      String?
+  phone String
+  name  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,30 +92,30 @@ model Contact {
 }
 
 model OtpCode {
-  id         String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  phone      String   @unique
-  codeHash   String
+  phone    String @unique
+  codeHash String
 
-  expiresAt  DateTime
-  verified   Boolean  @default(false)
-  attempts   Int      @default(0)
-  requestCount Int    @default(0)
+  expiresAt          DateTime
+  verified           Boolean  @default(false)
+  attempts           Int      @default(0)
+  requestCount       Int      @default(0)
   requestWindowStart DateTime @default(now())
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([phone, verified, createdAt])
 }
 
 model SmsMessage {
-  id         String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  clusterId  String?
-  cluster    CampaignCluster? @relation(fields: [clusterId], references: [id])
+  clusterId String?
+  cluster   CampaignCluster? @relation(fields: [clusterId], references: [id])
 
   sender     String
   // Privacy-masked text only. The original SMS body is never persisted.
@@ -127,34 +131,34 @@ model SmsMessage {
   alerts         Alert[]
   reports        UserReport[]
 
-  @@index([userId, receivedAt])
   @@unique([userId, sourceId])
+  @@index([userId, receivedAt])
   @@index([clusterId, receivedAt])
 }
 
 model MessageFeature {
-  id             String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  messageId      String   @unique
-  message        SmsMessage @relation(fields: [messageId], references: [id])
+  messageId String     @unique
+  message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  normalizedBody String
-  maskedBody     String
+  normalizedBody  String
+  maskedBody      String
   suppressedLinks String[] // URLs hidden because message was flagged or sender unknown
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Classification {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  messageId String   @unique
+  messageId String     @unique
   message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  label     String   // Scam | Spam | Ham
-  score     Float
-  scores    Json?    // full softmax distribution: { Ham, Spam, Scam }
-  bucket    String?  // AI routing decision: safe | unknown | spam | blocked
+  label  String // Scam | Spam | Ham
+  score  Float
+  scores Json? // full softmax distribution: { Ham, Spam, Scam }
+  bucket String? // AI routing decision: safe | unknown | spam | blocked
 
   createdAt DateTime @default(now())
 
@@ -164,12 +168,12 @@ model Classification {
 }
 
 model Alert {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
   messageId String
   message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  status    String   @default("Pending") // Pending | Blocked | Reported | Ignored
+  status String @default("Pending") // Pending | Blocked | Reported | Ignored
 
   createdAt DateTime @default(now())
 
@@ -181,18 +185,18 @@ model Alert {
 // Created and updated by the AI/ML service; the backend links new messages
 // to an existing cluster when URL domains match.
 model CampaignCluster {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  label        String?  // human-readable campaign label set by AI/ML
-  centroid     Json?    // embedding vector used for cosine similarity (set by AI/ML)
+  label        String? // human-readable campaign label set by AI/ML
+  centroid     Json? // embedding vector used for cosine similarity (set by AI/ML)
   urlDomains   String[] // known URL domains in this campaign (for link suppression)
   isActive     Boolean  @default(true)
   messageCount Int      @default(0)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  messages     SmsMessage[]
+  messages SmsMessage[]
 
   @@index([isActive])
   @@index([urlDomains], type: Gin)
@@ -202,28 +206,28 @@ model CampaignCluster {
 // Populated by the AI/ML service after SHAP analysis; the backend
 // exposes the endpoint, the AI/ML track fills it in.
 model ExplainableIndicator {
-  id               String         @id @default(uuid())
+  id String @id @default(uuid())
 
   classificationId String         @unique
   classification   Classification @relation(fields: [classificationId], references: [id])
 
-  indicators       Json           // [{ tag: string, weight: number }]
+  indicators Json // [{ tag: string, weight: number }]
 
-  createdAt        DateTime       @default(now())
+  createdAt DateTime @default(now())
 }
 
 // Senders blocked by the user or auto-blocked by the system (score ≥ 0.90).
 // Checked at the start of every ingest — blocked messages are suppressed
 // before classification runs.
 model BlockedNumber {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   // HMAC fingerprint; the raw phone number/sender value is not retained.
   sender    String
-  source    String           // AutoBlock | UserBlock
+  source    String // AutoBlock | UserBlock
   createdAt DateTime @default(now())
 
   @@unique([userId, sender])
@@ -232,16 +236,16 @@ model BlockedNumber {
 // Caches sender verification results (verified | fraud | unknown) so we
 // don't re-check the same sender repeatedly.
 model SenderVerificationCache {
-  id        String    @id @default(uuid())
+  id String @id @default(uuid())
 
-  sender    String    @unique // phone number or sender name
-  status    String            // verified | fraud | unknown
-  source    String?           // how it was determined
+  sender String  @unique // phone number or sender name
+  status String // verified | fraud | unknown
+  source String? // how it was determined
 
   expiresAt DateTime?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Curated sender identity evidence. This is deliberately not a crowd-sourced
@@ -249,17 +253,17 @@ model SenderVerificationCache {
 // reviewer verifies an official source (for example, a government registry or
 // an organization-controlled domain). The sender remains HMAC-pseudonymized.
 model TrustedOrganization {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   name            String
-  sender          String   @unique
+  sender          String    @unique
   officialDomains String[]
   evidenceUrl     String
   evidenceType    String
   reviewedBy      String
   expiresAt       DateTime?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([isActive, expiresAt])
   @@index([officialDomains], type: Gin)
@@ -268,17 +272,17 @@ model TrustedOrganization {
 // Attribution for community sender reports. A sender is not globally marked as
 // fraud until several distinct authenticated users have corroborated it.
 model SenderReport {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sender    String
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender       String
   reportWindow String
-  status    String   @default("Pending")
-  validatedAt DateTime?
-  reviewedBy String?
-  reviewer User? @relation("SenderReportReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  status       String    @default("Pending")
+  validatedAt  DateTime?
+  reviewedBy   String?
+  reviewer     User?     @relation("SenderReportReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
   reviewReason String?
-  createdAt DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   @@unique([userId, sender, reportWindow])
   @@index([sender, status, createdAt])
@@ -288,24 +292,24 @@ model SenderReport {
 // State machine: Pending → Validated (queued for retrain) | Rejected (discarded)
 // Validated reports accumulate until a trigger threshold (50) fires retraining.
 model UserReport {
-  id            String     @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId        String
-  user          User       @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  messageId     String
-  message       SmsMessage @relation(fields: [messageId], references: [id])
+  messageId String
+  message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  originalLabel String     // AI label at receive time: Ham | Spam | Scam
-  reportedLabel String     // what user says it should be: Ham | Spam | Scam
+  originalLabel String // AI label at receive time: Ham | Spam | Scam
+  reportedLabel String // what user says it should be: Ham | Spam | Scam
 
   // Pending → Validated (accepted into training set) | Rejected (discarded)
-  status        String     @default("Pending")
-  adminNote     String?
-  validatedAt   DateTime?  // set when status transitions to Validated; used by AI retraining pipeline
+  status      String    @default("Pending")
+  adminNote   String?
+  validatedAt DateTime? // set when status transitions to Validated; used by AI retraining pipeline
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, messageId]) // one report per user per message
   @@index([status, validatedAt])
@@ -326,14 +330,14 @@ enum AccessRequestTier {
 }
 
 enum AccessRequestStatus {
-  RECEIVED         // just submitted
-  UNDER_REVIEW     // admin picked it up
-  APPROVED         // admin approved; applicant may proceed to checkout
-  DECLINED         // admin declined; end state
-  PAYMENT_PENDING  // Stripe Checkout Session created
-  ACTIVE           // webhook confirmed payment; license active
-  CANCELLED        // applicant or admin cancelled
-  EXPIRED          // approval or subscription lapsed
+  RECEIVED // just submitted
+  UNDER_REVIEW // admin picked it up
+  APPROVED // admin approved; applicant may proceed to checkout
+  DECLINED // admin declined; end state
+  PAYMENT_PENDING // Stripe Checkout Session created
+  ACTIVE // webhook confirmed payment; license active
+  CANCELLED // applicant or admin cancelled
+  EXPIRED // approval or subscription lapsed
 }
 
 enum BillingPeriod {
@@ -341,37 +345,106 @@ enum BillingPeriod {
   ANNUAL
 }
 
+enum LicenseStatus {
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum EmailOtpPurpose {
+  CLIENT_SIGN_IN
+  CLIENT_CLAIM
+  ADMIN_SIGN_IN
+}
+
 model AccessRequest {
-  id             String              @id @default(uuid())
+  id String @id @default(uuid())
 
-  tier           AccessRequestTier
-  fullName       String
-  email          String
-  organization   String
-  intendedUse    String
-  reason         String
+  tier         AccessRequestTier
+  fullName     String
+  email        String
+  organization String
+  intendedUse  String
+  reason       String
 
-  status         AccessRequestStatus @default(RECEIVED)
+  status AccessRequestStatus @default(RECEIVED)
 
   approvedAt     DateTime?
-  approvedBy     String?             // User.id of the admin who approved
+  approvedBy     String? // User.id of the admin who approved
   declinedAt     DateTime?
   declinedReason String?
 
   billingPeriod           BillingPeriod?
   stripeCustomerId        String?
-  stripeCheckoutSessionId String?    @unique
-  stripeSubscriptionId    String?    @unique
+  stripeCheckoutSessionId String?             @unique
+  stripeSubscriptionId    String?             @unique
   activatedAt             DateTime?
   expiresAt               DateTime?
+  portalUserId            String?             @unique
+  portalUser              User?               @relation("PortalAccessRequestUser", fields: [portalUserId], references: [id], onDelete: SetNull)
+  portalOrganizationId    String?             @unique
+  portalOrganization      PortalOrganization? @relation("PortalAccessRequestOrganization", fields: [portalOrganizationId], references: [id], onDelete: SetNull)
 
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tokens         AccessRequestToken[]
+  tokens             AccessRequestToken[]
+  emailOtpChallenges EmailOtpChallenge[]
+  license            License?
 
   @@index([status, createdAt])
   @@index([email])
+}
+
+model License {
+  id String @id @default(uuid())
+
+  accessRequestId String        @unique
+  accessRequest   AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Restrict)
+  organizationId  String
+  organization    PortalOrganization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  tier          AccessRequestTier
+  status        LicenseStatus     @default(ACTIVE)
+  billingPeriod BillingPeriod
+
+  stripeCustomerId        String?
+  stripeSubscriptionId    String? @unique
+  validFrom               DateTime @default(now())
+  validUntil              DateTime?
+  lastStripeEventCreated  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status, validUntil])
+}
+
+// Web-only email verification. This is deliberately separate from OtpCode,
+// which remains the mobile phone/Semaphore authentication challenge.
+model EmailOtpChallenge {
+  id String @id @default(uuid())
+
+  challengeKey    String          @unique
+  email           String
+  purpose         EmailOtpPurpose
+  accessRequestId String?
+  accessRequest   AccessRequest?  @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  codeHash           String
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  attempts           Int       @default(0)
+  requestCount       Int       @default(1)
+  requestWindowStart DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email, purpose, accessRequestId])
+  @@index([expiresAt, consumedAt])
 }
 
 // Emailed to an approved applicant so they can reach the confirmation-
@@ -392,20 +465,20 @@ model AccessRequestToken {
 // Tracks every model version that was ever promoted to production.
 // Used for promotion gating (McNemar + F1 floor) and rollback.
 model ModelVersion {
-  id           String    @id @default(uuid())
+  id String @id @default(uuid())
 
-  versionTag   String    @unique // e.g. "v1.0.0", auto-generated by AI service
-  f1Score      Float               // macro-F1 at promotion time (0–1)
-  accuracy     Float?
+  versionTag String @unique // e.g. "v1.0.0", auto-generated by AI service
+  f1Score    Float // macro-F1 at promotion time (0–1)
+  accuracy   Float?
 
-  isActive     Boolean   @default(false) // only one version is active at a time
-  isRollback   Boolean   @default(false) // true when restored via rollback
+  isActive   Boolean @default(false) // only one version is active at a time
+  isRollback Boolean @default(false) // true when restored via rollback
 
   notes        String?
   promotedAt   DateTime  @default(now())
   rolledBackAt DateTime?
 
-  createdAt    DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([isActive])
 }

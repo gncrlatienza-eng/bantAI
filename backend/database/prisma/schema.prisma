@@ -16,6 +16,7 @@ model User {
   passwordHash String?
   company   String?
   role      UserRole @default(USER)
+  staffRole StaffRole?
 
   firstName String?
   lastName  String?
@@ -37,6 +38,14 @@ enum UserRole {
   ADMIN
 }
 
+enum StaffRole {
+  SUPERADMIN
+  SUPPORT
+  ANALYST
+  OPERATIONS
+  PRIVACY
+}
+
 // Dashboard tenancy is intentionally separate from the global ADMIN role.
 // A member can be permitted to inspect only their organization's masked data.
 enum OrganizationMemberRole {
@@ -44,14 +53,42 @@ enum OrganizationMemberRole {
   TIER_2
 }
 
-model PortalOrganization {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
 
-  members OrganizationMembership[]
+model PortalOrganization {
+  id              String                   @id @default(uuid())
+  name            String                   @unique
+  isActive        Boolean                  @default(true)
+  ownerId         String?
+  accessRequestId String?                  @unique
+  accessRequest   AccessRequest?           @relation(fields: [accessRequestId], references: [id])
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  members         OrganizationMembership[]
+  invitations     OrganizationInvitation[]
+}
+
+model OrganizationInvitation {
+  id             String                 @id @default(uuid())
+  organizationId String
+  organization   PortalOrganization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrganizationMemberRole @default(TIER_2)
+  tokenHash      String                 @unique
+  invitedBy      String
+  status         InvitationStatus       @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([organizationId, status])
+  @@index([email])
 }
 
 model OrganizationMembership {
@@ -368,6 +405,7 @@ model AccessRequest {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
+  portalOrganization PortalOrganization?
   tokens         AccessRequestToken[]
 
   @@index([status, createdAt])

@@ -12,8 +12,9 @@ import {
 } from '@nestjs/common';
 
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { AddDomainsDto } from './dto/add-domains.dto';
 import { CreateClusterDto } from './dto/create-cluster.dto';
 import { CampaignsService } from './campaigns.service';
@@ -69,7 +70,8 @@ export class CampaignsController {
   }
 
   // Human administrative operation. Machine credentials cannot act as a user.
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('campaigns:manage')
   @Patch(':id/deactivate')
   deactivate(@Param('id') id: string) {
     return this.campaignsService.deactivate(id);

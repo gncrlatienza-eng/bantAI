@@ -19,6 +19,17 @@ describe('AuthService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    organizationInvitation: {
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn(),
+    },
+    organizationMembership: {
+      upsert: jest.fn(),
+    },
+    portalOrganization: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
   const sms = { send: jest.fn() };

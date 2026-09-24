@@ -31,7 +31,8 @@ import {
   CheckoutCancelledPage,
   CheckoutPendingPage,
 } from '../pages/RequestAccess/CheckoutPendingPage';
-import { LoginPage } from '../pages/Login';
+import { LegalDisclosuresPage } from '../pages/Legal/LegalDisclosuresPage';
+import { ClientLoginPage, AdminLoginPage } from '../pages/Login';
 import { TwoFactorPage } from '../pages/TwoFactor';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -82,11 +83,16 @@ export function AppRoutes() {
         element={<CheckoutCancelledPage />}
       />
 
-      {/* Auth Pages — one unified sign-in. Admin login and account creation
-          are folded into /login and /request-access respectively. Legacy
-          paths redirect to keep old bookmarks and logout redirects working. */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/admin-login" element={<Navigate to="/login" replace />} />
+      {/* Commerce & Legal Disclosures */}
+      <Route path="/legal" element={<LegalDisclosuresPage />} />
+      <Route path="/terms" element={<Navigate to="/legal?tab=terms" replace />} />
+      <Route path="/privacy" element={<Navigate to="/legal?tab=privacy" replace />} />
+      <Route path="/license-terms" element={<Navigate to="/legal?tab=license" replace />} />
+      <Route path="/disclosures" element={<Navigate to="/legal" replace />} />
+
+      {/* Auth Pages — Separated login flows */}
+      <Route path="/login" element={<ClientLoginPage />} />
+      <Route path="/admin-login" element={<AdminLoginPage />} />
       <Route
         path="/register"
         element={<Navigate to="/request-access" replace />}

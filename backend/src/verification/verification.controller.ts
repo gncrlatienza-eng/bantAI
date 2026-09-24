@@ -11,7 +11,8 @@ import {
 import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { ReportSenderDto } from './dto/report-sender.dto';
 import { ReviewSenderReportDto } from './dto/review-sender-report.dto';
 import { SyncContactsDto } from './dto/sync-contacts.dto';
@@ -45,7 +46,8 @@ export class VerificationController {
     return this.verificationService.reportFraud(req.user.userId, dto.sender);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('verification:read')
   @Get('sender/pending-reports')
   pendingFraudReports() {
     return this.verificationService.findPendingFraudReports();
@@ -65,7 +67,8 @@ export class VerificationController {
     return this.verificationService.verifySender(req.user.userId, sender);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('verification:manage')
   @Post('sender/confirm-fraud')
   confirmFraud(
     @Request() req: { user: { userId: string } },
@@ -80,7 +83,8 @@ export class VerificationController {
 
   // Only an administrator can curate the global organization evidence layer.
   // The raw sender is HMACed immediately and never returned or persisted.
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('verification:manage')
   @Post('organizations')
   addTrustedOrganization(
     @Request() req: { user: { userId: string } },
@@ -92,13 +96,15 @@ export class VerificationController {
     );
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('verification:read')
   @Get('organizations')
   listTrustedOrganizations() {
     return this.verificationService.listTrustedOrganizations();
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('verification:manage')
   @Patch('organizations/:id/deactivate')
   deactivateTrustedOrganization(
     @Request() req: { user: { userId: string } },

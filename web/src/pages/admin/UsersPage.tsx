@@ -22,7 +22,7 @@ import {
   type PortalOrganizationItem,
 } from '../../services/portalOrganizationsService';
 import { logout } from '../../services/authService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { useAdminNavGroups } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -41,6 +41,7 @@ function formatDate(iso: string): string {
 export function UsersPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navGroups = useAdminNavGroups();
 
   const [orgs, setOrgs] = useState<PortalOrganizationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +117,7 @@ export function UsersPage() {
   return (
     <AppShell
       role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}

@@ -7,6 +7,10 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { jwtConstants } from '../constants';
 import { PrismaService } from '../../../database/prisma.service';
 import { UnauthorizedException } from '@nestjs/common';
+import {
+  resolveStaffPermissions,
+  type StaffRole,
+} from '../constants/staff-permissions';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -23,9 +27,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // administrator demotion/deletion revokes an already-issued JWT at once.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, role: true },
+      select: { id: true, role: true, staffRole: true },
     });
     if (!user) throw new UnauthorizedException('Session is no longer valid.');
-    return { userId: user.id, role: user.role };
+    const permissions = resolveStaffPermissions(
+      user.role,
+      user.staffRole as StaffRole | null,
+    );
+    return {
+      userId: user.id,
+      role: user.role,
+      staffRole: user.staffRole,
+      permissions,
+    };
   }
 }

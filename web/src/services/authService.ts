@@ -10,6 +10,17 @@ export interface VerifyOtpResponse {
   access_token: string;
 }
 
+export type LicenseTier = 'Research' | 'Organization';
+export type WorkspaceMembership = 'Owner' | 'Member';
+export type AccountStatus = 'Active' | 'Pending Confirmation' | 'Under Review';
+
+export type StaffRole =
+  | 'SUPERADMIN'
+  | 'SUPPORT'
+  | 'ANALYST'
+  | 'OPERATIONS'
+  | 'PRIVACY';
+
 export interface CurrentUser {
   id: string;
   phone: string;
@@ -18,6 +29,67 @@ export interface CurrentUser {
   firstName?: string | null;
   lastName?: string | null;
   role: 'ADMIN' | 'USER';
+  staffRole?: StaffRole | null;
+  permissions?: string[];
+  // Workspace & Tenancy Metadata
+  workspaceName?: string | null;
+  licenseTier?: LicenseTier | null;
+  membership?: WorkspaceMembership | null;
+  status?: AccountStatus | null;
+}
+
+export interface CustomerMetadata {
+  workspace: string;
+  license: LicenseTier;
+  membership: WorkspaceMembership;
+  status: AccountStatus;
+}
+
+export function getCustomerMetadata(
+  user: CurrentUser | null,
+): CustomerMetadata {
+  if (!user) {
+    return {
+      workspace: 'Workspace',
+      license: 'Research',
+      membership: 'Member',
+      status: 'Active',
+    };
+  }
+
+  const workspace =
+    user.company?.trim() || user.workspaceName || 'Primary Workspace';
+  const license: LicenseTier =
+    user.licenseTier || (user.company ? 'Organization' : 'Research');
+  const membership: WorkspaceMembership =
+    user.membership || (user.role === 'ADMIN' ? 'Owner' : 'Member');
+  const status: AccountStatus = user.status || 'Active';
+
+  return { workspace, license, membership, status };
+}
+
+export interface UserEntitlements {
+  canViewThreatIntel: boolean;
+  canTriageAlerts: boolean;
+  canExportData: boolean;
+  canManageWorkspace: boolean;
+  licenseTier: LicenseTier;
+}
+
+export function getUserEntitlements(
+  user: CurrentUser | null,
+): UserEntitlements {
+  const { license, membership } = getCustomerMetadata(user);
+  const isOrg = license === 'Organization';
+  const isOwner = membership === 'Owner';
+
+  return {
+    canViewThreatIntel: true,
+    canTriageAlerts: true,
+    canExportData: isOrg,
+    canManageWorkspace: isOrg && isOwner,
+    licenseTier: license,
+  };
 }
 
 export async function login(
@@ -30,6 +102,76 @@ export async function login(
   });
   if (result.access_token) setStoredToken(result.access_token);
   return result;
+}
+
+export async function clientLogin(
+  email: string,
+  password: string,
+): Promise<{ token: string; user: CurrentUser }> {
+  const result = await login(email, password);
+  const user = await getCurrentUser();
+  return { token: result.access_token, user };
+}
+
+export async function adminAuthenticateStaff(
+  email: string,
+  password: string,
+): Promise<{ user: CurrentUser; requiresMfa: boolean }> {
+  // Step 1 of Admin Login: Verify staff credentials
+  const result = await fetchApi<VerifyOtpResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  if (result.access_token) {
+    setStoredToken(result.access_token);
+  }
+  const user = await getCurrentUser();
+
+  // Enforce customer account blocking: A customer account CANNOT complete Admin login
+  if (user.role !== 'ADMIN') {
+    logout();
+    throw new Error(
+      'Access denied: Customer accounts cannot sign in to the Internal Admin portal. Please use the Client Portal.',
+    );
+  }
+
+  // If user has a phone number registered, trigger MFA challenge
+  if (user.phone) {
+    try {
+      await requestOtp(user.phone);
+    } catch {
+      // In local dev/test or when SMS provider is not active, allow continuing to OTP step
+    }
+  }
+
+  return { user, requiresMfa: true };
+}
+
+export async function adminVerifyMfa(
+  phoneOrIdentifier: string,
+  mfaCode: string,
+): Promise<{ token: string; user: CurrentUser }> {
+  // Step 2 of Admin Login: Verify MFA challenge
+  let result: VerifyOtpResponse;
+  if (phoneOrIdentifier && phoneOrIdentifier.startsWith('+')) {
+    result = await verifyOtp(phoneOrIdentifier, mfaCode);
+  } else {
+    // If testing or simulated MFA verify
+    result = await verifyOtp(phoneOrIdentifier || '+639171234567', mfaCode);
+  }
+
+  const user = await getCurrentUser();
+  if (user.role !== 'ADMIN') {
+    logout();
+    throw new Error(
+      'Access denied: This account does not have staff or administrator privileges.',
+    );
+  }
+
+  if (result.access_token) {
+    setStoredToken(result.access_token);
+  }
+  return { token: result.access_token, user };
 }
 
 export async function registerPortal(

@@ -22,6 +22,10 @@ import { OtpSmsService } from './otp-sms.service';
 import { normalizePhilippineMobile } from './phone';
 import { LoginDto } from './dto/login.dto';
 import { PortalRegisterDto } from './dto/portal-register.dto';
+import {
+  resolveStaffPermissions,
+  type StaffRole,
+} from './constants/staff-permissions';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_WINDOW_MS = 60 * 60 * 1000;
@@ -60,7 +64,58 @@ export class AuthService {
         role: 'USER',
       },
     });
-    return this.issueToken(user.id, user.role);
+
+    // Check for pending invitations for this email
+    let pendingInvites: any[] = [];
+    if (this.prisma.organizationInvitation) {
+      const res = await this.prisma.organizationInvitation.findMany({
+        where: {
+          email,
+          status: 'PENDING',
+          expiresAt: { gt: new Date() },
+        },
+      });
+      if (Array.isArray(res)) {
+        pendingInvites = res;
+      }
+    }
+
+    for (const invite of pendingInvites) {
+      await this.prisma.organizationMembership.upsert({
+        where: {
+          organizationId_userId: {
+            organizationId: invite.organizationId,
+            userId: user.id,
+          },
+        },
+        create: {
+          organizationId: invite.organizationId,
+          userId: user.id,
+          role: invite.role,
+        },
+        update: {
+          role: invite.role,
+        },
+      });
+
+      await this.prisma.organizationInvitation.update({
+        where: { id: invite.id },
+        data: { status: 'ACCEPTED' },
+      });
+
+      // If org has no owner, make this user owner
+      const org = await this.prisma.portalOrganization.findUnique({
+        where: { id: invite.organizationId },
+      });
+      if (org && !org.ownerId) {
+        await this.prisma.portalOrganization.update({
+          where: { id: org.id },
+          data: { ownerId: user.id },
+        });
+      }
+    }
+
+    return this.issueToken(user.id, user.role, user.staffRole as StaffRole | null);
   }
 
   async login(dto: LoginDto) {
@@ -73,13 +128,23 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
-    return this.issueToken(user.id, user.role);
+    return this.issueToken(user.id, user.role, user.staffRole as StaffRole | null);
   }
 
-  private async issueToken(id: string, role: 'USER' | 'ADMIN') {
+  private async issueToken(
+    id: string,
+    role: 'USER' | 'ADMIN',
+    staffRole?: StaffRole | null,
+  ) {
+    const permissions = resolveStaffPermissions(role, staffRole);
     return {
       message: 'Authentication successful.',
-      access_token: await this.jwtService.signAsync({ sub: id, role }),
+      access_token: await this.jwtService.signAsync({
+        sub: id,
+        role,
+        staffRole: staffRole ?? null,
+        permissions,
+      }),
     };
   }
 
@@ -215,7 +280,7 @@ export class AuthService {
     if (!result) throw new BadRequestException('Invalid or expired OTP.');
 
     // Minimal payload — no PII in the token; phone is fetched from DB when needed
-    return this.issueToken(result.id, result.role);
+    return this.issueToken(result.id, result.role, (result as { staffRole?: StaffRole | null }).staffRole);
   }
 
   async getMe(userId: string) {
@@ -231,6 +296,7 @@ export class AuthService {
         createdAt: true,
         updatedAt: true,
         role: true,
+        staffRole: true,
       },
     });
 
@@ -238,7 +304,15 @@ export class AuthService {
       throw new NotFoundException('User not found.');
     }
 
-    return user;
+    const permissions = resolveStaffPermissions(
+      user.role,
+      user.staffRole as StaffRole | null,
+    );
+
+    return {
+      ...user,
+      permissions,
+    };
   }
 
   private requirePhone(phone: string): string {

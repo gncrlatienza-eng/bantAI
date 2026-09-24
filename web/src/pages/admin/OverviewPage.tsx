@@ -45,49 +45,7 @@ import {
 } from '../../services/healthService';
 import { getPortalOrganizations } from '../../services/portalOrganizationsService';
 import { logout } from '../../services/authService';
-
-const SIDEBAR_GROUPS: NavGroupDef[] = [
-  {
-    label: 'Overview',
-    items: [
-      {
-        label: 'Overview',
-        path: '/admin/overview',
-        icon: <NavOverviewIcon />,
-      },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      {
-        label: 'Campaigns',
-        path: '/admin/campaigns',
-        icon: <NavCampaignsIcon />,
-      },
-      {
-        label: 'Model',
-        path: '/admin/model',
-        icon: <NavModelIcon />,
-      },
-      {
-        label: 'Reports',
-        path: '/admin/reports',
-        icon: <NavReportsIcon />,
-      },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      { label: 'Users', path: '/admin/users', icon: <NavUsersIcon /> },
-      { label: 'Tips', path: '/admin/tips', icon: <NavReportsIcon /> },
-      { label: 'System', path: '/admin/system', icon: <NavSystemIcon /> },
-      { label: 'Settings', path: '/admin/settings', icon: <NavSystemIcon /> },
-    ],
-  },
-];
-
+import { useAdminNavGroups } from './adminNav';
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'The backend request failed.';
 }
@@ -234,12 +192,13 @@ export function OverviewPage() {
     void load();
   }, [load]);
 
+  const navGroups = useAdminNavGroups();
   const reportRows = pending.slice(0, 5).map(toReportRow);
 
   return (
     <AppShell
       role="admin"
-      groups={SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import type { AccessRequestTier } from '../../services/authService';
 
 /*
@@ -341,16 +342,18 @@ export function LicensingTerms() {
           Attempts to re-identify individuals from masked data are prohibited.
         </li>
         <li>
-          All data is masked and aggregated in line with Philippine privacy
-          principles.
+          All data is masked and aggregated in line with Philippine Republic Act No. 10173
+          (Data Privacy Act of 2012) principles.
         </li>
       </ul>
       <p className="licensing__terms-links">
-        <a href="/#about">Privacy</a>
+        <Link to="/legal?tab=privacy">Privacy Policy (v1.0)</Link>
         <span aria-hidden>·</span>
-        <a href="/#about">Security</a>
+        <Link to="/legal?tab=terms">Terms of Service (v1.0)</Link>
         <span aria-hidden>·</span>
-        <a href="/#about">License Terms</a>
+        <Link to="/legal?tab=license">License Agreement (v1.0)</Link>
+        <span aria-hidden>·</span>
+        <Link to="/legal?tab=redress">DPO / Redress</Link>
       </p>
     </section>
   );

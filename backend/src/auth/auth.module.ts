@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AdminGuard } from './guards/admin.guard';
+import { StaffGuard } from './guards/staff.guard';
 import { jwtConstants } from './constants';
 
 /*
@@ -36,7 +37,7 @@ import { jwtConstants } from './constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpSmsService, JwtStrategy, AdminGuard],
-  exports: [JwtModule, PassportModule, AdminGuard],
+  providers: [AuthService, OtpSmsService, JwtStrategy, AdminGuard, StaffGuard],
+  exports: [JwtModule, PassportModule, AdminGuard, StaffGuard],
 })
 export class AuthModule {}

@@ -35,7 +35,7 @@ export function HelpPage() {
         </Button>
       }
       footer={
-        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+        <span style={{ fontSize: '0.85rem' }}>Authenticated workspace</span>
       }
     >
       <PageHeader

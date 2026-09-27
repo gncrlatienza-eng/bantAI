@@ -60,10 +60,11 @@ not require a mobile release.
 - `weight` — `0.0–1.0`, **relative within this message only** — not
   comparable across messages, and the exact ceiling depends on which of two
   paths computed it (the response never says which; see below):
-  - **Real SHAP ran** (the common case — `shap` installed, attribution
-    succeeded): normalized so the strongest indicator is exactly `1.0`.
-  - **Keyword fallback ran** (`shap` unavailable, or attribution failed on
-    this input): weights are capped at **`0.9`** by design
+  - **Real SHAP ran**: normalized so the strongest indicator is exactly `1.0`.
+    ⚠️ **As of 2026-09-21 this path never runs in production** — nothing
+    computes SHAP for a live message (see "Delivery" below).
+  - **Keyword fallback ran** (the only path today; also used when `shap` is
+    unavailable or attribution fails): weights are capped at **`0.9`** by design
     (`ai/service/indicator_tags.py`) — the strongest indicator on a
     fallback-explained message will never show `1.0`. This is deliberate
     (so a fallback weight can never be mistaken for a genuine Shapley score
@@ -88,24 +89,38 @@ indicator pattern. Render the scam awareness card alone; do not show an empty
 
 ## Delivery: why explanation arrives separately
 
-Explanation is **not** part of the `/classify` response. It arrives via a
-second call, and this is a deliberate performance decision.
+**Updated 2026-09-23.** Two things changed since this section was written.
+`/classify` *does* now return `indicators` and `explanation_method`
+(`docs/api/classify.md`), but they are **keyword-derived**, computed in the
+request because that costs ~0.06 s. The slow part — real SHAP — is what still
+arrives separately, and **that half is not built yet**.
 
 True SHAP on a transformer needs hundreds of masked forward passes per message.
-**Measured on the real model (CPU, 2026-07-30): classification takes ~50 ms,
-SHAP takes 13–26 s** — roughly 300–500× slower. Running it inline would make
-classification unusable for real-time interception. So:
+**Re-measured on the deployed checkpoint (CPU, 2026-09-21/23): classification
+~0.06 s; SHAP ~27 s median and up to ~90 s** on a long message at the library's
+default sampling budget. (An earlier 2026-07-30 measurement of 13–26 s was taken
+on shorter messages and a less loaded machine.) The backend abandons `/classify`
+after 3.5 s, so inline SHAP means every message times out — which is exactly
+what happened on 2026-09-20 and was fixed the next day. A **100-sample budget
+measures ~5 s and produced identical indicator tags** on six real holdout scams
+(`ai/datasets/audit/explanation_methods_2026-09-23.json`, kept out of git
+because it quotes message fragments), so that is the intended setting for the
+background path:
 
 ```
-SMS arrives ─▶ POST /api/sms/ingest ─▶ label + bucket returned immediately
+SMS arrives ─▶ POST /api/sms/ingest ─▶ label + bucket + keyword indicators
+                                             │                  (~0.06 s, live today)
+                                    (background, ~5 s — NOT BUILT)
                                              │
-                                    (async, moments later)
-                                             │
-                       POST /api/sms/:messageId/indicators ─▶ stored
+                       POST /api/sms/:messageId/indicators ─▶ stored, replacing
+                                                              the keyword tags
 ```
 
 The backend's `POST /sms/:messageId/indicators` endpoint already exists for
-exactly this (`StoreIndicatorsDto`, `ExplainableIndicator` in Prisma).
+exactly this (`StoreIndicatorsDto`, `ExplainableIndicator` in Prisma) and is
+guarded by `AI_INDICATORS_API_KEY`. **What is missing** is the AI-side job that
+calls it, plus a way for the AI service to learn the `messageId` — `/classify`
+receives only the text today.
 
 ### Client implication
 

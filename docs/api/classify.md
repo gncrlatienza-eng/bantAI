@@ -60,7 +60,12 @@ part of this service so that training and inference see identical text.
     "should_buffer": false,
     "lexical_similarity": 0.0,
     "match_reason": "embedding"
-  }
+  },
+  "indicators": [
+    { "tag": "OTP / Account Phishing", "weight": 0.9 },
+    { "tag": "Suspicious URL", "weight": 0.8 }
+  ],
+  "explanation_method": "keyword-fallback"
 }
 ```
 
@@ -72,6 +77,31 @@ part of this service so that training and inference see identical text.
 | `bucket` | string | Routing decision: `safe` · `spam` · `blocked` · `unknown` |
 | `masked_text` | string | The text actually fed to the model, with emails, links, phone numbers, amounts and 4–8 digit codes replaced by placeholders. **Reduced-risk, not anonymous** — names, addresses and 9+ digit identifiers (TINs, reference numbers) pass through, so store and log it as personal data (see `ai/preprocessing/masking.py`) |
 | `campaign` | object \| null | Campaign-clustering result (Sprint 3). `null` when no centroids are loaded — see below. |
+| `indicators` | array | Why the message was flagged: `{tag, weight}`, strongest first. May be empty. See below. |
+| `explanation_method` | string | Which path produced `indicators`: `keyword-fallback` or `shap` |
+
+### `indicators` and `explanation_method` (added 2026-09-20)
+
+These are computed **inside this request**, so they always come from the fast
+keyword tagger: `explanation_method` is `"keyword-fallback"` today, and `weight`
+is capped at 0.9 on that path (`ai/service/indicator_tags.py`).
+
+Real SHAP attribution is **not** computed here, so `"shap"` will not currently
+appear. Measured on the deployed checkpoint (CPU, 2026-09-21/23): classification
+takes ~0.06 s, while SHAP takes **~27 s median, up to ~90 s** on a long message
+at the library's default sampling budget — far past the 3.5 s timeout the
+backend applies to this endpoint (`backend/src/ai/ai.service.ts`). Running it
+inline therefore made every message time out and fall back to the phone's
+keyword heuristic (2026-09-20, fixed the next day; see
+`tests/test_service.py::test_classify_never_runs_shap_inline`). A reduced
+100-sample budget measures ~5 s and produced identical tags on six real scam
+messages; that is the intended setting once SHAP runs as a background step
+posting to the backend's `POST /sms/:messageId/indicators`. Until that exists,
+treat `indicators` as keyword-derived.
+
+**An empty array is valid** — a message can be flagged without matching any
+known indicator pattern. Render the alert without a "why" section rather than
+an empty one. Full reasoning: `docs/api/explainability.md`.
 
 ### `campaign` (Sprint 3, WBS 3.3.4; matching logic re-tuned Sprint 5, WBS 5.3.6)
 

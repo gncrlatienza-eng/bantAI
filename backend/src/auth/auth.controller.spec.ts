@@ -14,6 +14,8 @@ const mockAuthService = {
   verifyClientClaimEmailOtp: jest.fn(),
   requestAdminEmailOtp: jest.fn(),
   verifyAdminEmailOtp: jest.fn(),
+  requestMobileEmailOtp: jest.fn(),
+  verifyMobileEmailOtp: jest.fn(),
   requestOtp: jest.fn(),
   verifyOtp: jest.fn(),
   getMe: jest.fn(),
@@ -141,6 +143,28 @@ describe('AuthController', () => {
     await controller.verifyOtp(dto);
 
     expect(mockAuthService.verifyOtp).toHaveBeenCalledWith(dto);
+  });
+
+  it('delegates mobile email OTP request and verification', async () => {
+    const requestDto = { email: 'mobile@example.com' };
+    const verifyDto = { ...requestDto, otp: '123456' };
+    mockAuthService.requestMobileEmailOtp.mockResolvedValue({
+      message: 'sent',
+    });
+    mockAuthService.verifyMobileEmailOtp.mockResolvedValue({
+      message: 'Authentication successful.',
+      access_token: 'mobile-token',
+    });
+
+    await controller.requestMobileEmailOtp(requestDto);
+    await controller.verifyMobileEmailOtp(verifyDto);
+
+    expect(mockAuthService.requestMobileEmailOtp).toHaveBeenCalledWith(
+      requestDto,
+    );
+    expect(mockAuthService.verifyMobileEmailOtp).toHaveBeenCalledWith(
+      verifyDto,
+    );
   });
 
   it('delegates me to AuthService.getMe using userId from request', async () => {

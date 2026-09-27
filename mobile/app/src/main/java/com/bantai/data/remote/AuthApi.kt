@@ -7,29 +7,25 @@ object AuthApi {
         val accessToken: String,
     )
 
-    /**
-     * Requests an OTP through the backend's configured SMS provider.
-     * The backend owns delivery and verification; the mobile client does not
-     * need Firebase Auth credentials or a Firebase ID-token exchange.
-     */
-    suspend fun requestOtp(phone: String): Result<Unit> =
+    /** Requests the temporary mobile sign-in OTP through the backend's Gmail transport. */
+    suspend fun requestMobileEmailOtp(email: String): Result<Unit> =
         HttpClient
             .post(
-                "/auth/request-otp",
-                JSONObject().put("phone", phone),
+                "/auth/mobile/request-email-otp",
+                JSONObject().put("email", email),
             ).map { }
 
     /**
      * The backend deliberately omits a `user` object from this response (no
-     * PII in the auth payload — see auth.service.spec.ts); the caller already
-     * knows the phone number it just verified, so only the token is needed.
+     * PII in the auth payload); the caller already knows the email address it
+     * just verified, so only the token is needed.
      */
-    suspend fun verifyOtp(
-        phone: String,
+    suspend fun verifyMobileEmailOtp(
+        email: String,
         otp: String,
     ): Result<AuthResult> =
         HttpClient
-            .post("/auth/verify-otp", JSONObject().put("phone", phone).put("otp", otp))
+            .post("/auth/mobile/verify-email-otp", JSONObject().put("email", email).put("otp", otp))
             .mapCatching { body ->
                 AuthResult(accessToken = JSONObject(body).getString("access_token"))
             }

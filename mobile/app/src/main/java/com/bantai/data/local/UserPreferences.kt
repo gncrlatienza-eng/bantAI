@@ -24,6 +24,7 @@ data class UserData(
     val suspiciousAlerts: Boolean = true,
     val autoBlockNotice: Boolean = true,
     val phoneNumber: String = "",
+    val emailAddress: String = "",
     val authToken: String = "",
 )
 
@@ -40,6 +41,7 @@ class UserPreferences(
         val SUSPICIOUS_ALERTS = booleanPreferencesKey("suspicious_alerts")
         val AUTO_BLOCK_NOTICE = booleanPreferencesKey("auto_block_notice")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
+        val EMAIL_ADDRESS = stringPreferencesKey("email_address")
     }
 
     // The JWT is a bearer credential, not just text, so it's kept out of
@@ -69,17 +71,21 @@ class UserPreferences(
                 suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
                 autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
                 phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
+                emailAddress = prefs[Keys.EMAIL_ADDRESS] ?: "",
                 authToken = token,
             )
         }
 
     suspend fun saveAuth(
         token: String,
-        phoneNumber: String,
+        emailAddress: String,
     ) {
         secureTokenStore.saveToken(token)
         context.dataStore.edit { prefs ->
-            prefs[Keys.PHONE_NUMBER] = phoneNumber
+            prefs[Keys.EMAIL_ADDRESS] = emailAddress.trim().lowercase().take(254)
+            // Prevent stale UI from presenting the previous SMS identity as
+            // the identity that authenticated this new email-backed session.
+            prefs.remove(Keys.PHONE_NUMBER)
         }
     }
 

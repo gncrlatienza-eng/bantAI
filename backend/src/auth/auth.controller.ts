@@ -124,6 +124,20 @@ export class AuthController {
     return { message: result.message };
   }
 
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('mobile/request-email-otp')
+  requestMobileEmailOtp(@Body() dto: RequestEmailOtpDto) {
+    return this.authService.requestMobileEmailOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('mobile/verify-email-otp')
+  verifyMobileEmailOtp(@Body() dto: VerifyEmailOtpDto) {
+    return this.authService.verifyMobileEmailOtp(dto);
+  }
+
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('logout')
   logout(@Res({ passthrough: true }) response: Response) {

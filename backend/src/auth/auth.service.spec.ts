@@ -239,6 +239,127 @@ describe('AuthService', () => {
     expect(prisma.otpCode.upsert).not.toHaveBeenCalled();
   });
 
+  it('sends a purpose-bound mobile OTP for a new email identity', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+
+    await expect(
+      service.requestMobileEmailOtp({ email: ' Mobile@Example.com ' }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+
+    expect(prisma.emailOtpChallenge.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          email: 'mobile@example.com',
+          purpose: 'MOBILE_SIGN_IN',
+        }),
+      }),
+    );
+    expect(email.send).toHaveBeenCalledWith(
+      'mobile@example.com',
+      expect.stringMatching(/^\d{6}$/),
+      'MOBILE_SIGN_IN',
+    );
+  });
+
+  it('does not send a mobile OTP to an address owned by a portal identity', async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'u-portal' });
+
+    await expect(
+      service.requestMobileEmailOtp({ email: 'staff@example.com' }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+    expect(prisma.emailOtpChallenge.upsert).not.toHaveBeenCalled();
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it('prefers a verified mobile identity over a colliding profile email', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u-mobile',
+      role: 'USER',
+      mobileAuthEmail: 'mobile@example.com',
+      licensedAccessRequest: null,
+      organizationMemberships: [],
+    });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+
+    await service.requestMobileEmailOtp({ email: 'mobile@example.com' });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { mobileAuthEmail: 'mobile@example.com' },
+      }),
+    );
+    expect(email.send).toHaveBeenCalled();
+  });
+
+  it('atomically consumes a mobile email OTP and issues a mobile token', async () => {
+    const emailAddress = 'mobile@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'MOBILE_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: 'u-mobile', role: 'USER' });
+    jwt.signAsync.mockResolvedValue('mobile-jwt');
+
+    await expect(
+      service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toEqual({
+      message: 'Authentication successful.',
+      access_token: 'mobile-jwt',
+    });
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: { mobileAuthEmail: emailAddress, role: 'USER' },
+      select: { id: true, role: true },
+    });
+    expect(jwt.signAsync).toHaveBeenCalledWith({
+      sub: 'u-mobile',
+      role: 'USER',
+    });
+  });
+
+  it('rejects a portal-purpose code on the mobile verification endpoint', async () => {
+    const emailAddress = 'mobile@example.com';
+    const portalCodeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'CLIENT_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash: portalCodeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+
+    await expect(
+      service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.emailOtpChallenge.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { attempts: { increment: 1 } } }),
+    );
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
   it('silently suppresses excess email sends without revealing account eligibility', async () => {
     prisma.user.findFirst.mockResolvedValue({ id: 'u-web', role: 'USER' });
     prisma.emailOtpChallenge.findUnique.mockResolvedValue({

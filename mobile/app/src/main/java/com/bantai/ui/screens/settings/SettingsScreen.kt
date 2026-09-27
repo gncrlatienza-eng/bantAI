@@ -115,7 +115,7 @@ fun SettingsScreen(
             title = { Text("Sign out?", color = White, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "You'll need to verify your phone number again to sign back in.",
+                    "You'll need to verify your email again to sign back in.",
                     color = TextSecondary,
                     fontSize = 14.sp,
                 )

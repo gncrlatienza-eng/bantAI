@@ -11,11 +11,12 @@ datasource db {
 model User {
   id String @id @default(uuid())
 
-  phone        String?  @unique
-  email        String?  @unique
-  passwordHash String?
-  company      String?
-  role         UserRole @default(USER)
+  phone           String?  @unique
+  email           String?  @unique
+  mobileAuthEmail String?  @unique
+  passwordHash    String?
+  company         String?
+  role            UserRole @default(USER)
 
   firstName String?
   lastName  String?
@@ -357,6 +358,7 @@ enum EmailOtpPurpose {
   CLIENT_SIGN_IN
   CLIENT_CLAIM
   ADMIN_SIGN_IN
+  MOBILE_SIGN_IN
 }
 
 model AccessRequest {
@@ -422,8 +424,8 @@ model License {
   @@index([organizationId, status, validUntil])
 }
 
-// Web-only email verification. This is deliberately separate from OtpCode,
-// which remains the mobile phone/Semaphore authentication challenge.
+// Purpose-bound email verification. This remains separate from OtpCode so
+// Gmail and Semaphore challenges cannot be replayed across delivery channels.
 model EmailOtpChallenge {
   id String @id @default(uuid())
 

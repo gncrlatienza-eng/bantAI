@@ -157,22 +157,117 @@ export class AuthService {
   }
 
   requestClientEmailOtp(dto: RequestEmailOtpDto) {
-    return this.requestPortalEmailOtp(
-      dto.email,
-      EmailOtpPurpose.CLIENT_SIGN_IN,
-    );
+    return this.requestEmailOtp(dto.email, EmailOtpPurpose.CLIENT_SIGN_IN);
   }
 
   requestAdminEmailOtp(dto: RequestEmailOtpDto) {
-    return this.requestPortalEmailOtp(dto.email, EmailOtpPurpose.ADMIN_SIGN_IN);
+    return this.requestEmailOtp(dto.email, EmailOtpPurpose.ADMIN_SIGN_IN);
   }
 
   requestClientClaimEmailOtp(dto: RequestClaimEmailOtpDto) {
-    return this.requestPortalEmailOtp(
+    return this.requestEmailOtp(
       dto.email,
       EmailOtpPurpose.CLIENT_CLAIM,
       dto.checkoutSessionId.trim(),
     );
+  }
+
+  requestMobileEmailOtp(dto: RequestEmailOtpDto) {
+    this.requireMobileEmailOtpEnabled();
+    return this.requestEmailOtp(dto.email, EmailOtpPurpose.MOBILE_SIGN_IN);
+  }
+
+  async verifyMobileEmailOtp(dto: VerifyEmailOtpDto) {
+    this.requireMobileEmailOtpEnabled();
+    const email = this.normalizeEmail(dto.email);
+    const purpose = EmailOtpPurpose.MOBILE_SIGN_IN;
+    const challengeKey = this.emailOtpChallengeKey(email, purpose);
+    const codeHash = this.hashEmailOtp(email, purpose, dto.otp);
+    const now = new Date();
+
+    const user = await this.withSerializationRetry(async () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const challenge = await tx.emailOtpChallenge.findUnique({
+            where: { challengeKey },
+          });
+          const matches =
+            challenge &&
+            !challenge.consumedAt &&
+            challenge.expiresAt > now &&
+            challenge.attempts < EMAIL_OTP_MAX_ATTEMPTS &&
+            this.hashesMatch(challenge.codeHash, codeHash);
+          if (!matches) {
+            if (
+              challenge &&
+              !challenge.consumedAt &&
+              challenge.attempts < EMAIL_OTP_MAX_ATTEMPTS
+            ) {
+              await tx.emailOtpChallenge.update({
+                where: { challengeKey },
+                data: { attempts: { increment: 1 } },
+              });
+            }
+            return null;
+          }
+
+          const mobileIdentity = await tx.user.findUnique({
+            where: { mobileAuthEmail: email },
+            select: {
+              id: true,
+              role: true,
+              email: true,
+              mobileAuthEmail: true,
+              licensedAccessRequest: { select: { id: true } },
+              organizationMemberships: { select: { id: true }, take: 1 },
+            },
+          });
+          const safeExistingMobileUser =
+            mobileIdentity?.role === 'USER' &&
+            !mobileIdentity.licensedAccessRequest &&
+            mobileIdentity.organizationMemberships.length === 0;
+          if (mobileIdentity && !safeExistingMobileUser) {
+            await tx.emailOtpChallenge.updateMany({
+              where: { challengeKey, codeHash, consumedAt: null },
+              data: { consumedAt: now },
+            });
+            return null;
+          }
+          const profileIdentity = mobileIdentity
+            ? null
+            : await tx.user.findUnique({ where: { email } });
+          if (profileIdentity) {
+            await tx.emailOtpChallenge.updateMany({
+              where: { challengeKey, codeHash, consumedAt: null },
+              data: { consumedAt: now },
+            });
+            return null;
+          }
+
+          const consumed = await tx.emailOtpChallenge.updateMany({
+            where: {
+              challengeKey,
+              codeHash,
+              consumedAt: null,
+              expiresAt: { gt: now },
+              attempts: { lt: EMAIL_OTP_MAX_ATTEMPTS },
+            },
+            data: { consumedAt: now },
+          });
+          if (consumed.count !== 1) return null;
+
+          if (mobileIdentity) return mobileIdentity;
+          return tx.user.create({
+            data: { mobileAuthEmail: email, role: 'USER' },
+            select: { id: true, role: true },
+          });
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
+
+    if (!user) throw new BadRequestException('Invalid or expired OTP.');
+    return this.issueToken(user.id, user.role, AuthAudience.MOBILE);
   }
 
   async verifyClientEmailOtp(dto: VerifyEmailOtpDto) {
@@ -287,17 +382,13 @@ export class AuthService {
     return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
   }
 
-  private async requestPortalEmailOtp(
+  private async requestEmailOtp(
     rawEmail: string,
     purpose: EmailOtpPurpose,
     binding?: string,
   ) {
     const email = this.normalizeEmail(rawEmail);
-    const eligible = await this.isPortalEmailOtpEligible(
-      email,
-      purpose,
-      binding,
-    );
+    const eligible = await this.isEmailOtpEligible(email, purpose, binding);
     // Anti-enumeration: unknown or ineligible accounts receive the same
     // response without storing or sending a challenge.
     if (!eligible) return { message: EMAIL_OTP_GENERIC_MESSAGE };
@@ -416,11 +507,34 @@ export class AuthService {
     if (!valid) throw new BadRequestException('Invalid or expired OTP.');
   }
 
-  private async isPortalEmailOtpEligible(
+  private async isEmailOtpEligible(
     email: string,
     purpose: EmailOtpPurpose,
     binding?: string,
   ): Promise<{ accessRequestId: string | null } | null> {
+    if (purpose === EmailOtpPurpose.MOBILE_SIGN_IN) {
+      const mobileIdentity = await this.prisma.user.findUnique({
+        where: { mobileAuthEmail: email },
+        select: {
+          role: true,
+          mobileAuthEmail: true,
+          licensedAccessRequest: { select: { id: true } },
+          organizationMemberships: { select: { id: true }, take: 1 },
+        },
+      });
+      if (mobileIdentity) {
+        return mobileIdentity.role === 'USER' &&
+          !mobileIdentity.licensedAccessRequest &&
+          mobileIdentity.organizationMemberships.length === 0
+          ? { accessRequestId: null }
+          : null;
+      }
+      const profileIdentity = await this.prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+      return profileIdentity ? null : { accessRequestId: null };
+    }
     if (purpose === EmailOtpPurpose.ADMIN_SIGN_IN) {
       const user = await this.prisma.user.findUnique({ where: { email } });
       return user?.role === 'ADMIN' ? { accessRequestId: null } : null;
@@ -646,6 +760,7 @@ export class AuthService {
         id: true,
         phone: true,
         email: true,
+        mobileAuthEmail: true,
         company: true,
         firstName: true,
         lastName: true,
@@ -678,6 +793,14 @@ export class AuthService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private requireMobileEmailOtpEnabled() {
+    if (process.env.MOBILE_OTP_DELIVERY?.trim().toLowerCase() !== 'email') {
+      throw new ServiceUnavailableException(
+        'Mobile email OTP authentication is not enabled.',
+      );
+    }
   }
 
   private emailOtpChallengeKey(

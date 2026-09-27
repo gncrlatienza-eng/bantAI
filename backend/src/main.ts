@@ -7,6 +7,12 @@ import { AppModule } from './app.module';
 import { ADMIN_SESSION_COOKIE, CLIENT_SESSION_COOKIE } from './auth/constants';
 
 function assertRequiredConfiguration() {
+  const mobileOtpDelivery = (
+    process.env.MOBILE_OTP_DELIVERY ?? 'sms'
+  ).toLowerCase();
+  if (!['sms', 'email'].includes(mobileOtpDelivery)) {
+    throw new Error('MOBILE_OTP_DELIVERY must be either sms or email.');
+  }
   const required = [
     'DATABASE_URL',
     'JWT_SECRET',
@@ -19,8 +25,16 @@ function assertRequiredConfiguration() {
     'AI_CAMPAIGNS_API_KEY',
     'AI_MODELS_API_KEY',
     'AI_INDICATORS_API_KEY',
-    'SEMAPHORE_API_KEY',
   ];
+  if (mobileOtpDelivery === 'email') {
+    required.push(
+      'EMAIL_OTP_HASH_SECRET',
+      'GMAIL_SMTP_USER',
+      'GMAIL_SMTP_APP_PASSWORD',
+    );
+  } else {
+    required.push('SEMAPHORE_API_KEY');
+  }
   if (process.env.NODE_ENV === 'production') {
     required.push(
       'EMAIL_OTP_HASH_SECRET',

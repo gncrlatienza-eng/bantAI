@@ -266,9 +266,12 @@ describe('AuthService', () => {
   });
 
   it('does not send a mobile OTP to an address owned by a portal identity', async () => {
-    prisma.user.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 'u-portal' });
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      role: 'ADMIN',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
+    });
 
     await expect(
       service.requestMobileEmailOtp({ email: 'staff@example.com' }),
@@ -279,11 +282,31 @@ describe('AuthService', () => {
     expect(email.send).not.toHaveBeenCalled();
   });
 
+  it('does not let an unverified profile email deny first-time mobile OTP', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      role: 'USER',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
+    });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+
+    await service.requestMobileEmailOtp({ email: 'victim@example.com' });
+
+    expect(email.send).toHaveBeenCalledWith(
+      'victim@example.com',
+      expect.stringMatching(/^\d{6}$/),
+      'MOBILE_SIGN_IN',
+    );
+  });
+
   it('prefers a verified mobile identity over a colliding profile email', async () => {
     prisma.user.findUnique.mockResolvedValueOnce({
       id: 'u-mobile',
       role: 'USER',
       mobileAuthEmail: 'mobile@example.com',
+      passwordHash: null,
       licensedAccessRequest: null,
       organizationMemberships: [],
     });
@@ -333,6 +356,42 @@ describe('AuthService', () => {
     expect(jwt.signAsync).toHaveBeenCalledWith({
       sub: 'u-mobile',
       role: 'USER',
+    });
+  });
+
+  it('allows verification when only an unverified profile email collides', async () => {
+    const emailAddress = 'victim@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'MOBILE_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      role: 'USER',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
+    });
+    prisma.user.create.mockResolvedValue({ id: 'u-mobile', role: 'USER' });
+    jwt.signAsync.mockResolvedValue('mobile-jwt');
+
+    await expect(
+      service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toEqual({
+      message: 'Authentication successful.',
+      access_token: 'mobile-jwt',
+    });
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: { mobileAuthEmail: emailAddress, role: 'USER' },
+      select: { id: true, role: true },
     });
   });
 

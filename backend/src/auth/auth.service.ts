@@ -218,12 +218,14 @@ export class AuthService {
               role: true,
               email: true,
               mobileAuthEmail: true,
+              passwordHash: true,
               licensedAccessRequest: { select: { id: true } },
               organizationMemberships: { select: { id: true }, take: 1 },
             },
           });
           const safeExistingMobileUser =
             mobileIdentity?.role === 'USER' &&
+            !mobileIdentity.passwordHash &&
             !mobileIdentity.licensedAccessRequest &&
             mobileIdentity.organizationMemberships.length === 0;
           if (mobileIdentity && !safeExistingMobileUser) {
@@ -235,8 +237,16 @@ export class AuthService {
           }
           const profileIdentity = mobileIdentity
             ? null
-            : await tx.user.findUnique({ where: { email } });
-          if (profileIdentity) {
+            : await tx.user.findUnique({
+                where: { email },
+                select: {
+                  role: true,
+                  passwordHash: true,
+                  licensedAccessRequest: { select: { id: true } },
+                  organizationMemberships: { select: { id: true }, take: 1 },
+                },
+              });
+          if (this.isAuthoritativePortalIdentity(profileIdentity)) {
             await tx.emailOtpChallenge.updateMany({
               where: { challengeKey, codeHash, consumedAt: null },
               data: { consumedAt: now },
@@ -518,12 +528,14 @@ export class AuthService {
         select: {
           role: true,
           mobileAuthEmail: true,
+          passwordHash: true,
           licensedAccessRequest: { select: { id: true } },
           organizationMemberships: { select: { id: true }, take: 1 },
         },
       });
       if (mobileIdentity) {
         return mobileIdentity.role === 'USER' &&
+          !mobileIdentity.passwordHash &&
           !mobileIdentity.licensedAccessRequest &&
           mobileIdentity.organizationMemberships.length === 0
           ? { accessRequestId: null }
@@ -531,9 +543,16 @@ export class AuthService {
       }
       const profileIdentity = await this.prisma.user.findUnique({
         where: { email },
-        select: { id: true },
+        select: {
+          role: true,
+          passwordHash: true,
+          licensedAccessRequest: { select: { id: true } },
+          organizationMemberships: { select: { id: true }, take: 1 },
+        },
       });
-      return profileIdentity ? null : { accessRequestId: null };
+      return this.isAuthoritativePortalIdentity(profileIdentity)
+        ? null
+        : { accessRequestId: null };
     }
     if (purpose === EmailOtpPurpose.ADMIN_SIGN_IN) {
       const user = await this.prisma.user.findUnique({ where: { email } });
@@ -801,6 +820,23 @@ export class AuthService {
         'Mobile email OTP authentication is not enabled.',
       );
     }
+  }
+
+  private isAuthoritativePortalIdentity(
+    identity: {
+      role: UserRole;
+      passwordHash: string | null;
+      licensedAccessRequest: { id: string } | null;
+      organizationMemberships: { id: string }[];
+    } | null,
+  ) {
+    return Boolean(
+      identity &&
+      (identity.role === 'ADMIN' ||
+        identity.passwordHash ||
+        identity.licensedAccessRequest ||
+        identity.organizationMemberships.length > 0),
+    );
   }
 
   private emailOtpChallengeKey(

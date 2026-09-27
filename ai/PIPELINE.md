@@ -927,7 +927,7 @@ reader can always distinguish a real Shapley value from a heuristic.
 | Step | Time |
 |---|---|
 | Classification (+ embedding) | **~50 ms** |
-| Real SHAP attribution | **13–26 s** |
+| Real SHAP attribution | **13–26 s** (re-measured 2026-09-21/23: ~27 s median, up to ~90 s on long messages; ~5 s at a 100-sample budget, same tags) |
 
 SHAP is roughly **300–500× slower** than classification, which settles the
 design question: asynchronous explanation is required, not merely tidy. The
@@ -1482,8 +1482,10 @@ Ran the full Stage 5b calibration cascade (`embed_dataset.py` →
 second time, against the 2026-08-27 candidate's checkpoint instead of the
 deployed one — purely to see what this section's numbers *would* become if
 that candidate is promoted. **Every file this section's numbers describe was
-backed up first** (`datasets/processed/exploratory_backup/`,
-`evaluation/exploratory_backup/`, suffixed `approved-2026-07-29-run3`) and
+backed up first** (`evaluation/exploratory_backup/`, suffixed
+`approved-2026-07-29-run3`; the matching `datasets/processed/exploratory_backup/`
+copies were deleted 2026-09-23 -- they were regenerable and the embeddings file
+carried 16,772 real message texts) and
 the live/deployed-model versions are unchanged; nothing above this note is
 stale. Full side-by-side written up as a standalone artifact for the adviser
 conversation (`Retrain Candidate Review`) — summary here for the repo record:

@@ -91,6 +91,9 @@ export function StaffPermissionGate({
 
 export function useStaffPermission(permission: string | string[]): boolean {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const permissionKey = Array.isArray(permission)
+    ? permission.join('\u0000')
+    : permission;
 
   useEffect(() => {
     let active = true;
@@ -106,7 +109,7 @@ export function useStaffPermission(permission: string | string[]): boolean {
           setHasPermission(true);
           return;
         }
-        const reqs = Array.isArray(permission) ? permission : [permission];
+        const reqs = permissionKey.split('\u0000');
         setHasPermission(reqs.every((p) => perms.includes(p)));
       })
       .catch(() => {
@@ -115,7 +118,7 @@ export function useStaffPermission(permission: string | string[]): boolean {
     return () => {
       active = false;
     };
-  }, [Array.isArray(permission) ? permission.join(',') : permission]);
+  }, [permissionKey]);
 
   return hasPermission;
 }

@@ -1,4 +1,4 @@
-import { fetchApi, setStoredToken, clearStoredToken } from '../api/apiClient';
+import { fetchApi, clearStoredToken } from '../api/apiClient';
 
 export interface RequestOtpResponse {
   message: string;
@@ -7,7 +7,7 @@ export interface RequestOtpResponse {
 
 export interface VerifyOtpResponse {
   message: string;
-  access_token: string;
+  access_token?: string;
 }
 
 export type LicenseTier = 'Research' | 'Organization';
@@ -19,7 +19,7 @@ export type StaffRole =
 
 export interface CurrentUser {
   id: string;
-  phone: string;
+  phone: string | null;
   email?: string | null;
   company?: string | null;
   firstName?: string | null;
@@ -96,17 +96,56 @@ export async function login(
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  if (result.access_token) setStoredToken(result.access_token);
   return result;
 }
 
-export async function clientLogin(
+export async function requestClientEmailOtp(
   email: string,
-  password: string,
-): Promise<{ token: string; user: CurrentUser }> {
-  const result = await login(email, password);
+): Promise<RequestOtpResponse> {
+  return fetchApi<RequestOtpResponse>('/auth/client/request-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyClientEmailOtp(
+  email: string,
+  otp: string,
+): Promise<CurrentUser> {
+  clearStoredToken();
+  await fetchApi<{ message: string }>('/auth/client/verify-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp }),
+  });
   const user = await getCurrentUser();
-  return { token: result.access_token, user };
+  if (user.role !== 'USER') {
+    logout();
+    throw new Error('This account cannot access the client portal.');
+  }
+  return user;
+}
+
+export async function requestClientClaimEmailOtp(
+  email: string,
+  checkoutSessionId: string,
+): Promise<RequestOtpResponse> {
+  return fetchApi<RequestOtpResponse>('/auth/client/claim/request-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, checkoutSessionId }),
+  });
+}
+
+export async function verifyClientClaimEmailOtp(
+  email: string,
+  checkoutSessionId: string,
+  otp: string,
+): Promise<CurrentUser> {
+  clearStoredToken();
+  await fetchApi<{ message: string }>('/auth/client/claim/verify-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, checkoutSessionId, otp }),
+  });
+  return getCurrentUser();
 }
 
 export interface StaffAuthResponse {
@@ -118,7 +157,7 @@ export interface StaffAuthResponse {
 
 export const staffMfaConfig = {
   requestStaffMfa: async (email: string): Promise<RequestOtpResponse> => {
-    return fetchApi<RequestOtpResponse>('/auth/request-otp', {
+    return fetchApi<RequestOtpResponse>('/auth/admin/request-email-otp', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -133,63 +172,21 @@ export async function requestStaffMfa(
 
 export async function adminAuthenticateStaff(
   email: string,
-  password: string,
 ): Promise<{ user?: CurrentUser; email: string; requiresMfa: boolean }> {
-  // Step 1 of Admin Login: Verify staff credentials
-  // Ensure no stale or pre-MFA token is stored in localStorage
   clearStoredToken();
-
-  const result = await fetchApi<StaffAuthResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-
-  // Enforce customer account blocking:
-  // If /auth/login returns a standard user session without requiring MFA,
-  // customer accounts CANNOT complete Admin login.
-  if (!result.requiresMfa) {
-    logout();
-    throw new Error(
-      'Access denied: Customer accounts cannot sign in to the Internal Admin portal. Please use the Client Portal.',
-    );
-  }
-
-  // CRITICAL: Ensure no access_token is stored before server-side MFA verification succeeds!
-  clearStoredToken();
-
-  // Dispatch staff MFA to staff Gmail/email address
-  // Fail-closed requirement: If OTP delivery fails, the authentication flow must NOT proceed as authenticated!
   await staffMfaConfig.requestStaffMfa(email);
-
   return { email, requiresMfa: true };
 }
 
 export async function adminVerifyMfa(
   emailOrIdentifier: string,
   mfaCode: string,
-): Promise<{ token: string; user: CurrentUser }> {
-  // Step 2 of Admin Login: Verify MFA challenge
-  // Ensure no stale token is active
+): Promise<{ user: CurrentUser }> {
   clearStoredToken();
-
-  let result: VerifyOtpResponse;
-  if (emailOrIdentifier && emailOrIdentifier.startsWith('+')) {
-    result = await verifyOtp(emailOrIdentifier, mfaCode);
-  } else {
-    // Staff MFA verification using staff email/Gmail identifier
-    result = await fetchApi<VerifyOtpResponse>('/auth/verify-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email: emailOrIdentifier, otp: mfaCode }),
-    });
-  }
-
-  if (!result?.access_token) {
-    logout();
-    throw new Error('MFA verification failed: No access token issued.');
-  }
-
-  // ONLY after server-side MFA verification succeeds do we persist the privileged session!
-  setStoredToken(result.access_token);
+  await fetchApi<{ message: string }>('/auth/admin/verify-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email: emailOrIdentifier, otp: mfaCode }),
+  });
 
   const user = await getCurrentUser();
   if (user.role !== 'ADMIN') {
@@ -199,7 +196,7 @@ export async function adminVerifyMfa(
     );
   }
 
-  return { token: result.access_token, user };
+  return { user };
 }
 
 export async function registerPortal(
@@ -211,7 +208,6 @@ export async function registerPortal(
     method: 'POST',
     body: JSON.stringify({ email, password, company }),
   });
-  if (result.access_token) setStoredToken(result.access_token);
   return result;
 }
 
@@ -230,9 +226,6 @@ export async function verifyOtp(
     method: 'POST',
     body: JSON.stringify({ phone, otp: code }),
   });
-  if (result.access_token) {
-    setStoredToken(result.access_token);
-  }
   return result;
 }
 
@@ -243,6 +236,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 export function logout() {
   clearStoredToken();
   localStorage.removeItem('bantai_session');
+  void fetchApi('/auth/logout', { method: 'POST' }).catch(() => undefined);
 }
 
 /*

@@ -40,7 +40,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const customerMeta = getCustomerMetadata(user);
 
   const userName = user
-    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.phone
+    ? [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+      user.email ||
+      user.phone ||
+      'Current user'
     : 'Loading account…';
   const userTitle = isClient
     ? `${customerMeta.membership} · ${customerMeta.workspace}`
@@ -51,7 +54,9 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const userEmail = user?.email || user?.phone || 'current account';
   const initials = user
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() ||
-      user.phone.slice(-2)
+      user.phone?.slice(-2) ||
+      user.email?.slice(0, 2).toUpperCase() ||
+      'BA'
     : '—';
 
   const settingsRoute = isClient

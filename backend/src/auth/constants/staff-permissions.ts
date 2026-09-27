@@ -58,8 +58,9 @@ export function resolveStaffPermissions(
   if (role !== 'ADMIN') {
     return [];
   }
-  if (!staffRole || staffRole === 'SUPERADMIN') {
+  if (staffRole === 'SUPERADMIN') {
     return ['*'];
   }
+  if (!staffRole) return [];
   return STAFF_ROLE_PERMISSIONS[staffRole] || [];
 }

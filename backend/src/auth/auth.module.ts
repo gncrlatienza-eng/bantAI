@@ -6,11 +6,11 @@ import { PrismaModule } from '../../database/prisma.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
-import { OtpEmailService } from './otp-email.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AdminGuard } from './guards/admin.guard';
-import { StaffGuard } from './guards/staff.guard';
 import { jwtConstants } from './constants';
+import { PortalOtpEmailService } from './portal-otp-email.service';
+import { StaffGuard } from './guards/staff.guard';
 
 /*
  * @Global(): every feature controller uses JwtAuthGuard (which extends
@@ -41,7 +41,7 @@ import { jwtConstants } from './constants';
   providers: [
     AuthService,
     OtpSmsService,
-    OtpEmailService,
+    PortalOtpEmailService,
     JwtStrategy,
     AdminGuard,
     StaffGuard,

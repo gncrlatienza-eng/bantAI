@@ -13,8 +13,8 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
   });
 
   describe('ClientLoginForm', () => {
-    it('validates email format and required password before making network requests', async () => {
-      const loginSpy = vi.spyOn(authService, 'clientLogin');
+    it('validates email format before requesting a code', async () => {
+      const requestSpy = vi.spyOn(authService, 'requestClientEmailOtp');
 
       render(
         <MemoryRouter>
@@ -22,21 +22,20 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
         </MemoryRouter>,
       );
 
-      const submitBtn = screen.getByRole('button', { name: /Sign in/i });
+      const submitBtn = screen.getByRole('button', {
+        name: /Send verification code/i,
+      });
       fireEvent.click(submitBtn);
 
       expect(
         await screen.findByText('Enter a valid work email.'),
       ).toBeInTheDocument();
-      expect(
-        await screen.findByText('Enter your password.'),
-      ).toBeInTheDocument();
-      expect(loginSpy).not.toHaveBeenCalled();
+      expect(requestSpy).not.toHaveBeenCalled();
     });
 
-    it('displays error message upon failed authentication attempt', async () => {
-      vi.spyOn(authService, 'clientLogin').mockRejectedValue(
-        new Error('Invalid email or password.'),
+    it('displays delivery failure without creating a session', async () => {
+      vi.spyOn(authService, 'requestClientEmailOtp').mockRejectedValue(
+        new Error('OTP delivery is temporarily unavailable.'),
       );
 
       const { container } = render(
@@ -48,20 +47,17 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       const emailInput = container.querySelector(
         'input[name="email"]',
       ) as HTMLInputElement;
-      const passwordInput = container.querySelector(
-        'input[name="password"]',
-      ) as HTMLInputElement;
-      const submitBtn = screen.getByRole('button', { name: /Sign in/i });
+      const submitBtn = screen.getByRole('button', {
+        name: /Send verification code/i,
+      });
 
       fireEvent.change(emailInput, { target: { value: 'user@company.com' } });
-      fireEvent.change(passwordInput, {
-        target: { value: 'WrongPassword123' },
-      });
       fireEvent.click(submitBtn);
 
       expect(
-        await screen.findByText('Invalid email or password.'),
+        await screen.findByText('OTP delivery is temporarily unavailable.'),
       ).toBeInTheDocument();
+      expect(localStorage.getItem('bantai_token')).toBeNull();
     });
   });
 
@@ -155,43 +151,14 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       vi.restoreAllMocks();
     });
 
-    it('password success alone cannot access privileged ADMIN endpoints and persists no token before MFA', async () => {
+    it('requesting an admin email code persists no bearer token before verification', async () => {
       const requestOtpSpy = vi.spyOn(authService, 'requestOtp');
       const staffMfaSpy = vi
         .spyOn(authService.staffMfaConfig, 'requestStaffMfa')
         .mockResolvedValue({ message: 'OTP sent to Gmail' });
 
-      // Mock fetchApi for /auth/login returning MFA required (no access_token)
-      vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
-        const endpoint =
-          typeof url === 'string'
-            ? url
-            : url instanceof Request
-              ? url.url
-              : String(url);
-        if (endpoint.includes('/auth/login')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () =>
-              Promise.resolve({
-                message: 'MFA verification required.',
-                requiresMfa: true,
-                email: 'staff@internal.bantai.dev',
-              }),
-          } as Response);
-        }
-        return Promise.resolve({
-          ok: false,
-          status: 401,
-          statusText: 'Unauthorized',
-          json: () => Promise.resolve({ message: 'Authentication required.' }),
-        } as Response);
-      });
-
       const res = await authService.adminAuthenticateStaff(
         'staff@internal.bantai.dev',
-        'StaffSecretPassword123',
       );
 
       expect(res.requiresMfa).toBe(true);
@@ -202,25 +169,21 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       expect(staffMfaSpy).toHaveBeenCalledWith('staff@internal.bantai.dev');
     });
 
-    it('customer accounts cannot complete Admin login', async () => {
-      // Mock /auth/login returning a customer token (not requiring MFA)
+    it('admin request response does not reveal whether an account is eligible', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue({
         ok: true,
-        status: 200,
+        status: 202,
         json: () =>
           Promise.resolve({
-            message: 'Authentication successful.',
-            access_token: 'customer_jwt_token',
+            message:
+              'If the account is eligible, a verification code has been sent.',
           }),
       } as Response);
 
       await expect(
-        authService.adminAuthenticateStaff(
-          'customer@example.com',
-          'CustomerPassword123',
-        ),
-      ).rejects.toThrow(
-        'Access denied: Customer accounts cannot sign in to the Internal Admin portal. Please use the Client Portal.',
+        authService.adminAuthenticateStaff('customer@example.com'),
+      ).resolves.toEqual(
+        expect.objectContaining({ email: 'customer@example.com' }),
       );
 
       expect(localStorage.getItem('bantai_token')).toBeNull();
@@ -234,19 +197,7 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
             : url instanceof Request
               ? url.url
               : url.toString();
-        if (endpoint.includes('/auth/login')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () =>
-              Promise.resolve({
-                message: 'MFA verification required.',
-                requiresMfa: true,
-                email: 'staff@internal.bantai.dev',
-              }),
-          } as Response);
-        }
-        if (endpoint.includes('/auth/request-otp')) {
+        if (endpoint.includes('/auth/admin/request-email-otp')) {
           return Promise.resolve({
             ok: false,
             status: 503,
@@ -261,10 +212,7 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       });
 
       await expect(
-        authService.adminAuthenticateStaff(
-          'staff@internal.bantai.dev',
-          'StaffSecretPassword123',
-        ),
+        authService.adminAuthenticateStaff('staff@internal.bantai.dev'),
       ).rejects.toThrow(/OTP delivery is temporarily unavailable/);
 
       // Must fail closed: no session token stored
@@ -290,18 +238,12 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       const emailInput = container.querySelector(
         'input[name="email"]',
       ) as HTMLInputElement;
-      const passwordInput = container.querySelector(
-        'input[name="password"]',
-      ) as HTMLInputElement;
       const submitBtn = screen.getByRole('button', {
-        name: /Continue to Staff MFA/i,
+        name: /Send staff verification code/i,
       });
 
       fireEvent.change(emailInput, {
         target: { value: 'staff@internal.bantai.dev' },
-      });
-      fireEvent.change(passwordInput, {
-        target: { value: 'StaffSecretPassword123' },
       });
       fireEvent.click(submitBtn);
 
@@ -328,15 +270,14 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       expect(localStorage.getItem('bantai_token')).toBeNull();
     });
 
-    it('successful OTP verification produces the authenticated staff session/token', async () => {
+    it('successful OTP verification uses the cookie session without localStorage', async () => {
       vi.spyOn(authService, 'adminAuthenticateStaff').mockResolvedValue({
         email: 'staff@internal.bantai.dev',
         requiresMfa: true,
       });
-      vi.spyOn(authService, 'adminVerifyMfa').mockImplementation(() => {
-        localStorage.setItem('bantai_token', 'verified_staff_jwt');
-        return Promise.resolve({
-          token: 'verified_staff_jwt',
+      const verifySpy = vi
+        .spyOn(authService, 'adminVerifyMfa')
+        .mockResolvedValue({
           user: {
             id: 'admin-1',
             email: 'staff@internal.bantai.dev',
@@ -345,7 +286,6 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
             staffRole: 'SUPERADMIN',
           },
         });
-      });
 
       const { container } = render(
         <MemoryRouter>
@@ -358,12 +298,8 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
         container.querySelector('input[name="email"]') as HTMLInputElement,
         { target: { value: 'staff@internal.bantai.dev' } },
       );
-      fireEvent.change(
-        container.querySelector('input[name="password"]') as HTMLInputElement,
-        { target: { value: 'StaffSecretPassword123' } },
-      );
       fireEvent.click(
-        screen.getByRole('button', { name: /Continue to Staff MFA/i }),
+        screen.getByRole('button', { name: /Send staff verification code/i }),
       );
 
       // Wait for MFA challenge screen
@@ -384,8 +320,12 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
       fireEvent.click(verifyBtn);
 
       await vi.waitFor(() => {
-        expect(localStorage.getItem('bantai_token')).toBe('verified_staff_jwt');
+        expect(verifySpy).toHaveBeenCalledWith(
+          'staff@internal.bantai.dev',
+          '123456',
+        );
       });
+      expect(localStorage.getItem('bantai_token')).toBeNull();
     });
 
     it('staff MFA uses the required Gmail/email OTP flow rather than SMS', async () => {
@@ -399,19 +339,7 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
               : url instanceof Request
                 ? url.url
                 : url.toString();
-          if (endpoint.includes('/auth/login')) {
-            return Promise.resolve({
-              ok: true,
-              status: 200,
-              json: () =>
-                Promise.resolve({
-                  message: 'MFA verification required.',
-                  requiresMfa: true,
-                  email: 'admin.ops@gmail.com',
-                }),
-            } as Response);
-          }
-          if (endpoint.includes('/auth/request-otp')) {
+          if (endpoint.includes('/auth/admin/request-email-otp')) {
             expect(init?.body).toBe(
               JSON.stringify({ email: 'admin.ops@gmail.com' }),
             );
@@ -427,15 +355,12 @@ describe('Frontend Security & Auth: Login & MFA Flows (W9)', () => {
           return Promise.reject(new Error('Unknown endpoint'));
         });
 
-      await authService.adminAuthenticateStaff(
-        'admin.ops@gmail.com',
-        'StaffPass123!',
-      );
+      await authService.adminAuthenticateStaff('admin.ops@gmail.com');
 
       // Stated requirement is Gmail/email, NOT SMS
       expect(requestOtpSpy).not.toHaveBeenCalled();
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/auth/request-otp'),
+        expect.stringContaining('/auth/admin/request-email-otp'),
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ email: 'admin.ops@gmail.com' }),

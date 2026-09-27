@@ -1,67 +1,171 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { clientLogin } from '../../services/authService';
+import {
+  requestClientEmailOtp,
+  verifyClientEmailOtp,
+} from '../../services/authService';
+import { useTimer } from '../../hooks/useTimer';
 import { Input } from '../common/Input';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const GENERIC_AUTH_FAILURE =
-  'Those credentials did not work. Check your email and password and try again.';
-
 export const ClientLoginForm: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | undefined>();
-  const [passwordError, setPasswordError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | undefined>();
+  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
   const [loading, setLoading] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { formattedTime, isExpired, resetTimer } = useTimer(300);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function requestCode(e?: React.FormEvent) {
+    e?.preventDefault();
     setEmailError(undefined);
-    setPasswordError(undefined);
     setFormError(undefined);
 
-    const trimmedEmail = email.trim();
-    let hasError = false;
-
+    const trimmedEmail = email.trim().toLowerCase();
     if (!EMAIL_RE.test(trimmedEmail)) {
       setEmailError('Enter a valid work email.');
-      hasError = true;
+      return;
     }
-    if (!password) {
-      setPasswordError('Enter your password.');
-      hasError = true;
-    }
-    if (hasError) return;
 
     setLoading(true);
     try {
-      await clientLogin(trimmedEmail, password);
-      void navigate('/client/overview');
+      await requestClientEmailOtp(trimmedEmail);
+      setEmail(trimmedEmail);
+      setOtp(Array(6).fill(''));
+      setStep('otp');
+      resetTimer(300);
     } catch (err) {
-      const message =
-        err instanceof Error && err.message
+      setFormError(
+        err instanceof Error
           ? err.message
-          : GENERIC_AUTH_FAILURE;
-      setFormError(message);
+          : 'The verification code could not be sent.',
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const code = otp.join('');
+    if (code.length !== 6) {
+      setFormError('Enter all 6 digits of the verification code.');
+      return;
+    }
+    setLoading(true);
+    setFormError(undefined);
+    try {
+      await verifyClientEmailOtp(email, code);
+      void navigate('/client/overview');
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : 'Invalid verification code.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (step === 'otp') {
+    return (
+      <form
+        className="bantai-auth-card__form"
+        onSubmit={(e) => void verifyCode(e)}
+        noValidate
+      >
+        <p className="bantai-auth-card__foot">
+          Enter the 6-digit code sent to <strong>{email}</strong>. Expires in{' '}
+          <span aria-live="polite">{formattedTime}</span>.
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          {otp.map((digit, index) => (
+            <input
+              key={index}
+              ref={(element) => {
+                inputRefs.current[index] = element;
+              }}
+              aria-label={`Verification digit ${index + 1}`}
+              autoFocus={index === 0}
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              disabled={loading}
+              onChange={(event) => {
+                if (!/^\d*$/.test(event.target.value)) return;
+                const next = [...otp];
+                next[index] = event.target.value.slice(-1);
+                setOtp(next);
+                setFormError(undefined);
+                if (event.target.value && index < 5)
+                  inputRefs.current[index + 1]?.focus();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Backspace' && !digit && index > 0)
+                  inputRefs.current[index - 1]?.focus();
+              }}
+              onPaste={(event) => {
+                event.preventDefault();
+                const value = event.clipboardData.getData('text').trim();
+                if (/^\d{6}$/.test(value)) setOtp(value.split(''));
+              }}
+              style={{
+                width: 44,
+                height: 52,
+                textAlign: 'center',
+                fontSize: '1.4rem',
+              }}
+            />
+          ))}
+        </div>
+        {formError && (
+          <div className="bantai-auth-card__form-error" role="alert">
+            {formError}
+          </div>
+        )}
+        <div className="bantai-auth-card__actions">
+          <button
+            className="bantai-auth-card__primary"
+            disabled={loading || otp.join('').length !== 6}
+          >
+            {loading ? 'Verifying…' : 'Verify & sign in'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <button
+            type="button"
+            className="bantai-auth-card__link"
+            disabled={loading || !isExpired}
+            onClick={() => void requestCode()}
+          >
+            Resend code
+          </button>
+          <button
+            type="button"
+            className="bantai-auth-card__link"
+            onClick={() => setStep('email')}
+          >
+            Use another email
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <form
       className="bantai-auth-card__form"
-      onSubmit={(e) => void handleSubmit(e)}
+      onSubmit={(e) => void requestCode(e)}
       noValidate
     >
       <Input
         label="Work email"
         type="email"
         name="email"
-        autoComplete="username"
+        autoComplete="email"
         inputMode="email"
         placeholder="name@organization.com"
         value={email}
@@ -72,21 +176,6 @@ export const ClientLoginForm: React.FC = () => {
         }}
         error={emailError}
         autoFocus
-        required
-      />
-
-      <Input
-        label="Password"
-        type="password"
-        name="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => {
-          setPassword(e.target.value);
-          setPasswordError(undefined);
-          setFormError(undefined);
-        }}
-        error={passwordError}
         required
       />
 
@@ -107,7 +196,7 @@ export const ClientLoginForm: React.FC = () => {
           disabled={loading}
           aria-disabled={loading}
         >
-          {loading ? 'Signing in…' : 'Sign in to Client Portal'}
+          {loading ? 'Sending code…' : 'Send verification code'}
         </button>
       </div>
 

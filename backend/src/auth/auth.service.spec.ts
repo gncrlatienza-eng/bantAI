@@ -3,34 +3,41 @@ import {
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
-import { OtpEmailService } from './otp-email.service';
+import { PortalOtpEmailService } from './portal-otp-email.service';
+import { AuthAudience } from './constants';
 
 describe('AuthService', () => {
   const prisma = {
-    user: { upsert: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
-    otpCode: {
+    user: {
+      upsert: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
+    accessRequest: { findUnique: jest.fn(), updateMany: jest.fn() },
+    emailOtpChallenge: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    organizationMembership: { upsert: jest.fn() },
     organizationInvitation: {
-      findMany: jest.fn().mockResolvedValue([]),
-      update: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
-    organizationMembership: {
-      upsert: jest.fn(),
-    },
-    portalOrganization: {
+    otpCode: {
       findUnique: jest.fn(),
+      upsert: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -49,7 +56,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: OtpSmsService, useValue: sms },
-        { provide: OtpEmailService, useValue: email },
+        { provide: PortalOtpEmailService, useValue: email },
         { provide: JwtService, useValue: jwt },
       ],
     }).compile();
@@ -65,7 +72,16 @@ describe('AuthService', () => {
     expect(prisma.user.upsert).not.toHaveBeenCalled();
   });
 
-  it('registers a portal user with a hashed password and issues a token', async () => {
+  it('registers exactly one portal user from an active checkout', async () => {
+    prisma.accessRequest.findUnique.mockResolvedValue({
+      id: 'ar-1',
+      email: ' Client@Example.com ',
+      organization: ' Example Co ',
+      status: 'ACTIVE',
+      activatedAt: new Date(),
+      portalUserId: null,
+    });
+    prisma.accessRequest.updateMany.mockResolvedValue({ count: 1 });
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.user.create.mockImplementation(({ data }) =>
       Promise.resolve({ id: 'u-web', role: 'USER', ...data }),
@@ -74,9 +90,8 @@ describe('AuthService', () => {
 
     await expect(
       service.registerPortal({
-        email: ' Client@Example.com ',
+        checkoutSessionId: 'cs_test_active_checkout_123',
         password: 'strong-password',
-        company: ' Example Co ',
       }),
     ).resolves.toMatchObject({ access_token: 'portal-jwt' });
 
@@ -88,35 +103,58 @@ describe('AuthService', () => {
         passwordHash: expect.not.stringMatching(/^strong-password$/),
       }),
     });
+    expect(prisma.accessRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ portalUserId: null }),
+        data: { portalUserId: 'u-web' },
+      }),
+    );
   });
 
-  it('rejects duplicate portal registration', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
+  it('rejects portal registration until the checkout is active', async () => {
+    prisma.accessRequest.findUnique.mockResolvedValue({
+      id: 'ar-1',
+      status: 'PAYMENT_PENDING',
+      activatedAt: null,
+      portalUserId: null,
+    });
 
     await expect(
       service.registerPortal({
-        email: 'client@example.com',
+        checkoutSessionId: 'cs_test_pending_checkout_123',
+        password: 'strong-password',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a second account claim for the same license', async () => {
+    prisma.accessRequest.findUnique.mockResolvedValue({
+      id: 'ar-1',
+      email: 'client@example.com',
+      organization: 'Example Co',
+      status: 'ACTIVE',
+      activatedAt: new Date(),
+      portalUserId: 'u-existing',
+    });
+
+    await expect(
+      service.registerPortal({
+        checkoutSessionId: 'cs_test_claimed_checkout_123',
         password: 'strong-password',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('authenticates a portal user with email and password', async () => {
-    const registration = service.registerPortal({
-      email: 'client@example.com',
-      password: 'strong-password',
-    });
-    prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockImplementation(({ data }) =>
-      Promise.resolve({ id: 'u-web', role: 'USER', ...data }),
-    );
     jwt.signAsync.mockResolvedValue('portal-jwt');
-    await registration;
-    const created = prisma.user.create.mock.calls[0][0].data;
+    const passwordHash = await import('bcrypt').then((bcrypt) =>
+      bcrypt.hash('strong-password', 12),
+    );
     prisma.user.findUnique.mockResolvedValue({
       id: 'u-web',
       role: 'USER',
-      passwordHash: created.passwordHash,
+      passwordHash,
     });
 
     await expect(
@@ -158,6 +196,9 @@ describe('AuthService', () => {
     expect(prisma.user.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ where: { phone } }),
     );
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ sub: 'u1', role: 'ADMIN' }),
+    );
   });
 
   it('increments a bad OTP attempt before rejecting it', async () => {
@@ -176,139 +217,302 @@ describe('AuthService', () => {
     );
   });
 
-  it('requires MFA and does not issue an access token when an ADMIN logs in with password', async () => {
-    const passwordHash = await bcrypt.hash('staff-password', 10);
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'admin-1',
-      email: 'staff@bantai.ph',
-      role: 'ADMIN',
-      passwordHash,
-    });
-
-    const res = await service.login({
-      email: 'staff@bantai.ph',
-      password: 'staff-password',
-    });
-
-    expect(res).toEqual({
-      message: 'MFA verification required.',
-      requiresMfa: true,
-      email: 'staff@bantai.ph',
-    });
-    expect(res).not.toHaveProperty('access_token');
-    expect(jwt.signAsync).not.toHaveBeenCalled();
-  });
-
-  it('fails closed and invalidates the code if OTP delivery fails', async () => {
-    const phone = '+639171234567';
-    prisma.otpCode.findUnique.mockResolvedValue(null);
-    prisma.otpCode.upsert.mockResolvedValue({});
-    prisma.otpCode.updateMany.mockResolvedValue({ count: 1 });
-    sms.send.mockRejectedValue(new Error('SMS Gateway Down'));
-
-    await expect(service.requestOtp({ phone: '09171234567' })).rejects.toThrow(
-      'OTP delivery is temporarily unavailable.',
-    );
-
-    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ phone, verified: false }),
-        data: { verified: true },
-      }),
-    );
-  });
-
-  it('dispatches staff MFA OTP via email and not SMS when requested with an email', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'staff-1',
-      email: 'staff@bantai.ph',
-      role: 'ADMIN',
-    });
-    prisma.otpCode.findUnique.mockResolvedValue(null);
-    prisma.otpCode.upsert.mockResolvedValue({});
+  it('sends a web client OTP by email without changing mobile OTP storage', async () => {
+    prisma.user.findFirst.mockResolvedValue({ id: 'u-web', role: 'USER' });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
     email.send.mockResolvedValue(undefined);
 
-    const res = await service.requestOtp({ email: 'staff@bantai.ph' });
+    await expect(
+      service.requestClientEmailOtp({ email: ' Client@Example.com ' }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
 
-    expect(res).toEqual({ message: 'OTP generated successfully.' });
-    expect(email.send).toHaveBeenCalledWith(
-      'staff@bantai.ph',
-      expect.any(String),
-    );
-    expect(sms.send).not.toHaveBeenCalled();
-    expect(prisma.otpCode.upsert).toHaveBeenCalledWith(
+    expect(prisma.emailOtpChallenge.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { email: 'staff@bantai.ph' },
+        create: expect.objectContaining({
+          email: 'client@example.com',
+          purpose: 'CLIENT_SIGN_IN',
+        }),
       }),
+    );
+    expect(email.send).toHaveBeenCalledWith(
+      'client@example.com',
+      expect.stringMatching(/^\d{6}$/),
+      'CLIENT_SIGN_IN',
+    );
+    expect(prisma.otpCode.upsert).not.toHaveBeenCalled();
+  });
+
+  it('sends a purpose-bound mobile OTP for a new email identity', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+
+    await expect(
+      service.requestMobileEmailOtp({ email: ' Mobile@Example.com ' }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+
+    expect(prisma.emailOtpChallenge.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          email: 'mobile@example.com',
+          purpose: 'MOBILE_SIGN_IN',
+        }),
+      }),
+    );
+    expect(email.send).toHaveBeenCalledWith(
+      'mobile@example.com',
+      expect.stringMatching(/^\d{6}$/),
+      'MOBILE_SIGN_IN',
     );
   });
 
-  it('rejects staff email MFA request for non-admin accounts', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      email: 'customer@example.com',
-      role: 'USER',
+  it('does not send a mobile OTP to an address owned by a portal identity', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      role: 'ADMIN',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
     });
 
     await expect(
-      service.requestOtp({ email: 'customer@example.com' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-
+      service.requestMobileEmailOtp({ email: 'staff@example.com' }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+    expect(prisma.emailOtpChallenge.upsert).not.toHaveBeenCalled();
     expect(email.send).not.toHaveBeenCalled();
-    expect(sms.send).not.toHaveBeenCalled();
   });
 
-  it('fails closed and invalidates email OTP code if email delivery fails', async () => {
-    const staffEmail = 'staff@bantai.ph';
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'staff-1',
-      email: staffEmail,
-      role: 'ADMIN',
+  it('does not let an unverified profile email deny first-time mobile OTP', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      role: 'USER',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
     });
-    prisma.otpCode.findUnique.mockResolvedValue(null);
-    prisma.otpCode.upsert.mockResolvedValue({});
-    prisma.otpCode.updateMany.mockResolvedValue({ count: 1 });
-    email.send.mockRejectedValue(new Error('SMTP failure'));
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
 
-    await expect(service.requestOtp({ email: staffEmail })).rejects.toThrow(
-      'OTP delivery is temporarily unavailable.',
+    await service.requestMobileEmailOtp({ email: 'victim@example.com' });
+
+    expect(email.send).toHaveBeenCalledWith(
+      'victim@example.com',
+      expect.stringMatching(/^\d{6}$/),
+      'MOBILE_SIGN_IN',
     );
+  });
 
-    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
+  it('prefers a verified mobile identity over a colliding profile email', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'u-mobile',
+      role: 'USER',
+      mobileAuthEmail: 'mobile@example.com',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
+    });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+
+    await service.requestMobileEmailOtp({ email: 'mobile@example.com' });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ email: staffEmail, verified: false }),
-        data: { verified: true },
+        where: { mobileAuthEmail: 'mobile@example.com' },
       }),
     );
+    expect(email.send).toHaveBeenCalled();
   });
 
-  it('verifies a valid email OTP and issues a privileged staff token', async () => {
-    const staffEmail = 'staff@bantai.ph';
-    const codeHash = (service as any).hashOtp(staffEmail, '654321');
-    prisma.otpCode.findUnique.mockResolvedValue({
-      email: staffEmail,
+  it('atomically consumes a mobile email OTP and issues a mobile token', async () => {
+    const emailAddress = 'mobile@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'MOBILE_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
       codeHash,
-      verified: false,
+      consumedAt: null,
       expiresAt: new Date(Date.now() + 60_000),
       attempts: 0,
     });
-    prisma.otpCode.updateMany.mockResolvedValue({ count: 1 });
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'staff-1',
-      email: staffEmail,
-      role: 'ADMIN',
-      staffRole: 'SUPERADMIN',
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: 'u-mobile', role: 'USER' });
+    jwt.signAsync.mockResolvedValue('mobile-jwt');
+
+    await expect(
+      service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toEqual({
+      message: 'Authentication successful.',
+      access_token: 'mobile-jwt',
     });
-    jwt.signAsync.mockResolvedValue('verified-staff-jwt');
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: { mobileAuthEmail: emailAddress, role: 'USER' },
+      select: { id: true, role: true },
+    });
+    expect(jwt.signAsync).toHaveBeenCalledWith({
+      sub: 'u-mobile',
+      role: 'USER',
+    });
+  });
 
-    const res = await service.verifyOtp({ email: staffEmail, otp: '654321' });
+  it('allows verification when only an unverified profile email collides', async () => {
+    const emailAddress = 'victim@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'MOBILE_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      role: 'USER',
+      passwordHash: null,
+      licensedAccessRequest: null,
+      organizationMemberships: [],
+    });
+    prisma.user.create.mockResolvedValue({ id: 'u-mobile', role: 'USER' });
+    jwt.signAsync.mockResolvedValue('mobile-jwt');
 
-    expect(res).toMatchObject({ access_token: 'verified-staff-jwt' });
-    expect(prisma.otpCode.updateMany).toHaveBeenCalledWith(
+    await expect(
+      service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toEqual({
+      message: 'Authentication successful.',
+      access_token: 'mobile-jwt',
+    });
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: { mobileAuthEmail: emailAddress, role: 'USER' },
+      select: { id: true, role: true },
+    });
+  });
+
+  it('rejects a portal-purpose code on the mobile verification endpoint', async () => {
+    const emailAddress = 'mobile@example.com';
+    const portalCodeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'CLIENT_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash: portalCodeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+
+    await expect(
+      service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.emailOtpChallenge.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { attempts: { increment: 1 } } }),
+    );
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('silently suppresses excess email sends without revealing account eligibility', async () => {
+    prisma.user.findFirst.mockResolvedValue({ id: 'u-web', role: 'USER' });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      requestCount: 5,
+      requestWindowStart: new Date(),
+    });
+
+    await expect(
+      service.requestClientEmailOtp({ email: 'client@example.com' }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+    expect(prisma.emailOtpChallenge.upsert).not.toHaveBeenCalled();
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it('issues a client-domain token after consuming an email OTP once', async () => {
+    const emailAddress = 'client@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'CLIENT_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findFirst.mockResolvedValue({ id: 'u-web', role: 'USER' });
+    jwt.signAsync.mockResolvedValue('client-jwt');
+
+    await expect(
+      service.verifyClientEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toMatchObject({
+      access_token: 'client-jwt',
+      audience: AuthAudience.CLIENT,
+    });
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ audience: AuthAudience.CLIENT }),
+    );
+  });
+
+  it('accepts an active workspace invitation only after email OTP proof', async () => {
+    const emailAddress = 'invitee@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'CLIENT_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findFirst.mockResolvedValue(null);
+    prisma.organizationInvitation.findMany.mockResolvedValue([
+      {
+        id: 'invite-1',
+        organizationId: 'org-1',
+        role: 'TIER_2',
+      },
+    ]);
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: 'invitee-1', role: 'USER' });
+    prisma.organizationMembership.upsert.mockResolvedValue({ id: 'member-1' });
+    prisma.organizationInvitation.updateMany.mockResolvedValue({ count: 1 });
+    jwt.signAsync.mockResolvedValue('client-jwt');
+
+    await expect(
+      service.verifyClientEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toMatchObject({ access_token: 'client-jwt' });
+    expect(prisma.organizationMembership.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ email: staffEmail, verified: false }),
-        data: { verified: true },
+        create: expect.objectContaining({
+          organizationId: 'org-1',
+          userId: 'invitee-1',
+          role: 'TIER_2',
+        }),
       }),
+    );
+    expect(prisma.organizationInvitation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'ACCEPTED' } }),
     );
   });
 });

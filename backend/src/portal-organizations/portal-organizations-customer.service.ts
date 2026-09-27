@@ -22,7 +22,7 @@ export class PortalOrganizationsCustomerService {
       include: {
         organization: {
           include: {
-            accessRequest: true,
+            licensedAccessRequest: true,
             members: {
               include: {
                 user: {
@@ -59,7 +59,7 @@ export class PortalOrganizationsCustomerService {
     const membership = await this.getCallerMembership(userId);
     const org = membership.organization;
     const isOwner = org.ownerId === userId;
-    const tier = org.accessRequest?.tier ?? 'ORGANIZATION';
+    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
     const seatLimit = tier === 'RESEARCH' ? 1 : 10;
     const seatsUsed = org.members.length;
 
@@ -74,9 +74,9 @@ export class PortalOrganizationsCustomerService {
         seatsUsed,
         license: {
           tier,
-          status: org.accessRequest?.status ?? 'ACTIVE',
-          billingPeriod: org.accessRequest?.billingPeriod ?? 'ANNUAL',
-          expiresAt: org.accessRequest?.expiresAt ?? null,
+          status: org.licensedAccessRequest?.status ?? 'ACTIVE',
+          billingPeriod: org.licensedAccessRequest?.billingPeriod ?? 'ANNUAL',
+          expiresAt: org.licensedAccessRequest?.expiresAt ?? null,
         },
       },
       members: org.members.map((m) => ({
@@ -125,9 +125,9 @@ export class PortalOrganizationsCustomerService {
     }
 
     // Check seat limits
-    const tier = org.accessRequest?.tier ?? 'ORGANIZATION';
+    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
     const seatLimit = tier === 'RESEARCH' ? 1 : 10;
-    if (org.members.length >= seatLimit) {
+    if (org.members.length + org.invitations.length >= seatLimit) {
       throw new BadRequestException(
         `Seat limit of ${seatLimit} reached. Upgrade your license to invite more members.`,
       );
@@ -307,19 +307,19 @@ export class PortalOrganizationsCustomerService {
   async getMyLicense(userId: string) {
     const membership = await this.getCallerMembership(userId);
     const org = membership.organization;
-    const tier = org.accessRequest?.tier ?? 'ORGANIZATION';
+    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
     const seatLimit = tier === 'RESEARCH' ? 1 : 10;
     const seatsUsed = org.members.length;
 
     return {
       tier,
-      status: org.accessRequest?.status ?? 'ACTIVE',
+      status: org.licensedAccessRequest?.status ?? 'ACTIVE',
       seatLimit,
       seatsUsed,
       seatsRemaining: Math.max(0, seatLimit - seatsUsed),
-      billingPeriod: org.accessRequest?.billingPeriod ?? 'ANNUAL',
-      activatedAt: org.accessRequest?.activatedAt ?? org.createdAt,
-      expiresAt: org.accessRequest?.expiresAt ?? null,
+      billingPeriod: org.licensedAccessRequest?.billingPeriod ?? 'ANNUAL',
+      activatedAt: org.licensedAccessRequest?.activatedAt ?? org.createdAt,
+      expiresAt: org.licensedAccessRequest?.expiresAt ?? null,
     };
   }
 
@@ -333,9 +333,9 @@ export class PortalOrganizationsCustomerService {
       );
     }
 
-    const tier = org.accessRequest?.tier ?? 'ORGANIZATION';
-    const period = org.accessRequest?.billingPeriod ?? 'ANNUAL';
-    const status = org.accessRequest?.status ?? 'ACTIVE';
+    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
+    const period = org.licensedAccessRequest?.billingPeriod ?? 'ANNUAL';
+    const status = org.licensedAccessRequest?.status ?? 'ACTIVE';
 
     let invoices: Array<{
       id: string;
@@ -347,12 +347,12 @@ export class PortalOrganizationsCustomerService {
     }> = [];
 
     const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
-    if (stripeKey && org.accessRequest?.stripeCustomerId) {
+    if (stripeKey && org.licensedAccessRequest?.stripeCustomerId) {
       try {
         const StripeSDK = (await import('stripe')).default;
         const stripe = new StripeSDK(stripeKey);
         const stripeInvoices = await stripe.invoices.list({
-          customer: org.accessRequest.stripeCustomerId,
+          customer: org.licensedAccessRequest.stripeCustomerId,
           limit: 10,
         });
         invoices = stripeInvoices.data.map((inv) => ({
@@ -370,11 +370,14 @@ export class PortalOrganizationsCustomerService {
       }
     }
 
-    if (invoices.length === 0 && org.accessRequest?.stripeSubscriptionId) {
+    if (
+      invoices.length === 0 &&
+      org.licensedAccessRequest?.stripeSubscriptionId
+    ) {
       invoices = [
         {
-          id: `sub_${org.accessRequest.stripeSubscriptionId.slice(-8)}`,
-          date: org.accessRequest.activatedAt ?? org.createdAt,
+          id: `sub_${org.licensedAccessRequest.stripeSubscriptionId.slice(-8)}`,
+          date: org.licensedAccessRequest.activatedAt ?? org.createdAt,
           amount:
             tier === 'ORGANIZATION'
               ? period === 'ANNUAL'
@@ -391,8 +394,8 @@ export class PortalOrganizationsCustomerService {
       currentPlan: `${tier === 'ORGANIZATION' ? 'Organization Enterprise' : 'Academic Research'} (${period})`,
       status,
       billingPeriod: period,
-      nextBillingDate: org.accessRequest?.expiresAt ?? null,
-      stripeCustomerId: org.accessRequest?.stripeCustomerId
+      nextBillingDate: org.licensedAccessRequest?.expiresAt ?? null,
+      stripeCustomerId: org.licensedAccessRequest?.stripeCustomerId
         ? 'Configured'
         : null,
       invoices,

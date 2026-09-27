@@ -15,11 +15,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const AdminLoginForm: React.FC = () => {
   const navigate = useNavigate();
 
-  // Step 1: Staff Credentials state
+  // Step 1: request an email OTP. The backend returns the same response for
+  // eligible and ineligible addresses to avoid account enumeration.
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | undefined>();
-  const [passwordError, setPasswordError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +36,6 @@ export const AdminLoginForm: React.FC = () => {
   async function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault();
     setEmailError(undefined);
-    setPasswordError(undefined);
     setFormError(undefined);
 
     const trimmedEmail = email.trim();
@@ -47,15 +45,11 @@ export const AdminLoginForm: React.FC = () => {
       setEmailError('Enter a valid staff email address.');
       hasError = true;
     }
-    if (!password) {
-      setPasswordError('Enter your staff password.');
-      hasError = true;
-    }
     if (hasError) return;
 
     setLoading(true);
     try {
-      const authResult = await adminAuthenticateStaff(trimmedEmail, password);
+      const authResult = await adminAuthenticateStaff(trimmedEmail);
       setStaffEmail(authResult.email || trimmedEmail);
       if (authResult.user) setStaffUser(authResult.user);
       setStep('mfa');
@@ -64,7 +58,7 @@ export const AdminLoginForm: React.FC = () => {
       setFormError(
         err instanceof Error
           ? err.message
-          : 'Invalid credentials. Administrator authentication failed.',
+          : 'The verification code could not be sent.',
       );
     } finally {
       setLoading(false);
@@ -336,21 +330,6 @@ export const AdminLoginForm: React.FC = () => {
         required
       />
 
-      <Input
-        label="Password"
-        type="password"
-        name="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => {
-          setPassword(e.target.value);
-          setPasswordError(undefined);
-          setFormError(undefined);
-        }}
-        error={passwordError}
-        required
-      />
-
       {formError && (
         <div
           className="bantai-auth-card__form-error"
@@ -368,7 +347,7 @@ export const AdminLoginForm: React.FC = () => {
           disabled={loading}
           aria-disabled={loading}
         >
-          {loading ? 'Authenticating…' : 'Continue to Staff MFA →'}
+          {loading ? 'Sending code…' : 'Send staff verification code →'}
         </button>
       </div>
 

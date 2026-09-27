@@ -9,7 +9,6 @@ ALTER TABLE "User" ADD COLUMN "staffRole" "StaffRole";
 
 -- AlterTable
 ALTER TABLE "PortalOrganization" ADD COLUMN "ownerId" TEXT;
-ALTER TABLE "PortalOrganization" ADD COLUMN "accessRequestId" TEXT;
 
 -- CreateTable
 CREATE TABLE "OrganizationInvitation" (
@@ -28,9 +27,6 @@ CREATE TABLE "OrganizationInvitation" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PortalOrganization_accessRequestId_key" ON "PortalOrganization"("accessRequestId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "OrganizationInvitation_tokenHash_key" ON "OrganizationInvitation"("tokenHash");
 
 -- CreateIndex
@@ -38,9 +34,6 @@ CREATE INDEX "OrganizationInvitation_organizationId_status_idx" ON "Organization
 
 -- CreateIndex
 CREATE INDEX "OrganizationInvitation_email_idx" ON "OrganizationInvitation"("email");
-
--- AddForeignKey
-ALTER TABLE "PortalOrganization" ADD CONSTRAINT "PortalOrganization_accessRequestId_fkey" FOREIGN KEY ("accessRequestId") REFERENCES "AccessRequest"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OrganizationInvitation" ADD CONSTRAINT "OrganizationInvitation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "PortalOrganization"("id") ON DELETE CASCADE ON UPDATE CASCADE;

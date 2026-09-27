@@ -45,13 +45,9 @@ export async function fetchApi<T>(
     ...(customHeaders as Record<string, string>),
   };
 
-  const token = getStoredToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const response = await fetch(url, {
     ...restOptions,
+    credentials: restOptions.credentials ?? 'include',
     headers,
   });
 

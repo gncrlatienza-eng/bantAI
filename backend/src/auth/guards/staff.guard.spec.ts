@@ -33,10 +33,16 @@ describe('StaffGuard', () => {
     expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
 
-  it('allows legacy ADMIN with null staffRole (all permissions granted)', () => {
+  it('allows an explicitly authenticated wildcard administrator', () => {
     const user = { role: 'ADMIN', staffRole: null, permissions: ['*'] };
     const ctx = createMockContext(user, ['reports:manage', 'models:deploy']);
     expect(guard.canActivate(ctx)).toBe(true);
+  });
+
+  it('denies protected permissions when an ADMIN has no staff role', () => {
+    const user = { role: 'ADMIN', staffRole: null, permissions: [] };
+    const ctx = createMockContext(user, ['reports:manage']);
+    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
 
   it('allows SUPPORT staff to access reports:read and reports:manage', () => {

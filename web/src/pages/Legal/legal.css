@@ -1,0 +1,218 @@
+/*
+ * Commerce & Legal Disclosures stylesheet.
+ * Mineral palette aligned with AuthLayout and AppShell.
+ */
+
+.legal-page {
+  min-height: 100vh;
+  background: var(--surface-canvas, #0c0d12);
+  color: var(--text-primary, #f1f2f6);
+  padding: 40px 20px 80px;
+}
+
+.legal-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.legal-header {
+  margin-bottom: 32px;
+}
+
+.legal-eyebrow {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-primary, #b794f4);
+  margin-bottom: 8px;
+}
+
+.legal-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  margin: 0 0 12px;
+  line-height: 1.25;
+}
+
+.legal-lede {
+  font-size: 1rem;
+  color: var(--text-secondary, #a0aec0);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.legal-status-banner {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #fef08a;
+}
+
+.legal-status-badge {
+  background: #ca8a04;
+  color: #000;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.legal-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-default, #2d3748);
+  margin-bottom: 32px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.legal-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary, #a0aec0);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.legal-tab-btn:hover {
+  color: var(--text-primary, #ffffff);
+}
+
+.legal-tab-btn.active {
+  color: var(--brand-primary, #b794f4);
+  border-bottom-color: var(--brand-primary, #b794f4);
+}
+
+.legal-card {
+  background: var(--surface-raised, #161822);
+  border: 1px solid var(--border-default, #2d3748);
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
+
+.legal-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.legal-version-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  background: var(--surface-subtle, #1e2130);
+  color: var(--brand-primary, #b794f4);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #3b4252);
+}
+
+.legal-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.legal-info-block {
+  background: var(--surface-subtle, #1a1d29);
+  border: 1px solid var(--border-subtle, #2d3748);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.legal-info-label {
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  color: var(--text-secondary, #a0aec0);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+
+.legal-info-value {
+  font-size: 0.95rem;
+  color: var(--text-primary, #ffffff);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.legal-list {
+  margin: 16px 0;
+  padding-left: 20px;
+  color: var(--text-secondary, #cbd5e0);
+  line-height: 1.7;
+}
+
+.legal-list li {
+  margin-bottom: 8px;
+}
+
+.legal-table-wrapper {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.legal-table th,
+.legal-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle, #2d3748);
+  text-align: left;
+}
+
+.legal-table th {
+  background: var(--surface-subtle, #1a1d29);
+  color: var(--text-secondary, #a0aec0);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.legal-table td {
+  color: var(--text-primary, #ffffff);
+}
+
+.legal-footer-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-default, #2d3748);
+  font-size: 0.9rem;
+}
+
+.legal-back-link {
+  color: var(--brand-primary, #b794f4);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.legal-back-link:hover {
+  text-decoration: underline;
+}

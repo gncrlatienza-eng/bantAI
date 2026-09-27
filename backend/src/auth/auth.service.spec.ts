@@ -28,6 +28,11 @@ describe('AuthService', () => {
       updateMany: jest.fn(),
     },
     organizationMembership: { upsert: jest.fn() },
+    organizationInvitation: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
     otpCode: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
@@ -462,6 +467,52 @@ describe('AuthService', () => {
     expect(jwt.signAsync).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ audience: AuthAudience.CLIENT }),
+    );
+  });
+
+  it('accepts an active workspace invitation only after email OTP proof', async () => {
+    const emailAddress = 'invitee@example.com';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'CLIENT_SIGN_IN',
+      '123456',
+    );
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      challengeKey: 'challenge',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findFirst.mockResolvedValue(null);
+    prisma.organizationInvitation.findMany.mockResolvedValue([
+      {
+        id: 'invite-1',
+        organizationId: 'org-1',
+        role: 'TIER_2',
+      },
+    ]);
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: 'invitee-1', role: 'USER' });
+    prisma.organizationMembership.upsert.mockResolvedValue({ id: 'member-1' });
+    prisma.organizationInvitation.updateMany.mockResolvedValue({ count: 1 });
+    jwt.signAsync.mockResolvedValue('client-jwt');
+
+    await expect(
+      service.verifyClientEmailOtp({ email: emailAddress, otp: '123456' }),
+    ).resolves.toMatchObject({ access_token: 'client-jwt' });
+    expect(prisma.organizationMembership.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          organizationId: 'org-1',
+          userId: 'invitee-1',
+          role: 'TIER_2',
+        }),
+      }),
+    );
+    expect(prisma.organizationInvitation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'ACCEPTED' } }),
     );
   });
 });

@@ -10,6 +10,7 @@ import {
   NavMessagesIcon,
   NavAnalyticsIcon,
   NavReportsIcon,
+  NavUsersIcon,
   NavSystemIcon,
 } from '../../components/primitives';
 
@@ -42,6 +43,11 @@ export const CLIENT_SIDEBAR_GROUPS: NavGroupDef[] = [
   {
     label: 'Operations',
     items: [
+      {
+        label: 'Workspace',
+        path: '/client/workspace',
+        icon: <NavUsersIcon />,
+      },
       { label: 'Help', path: '/client/help', icon: <NavReportsIcon /> },
       {
         label: 'Account settings',

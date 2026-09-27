@@ -139,6 +139,10 @@ export function PublicShell({ children }: PublicShellProps) {
             </button>
             <Link to="/login">Sign in</Link>
             <Link to="/request-access">Request access</Link>
+            <Link to="/legal?tab=terms">Terms</Link>
+            <Link to="/legal?tab=privacy">Privacy</Link>
+            <Link to="/legal?tab=license">License</Link>
+            <Link to="/legal?tab=redress">DPO &amp; Redress</Link>
           </nav>
         </div>
         <p className="bantai-public__footer-copy">

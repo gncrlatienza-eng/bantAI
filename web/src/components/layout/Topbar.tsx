@@ -33,7 +33,9 @@ export const Topbar: React.FC<TopbarProps> = ({
   }, []);
   const derivedInitials = user
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() ||
-      user.phone.slice(-2)
+      user.phone?.slice(-2) ||
+      user.email?.slice(0, 2).toUpperCase() ||
+      'BA'
     : userInitials;
 
   const pathParts = location.pathname.split('/').filter(Boolean);

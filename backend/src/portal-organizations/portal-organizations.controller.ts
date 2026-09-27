@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { AddOrganizationMemberDto } from './dto/add-organization-member.dto';
 import { CreatePortalOrganizationDto } from './dto/create-portal-organization.dto';
 import { OrganizationScopeGuard } from './organization-scope.guard';
@@ -11,19 +11,22 @@ import { PortalOrganizationsService } from './portal-organizations.service';
 export class PortalOrganizationsController {
   constructor(private readonly organizations: PortalOrganizationsService) {}
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('access_requests:manage')
   @Post()
   create(@Body() dto: CreatePortalOrganizationDto) {
     return this.organizations.create(dto);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('overview:read')
   @Get()
   list() {
     return this.organizations.list();
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('access_requests:manage')
   @Post(':organizationId/members')
   addMember(
     @Param('organizationId') organizationId: string,

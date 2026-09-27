@@ -450,6 +450,10 @@ export class AccessRequestsService {
                 role: true,
               },
             });
+            await tx.portalOrganization.update({
+              where: { id: organization.id },
+              data: { ownerId: user.id },
+            });
 
             return {
               accessRequestId: accessRequest.id,

@@ -27,7 +27,7 @@ import {
   type UserReportItem,
 } from '../../services/reportsService';
 import { logout } from '../../services/authService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { useAdminNavGroups } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -72,6 +72,7 @@ interface Bundle {
 export function ExportPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navGroups = useAdminNavGroups();
 
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +103,7 @@ export function ExportPage() {
   return (
     <AppShell
       role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}

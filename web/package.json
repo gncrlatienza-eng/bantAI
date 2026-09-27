@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:public": "tsc -b && vite build --mode public",
+    "build:client": "tsc -b && vite build --mode client",
+    "build:admin": "tsc -b && vite build --mode admin",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -20,6 +25,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^24.2.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
@@ -30,9 +38,11 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.1.0",
     "globals": "^17.0.0",
+    "jsdom": "^29.1.1",
     "prettier": "^3.4.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.20.0",
-    "vite": "^7.1.1"
+    "vite": "^7.1.1",
+    "vitest": "^4.1.11"
   }
 }

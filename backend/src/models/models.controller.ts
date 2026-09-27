@@ -10,21 +10,24 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CreateModelVersionDto } from './dto/create-model-version.dto';
 import { ModelsService } from './models.service';
 
 @Controller('models')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, StaffGuard)
 export class ModelsController {
   constructor(private readonly modelsService: ModelsService) {}
 
+  @RequirePermissions('models:read')
   @Get()
   findAll() {
     return this.modelsService.findAll();
   }
 
+  @RequirePermissions('models:read')
   @Get('active')
   async findActive() {
     const model = await this.modelsService.findActive();
@@ -32,6 +35,7 @@ export class ModelsController {
     return model;
   }
 
+  @RequirePermissions('models:deploy')
   @HttpCode(HttpStatus.CREATED)
   @Post()
   register(@Body() dto: CreateModelVersionDto) {
@@ -39,6 +43,7 @@ export class ModelsController {
   }
 
   // Promote a registered model to production — replaces the currently active one.
+  @RequirePermissions('models:deploy')
   @HttpCode(HttpStatus.OK)
   @Post(':id/activate')
   promote(@Param('id') id: string) {
@@ -46,6 +51,7 @@ export class ModelsController {
   }
 
   // Rollback to a specific previous version when the active model degrades.
+  @RequirePermissions('models:deploy')
   @HttpCode(HttpStatus.OK)
   @Post(':id/rollback')
   rollback(@Param('id') id: string) {

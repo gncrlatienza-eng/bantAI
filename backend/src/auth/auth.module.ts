@@ -10,6 +10,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { AdminGuard } from './guards/admin.guard';
 import { jwtConstants } from './constants';
 import { PortalOtpEmailService } from './portal-otp-email.service';
+import { StaffGuard } from './guards/staff.guard';
 
 /*
  * @Global(): every feature controller uses JwtAuthGuard (which extends
@@ -43,7 +44,8 @@ import { PortalOtpEmailService } from './portal-otp-email.service';
     PortalOtpEmailService,
     JwtStrategy,
     AdminGuard,
+    StaffGuard,
   ],
-  exports: [JwtModule, PassportModule, AdminGuard],
+  exports: [JwtModule, PassportModule, AdminGuard, StaffGuard],
 })
 export class AuthModule {}

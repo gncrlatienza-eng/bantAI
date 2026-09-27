@@ -36,6 +36,7 @@ import {
 } from './dto/email-otp.dto';
 import { PortalOtpEmailService } from './portal-otp-email.service';
 import { AuthAudience, JWT_ISSUER, jwtSecretFor } from './constants';
+import { resolveStaffPermissions } from './constants/staff-permissions';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_WINDOW_MS = 60 * 60 * 1000;
@@ -287,7 +288,9 @@ export class AuthService {
       EmailOtpPurpose.CLIENT_SIGN_IN,
       dto.otp,
     );
-    const user = await this.findEligibleClient(email);
+    const user =
+      (await this.findEligibleClient(email)) ??
+      (await this.acceptPendingWorkspaceInvitations(email));
     if (!user) throw new BadRequestException('Invalid or expired OTP.');
     return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
   }
@@ -382,6 +385,10 @@ export class AuthService {
               role: 'OWNER',
             },
             update: { role: 'OWNER' },
+          });
+          await tx.portalOrganization.update({
+            where: { id: accessRequest.license.organizationId },
+            data: { ownerId: user.id },
           });
           return user;
         },
@@ -560,7 +567,25 @@ export class AuthService {
     }
     if (purpose === EmailOtpPurpose.CLIENT_SIGN_IN) {
       const user = await this.findEligibleClient(email);
-      return user ? { accessRequestId: null } : null;
+      if (user) return { accessRequestId: null };
+      const invitation = await this.prisma.organizationInvitation.findFirst({
+        where: {
+          email,
+          status: 'PENDING',
+          expiresAt: { gt: new Date() },
+          organization: {
+            isActive: true,
+            licenses: {
+              some: {
+                status: 'ACTIVE',
+                OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+      return invitation ? { accessRequestId: null } : null;
     }
     if (!binding) return null;
     const request = await this.prisma.accessRequest.findUnique({
@@ -599,6 +624,68 @@ export class AuthService {
         },
       },
     });
+  }
+
+  private async acceptPendingWorkspaceInvitations(email: string) {
+    return this.withSerializationRetry(() =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const invitations = await tx.organizationInvitation.findMany({
+            where: {
+              email,
+              status: 'PENDING',
+              expiresAt: { gt: new Date() },
+              organization: {
+                isActive: true,
+                licenses: {
+                  some: {
+                    status: 'ACTIVE',
+                    OR: [
+                      { validUntil: null },
+                      { validUntil: { gt: new Date() } },
+                    ],
+                  },
+                },
+              },
+            },
+          });
+          if (invitations.length === 0) return null;
+
+          let user = await tx.user.findUnique({ where: { email } });
+          if (user?.role === 'ADMIN') return null;
+          user ??= await tx.user.create({
+            data: { email, role: 'USER' },
+          });
+
+          for (const invitation of invitations) {
+            await tx.organizationMembership.upsert({
+              where: {
+                organizationId_userId: {
+                  organizationId: invitation.organizationId,
+                  userId: user.id,
+                },
+              },
+              create: {
+                organizationId: invitation.organizationId,
+                userId: user.id,
+                role: invitation.role,
+              },
+              update: { role: invitation.role },
+            });
+            await tx.organizationInvitation.updateMany({
+              where: {
+                id: invitation.id,
+                status: 'PENDING',
+                expiresAt: { gt: new Date() },
+              },
+              data: { status: 'ACCEPTED' },
+            });
+          }
+          return user;
+        },
+        { isolationLevel: 'Serializable' },
+      ),
+    );
   }
 
   private issueToken(
@@ -786,6 +873,7 @@ export class AuthService {
         createdAt: true,
         updatedAt: true,
         role: true,
+        staffRole: true,
       },
     });
 
@@ -793,7 +881,10 @@ export class AuthService {
       throw new NotFoundException('User not found.');
     }
 
-    return user;
+    return {
+      ...user,
+      permissions: resolveStaffPermissions(user.role, user.staffRole),
+    };
   }
 
   private requirePhone(phone: string): string {

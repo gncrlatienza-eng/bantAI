@@ -7,16 +7,17 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import { Button, EmptyState, InfoBadge } from '../../components/primitives';
 import { logout } from '../../services/authService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { useAdminNavGroups } from './adminNav';
 
 export function TipsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navGroups = useAdminNavGroups();
 
   return (
     <AppShell
       role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}

@@ -27,7 +27,8 @@ import {
   type UserReportItem,
 } from '../../services/reportsService';
 import { logout } from '../../services/authService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { useAdminNavGroups } from './adminNav';
+import { useStaffPermission } from '../../components/common/StaffPermissionGate';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -89,6 +90,7 @@ function toRow(r: UserReportItem): ReportRow {
 export function ReportsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const canManageReports = useStaffPermission('reports:manage');
 
   const [reports, setReports] = useState<UserReportItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +207,7 @@ export function ReportsPage() {
       header: '',
       align: 'right',
       render: (r) =>
-        r.status === 'PENDING' ? (
+        r.status === 'PENDING' && canManageReports ? (
           <span style={{ display: 'inline-flex', gap: 6 }}>
             <Button
               size="sm"
@@ -234,10 +236,12 @@ export function ReportsPage() {
     },
   ];
 
+  const navGroups = useAdminNavGroups();
+
   return (
     <AppShell
       role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}

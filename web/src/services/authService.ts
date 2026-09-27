@@ -1,4 +1,4 @@
-import { fetchApi, setStoredToken, clearStoredToken } from '../api/apiClient';
+import { fetchApi, clearStoredToken } from '../api/apiClient';
 
 export interface RequestOtpResponse {
   message: string;
@@ -7,17 +7,85 @@ export interface RequestOtpResponse {
 
 export interface VerifyOtpResponse {
   message: string;
-  access_token: string;
+  access_token?: string;
 }
+
+export type LicenseTier = 'Research' | 'Organization';
+export type WorkspaceMembership = 'Owner' | 'Member';
+export type AccountStatus = 'Active' | 'Pending Confirmation' | 'Under Review';
+
+export type StaffRole =
+  'SUPERADMIN' | 'SUPPORT' | 'ANALYST' | 'OPERATIONS' | 'PRIVACY';
 
 export interface CurrentUser {
   id: string;
-  phone: string;
+  phone: string | null;
   email?: string | null;
   company?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   role: 'ADMIN' | 'USER';
+  staffRole?: StaffRole | null;
+  permissions?: string[];
+  // Workspace & Tenancy Metadata
+  workspaceName?: string | null;
+  licenseTier?: LicenseTier | null;
+  membership?: WorkspaceMembership | null;
+  status?: AccountStatus | null;
+}
+
+export interface CustomerMetadata {
+  workspace: string;
+  license: LicenseTier;
+  membership: WorkspaceMembership;
+  status: AccountStatus;
+}
+
+export function getCustomerMetadata(
+  user: CurrentUser | null,
+): CustomerMetadata {
+  if (!user) {
+    return {
+      workspace: 'Workspace',
+      license: 'Research',
+      membership: 'Member',
+      status: 'Active',
+    };
+  }
+
+  const workspace =
+    user.company?.trim() || user.workspaceName || 'Primary Workspace';
+  const license: LicenseTier =
+    user.licenseTier || (user.company ? 'Organization' : 'Research');
+  const membership: WorkspaceMembership =
+    user.membership || (user.role === 'ADMIN' ? 'Owner' : 'Member');
+  const status: AccountStatus = user.status || 'Active';
+
+  return { workspace, license, membership, status };
+}
+
+export interface UserEntitlements {
+  canViewThreatIntel: boolean;
+  canTriageAlerts: boolean;
+  canExportData: boolean;
+  canManageWorkspace: boolean;
+  licenseTier: LicenseTier;
+}
+
+export function getUserEntitlements(
+  user: CurrentUser | null,
+): UserEntitlements {
+  const { license, membership } = getCustomerMetadata(user);
+  const isOrg = license === 'Organization';
+  const isOwner = membership === 'Owner';
+
+  return {
+    canViewThreatIntel: true,
+    canTriageAlerts: true,
+    canExportData: isOrg,
+    canManageWorkspace: isOrg && isOwner,
+    licenseTier: license,
+  };
 }
 
 export async function login(
@@ -28,8 +96,107 @@ export async function login(
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  if (result.access_token) setStoredToken(result.access_token);
   return result;
+}
+
+export async function requestClientEmailOtp(
+  email: string,
+): Promise<RequestOtpResponse> {
+  return fetchApi<RequestOtpResponse>('/auth/client/request-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyClientEmailOtp(
+  email: string,
+  otp: string,
+): Promise<CurrentUser> {
+  clearStoredToken();
+  await fetchApi<{ message: string }>('/auth/client/verify-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp }),
+  });
+  const user = await getCurrentUser();
+  if (user.role !== 'USER') {
+    logout();
+    throw new Error('This account cannot access the client portal.');
+  }
+  return user;
+}
+
+export async function requestClientClaimEmailOtp(
+  email: string,
+  checkoutSessionId: string,
+): Promise<RequestOtpResponse> {
+  return fetchApi<RequestOtpResponse>('/auth/client/claim/request-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, checkoutSessionId }),
+  });
+}
+
+export async function verifyClientClaimEmailOtp(
+  email: string,
+  checkoutSessionId: string,
+  otp: string,
+): Promise<CurrentUser> {
+  clearStoredToken();
+  await fetchApi<{ message: string }>('/auth/client/claim/verify-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, checkoutSessionId, otp }),
+  });
+  return getCurrentUser();
+}
+
+export interface StaffAuthResponse {
+  message: string;
+  requiresMfa?: boolean;
+  access_token?: string;
+  email?: string;
+}
+
+export const staffMfaConfig = {
+  requestStaffMfa: async (email: string): Promise<RequestOtpResponse> => {
+    return fetchApi<RequestOtpResponse>('/auth/admin/request-email-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+};
+
+export async function requestStaffMfa(
+  email: string,
+): Promise<RequestOtpResponse> {
+  return staffMfaConfig.requestStaffMfa(email);
+}
+
+export async function adminAuthenticateStaff(
+  email: string,
+): Promise<{ user?: CurrentUser; email: string; requiresMfa: boolean }> {
+  clearStoredToken();
+  await staffMfaConfig.requestStaffMfa(email);
+  return { email, requiresMfa: true };
+}
+
+export async function adminVerifyMfa(
+  emailOrIdentifier: string,
+  mfaCode: string,
+): Promise<{ user: CurrentUser }> {
+  clearStoredToken();
+  await fetchApi<{ message: string }>('/auth/admin/verify-email-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email: emailOrIdentifier, otp: mfaCode }),
+  });
+
+  const user = await getCurrentUser();
+  if (user.role !== 'ADMIN') {
+    logout();
+    throw new Error(
+      'Access denied: This account does not have staff or administrator privileges.',
+    );
+  }
+
+  return { user };
 }
 
 export async function registerPortal(
@@ -41,7 +208,6 @@ export async function registerPortal(
     method: 'POST',
     body: JSON.stringify({ email, password, company }),
   });
-  if (result.access_token) setStoredToken(result.access_token);
   return result;
 }
 
@@ -60,9 +226,6 @@ export async function verifyOtp(
     method: 'POST',
     body: JSON.stringify({ phone, otp: code }),
   });
-  if (result.access_token) {
-    setStoredToken(result.access_token);
-  }
   return result;
 }
 
@@ -73,6 +236,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 export function logout() {
   clearStoredToken();
   localStorage.removeItem('bantai_session');
+  void fetchApi('/auth/logout', { method: 'POST' }).catch(() => undefined);
 }
 
 /*

@@ -14,14 +14,22 @@ import {
   LoadingState,
   StatusBadge,
 } from '../../components/primitives';
-import { getCurrentUser, type CurrentUser } from '../../services/authService';
+import {
+  getCurrentUser,
+  getCustomerMetadata,
+  type CurrentUser,
+} from '../../services/authService';
 import { updateMyProfile } from '../../services/usersService';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
 }
 
-export function ProfileForm() {
+interface ProfileFormProps {
+  role?: 'client' | 'admin';
+}
+
+export function ProfileForm({ role = 'client' }: ProfileFormProps) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -86,6 +94,8 @@ export function ProfileForm() {
   }
   if (!user) return null;
 
+  const metadata = getCustomerMetadata(user);
+
   return (
     <form
       onSubmit={(e) => void handleSave(e)}
@@ -93,27 +103,65 @@ export function ProfileForm() {
     >
       <div
         style={{
-          padding: '12px 14px',
+          padding: '14px 16px',
           background: 'var(--surface-raised)',
           border: '1px solid var(--border-default)',
           borderRadius: 8,
           display: 'grid',
           gridTemplateColumns: 'max-content 1fr',
-          gap: '8px 16px',
+          gap: '10px 20px',
           fontSize: '0.9rem',
+          alignItems: 'center',
         }}
       >
-        <span style={{ color: 'var(--text-secondary)' }}>Phone</span>
-        <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-          {user.phone}
-        </span>
-        <span style={{ color: 'var(--text-secondary)' }}>Role</span>
-        <span>
-          <StatusBadge
-            kind={user.role === 'ADMIN' ? 'suspicious' : 'unknown'}
-            label={user.role}
-          />
-        </span>
+        {role === 'client' ? (
+          <>
+            <span style={{ color: 'var(--text-secondary)' }}>Workspace</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+              {metadata.workspace}
+            </span>
+
+            <span style={{ color: 'var(--text-secondary)' }}>License</span>
+            <span>
+              <StatusBadge
+                kind="verified"
+                label={`${metadata.license} License`}
+              />
+            </span>
+
+            <span style={{ color: 'var(--text-secondary)' }}>Membership</span>
+            <span>
+              <StatusBadge kind="unknown" label={metadata.membership} />
+            </span>
+
+            <span style={{ color: 'var(--text-secondary)' }}>Status</span>
+            <span>
+              <StatusBadge kind="verified" label={metadata.status} />
+            </span>
+
+            <span style={{ color: 'var(--text-secondary)' }}>Phone</span>
+            <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+              {user.phone}
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ color: 'var(--text-secondary)' }}>Staff Role</span>
+            <span>
+              <StatusBadge kind="suspicious" label="System Administrator" />
+            </span>
+
+            <span style={{ color: 'var(--text-secondary)' }}>Status</span>
+            <span>
+              <StatusBadge kind="verified" label="Active" />
+            </span>
+
+            <span style={{ color: 'var(--text-secondary)' }}>Phone</span>
+            <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+              {user.phone}
+            </span>
+          </>
+        )}
       </div>
 
       <Input

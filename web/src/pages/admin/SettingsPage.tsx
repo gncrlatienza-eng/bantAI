@@ -9,7 +9,7 @@ import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import { Button, EmptyState, InfoBadge } from '../../components/primitives';
 import { ProfileForm } from '../../features/settings/ProfileForm';
 import { logout } from '../../services/authService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { useAdminNavGroups } from './adminNav';
 
 interface SettingsPageProps {
   notifications?: boolean;
@@ -18,11 +18,12 @@ interface SettingsPageProps {
 export function SettingsPage({ notifications = false }: SettingsPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const navGroups = useAdminNavGroups();
 
   return (
     <AppShell
       role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}
@@ -63,7 +64,7 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
           }
         />
       ) : (
-        <ProfileForm />
+        <ProfileForm role="admin" />
       )}
     </AppShell>
   );

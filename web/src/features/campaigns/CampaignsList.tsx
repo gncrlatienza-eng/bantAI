@@ -29,6 +29,7 @@ import {
   getInactiveCampaigns,
   type CampaignCluster,
 } from '../../services/campaignsService';
+import { useStaffPermission } from '../../components/common/StaffPermissionGate';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -83,6 +84,7 @@ interface CampaignsListProps {
 }
 
 export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
+  const canManageCampaigns = useStaffPermission('campaigns:manage');
   const [active, setActive] = useState<CampaignCluster[]>([]);
   const [inactive, setInactive] = useState<CampaignCluster[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,7 +217,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
       sortable: true,
       width: '14%',
     },
-    ...(role === 'admin'
+    ...(role === 'admin' && canManageCampaigns
       ? [
           {
             key: 'actions',

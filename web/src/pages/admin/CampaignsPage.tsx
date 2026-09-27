@@ -8,56 +8,20 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
-import {
-  Button,
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavReportsIcon,
-  NavUsersIcon,
-  NavModelIcon,
-  NavSystemIcon,
-} from '../../components/primitives';
+import { Button } from '../../components/primitives';
 import { CampaignsList } from '../../features/campaigns/CampaignsList';
 import { logout } from '../../services/authService';
-
-const SIDEBAR_GROUPS: NavGroupDef[] = [
-  {
-    label: 'Overview',
-    items: [
-      { label: 'Overview', path: '/admin/overview', icon: <NavOverviewIcon /> },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      {
-        label: 'Campaigns',
-        path: '/admin/campaigns',
-        icon: <NavCampaignsIcon />,
-      },
-      { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
-      { label: 'Reports', path: '/admin/reports', icon: <NavReportsIcon /> },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      { label: 'Users', path: '/admin/users', icon: <NavUsersIcon /> },
-      { label: 'Tips', path: '/admin/tips', icon: <NavReportsIcon /> },
-      { label: 'System', path: '/admin/system', icon: <NavSystemIcon /> },
-      { label: 'Settings', path: '/admin/settings', icon: <NavSystemIcon /> },
-    ],
-  },
-];
+import { useAdminNavGroups } from './adminNav';
 
 export function CampaignsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navGroups = useAdminNavGroups();
+
   return (
     <AppShell
       role="admin"
-      groups={SIDEBAR_GROUPS}
+      groups={navGroups}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}

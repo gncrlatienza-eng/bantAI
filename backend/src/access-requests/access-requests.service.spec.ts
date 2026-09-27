@@ -18,6 +18,7 @@ describe('AccessRequestsService security boundaries', () => {
     portalOrganization: {
       create: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      update: jest.fn(),
     },
     organizationMembership: {
       findUnique: jest.fn(),

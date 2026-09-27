@@ -11,6 +11,7 @@ import {
   AccessRequestStatus,
   AccessRequestTier,
   BillingPeriod,
+  LicenseStatus,
 } from '@prisma/client';
 import { AccessRequestsService } from '../access-requests/access-requests.service';
 import { STRIPE_CLIENT } from './stripe.provider';
@@ -30,63 +31,91 @@ export class PaymentsService {
   ) {}
 
   async createCheckoutSession(dto: CheckoutRequest) {
-    const record = await this.accessRequests.consumeApprovalToken(dto.token);
+    const { record, tokenId } = await this.accessRequests.consumeApprovalToken(
+      dto.token,
+    );
     if (record.status !== AccessRequestStatus.APPROVED) {
+      await this.releaseTokenReservation(tokenId);
       throw new BadRequestException(
         'This request is not currently eligible for checkout.',
       );
     }
 
-    const priceId = this.priceIdFor(record.tier, dto.billingPeriod);
-    if (!priceId) {
-      throw new InternalServerErrorException(
-        'This license and billing period is not configured for Stripe. Contact the research team.',
-      );
-    }
+    let attached = false;
+    try {
+      const priceId = this.priceIdFor(record.tier, dto.billingPeriod);
+      if (!priceId) {
+        throw new InternalServerErrorException(
+          'This license and billing period is not configured for Stripe. Contact the research team.',
+        );
+      }
 
-    const frontendUrl = this.frontendUrl();
-    const session = await this.stripe.checkout.sessions.create({
-      mode: 'subscription',
-      // Same email the applicant used on the request. Stripe uses it for the
-      // receipt and matches it to a Customer record if one already exists.
-      customer_email: record.email,
-      line_items: [{ price: priceId, quantity: 1 }],
-      // We stash the access-request id in metadata so the webhook can find
-      // it back without trusting anything in the URL.
-      metadata: {
-        accessRequestId: record.id,
-        tier: record.tier,
-        billingPeriod: dto.billingPeriod,
-      },
-      subscription_data: {
-        metadata: {
-          accessRequestId: record.id,
-          tier: record.tier,
-          billingPeriod: dto.billingPeriod,
+      const frontendUrl = this.frontendUrl();
+      const session = await this.stripe.checkout.sessions.create(
+        {
+          mode: 'subscription',
+          // Same email the applicant used on the request. Stripe uses it for the
+          // receipt and matches it to a Customer record if one already exists.
+          customer_email: record.email,
+          line_items: [{ price: priceId, quantity: 1 }],
+          // We stash the access-request id in metadata so the webhook can find
+          // it back without trusting anything in the URL.
+          metadata: {
+            accessRequestId: record.id,
+            tier: record.tier,
+            billingPeriod: dto.billingPeriod,
+          },
+          subscription_data: {
+            metadata: {
+              accessRequestId: record.id,
+              tier: record.tier,
+              billingPeriod: dto.billingPeriod,
+            },
+          },
+          // Note the success URL points to a passive "we're waiting for payment
+          // confirmation" screen. Access is not granted here — the webhook does
+          // that, and the success screen simply reports what the webhook has (or
+          // has not yet) done.
+          success_url: `${frontendUrl}/request-access/pending?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${frontendUrl}/request-access/cancelled`,
+          allow_promotion_codes: false,
         },
-      },
-      // Note the success URL points to a passive "we're waiting for payment
-      // confirmation" screen. Access is not granted here — the webhook does
-      // that, and the success screen simply reports what the webhook has (or
-      // has not yet) done.
-      success_url: `${frontendUrl}/request-access/pending?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/request-access/cancelled`,
-      allow_promotion_codes: false,
-    });
+        {
+          // Retrying after a network failure returns the same Stripe session
+          // instead of charging or creating checkout twice.
+          idempotencyKey: `bantai-checkout-${record.id}-${dto.billingPeriod}`,
+        },
+      );
 
-    if (!session.id || !session.url) {
-      throw new InternalServerErrorException(
-        'Stripe returned an incomplete checkout session. Please try again.',
+      if (!session.id || !session.url) {
+        throw new InternalServerErrorException(
+          'Stripe returned an incomplete checkout session. Please try again.',
+        );
+      }
+
+      await this.accessRequests.attachCheckoutSession(
+        record.id,
+        session.id,
+        dto.billingPeriod,
+      );
+      attached = true;
+
+      return { url: session.url };
+    } finally {
+      if (!attached) {
+        await this.releaseTokenReservation(tokenId);
+      }
+    }
+  }
+
+  private async releaseTokenReservation(tokenId: string) {
+    try {
+      await this.accessRequests.releaseApprovalToken(tokenId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to release checkout token reservation ${tokenId}: ${(error as Error).message}`,
       );
     }
-
-    await this.accessRequests.attachCheckoutSession(
-      record.id,
-      session.id,
-      dto.billingPeriod,
-    );
-
-    return { url: session.url };
   }
 
   /*
@@ -117,12 +146,10 @@ export class PaymentsService {
     }
 
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        if (
-          session.payment_status !== 'paid' &&
-          session.status !== 'complete'
-        ) {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded': {
+        const session = event.data.object;
+        if (session.payment_status !== 'paid') {
           this.logger.log(
             `Ignoring session ${session.id}: status=${session.status} payment_status=${session.payment_status}`,
           );
@@ -136,13 +163,73 @@ export class PaymentsService {
             typeof session.subscription === 'string'
               ? session.subscription
               : null,
+          stripeEventCreated: event.created,
         });
         return { received: true, activated: activated.activated };
+      }
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        const status = this.mapSubscriptionStatus(subscription.status);
+        const currentPeriodEnd = (
+          subscription as Stripe.Subscription & { current_period_end?: number }
+        ).current_period_end;
+        const updated = await this.accessRequests.updateSubscriptionFromWebhook(
+          {
+            stripeSubscriptionId: subscription.id,
+            status,
+            stripeEventCreated: event.created,
+            validUntil: currentPeriodEnd
+              ? new Date(currentPeriodEnd * 1000)
+              : null,
+          },
+        );
+        return { received: true, updated: updated.updated };
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null;
+        };
+        const subscriptionId =
+          typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription?.id;
+        if (!subscriptionId) return { received: true };
+        const updated = await this.accessRequests.updateSubscriptionFromWebhook(
+          {
+            stripeSubscriptionId: subscriptionId,
+            status: LicenseStatus.PAST_DUE,
+            stripeEventCreated: event.created,
+          },
+        );
+        return { received: true, updated: updated.updated };
       }
       default:
         // Every other event is acknowledged but not acted on — Stripe expects
         // 2xx or it retries. Access mutation only happens on the events above.
         return { received: true };
+    }
+  }
+
+  private mapSubscriptionStatus(
+    status: Stripe.Subscription.Status,
+  ): LicenseStatus {
+    switch (status) {
+      case 'active':
+      case 'trialing':
+        return LicenseStatus.ACTIVE;
+      case 'past_due':
+      case 'unpaid':
+      case 'incomplete':
+        return LicenseStatus.PAST_DUE;
+      case 'canceled':
+        return LicenseStatus.CANCELLED;
+      case 'paused':
+        return LicenseStatus.SUSPENDED;
+      case 'incomplete_expired':
+        return LicenseStatus.EXPIRED;
+      default:
+        return LicenseStatus.SUSPENDED;
     }
   }
 

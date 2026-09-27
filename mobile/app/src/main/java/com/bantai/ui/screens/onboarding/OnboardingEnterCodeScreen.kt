@@ -73,8 +73,8 @@ fun OnboardingEnterCodeScreen(
     // Fires after the backend accepts the typed OTP and the JWT is persisted.
     // A returning user (401 bounced them back here with onboardingComplete
     // already true -- see NavGraph's AuthEventBus.sessionExpired handler) has
-    // already been through Terms/Profile/Protected; re-verifying their phone
-    // number is not a fresh signup, so this sends them straight back into the
+    // already been through Terms/Profile/Protected; re-verifying their email
+    // is not a fresh signup, so this sends them straight back into the
     // app instead of forcing the whole onboarding flow again.
     LaunchedEffect(Unit) {
         viewModel.onboardingAuthComplete.collect {
@@ -122,7 +122,7 @@ fun OnboardingEnterCodeScreen(
         OnboardingHeader(
             eyebrow = "Step 3 of 4",
             title = "Enter the code",
-            subtitle = "We sent a 6-digit verification code to ${state.phoneNumber}.",
+            subtitle = "We sent a 6-digit verification code to ${state.emailAddress}.",
         )
         Spacer(Modifier.height(32.dp))
 

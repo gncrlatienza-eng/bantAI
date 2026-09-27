@@ -15,6 +15,7 @@ import { AccessRequestStatus } from '@prisma/client';
 import { AccessRequestsService } from './access-requests.service';
 import { CreateAccessRequestDto } from './dto/create-access-request.dto';
 import { DeclineAccessRequestDto } from './dto/decide-access-request.dto';
+import { ResolveAccessTokenDto } from './dto/resolve-access-token.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
@@ -22,7 +23,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
  * Public + admin surface for the licensing workflow.
  *
  *   POST   /api/access-requests                    — public, applicant submits a request
- *   GET    /api/access-requests/by-token           — public, applicant polls status via approval token
+ *   POST   /api/access-requests/resolve-token      — public, applicant resolves an approval token
  *
  *   GET    /api/admin/access-requests              — admin lists requests
  *   GET    /api/admin/access-requests/:id          — admin reads one request
@@ -42,12 +43,13 @@ export class AccessRequestsController {
     return this.svc.create(dto);
   }
 
-  // Applicant-facing status lookup keyed by the approval token. No account
-  // required — the token is the credential.
+  // Applicant-facing status lookup keyed by the approval token. Keep the
+  // credential in the JSON body so it is not copied into URL/access logs.
   @Throttle({ global: { ttl: 60_000, limit: 30 } })
-  @Get('access-requests/by-token')
-  byToken(@Query('token') token: string) {
-    return this.svc.findApprovedByToken(token);
+  @Post('access-requests/resolve-token')
+  @HttpCode(HttpStatus.OK)
+  resolveToken(@Body() dto: ResolveAccessTokenDto) {
+    return this.svc.findApprovedByToken(dto.token);
   }
 
   @SkipThrottle()

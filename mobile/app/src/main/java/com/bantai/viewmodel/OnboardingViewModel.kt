@@ -7,8 +7,9 @@ import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.AuthApi
 import com.bantai.data.remote.toUserMessage
+import com.bantai.util.isValidEmailAddress
 import com.bantai.util.isValidName
-import com.bantai.util.normalizePhNumber
+import com.bantai.util.normalizeEmailAddress
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -27,7 +28,7 @@ private const val MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT = 5
 private const val VERIFY_LOCKOUT_MS = 30_000L
 
 data class OnboardingUiState(
-    val phoneNumber: String = "",
+    val emailAddress: String = "",
     val termsAccepted: Boolean = false,
     val otpCode: String = "",
     val isLoading: Boolean = false,
@@ -176,26 +177,20 @@ class OnboardingViewModel(
         _state.update { it.copy(otpCode = code, errorMessage = null) }
     }
 
-    // normalizePhone moved to util/PhNumberNormalization.kt (as normalizePhNumber)
-    // so this pure string logic has a JVM unit test without needing an
-    // AndroidViewModel/Application instance just to exercise it.
-
-    /**
-     * Requests a backend OTP for [rawPhone].
-     */
+    /** Requests a purpose-bound mobile OTP for [rawEmail]. */
     fun requestVerificationCode(
-        rawPhone: String,
+        rawEmail: String,
         onCodeSent: () -> Unit,
     ) {
-        val phone = normalizePhNumber(rawPhone)
-        if (phone == null) {
-            _state.update { it.copy(errorMessage = "Enter a valid PH mobile number") }
+        val email = normalizeEmailAddress(rawEmail)
+        if (!isValidEmailAddress(email)) {
+            _state.update { it.copy(errorMessage = "Enter a valid email address") }
             return
         }
-        _state.update { it.copy(phoneNumber = phone, isLoading = true, errorMessage = null) }
+        _state.update { it.copy(emailAddress = email, isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             AuthApi
-                .requestOtp(phone)
+                .requestMobileEmailOtp(email)
                 .onSuccess {
                     _state.update {
                         it.copy(
@@ -221,8 +216,8 @@ class OnboardingViewModel(
     fun resendVerificationCode() {
         val current = _state.value
         val onCooldown = current.isLoading || System.currentTimeMillis() < current.resendAvailableAtMs
-        if (current.phoneNumber.isEmpty() || onCooldown) return
-        requestVerificationCode(current.phoneNumber) {}
+        if (current.emailAddress.isEmpty() || onCooldown) return
+        requestVerificationCode(current.emailAddress) {}
     }
 
     fun verifyCode() {
@@ -235,9 +230,9 @@ class OnboardingViewModel(
         _state.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             AuthApi
-                .verifyOtp(current.phoneNumber, current.otpCode)
+                .verifyMobileEmailOtp(current.emailAddress, current.otpCode)
                 .onSuccess { auth ->
-                    userPreferences.saveAuth(auth.accessToken, current.phoneNumber)
+                    userPreferences.saveAuth(auth.accessToken, current.emailAddress)
                     _state.update {
                         it.copy(
                             isLoading = false,
@@ -258,7 +253,7 @@ class OnboardingViewModel(
             System.currentTimeMillis() < current.verifyLockedUntilMs ->
                 "Too many attempts. Please wait before trying again."
             current.otpCode.length != 6 -> "Enter the 6-digit code"
-            current.phoneNumber.isEmpty() -> "Verification session expired. Please resend the code."
+            current.emailAddress.isEmpty() -> "Verification session expired. Please resend the code."
             else -> null
         }
 

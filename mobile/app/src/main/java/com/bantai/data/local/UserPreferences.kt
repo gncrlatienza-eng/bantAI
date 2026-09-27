@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.bantai.util.MAX_EMAIL_ADDRESS_LENGTH
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -82,7 +83,8 @@ class UserPreferences(
     ) {
         secureTokenStore.saveToken(token)
         context.dataStore.edit { prefs ->
-            prefs[Keys.EMAIL_ADDRESS] = emailAddress.trim().lowercase().take(254)
+            prefs[Keys.EMAIL_ADDRESS] =
+                emailAddress.trim().lowercase().take(MAX_EMAIL_ADDRESS_LENGTH)
             // Prevent stale UI from presenting the previous SMS identity as
             // the identity that authenticated this new email-backed session.
             prefs.remove(Keys.PHONE_NUMBER)

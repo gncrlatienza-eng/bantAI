@@ -138,8 +138,13 @@ export class CampaignsService {
   findAllCentroids() {
     return this.prisma.campaignCluster.findMany({
       where: { isActive: true },
-      take: 100,
-      select: { id: true, centroid: true },
+      // Was 100 with no ordering, so the AI service matched against an
+      // arbitrary 100 of the active campaigns (Model C has 321; item 19 has
+      // 375). 1000 leaves headroom while still bounding the payload.
+      take: 1000,
+      // label carries the AI side's "@space:<id>" tag (ai/service/campaign_space.py):
+      // the AI service needs it to know which space a centroid is in.
+      select: { id: true, label: true, centroid: true },
     });
   }
 

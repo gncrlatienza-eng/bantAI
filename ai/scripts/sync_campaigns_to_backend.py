@@ -73,7 +73,9 @@ def build_payloads(data: dict) -> List[dict]:
     has no column for it and rejects unknown fields (forbidNonWhitelisted)."""
     return [
         {
-            "label": f"cluster-{c['cluster_id']}",
+            # Carries the @space:<id> suffix when clustered in a transformed
+            # space (item 19); older cluster files have no "label" key.
+            "label": c.get("label") or f"cluster-{c['cluster_id']}",
             "centroid": c["centroid"],
             "urlDomains": suppression_domains(c),
         }

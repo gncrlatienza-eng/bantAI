@@ -189,9 +189,14 @@ the list every client fetches wasn't worth it for one internal consumer.
 
 ```json
 [
-  { "id": "7", "centroid": [0.0123, -0.0456, "... 768 floats"] }
+  { "id": "7", "label": "cluster-12@space:ad000dee9174", "centroid": [0.0123, -0.0456, "... 768 floats"] }
 ]
 ```
+
+`label` was added 2026-09-28 (item 19): its `@space:<id>` suffix tells the AI
+service which campaign space the centroid is in. Without it the service would
+see transformed centroids as raw ones — and refuses to match rather than do so
+(see "Campaign space" below).
 
 Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.py`
 (`load_from_backend`), which is the default centroid source
@@ -211,6 +216,24 @@ this refresh **must** also happen after any model retrain.
 
 ---
 
+## Campaign space (item 19, 2026-09-28)
+
+Campaigns are clustered and matched in a transformed copy of the embedding —
+its top 2 shared directions removed — because in the raw embedding nearly all
+scams fall into one cluster. The transform and the thresholds calibrated in it
+live in `ai/models/campaign_space.json` (tracked in git, tied to one model
+version). Centroids built in it are labelled `cluster-<n>@space:<id>`.
+The space file holds separate thresholds for messages the classifier labels
+Scam and Spam (Scam's are looser — with one shared set, scam messages matched
+their own campaign only 23% of the time; now 56.6%).
+
+The AI service checks at startup that the centroids, the space file and the
+served model agree; if not, it logs `CAMPAIGN SPACE MISMATCH` and turns
+campaign matching **off** (classification is unaffected). Details and the
+measured numbers: `ai/PIPELINE.md`, "Item 19".
+
+---
+
 ## Retraining invalidates clusters
 
 ⚠️ Retraining XLM-RoBERTa changes how embeddings are computed. Centroids
@@ -222,7 +245,9 @@ one — similarity scores become meaningless, not merely shifted.
 ```bash
 cd ai
 python scripts/embed_dataset.py                    # re-embed with the new checkpoint
-python scripts/cluster_campaigns.py                # rebuild clusters + centroids
+python scripts/cluster_campaigns.py                # rebuild clusters + centroids + campaign space
+python scripts/calibrate_campaign_space.py         # thresholds for the new space (~5 min)
+python scripts/cluster_campaigns.py                # re-write match_threshold into the cluster file
 python scripts/sync_campaigns_to_backend.py        # dry run: check the plan
 python scripts/sync_campaigns_to_backend.py --apply  # push to the backend
 # then restart the AI service so it loads them

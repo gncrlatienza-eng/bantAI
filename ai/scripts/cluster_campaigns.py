@@ -18,6 +18,17 @@ already required for the train/val split.
 
 Run:  cd ai && python scripts/embed_dataset.py      # once, produces embeddings
       cd ai && python scripts/cluster_campaigns.py  # fast, re-runnable
+      cd ai && python scripts/calibrate_campaign_space.py  # after a new space
+
+Item 19 (scam campaign separation): by default this clusters in a transformed
+space -- the embeddings' top ``--remove-directions`` shared directions removed
+(see ``service/campaign_space.py``) -- and writes that space to
+``models/campaign_space.json``. The centroids it writes are in that space and
+their labels say so (``cluster-12@space:<id>``). A *new* space has no match
+thresholds yet; the service refuses to match against it until
+``scripts/calibrate_campaign_space.py`` has filled them in. Re-running on the
+same embeddings reproduces the same space id, so existing thresholds are kept.
+``--remove-directions 0`` restores the old raw-space behaviour.
 """
 
 from __future__ import annotations
@@ -33,7 +44,9 @@ sys.path.insert(0, ".")
 
 import numpy as np
 
+from retraining.version_file import read_version
 from service.campaign import DEFAULT_SIMILARITY_THRESHOLD, compute_centroid
+from service.campaign_space import DEFAULT_K, CampaignSpace, tag_label
 from service.lexical import build_profile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +54,7 @@ AI = os.path.normpath(os.path.join(HERE, ".."))
 EMBEDDINGS = os.path.join(AI, "datasets", "processed", "embeddings.npz")
 OUT_DIR = os.path.join(AI, "datasets", "processed")
 SNAPSHOT_DIR = os.path.join(OUT_DIR, "campaign_snapshots")
+SPACE_FILE = os.path.join(AI, "models", "campaign_space.json")
 
 # Manuscript-specified (Stage 5b).
 DEFAULT_MIN_CLUSTER_SIZE = 5
@@ -57,6 +71,11 @@ DEFAULT_MIN_CLUSTER_SIZE = 5
 # 5 stays the min_cluster_size the manuscript specifies; this parameter is
 # orthogonal to it and was simply never stated.
 DEFAULT_MIN_SAMPLES = 2
+
+# Also not manuscript-specified; sklearn's defaults. Exposed for item 19's
+# weak-spot-2 screen (evaluation/item19_preregistration_2026-09-28.md).
+DEFAULT_SELECTION_METHOD = "eom"
+DEFAULT_SELECTION_EPSILON = 0.0
 
 _URL_RE = None
 
@@ -102,6 +121,8 @@ def cluster_embeddings(
     embeddings,
     min_cluster_size: int = DEFAULT_MIN_CLUSTER_SIZE,
     min_samples: int = DEFAULT_MIN_SAMPLES,
+    selection_method: str = DEFAULT_SELECTION_METHOD,
+    selection_epsilon: float = DEFAULT_SELECTION_EPSILON,
 ):
     """Run HDBSCAN. Returns sklearn-convention labels (-1 = noise).
 
@@ -124,6 +145,8 @@ def cluster_embeddings(
     model = HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
+        cluster_selection_method=selection_method,
+        cluster_selection_epsilon=selection_epsilon,
         metric="euclidean",
         copy=True,
     )
@@ -180,6 +203,18 @@ def main() -> None:
         "min_cluster_size, which leaves ~60%% of messages as noise.",
     )
     parser.add_argument(
+        "--selection-method",
+        choices=("eom", "leaf"),
+        default=DEFAULT_SELECTION_METHOD,
+        help=f"HDBSCAN cluster_selection_method (default: {DEFAULT_SELECTION_METHOD}). Not manuscript-specified.",
+    )
+    parser.add_argument(
+        "--selection-epsilon",
+        type=float,
+        default=DEFAULT_SELECTION_EPSILON,
+        help=f"HDBSCAN cluster_selection_epsilon (default: {DEFAULT_SELECTION_EPSILON}). Not manuscript-specified.",
+    )
+    parser.add_argument(
         "--labels",
         default="Spam,Scam",
         help="Comma-separated labels to cluster, or 'all'. Campaigns are "
@@ -192,6 +227,19 @@ def main() -> None:
         "groups span multiple source corpora, so they manufacture "
         "campaigns out of corpus overlap.",
     )
+    parser.add_argument(
+        "--remove-directions",
+        type=int,
+        default=DEFAULT_K,
+        help=f"Shared directions to remove before clustering (item 19, default "
+        f"{DEFAULT_K}). 0 clusters the raw classifier embeddings, which on "
+        "Model C puts ~97%% of scams in one cluster.",
+    )
+    parser.add_argument(
+        "--space-out",
+        default=SPACE_FILE,
+        help="Where to write the campaign space (default: models/campaign_space.json).",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(EMBEDDINGS):
@@ -202,6 +250,8 @@ def main() -> None:
     labels = data["labels"]
     senders = data["senders"]
     texts = data["texts"]
+    model_dir = str(data["model_dir"]) if "model_dir" in data.files else None
+    model_version = read_version(os.path.join(AI, model_dir)) if model_dir else None
 
     if args.labels.lower() == "all":
         mask = np.ones(len(labels), dtype=bool)
@@ -240,9 +290,31 @@ def main() -> None:
         )
     if not senders_available:
         print("Sender data  : none in this population (unique_senders reported as null)")
+    space = None
+    if args.remove_directions > 0:
+        # Fitted on exactly the population being clustered, so the directions
+        # removed are the ones these messages share.
+        space = CampaignSpace.fit(emb, k=args.remove_directions, model_version=model_version)
+        if os.path.isfile(args.space_out):
+            try:
+                previous = CampaignSpace.load(args.space_out)
+            except (OSError, ValueError, KeyError, TypeError):
+                previous = None
+            if previous is not None and previous.space_id == space.space_id and previous.calibrated:
+                space = previous  # same space: keep its calibrated thresholds
+        emb = space.apply(emb)
+        state = "calibrated" if space.calibrated else "NOT calibrated yet"
+        print(
+            f"Space        : {space.space_id}  (top {space.k} shared directions removed, "
+            f"model {model_version or 'unknown'}, {state})"
+        )
+    else:
+        print("Space        : raw classifier embeddings (--remove-directions 0)")
     print("=" * 72)
 
-    cluster_ids = cluster_embeddings(emb, args.min_cluster_size, args.min_samples)
+    cluster_ids = cluster_embeddings(
+        emb, args.min_cluster_size, args.min_samples, args.selection_method, args.selection_epsilon
+    )
 
     n_clusters = len({c for c in cluster_ids if c != -1})
     n_noise = int((cluster_ids == -1).sum())
@@ -307,6 +379,10 @@ def main() -> None:
 
         entry = {
             "cluster_id": int(cid),
+            # Read by service/centroid_source.py and sent by
+            # sync_campaigns_to_backend.py; the suffix tells the matcher
+            # which space this centroid is in (item 19).
+            "label": tag_label(f"cluster-{int(cid)}", space.space_id if space else None),
             "size": int(size),
             "labels": dict(label_mix),
             "unique_senders": uniq_senders,
@@ -334,6 +410,9 @@ def main() -> None:
         except OSError as exc:
             print(f"  WARN  Could not archive previous snapshot: {exc}")
 
+    if space is not None:
+        space.save(args.space_out)
+
     # Persist BEFORE printing. The centroids are the actual deliverable and
     # cost a 20-minute embedding pass to produce; a console-display problem
     # must never be able to lose them (it did, once -- see below).
@@ -342,11 +421,21 @@ def main() -> None:
             {
                 "min_cluster_size": args.min_cluster_size,
                 "min_samples": args.min_samples,
+                "selection_method": args.selection_method,
+                "selection_epsilon": args.selection_epsilon,
                 "population": args.labels,
                 "deduplicated": not args.no_dedup,
                 "n_duplicates_removed": int(n_duplicates),
                 "senders_available": senders_available,
-                "match_threshold": DEFAULT_SIMILARITY_THRESHOLD,
+                # The embedding-tier bar these centroids are matched with:
+                # the space's calibrated one, or null until
+                # calibrate_campaign_space.py has run.
+                "match_threshold": (space.embedding_threshold if space is not None else DEFAULT_SIMILARITY_THRESHOLD),
+                "space": (
+                    {"space_id": space.space_id, "k": space.k, "model_version": space.model_version}
+                    if space is not None
+                    else None
+                ),
                 "n_clusters": n_clusters,
                 "n_noise": n_noise,
                 "n_messages": int(len(emb)),
@@ -365,6 +454,13 @@ def main() -> None:
         print(f"    sample : {_safe(sample[:120])}")
 
     print(f"\nWrote {os.path.relpath(out_path, AI)} ({n_clusters} clusters with centroids)")
+    if space is not None:
+        print(f"Wrote {os.path.relpath(args.space_out, AI)} (space {space.space_id})")
+        if not space.calibrated:
+            print(
+                "  NOTE  This space has no match thresholds yet -- the service will not match\n"
+                "        against these centroids until you run scripts/calibrate_campaign_space.py."
+            )
     print("=" * 72)
 
 

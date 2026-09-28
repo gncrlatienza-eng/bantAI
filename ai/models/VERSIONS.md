@@ -8,10 +8,12 @@ too large for git and are backed up on Google Drive instead, under
 
 | Folder | Version | What it is |
 |---|---|---|
-| `xlm-roberta-smishing/` | `v2026-08-27T09-46-20Z` | **LIVE** — the model the AI service serves. Promoted 2026-08-30. |
+| **Approved live model** | `v2026-09-21-colab-C` | **Model C**, promoted 2026-09-27 on adviser approval. Weights sha256 `85580ba9edae8ce4…`. Source: `retraining_runs/2026-09-21-colab-C/candidate/`, Drive `bantai/models/2026-09-21-colab-C/`. To serve it, copy it into `xlm-roberta-smishing/` (keep the outgoing model as a rollback folder) and run with threshold 0.999 (the code default from 2026-09-27). |
+| `xlm-roberta-smishing/` | `v2026-08-27T09-46-20Z` until swapped | The folder the AI service serves from. Held the 2026-08-30 model; replace with Model C as above. |
 | `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` | `v2026-07-29-run3` | The original model. Rollback copy. |
 | `retraining_runs/2026-08-27T09-46-20Z/` | `v2026-08-27T09-46-20Z` | The run that produced the LIVE model. `candidate/` is an identical copy of it (same `model.safetensors` sha256, `6509d362ca92dfc9…`); `decision.json` / `manifest.json` record the gate verdict. |
 | `retraining_runs/2026-08-26T*/`, `2026-08-27T09-28-21Z/` | — | Records only (gate decisions, manifests). The weights were never kept. |
+| `retraining_runs/2026-09-21-colab*/` | `v2026-09-21-colab-{run1,A,B,C}` | The four 2026-09-21 retrains, each with `version.json`. C is the promoted one; run 1, A and B are kept as evidence (see `evaluation/fair_gate_holdout_*.json`). |
 | `retraining_runs/round-trip-scratch/` | — | Scratch space for `scripts/round_trip.py`. |
 | `onnx_export/` | `v2026-08-27T09-46-20Z` | On-device feasibility spike (2026-09-16/21). `model_int8.onnx` is what a phone would run; `model_fp32.onnx` is regenerable with `scripts/export_onnx_poc.py`. |
 | `retrain_queue/` | — | Used by the AI service's `POST /retrain`. |

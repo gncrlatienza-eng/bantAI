@@ -68,16 +68,20 @@ def _is_shared_platform(host: str) -> bool:
     return any(host == d or host.endswith(f".{d}") for d in _SHARED_PLATFORMS)
 
 
-def build_payloads(data: dict) -> List[dict]:
+def build_payloads(data: dict, send_category: bool = False) -> List[dict]:
     """One POST /campaigns body per cluster. No ``lexical`` key: the backend
     has no column for it and rejects unknown fields (forbidNonWhitelisted)."""
     return [
         {
-            # Carries the @space:<id> suffix when clustered in a transformed
-            # space (item 19); older cluster files have no "label" key.
-            "label": c.get("label") or f"cluster-{c['cluster_id']}",
+            # The readable name the app shows (cluster_campaigns.py, UAT
+            # 2026-09-28). The AI service no longer needs the @space tag from
+            # the backend: it identifies the space from the centroid itself.
+            "label": c.get("name") or f"cluster-{c['cluster_id']}",
             "centroid": c["centroid"],
             "urlDomains": suppression_domains(c),
+            # Only once the backend has a `category` column: its DTO rejects
+            # unknown fields (forbidNonWhitelisted).
+            **({"category": c.get("category")} if send_category and c.get("category") else {}),
         }
         for c in data.get("clusters", [])
         if c.get("centroid")
@@ -145,11 +149,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--apply", action="store_true", help="actually write to the backend (default: dry run)")
     parser.add_argument("--file", default=CLUSTER_FILE)
+    parser.add_argument(
+        "--send-category",
+        action="store_true",
+        help="also send each cluster's category (needs the backend's category field)",
+    )
     args = parser.parse_args()
 
     with open(args.file, encoding="utf-8") as f:
         data = json.load(f)
-    payloads = build_payloads(data)
+    payloads = build_payloads(data, send_category=args.send_category)
     with_domains = [p for p in payloads if p["urlDomains"]]
     all_domains = sorted({d for p in payloads for d in p["urlDomains"]})
 

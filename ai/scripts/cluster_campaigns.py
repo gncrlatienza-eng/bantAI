@@ -46,6 +46,7 @@ import numpy as np
 
 from retraining.version_file import read_version
 from service.campaign import DEFAULT_SIMILARITY_THRESHOLD, compute_centroid
+from service.campaign_naming import name_clusters
 from service.campaign_space import DEFAULT_K, CampaignSpace, tag_label
 from service.lexical import build_profile
 
@@ -359,6 +360,14 @@ def main() -> None:
     print("\n" + "-" * 72)
     print("Top clusters")
     print("-" * 72)
+    # Readable name + category per cluster (UAT: the app showed "cluster-9").
+    # Built from fixed vocabularies, never from message text -- see
+    # service/campaign_naming.py.
+    names = name_clusters(
+        (int(c), [str(t) for t in sub_texts[cluster_ids == c]], dict(Counter(sub_labels[cluster_ids == c].tolist())))
+        for c in sizes
+    )
+
     report = []
     for cid, size in sizes.most_common():
         idxs = np.where(cluster_ids == cid)[0]
@@ -383,6 +392,8 @@ def main() -> None:
             # sync_campaigns_to_backend.py; the suffix tells the matcher
             # which space this centroid is in (item 19).
             "label": tag_label(f"cluster-{int(cid)}", space.space_id if space else None),
+            "name": names[int(cid)][1],
+            "category": names[int(cid)][0],
             "size": int(size),
             "labels": dict(label_mix),
             "unique_senders": uniq_senders,

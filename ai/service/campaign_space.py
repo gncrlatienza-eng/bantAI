@@ -290,17 +290,53 @@ def resolve_space(
         # the check instead of breaking the whole comparison.
         held = np.array([bool(space.holds(v)[0]) for v in centroid_vectors])
     if declared == {None}:
-        if held is not None and held.any():
+        # No labels to go on -- the backend path, where ``label`` is the
+        # campaign's readable name. The vectors themselves say which space
+        # they are in (a centroid built in a space has nothing left on the
+        # removed directions), so use that.
+        if held is not None and held.all():
+            wanted = space.space_id
+        elif held is not None and held.any():
             return (
                 False,
                 None,
-                f"{int(held.sum())} centroids are in space {space.space_id} but carry no @space label "
-                "-- check that the backend's /campaigns/centroids returns 'label'",
+                f"{int(held.sum())} of {len(held)} centroids are in space {space.space_id} and the rest are not "
+                "-- two clustering runs are active at once (a half-finished sync?)",
             )
-        return True, None, "raw-space centroids"
+        elif space is None and centroid_vectors is not None and _looks_transformed(centroid_vectors):
+            return (
+                False,
+                None,
+                "centroids look like campaign-space centroids but no campaign space file is loaded "
+                "(is models/campaign_space.json deployed?)",
+            )
+        else:
+            return True, None, "raw-space centroids"
+        return _check_space(space, wanted, served_model_version, "identified from the centroid vectors")
     if len(declared) > 1:
         return False, None, f"centroids declare more than one space: {sorted(str(d) for d in declared)}"
     wanted = next(iter(declared))
+    if held is not None and not held.all():
+        return False, None, f"{int((~held).sum())} centroids labelled space {wanted} are not in it"
+    return _check_space(space, wanted, served_model_version, "from centroid labels")
+
+
+#: Raw classifier centroids all point nearly the same way (the length of their
+#: average unit vector is 0.955-0.963 on the Model B and C cluster files);
+#: campaign-space centroids do not (0.20). Below this, a set of centroids is
+#: treated as transformed even when no space file is there to confirm it.
+RAW_COHERENCE_FLOOR = 0.6
+
+
+def _looks_transformed(centroid_vectors) -> bool:
+    try:
+        x = _normalize(np.stack([np.asarray(v, dtype="float32") for v in centroid_vectors]))
+    except ValueError:  # ragged -- not a set this check can judge
+        return False
+    return len(x) >= 2 and float(np.linalg.norm(x.mean(axis=0))) < RAW_COHERENCE_FLOOR
+
+
+def _check_space(space, wanted, served_model_version, how) -> Tuple[bool, Optional[CampaignSpace], str]:
     if space is None:
         return False, None, f"centroids are in space {wanted} but no campaign space file is loaded"
     if space.space_id != wanted:
@@ -313,9 +349,7 @@ def resolve_space(
             None,
             f"space {wanted} was fitted on {space.model_version} but the service serves {served_model_version}",
         )
-    if held is not None and not held.all():
-        return False, None, f"{int((~held).sum())} centroids labelled space {wanted} are not in it"
-    return True, space, f"space {wanted} (k={space.k})"
+    return True, space, f"space {wanted} (k={space.k}, {how})"
 
 
 def labels_of(centroids: Sequence) -> list:

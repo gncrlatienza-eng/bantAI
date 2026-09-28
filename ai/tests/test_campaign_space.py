@@ -244,7 +244,7 @@ def test_startup_with_raw_centroids_ignores_a_missing_space_file(monkeypatch, tm
 
 
 # --- sync script --------------------------------------------------------
-def test_sync_sends_the_space_tagged_label():
+def test_sync_sends_the_readable_name_and_optionally_the_category():
     spec = importlib.util.spec_from_file_location(
         "sync_campaigns_to_backend_space", os.path.join(_AI_DIR, "scripts", "sync_campaigns_to_backend.py")
     )
@@ -252,10 +252,23 @@ def test_sync_sends_the_space_tagged_label():
     sys.modules["sync_campaigns_to_backend_space"] = mod
     spec.loader.exec_module(mod)
     base = {"labels": {"Scam": 5}, "top_domains": [], "centroid": [0.1], "lexical": {"domains": []}}
-    payloads = mod.build_payloads(
-        {"clusters": [{**base, "cluster_id": 1, "label": "cluster-1@space:abc"}, {**base, "cluster_id": 2}]}
-    )
-    assert [p["label"] for p in payloads] == ["cluster-1@space:abc", "cluster-2"]
+    data = {
+        "clusters": [
+            {
+                **base,
+                "cluster_id": 1,
+                "label": "cluster-1@space:abc",
+                "name": "Bank phishing (BDO)",
+                "category": "Bank phishing",
+            },
+            {**base, "cluster_id": 2},  # older file: no name
+        ]
+    }
+    payloads = mod.build_payloads(data)
+    assert [p["label"] for p in payloads] == ["Bank phishing (BDO)", "cluster-2"]
+    assert all("category" not in p for p in payloads)  # backend DTO would reject it
+    with_cat = mod.build_payloads(data, send_category=True)
+    assert with_cat[0]["category"] == "Bank phishing" and "category" not in with_cat[1]
 
 
 # --- checking the vectors, not only the labels --------------------------
@@ -267,12 +280,42 @@ def test_holds_tells_transformed_from_raw_vectors():
     assert not s.holds([1.0, 0.0]).any()  # wrong length
 
 
-def test_transformed_centroids_without_labels_disable_matching():
-    """A backend that drops ``label`` must not make them look raw."""
+def test_unlabelled_centroids_are_identified_by_their_vectors():
+    """The backend path: labels are readable names, so the vectors decide."""
     x = _population()
     s = _space()
-    enabled, _, reason = resolve_space([None, None], s, "v-C", centroid_vectors=s.apply(x[:2]))
-    assert not enabled and "label" in reason
+    enabled, space, reason = resolve_space(
+        ["Bank phishing (BDO)", "Promo (Globe)"], s, "v-C", centroid_vectors=s.apply(x[:2])
+    )
+    assert enabled and space is s and "vectors" in reason
+
+
+def test_unlabelled_transformed_centroids_still_check_the_model_version():
+    x = _population()
+    s = _space(version="v-B")
+    enabled, _, _ = resolve_space([None, None], s, "v-C", centroid_vectors=s.apply(x[:2]))
+    assert not enabled
+
+
+def test_a_half_finished_sync_disables_matching():
+    x = _population()
+    s = _space()
+    vectors = [s.apply(x[0]), x[1]]  # one transformed, one raw
+    enabled, _, reason = resolve_space([None, None], s, "v-C", centroid_vectors=vectors)
+    assert not enabled and "half-finished" in reason
+
+
+def test_transformed_centroids_without_a_space_file_disable_matching():
+    x = _population()
+    s = _space()
+    enabled, _, reason = resolve_space([None] * 20, None, "v-C", centroid_vectors=s.apply(x[:20]))
+    assert not enabled and "campaign_space.json" in reason
+
+
+def test_raw_centroids_without_a_space_file_still_run():
+    x = _population()
+    enabled, space, _ = resolve_space([None] * 20, None, "v-C", centroid_vectors=x[:20])
+    assert enabled and space is None
 
 
 def test_raw_vectors_under_a_space_label_disable_matching():

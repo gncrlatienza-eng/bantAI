@@ -193,10 +193,20 @@ the list every client fetches wasn't worth it for one internal consumer.
 ]
 ```
 
-`label` was added 2026-09-28 (item 19): its `@space:<id>` suffix tells the AI
-service which campaign space the centroid is in. Without it the service would
-see transformed centroids as raw ones — and refuses to match rather than do so
-(see "Campaign space" below).
+`label` is the campaign's readable name (e.g. `Bank phishing (BDO)`,
+`Online gambling / casino #3`, `Promo (Globe)`), written by
+`cluster_campaigns.py` from fixed keyword vocabularies — never copied from
+message text (`ai/service/campaign_naming.py`). Each cluster in
+`campaign_clusters.json` also has a `category` (Bank phishing, E-wallet
+phishing, Parcel / delivery scam, Online gambling / casino, Loan / credit
+offer, Rewards / prize claim, OTP / account update, Government / ID request,
+Other scam, or Promo / marketing for Spam clusters).
+`sync_campaigns_to_backend.py --send-category` sends it once the backend has a
+`category` field. Promo clusters should stay synced (they are matched
+against), but can be hidden in the app.
+
+The AI service does not need the label to know which campaign space a
+centroid is in: it tells from the vector itself (see "Campaign space" below).
 
 Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.py`
 (`load_from_backend`), which is the default centroid source
@@ -222,7 +232,9 @@ Campaigns are clustered and matched in a transformed copy of the embedding —
 its top 2 shared directions removed — because in the raw embedding nearly all
 scams fall into one cluster. The transform and the thresholds calibrated in it
 live in `ai/models/campaign_space.json` (tracked in git, tied to one model
-version). Centroids built in it are labelled `cluster-<n>@space:<id>`.
+version). The service identifies campaign-space centroids from the vectors
+themselves (nothing left on the removed directions; raw centroids all point
+nearly the same way, campaign-space ones do not).
 The space file holds separate thresholds for messages the classifier labels
 Scam and Spam (Scam's are looser — with one shared set, scam messages matched
 their own campaign only 23% of the time; now 56.6%).

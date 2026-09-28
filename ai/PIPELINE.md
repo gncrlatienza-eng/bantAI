@@ -1827,6 +1827,19 @@ transformed centroids and, by the guard above, refuse to match.
 `take: 100` with no ordering, so the AI service loads only 100 of the active
 clusters (Model C has 321; this space 375). Raised with the backend owner.
 
+**Names and categories (UAT, 2026-09-28).** The app showed `cluster-9`.
+`cluster_campaigns.py` now gives every cluster a `category` and a unique
+readable `name` (`Bank phishing (BDO)`, `Online gambling / casino #3`,
+`Promo (Globe)`) from keyword votes over its members
+(`service/campaign_naming.py`). Names use fixed vocabularies only, never
+message text. On Model C's 375 clusters: 27 online gambling, 4 e-wallet
+phishing, 4 loan, 3 rewards/prize, 2 bank phishing, 2 parcel, 1 OTP, 5 other
+scam, 327 promo. The sync sends the name as `label`, so the `@space` tag no
+longer reaches the backend; the service now identifies the space from the
+vectors, and if no space file is deployed it still refuses centroids that
+look transformed (raw centroid sets have a mean-direction length of
+0.955–0.963, campaign-space sets 0.20).
+
 Run order after a model change:
 
 ```bash

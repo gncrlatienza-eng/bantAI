@@ -78,6 +78,34 @@ _SHORTENER_HOSTS = {
 
 _URL_RE = re.compile(r"(?:https?://\S+|\bwww\.\S+)", re.I)
 
+# Links written without "http://" or "www." -- "bdo-secure-login.com",
+# "panalo777.xyz/claim". Real scams often write them this way, and _URL_RE
+# alone missed them: found preparing UAT, 2026-09-29. A fixed list of endings
+# keeps ordinary text ("P50.00", "e.g.", "Mr.Cruz") from counting as links;
+# "(?<![@...])" skips e-mail addresses.
+#
+# Measured before adopting (training corpus / unseen holdout), together with
+# the .gov.ph/.edu.ph rule below and whole-word brand matching in
+# _domain_tags: Scam messages tagged "Suspicious URL" 35.5% -> 57.9% /
+# 21.6% -> 54.0%, "Brand Impersonation" 16.0% -> 19.1% / 4.1% -> 9.4%; Ham
+# messages tagged "Suspicious URL" 3.34% -> 3.61% / 2.29% -> 2.35%, "Brand
+# Impersonation" 0.72% -> 0.25% / 0.11% -> 0.17%.
+_BARE_TLDS = (
+    "com|net|org|ph|xyz|top|icu|cyou|info|online|site|shop|club|vip|live|cc|co|me|io|app|link|click|"
+    "win|bet|fun|store|asia|biz|pro|ly|gl|to|tk|ml|ga|cf|gq|sbs|bond|cfd|lat|today|life|world|space|"
+    "website|tech|buzz|monster|rest|homes|lol|quest|ink|work|games|cash|money|loan|claims|gift|pw|su|"
+    "ru|cn|in|us"
+)
+_BARE_DOMAIN_RE = re.compile(
+    r"(?<![@\w.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:" + _BARE_TLDS + r"))(?![\w-])",
+    re.I,
+)
+
+# Only government agencies and schools can register these, so a scammer
+# cannot use them. dswd.gov.ph, philsys.gov.ph etc. were the main normal
+# messages the bare-domain rule would otherwise have flagged.
+_RESTRICTED_OFFICIAL_SUFFIXES = (".gov.ph", ".edu.ph")
+
 
 @dataclass(frozen=True)
 class IndicatorTag:
@@ -303,7 +331,31 @@ def _keyword_tags(text: str) -> List[IndicatorTag]:
 def is_official_domain(host: str) -> bool:
     """True for a whitelisted brand domain or any subdomain of one."""
     host = host.lower()
+    if host.endswith(_RESTRICTED_OFFICIAL_SUFFIXES):
+        return True
     return any(host == d or host.endswith(f".{d}") for d in _OFFICIAL_DOMAINS)
+
+
+def _link_hosts(raw_text: str) -> List[str]:
+    """Hostnames of every link in a message, with or without "http://"."""
+    hosts = []
+    for url in _URL_RE.findall(raw_text or ""):
+        hosts.append(urlparse(url if "://" in url else f"//{url}").hostname or "")
+    # Bare links, after removing the ones already found above so they are not
+    # counted twice.
+    rest = _URL_RE.sub(" ", raw_text or "")
+    for match in _BARE_DOMAIN_RE.finditer(rest):
+        host = match.group(1)
+        if re.search(r"[a-z]", host.split(".")[0], re.I):  # not "50.00ph"-style numbers
+            hosts.append(host)
+    out = []
+    for host in hosts:
+        host = host.lower()
+        if host.startswith("www."):
+            host = host[4:]
+        if host:
+            out.append(host)
+    return out
 
 
 def is_shortener(host: str) -> bool:
@@ -314,20 +366,11 @@ def _domain_tags(raw_text: str) -> List[IndicatorTag]:
     """Suspicious URL + Brand Impersonation -- both need the real link, not
     the <URL> placeholder, so this runs on raw (pre-masking) text."""
     out: List[IndicatorTag] = []
-    urls = _URL_RE.findall(raw_text or "")
-    if not urls:
+    hosts = _link_hosts(raw_text)
+    if not hosts:
         return out
 
-    suspicious = False
-    for url in urls:
-        host = urlparse(url if "://" in url else f"//{url}").hostname or ""
-        host = host.lower()
-        if host.startswith("www."):
-            host = host[4:]
-        if is_shortener(host):
-            suspicious = True
-        elif not is_official_domain(host):
-            suspicious = True
+    suspicious = any(is_shortener(host) or not is_official_domain(host) for host in hosts)
     if suspicious:
         out.append(IndicatorTag(tag="Suspicious URL", weight=0.7))
 
@@ -346,7 +389,13 @@ def _domain_tags(raw_text: str) -> List[IndicatorTag]:
         "maya",
         "paymaya",
     )
-    named_brand = next((b for b in brands if b in low), None)
+    # Whole words only: "smart" inside "smartphone" or "bpi" inside another
+    # word is not the brand. "dito" is also everyday Tagalog for "here"
+    # ("slot games dito"), so the telco only counts written as "DITO".
+    named_brand = next(
+        (b for b in brands if (re.search(r"\bDITO\b", raw_text) if b == "dito" else re.search(rf"\b{b}\b", low))),
+        None,
+    )
     if named_brand and suspicious:
         out.append(IndicatorTag(tag="Brand Impersonation", weight=0.75))
     return out

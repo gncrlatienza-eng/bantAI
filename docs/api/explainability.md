@@ -32,7 +32,7 @@ dataset's own validated rule vocabulary. Full definitions in
 | Tag | Meaning to the user |
 |---|---|
 | `Prize Lure` | Claims you won something you never entered |
-| `Suspicious URL` | Link is shortened or on an unrecognized domain |
+| `Suspicious URL` | Link is shortened or on an unrecognized domain. Links count with or without `http://`/`www.` (e.g. `bdo-secure-login.com`); `.gov.ph` and `.edu.ph` are treated as official |
 | `Brand Impersonation` | Uses a real brand's name with an off-brand link |
 | `Urgency Cue` | Artificial time pressure |
 | `Gambling Bait` | Fake betting credit / "play or cash out" |

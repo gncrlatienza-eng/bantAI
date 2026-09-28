@@ -168,3 +168,67 @@ def test_the_added_phrases_carry_no_common_word_into_the_shap_path():
         assert phrase in _FAKE_JOB_OFFER, f"{phrase} missing from the lexicon"
         words = {w for w in re.split(r"[^a-z0-9]+", phrase.lower()) if len(w) >= 4}
         assert not (words & banned), f"{phrase!r} would make {words & banned} a standalone trigger"
+
+
+# --- links written without http:// or www. (found preparing UAT, 2026-09-29) ---
+def _tags(text):
+    return [t.tag for t in tags_for_message(text)]
+
+
+def test_bare_scam_link_is_suspicious():
+    assert "Suspicious URL" in _tags("BDO: unauthorized transaction. Cancel here: bdo-secure-login.com")
+
+
+def test_bare_link_with_path_is_suspicious():
+    assert "Suspicious URL" in _tags("Claim your bonus: panalo777.xyz/claim?id=9")
+
+
+def test_bare_link_with_brand_is_impersonation():
+    assert "Brand Impersonation" in _tags("GCash Advisory: verify now at gcash-verify-ph.xyz")
+
+
+def test_bare_official_link_is_not_suspicious():
+    assert "Suspicious URL" not in _tags("Shopee 9.9 sale! Shop now at shopee.ph")
+
+
+def test_bare_shortener_is_suspicious():
+    assert "Suspicious URL" in _tags("Check this out: bit.ly/3abcXYZ")
+
+
+def test_government_and_school_sites_are_trusted():
+    assert "Suspicious URL" not in _tags("Register at sap2.dswd.gov.ph for the program")
+    assert "Suspicious URL" not in _tags("Enroll at familysignup.dlsl.edu.ph")
+    # ...but only the real suffix: a look-alike ending is still suspicious.
+    assert "Suspicious URL" in _tags("Claim ayuda at dswd-gov.ph.claim-now.xyz")
+
+
+def test_ordinary_text_is_not_a_link():
+    for text in (
+        "Load P50.00 now",
+        "Bring snacks, e.g. bread",
+        "Hi Mr.Cruz, see you at 5",
+        "Version 2.0 is out",
+        "email me at juan@gmail.com",
+    ):
+        assert "Suspicious URL" not in _tags(text), text
+
+
+def test_a_link_is_not_counted_twice():
+    from service.indicator_tags import _link_hosts
+
+    assert _link_hosts("go to https://evil.xyz/login now") == ["evil.xyz"]
+    assert _link_hosts("www.evil.xyz and evil2.top") == ["evil.xyz", "evil2.top"]
+
+
+def test_tagalog_dito_is_not_the_telco():
+    """ "dito" is everyday Tagalog for "here"."""
+    tags = _tags("Mag-register ngayon, jackpot slot games dito: panalo777.xyz")
+    assert "Brand Impersonation" not in tags and "Suspicious URL" in tags
+
+
+def test_dito_written_as_the_brand_still_counts():
+    assert "Brand Impersonation" in _tags("DITO: your SIM will be blocked, verify at dito-sim-verify.xyz")
+
+
+def test_brand_inside_another_word_is_not_the_brand():
+    assert "Brand Impersonation" not in _tags("Get a new smartphone today at phonedeals.xyz")

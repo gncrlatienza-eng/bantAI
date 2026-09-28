@@ -884,7 +884,9 @@ exhaustive list — WBS 3.1.2 exists to decide the rest.
 | Tag | Source |
 |---|---|
 | Prize Lure | manuscript-named |
-| Suspicious URL | manuscript-named (structural: shortener or non-whitelisted domain) |
+| Suspicious URL | manuscript-named (structural: shortener or non-whitelisted domain; since 2026-09-29 also links written without `http://`/`www.` — Scam messages tagged 21.6% → 54.0% on the unseen holdout, Ham 2.29% → 2.35%) |
+
+Brand Impersonation (2026-09-29): brand names now match as whole words only, and the telco counts only when written "DITO" (Tagalog *dito* = "here" was tagging gambling texts as DITO impersonation). Scam messages tagged 4.1% → 9.4% on the unseen holdout; Ham in the training corpus 0.72% → 0.25%.
 | Brand Impersonation | manuscript-named (structural: named brand + suspicious link) |
 | Urgency Cue | manuscript-named |
 | Gambling Bait | grounded in `build_dataset.py`'s `GAMBLING_HARD`/`GAMBLING_SOFT` |

@@ -35,7 +35,7 @@ Campaign intelligence runs on two clocks, per the manuscript:
 |---|---|---|
 | **When** | every incoming message | periodically, offline |
 | **What** | cosine match vs. active centroids, corroborated by wording | HDBSCAN over the buffer |
-| **Threshold** | similarity ≥ `0.998` ⚠️, or a corroborated relaxed bar | `min_cluster_size = 5` |
+| **Threshold** | similarity ≥ `0.999` ⚠️, or a corroborated relaxed bar | `min_cluster_size = 5` |
 | **Cost** | microseconds (dot products) | seconds–minutes |
 | **Code** | `ai/service/campaign.py` | `ai/scripts/cluster_campaigns.py` |
 | **Purpose** | join a *known* campaign | discover a *new* campaign |
@@ -44,7 +44,7 @@ Campaign intelligence runs on two clocks, per the manuscript:
 value attaches 54.5% of *unrelated* messages to a campaign — see
 `ai/PIPELINE.md` § "Stage 5b — measured limits" for the full recalibration
 history (0.85 → 0.999 on 2026-08-26, → 0.998 on 2026-08-30 when the
-underlying model was promoted) and the current three-tier matching rule,
+underlying model was promoted, → 0.999 again on 2026-09-27 for Model C) and the current three-tier matching rule,
 detailed below under "`/classify` response addition."
 
 ### Fast path — per message
@@ -147,7 +147,7 @@ threshold (`ai/PIPELINE.md` § "Adviser sign-off received"):
 |---|---|---|
 | `domain` | shares a blasted domain **and** cosine ≥ 0.90 | link identity is near-conclusive on its own |
 | `hybrid` | cosine ≥ 0.99 **and** `lexical_similarity` ≥ 0.45 | a coarse embedding filter wording then has to confirm |
-| `embedding` | cosine ≥ **0.998** | the calibrated bar alone (was 0.999 before the 2026-08-30 model promotion) — no wording needed |
+| `embedding` | cosine ≥ **0.999** | the calibrated bar alone (0.998 under the checkpoint live 2026-08-30 → 2026-09-26) — no wording needed |
 
 The `embedding` tier is exactly the pre-hybrid, manuscript-shaped rule, so
 the other two tiers are strictly additive — they can only add matches that

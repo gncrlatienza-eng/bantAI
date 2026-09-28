@@ -181,8 +181,9 @@ pattern is a legitimate Colab convention, not a violation).
     [`colab/README.md`](colab/README.md) to reproduce a run).
 - **Sprint 3 (done):**
   - ✅ Cosine-similarity campaign matching (`service/campaign.py`). The manuscript's
-    0.85 was re-calibrated to 0.999 in Sprint 5 and to 0.998 after the 2026-08-30
-    promotion, with a lexical second signal (see Sprint 5 below).
+    0.85 was re-calibrated to 0.999 in Sprint 5, to 0.998 after the 2026-08-30
+    promotion, and back to 0.999 for Model C (2026-09-27), with a lexical second
+    signal (see Sprint 5 below).
   - ✅ HDBSCAN offline re-clustering, `min_cluster_size = 5` (`scripts/cluster_campaigns.py`).
   - ✅ SHAP explainability + curated indicator tag dictionary, incl. Tagalog/Taglish
     coverage (`service/explainer.py`, `service/indicator_tags.py`).
@@ -209,6 +210,10 @@ pattern is a legitimate Colab convention, not a violation).
   - ✅ SHAP tag dictionary polished from observed outputs.
   - ✅ Refinement retrain on S2–S4 data; candidate promoted 2026-08-30
     (`v2026-08-27T09-46-20Z`, clean holdout macro-F1 0.9592). Threshold moved to 0.998.
+  - ✅ **Model C promoted 2026-09-27 on adviser approval** (`v2026-09-21-colab-C`:
+    real messages only, softened class weighting). Holdout macro-F1 0.964, Scam
+    recall 95.7%; clusters rebuilt (321) and threshold re-calibrated to 0.999.
+    Evidence: `evaluation/fair_gate_holdout_*.json`, `evaluation/*_calibration*.json`.
 - **Sprint 6:** ✅ holdout confusion matrix (`scripts/evaluate_holdout.py`);
   precision/recall in real use waits on the deployment.
 

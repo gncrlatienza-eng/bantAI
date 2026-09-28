@@ -91,7 +91,23 @@ from .lexical import (
 # (service/lexical.py) can corroborate a *relaxed* embedding score. This
 # threshold remains the embedding-only bar, so behaviour never degrades below
 # what was calibrated here.
-DEFAULT_SIMILARITY_THRESHOLD = 0.998
+#
+# ⚠️ 2026-09-27 promotion to Model C (v2026-09-21-colab-C), approved by the
+# adviser: back to **0.999**. Re-measured on C's own embeddings
+# (scripts/calibrate_match_threshold.py, calibrate_hybrid_match.py; results in
+# evaluation/match_threshold_calibration.json and
+# hybrid_match_calibration_{lexical,hdbscan}.json), applying the same rule as
+# on 2026-08-30 -- reproduce the approved trade-off:
+#
+#     threshold   lexical recall/FMR   hdbscan recall/FMR
+#     0.998           96.0% / 4.0%         69.6% / 4.5%
+#     0.999           93.9% / 0.5%         61.1% / 0.7%   <- selected
+#
+# 0.998 would exceed the approved false-match budget (~2.6-2.8%); 0.999 keeps
+# the approved recall (93.8%) with far fewer false attachments. It is also the
+# value the adviser approved on 2026-08-26. The 2026-08-30 numbers above
+# describe the previous checkpoint and are kept as history.
+DEFAULT_SIMILARITY_THRESHOLD = 0.999
 
 # --- hybrid corroboration gates (Sprint 5, WBS 5.3.6) ------------------------
 # The embedding alone has ~0.16 of separation between members and strangers,
@@ -106,7 +122,7 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.998
 #
 #   tier "domain"    shares a blasted domain, embedding >= 0.90
 #   tier "hybrid"    embedding >= 0.99  AND  lexical >= 0.45
-#   tier "embedding" embedding >= DEFAULT_SIMILARITY_THRESHOLD (0.998, the calibrated bar)
+#   tier "embedding" embedding >= DEFAULT_SIMILARITY_THRESHOLD (0.999, the calibrated bar)
 #
 # Because the third tier is exactly the pre-hybrid rule, the hybrid path can
 # only *add* matches -- recall rises, and every added match carries
@@ -122,6 +138,10 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.998
 #   grouping    baseline recall/FMR    with hybrid (0.99 / 0.45)
 #   lexical         94.8% / 2.8%           99.6% / 3.2%
 #   hdbscan         59.5% / 3.0%           63.1% / 3.6%
+#
+# Re-measured 2026-09-25 on Model C at its 0.999 bar (current):
+#   lexical         93.9% / 0.5%           99.3% / 1.1%
+#   hdbscan         61.1% / 0.7%           65.3% / 1.6%   (+4.2pp for +0.9pp)
 #
 # The hdbscan row is the one that counts -- its groups are defined purely by
 # embedding geometry and know nothing about wording, so it cannot be rigged in

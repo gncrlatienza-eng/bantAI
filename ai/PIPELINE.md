@@ -1527,6 +1527,50 @@ no longer purely exploratory in hindsight, it's the measurement that
 preceded the decision. Left worded in the past tense it was written in
 rather than rewritten as if foreseeing that outcome.
 
+#### ✅ Model C promoted — 2026-09-27, on adviser approval
+
+Unlike the 2026-08-30 promotion below, this one went to the adviser first. The
+deviations document (items 18 and 19) asked whether Model C should replace the
+deployed checkpoint; the adviser replied "Acknowledged. You may proceed.", which
+the team confirmed as approval of every item in it.
+
+**What Model C is.** `v2026-09-21-colab-C`: trained on real messages only (no
+generated scams) with class weights softened to the square root of inverse
+frequency (`class_weight_power = 0.5`). Chosen over A and B by rules written
+before training; the full four-model comparison is in the adviser document
+and `evaluation/fair_gate_holdout_2026-09-23T05-34-08Z.json`.
+
+| On the frozen holdout (3,236) | Previous (`v2026-08-27`) | **Model C** |
+|---|---|---|
+| Macro-F1 | 0.961 | **0.964** |
+| Scam recall | 93.5% (32 missed) | **95.7%** (21 missed) |
+| Ham flagged as Scam | **5** | 10 |
+| Scams shown to users as safe | 15 | **10** |
+| Legitimate messages blocked | **4** | 8 |
+
+The gate run on the holdout rejects C on significance overall (McNemar
+p = 0.48); on scams alone C is better (12 gained vs 1 lost, p = 0.003, chosen
+after seeing results). The holdout has been scored by four candidates, so
+these are comparative evidence rather than an untouched final test.
+
+**Campaign matching, rebuilt for C** (the step skipped on 2026-08-30):
+embeddings re-generated from C (21,571 real messages; generated rows excluded),
+re-clustered into 321 campaigns, and the threshold re-calibrated. The same rule
+as 2026-08-30 — reproduce the approved trade-off — now points to **0.999**:
+
+| C's threshold | lexical recall/FMR | hdbscan recall/FMR | hybrid (lexical / hdbscan) |
+|---|---|---|---|
+| 0.998 | 96.0% / 4.0% | 69.6% / 4.5% | — |
+| **0.999** | **93.9% / 0.5%** | **61.1% / 0.7%** | 99.3% / 1.1%, 65.3% / 1.6% |
+
+Against the previous checkpoint at 0.998 (94.8%/2.8% and 59.5%/3.0%), C finds a
+similar or larger share of campaign members with roughly four times fewer
+false attachments.
+
+**Not part of this promotion:** the scam-campaign separation fix (item 19) is
+approved but deliberately follows as its own change, so a regression can be
+attributed to one or the other.
+
 #### ⚠️ Candidate promoted — 2026-08-30, not on adviser sign-off
 
 **This is not the same kind of event as the "Adviser sign-off received"

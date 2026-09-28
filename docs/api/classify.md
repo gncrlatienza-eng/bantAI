@@ -124,11 +124,11 @@ evidence each carries — adviser-approved 2026-08-26:
 |---|---|---|
 | `domain` | shares a blasted domain **and** cosine ≥ 0.90 | link identity is near-conclusive on its own |
 | `hybrid` | cosine ≥ 0.99 **and** `lexical_similarity` ≥ 0.45 | a coarse embedding filter wording then has to confirm |
-| `embedding` | cosine ≥ **0.998** | the calibrated bar alone — no wording needed |
+| `embedding` | cosine ≥ **0.999** | the calibrated bar alone — no wording needed |
 
 The embedding-only bar moves when the underlying model is retrained and
-promoted (it was 0.999 under the checkpoint live through 2026-08-29, 0.998
-since the 2026-08-30 promotion — see `ai/service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD`
+promoted (0.999 under the checkpoint live through 2026-08-29, 0.998 from the
+2026-08-30 promotion, and 0.999 again since Model C on 2026-09-27 — see `ai/service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD`
 for the current value); the three-tier mechanism itself does not change.
 Because the `embedding` tier is exactly the pre-hybrid rule, the tiers are
 additive — the `domain` and `hybrid` tiers can only add matches the

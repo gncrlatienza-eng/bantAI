@@ -4,10 +4,12 @@ import importlib.util
 import json
 import os
 import sys
+from dataclasses import replace
 
 import numpy as np
 import pytest
 
+from retraining.version_file import IntegrityResult
 from service import main as service_main
 from service import routers
 from service.campaign import CampaignCentroid, CampaignMatcher, build_matcher_from_clusters
@@ -143,7 +145,7 @@ def test_matching_space_is_used():
 
 @pytest.mark.parametrize(
     "case",
-    ["missing", "other-id", "uncalibrated", "other-model", "mixed"],
+    ["missing", "other-id", "uncalibrated", "missing-space-model", "missing-served-model", "other-model", "mixed"],
 )
 def test_any_mismatch_disables_matching(case):
     s = _space()
@@ -155,6 +157,10 @@ def test_any_mismatch_disables_matching(case):
         labels = [tag_label("cluster-1", "000000000000")]
     elif case == "uncalibrated":
         loaded = CampaignSpace.fit(_population(), k=2, model_version="v-C")
+    elif case == "missing-space-model":
+        loaded = replace(s, model_version=None)
+    elif case == "missing-served-model":
+        served = None
     elif case == "other-model":
         served = "v-B"
     elif case == "mixed":
@@ -211,14 +217,13 @@ def test_matcher_without_a_space_is_unchanged():
 
 
 # --- service startup ----------------------------------------------------
-def _startup(monkeypatch, tmp_path, centroids, space, served="v-C"):
+def _startup(monkeypatch, tmp_path, centroids, space, served="v-C", integrity="ok"):
     path = str(tmp_path / "space.json")
     if space is not None:
         space.save(path)
     monkeypatch.setattr(service_main, "load_centroids", lambda **_: centroids)
-    monkeypatch.setattr(service_main, "read_version", lambda _dir: served)
     monkeypatch.setattr(service_main.settings, "campaign_space_file", path)
-    service_main.load_campaign_centroids()
+    service_main.load_campaign_centroids(served, IntegrityResult(integrity, detail="test integrity status"))
     return routers.classify.matcher
 
 
@@ -234,6 +239,21 @@ def test_startup_disables_matching_on_a_model_mismatch(monkeypatch, tmp_path):
     s = _space(version="v-B")
     c = CampaignCentroid("1", s.apply(_population()[0]), label=tag_label("cluster-1", s.space_id))
     matcher = _startup(monkeypatch, tmp_path, [c], s, served="v-C")
+    assert matcher.centroids == []
+
+
+def test_startup_disables_matching_without_a_model_identity(monkeypatch, tmp_path):
+    s = _space()
+    c = CampaignCentroid("1", s.apply(_population()[0]), label=tag_label("cluster-1", s.space_id))
+    matcher = _startup(monkeypatch, tmp_path, [c], s, served=None)
+    assert matcher.centroids == []
+
+
+@pytest.mark.parametrize("integrity", ["mismatch", "unverifiable"])
+def test_startup_disables_matching_without_verified_checkpoint_integrity(monkeypatch, tmp_path, integrity):
+    s = _space()
+    c = CampaignCentroid("1", s.apply(_population()[0]), label=tag_label("cluster-1", s.space_id))
+    matcher = _startup(monkeypatch, tmp_path, [c], s, integrity=integrity)
     assert matcher.centroids == []
 
 

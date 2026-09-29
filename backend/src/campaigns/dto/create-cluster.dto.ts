@@ -1,9 +1,14 @@
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateClusterDto {
   @IsOptional()
   @IsString()
   label?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  category?: string;
 
   @IsOptional()
   centroid?: unknown;

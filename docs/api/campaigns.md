@@ -189,7 +189,7 @@ the list every client fetches wasn't worth it for one internal consumer.
 
 ```json
 [
-  { "id": "7", "label": "cluster-12@space:ad000dee9174", "centroid": [0.0123, -0.0456, "... 768 floats"] }
+  { "id": "7", "label": "Bank phishing (BDO)", "centroid": [0.0123, -0.0456, "... 768 floats"] }
 ]
 ```
 
@@ -201,9 +201,9 @@ message text (`ai/service/campaign_naming.py`). Each cluster in
 phishing, Parcel / delivery scam, Online gambling / casino, Loan / credit
 offer, Rewards / prize claim, OTP / account update, Government / ID request,
 Other scam, or Promo / marketing for Spam clusters).
-`sync_campaigns_to_backend.py --send-category` sends it once the backend has a
-`category` field. Promo clusters should stay synced (they are matched
-against), but can be hidden in the app.
+`sync_campaigns_to_backend.py` sends it with every new campaign; the backend
+persists the optional `category` field for web/mobile grouping. Promo clusters
+should stay synced (they are matched against), but can be hidden in the app.
 
 The AI service does not need the label to know which campaign space a
 centroid is in: it tells from the vector itself (see "Campaign space" below).
@@ -230,19 +230,24 @@ this refresh **must** also happen after any model retrain.
 
 Campaigns are clustered and matched in a transformed copy of the embedding —
 its top 2 shared directions removed — because in the raw embedding nearly all
-scams fall into one cluster. The transform and the thresholds calibrated in it
-live in `ai/models/campaign_space.json` (tracked in git, tied to one model
-version). The service identifies campaign-space centroids from the vectors
-themselves (nothing left on the removed directions; raw centroids all point
-nearly the same way, campaign-space ones do not).
-The space file holds separate thresholds for messages the classifier labels
-Scam and Spam (Scam's are looser — with one shared set, scam messages matched
-their own campaign only 23% of the time; now 56.6%).
+scams fall into one cluster. The service identifies campaign-space centroids
+from the vectors themselves (nothing left on the removed directions; raw
+centroids all point nearly the same way, campaign-space ones do not). The space
+holds separate thresholds for messages the classifier labels Scam and Spam
+(Scam's are looser — with one shared set, scam messages matched their own
+campaign only 23% of the time; now 56.6%).
 
-The AI service checks at startup that the centroids, the space file and the
-served model agree; if not, it logs `CAMPAIGN SPACE MISMATCH` and turns
-campaign matching **off** (classification is unaffected). Details and the
-measured numbers: `ai/PIPELINE.md`, "Item 19".
+The generated transform and its calibrated thresholds are checkpoint-specific
+deployment artifacts. They are no longer tracked in Git (this repository is
+public): provision the approved `campaign_space.json` at
+`BANTAI_AI_CAMPAIGN_SPACE_FILE` together with the exact model bundle that
+produced it.
+
+The AI service checks at startup that the centroids, the space file, the served
+model identity and the checkpoint digest agree. Missing, unverifiable or
+mismatched inputs make it log a mismatch and turn campaign matching **off**
+(classification is unaffected). Details and the measured numbers:
+`ai/PIPELINE.md`, "Item 19".
 
 ---
 

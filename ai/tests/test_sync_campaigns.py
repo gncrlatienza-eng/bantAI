@@ -15,14 +15,17 @@ sys.modules["sync_campaigns_to_backend"] = sync_mod
 _SPEC.loader.exec_module(sync_mod)
 
 
-def cluster(cid, scam, spam, domains, centroid=(0.1, 0.2)):
-    return {
+def cluster(cid, scam, spam, domains, centroid=(0.1, 0.2), category=None):
+    value = {
         "cluster_id": cid,
         "labels": {"Scam": scam, "Spam": spam},
         "top_domains": list(domains),
         "centroid": list(centroid),
         "lexical": {"shingles": ["x"], "domains": list(domains)},
     }
+    if category:
+        value["category"] = category
+    return value
 
 
 # --- which domains may be used for link suppression ---------------------
@@ -56,6 +59,14 @@ def test_payload_has_only_fields_the_backend_accepts():
     """The backend rejects unknown fields, and has no column for ``lexical``."""
     (payload,) = sync_mod.build_payloads({"clusters": [cluster(7, 10, 0, ["evil.xyz"])]})
     assert payload == {"label": "cluster-7", "centroid": [0.1, 0.2], "urlDomains": ["evil.xyz"]}
+
+
+def test_category_is_included_when_backend_category_sync_is_enabled():
+    data = {"clusters": [cluster(7, 10, 0, ["evil.xyz"], category="Bank phishing")]}
+
+    (payload,) = sync_mod.build_payloads(data, send_category=True)
+
+    assert payload["category"] == "Bank phishing"
 
 
 def test_clusters_without_a_centroid_are_skipped():

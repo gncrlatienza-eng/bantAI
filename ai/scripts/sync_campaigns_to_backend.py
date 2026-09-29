@@ -79,8 +79,8 @@ def build_payloads(data: dict, send_category: bool = False) -> List[dict]:
             "label": c.get("name") or f"cluster-{c['cluster_id']}",
             "centroid": c["centroid"],
             "urlDomains": suppression_domains(c),
-            # Only once the backend has a `category` column: its DTO rejects
-            # unknown fields (forbidNonWhitelisted).
+            # Kept as an argument for callers/tests that build legacy payloads;
+            # the CLI now always enables it because the backend persists it.
             **({"category": c.get("category")} if send_category and c.get("category") else {}),
         }
         for c in data.get("clusters", [])
@@ -149,16 +149,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--apply", action="store_true", help="actually write to the backend (default: dry run)")
     parser.add_argument("--file", default=CLUSTER_FILE)
-    parser.add_argument(
-        "--send-category",
-        action="store_true",
-        help="also send each cluster's category (needs the backend's category field)",
-    )
     args = parser.parse_args()
 
     with open(args.file, encoding="utf-8") as f:
         data = json.load(f)
-    payloads = build_payloads(data, send_category=args.send_category)
+    payloads = build_payloads(data, send_category=True)
     with_domains = [p for p in payloads if p["urlDomains"]]
     all_domains = sorted({d for p in payloads for d in p["urlDomains"]})
 

@@ -1,13 +1,17 @@
 # Model folders — which version is which
 
-Everything in `ai/models/` except this file and `campaign_space.json` is
-git-ignored (model weights are too large for git and are backed up on Google
-Drive instead, under `bantai/models/`, one folder per version).
+Everything in `ai/models/` except this file is git-ignored (model weights are
+too large for git and are backed up on Google Drive instead, under
+`bantai/models/`, one folder per version).
 
-`campaign_space.json` (item 19) is tracked on purpose: it is small, holds only
-a mean vector, two directions and its match thresholds (no message text), and the
-deployed service needs it. It belongs to the model version named inside it
-and must be regenerated after any promotion — see PIPELINE.md, "Item 19".
+`campaign_space.json` (item 19) holds a mean vector, two directions and its
+match thresholds (no message text). It is **not** tracked in git: the
+repository is public and the file is checkpoint-specific deployment data.
+Keep it with the model version named inside it (Drive, next to that model's
+folder), provision it at `BANTAI_AI_CAMPAIGN_SPACE_FILE`, and regenerate it
+after any promotion — see PIPELINE.md, "Item 19". Without it (or with a model
+whose identity/digest can't be verified) the service turns campaign matching
+off; classification is unaffected.
 
 **Do not rename these folders.** The service and scripts read them by path.
 

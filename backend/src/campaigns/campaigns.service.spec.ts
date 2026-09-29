@@ -41,8 +41,31 @@ describe('CampaignsService', () => {
         expect.objectContaining({
           where: { isActive: true },
           orderBy: { messageCount: 'desc' },
+          select: expect.objectContaining({ category: true }),
         }),
       );
+    });
+  });
+
+  describe('create', () => {
+    it('persists the stable campaign category supplied by the AI sync', async () => {
+      mockPrisma.campaignCluster.create.mockResolvedValue({ id: 'c1' });
+
+      await service.create({
+        label: 'Bank phishing (BDO)',
+        category: 'Bank phishing',
+        centroid: [0.1, 0.2],
+        urlDomains: ['bdo-login.example'],
+      });
+
+      expect(mockPrisma.campaignCluster.create).toHaveBeenCalledWith({
+        data: {
+          label: 'Bank phishing (BDO)',
+          category: 'Bank phishing',
+          centroid: [0.1, 0.2],
+          urlDomains: ['bdo-login.example'],
+        },
+      });
     });
   });
 

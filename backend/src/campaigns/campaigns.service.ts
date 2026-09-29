@@ -19,6 +19,7 @@ export class CampaignsService {
       select: {
         id: true,
         label: true,
+        category: true,
         urlDomains: true,
         isActive: true,
         messageCount: true,
@@ -58,12 +59,14 @@ export class CampaignsService {
   // Called by the AI/ML service to register a new campaign cluster.
   async create(data: {
     label?: string;
+    category?: string;
     centroid?: unknown;
     urlDomains?: string[];
   }) {
     const cluster = await this.prisma.campaignCluster.create({
       data: {
         label: data.label,
+        category: data.category,
         centroid: data.centroid ?? undefined,
         urlDomains: data.urlDomains ?? [],
       },
@@ -125,6 +128,7 @@ export class CampaignsService {
       select: {
         id: true,
         label: true,
+        category: true,
         urlDomains: true,
         isActive: true,
         messageCount: true,

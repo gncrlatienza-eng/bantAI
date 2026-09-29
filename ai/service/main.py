@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI
 # one place `service/` depends on `retraining/` -- read-only, plain stdlib,
 # no pydantic crossing the boundary. See `registry.py`'s module docstring.
 from retraining.registry import ModelRegistry, ModelRegistryError
-from retraining.version_file import read_version, verify_version
+from retraining.version_file import IntegrityResult, read_version, verify_version
 
 from .auth import require_api_key
 from .campaign import CampaignMatcher
@@ -50,7 +50,7 @@ def warm_up_model() -> None:
         logger.exception("Model warm-up failed; the first /classify will retry the load.")
 
 
-def load_campaign_centroids() -> None:
+def load_campaign_centroids(served_model_version: str | None, model_integrity: IntegrityResult) -> None:
     """Populate the campaign matcher before serving traffic.
 
     Without this the matcher stays empty and every message reports "no
@@ -68,6 +68,23 @@ def load_campaign_centroids() -> None:
         backend_api_key=settings.campaigns_api_key,
     )
 
+    # Campaign centroids are model-space artifacts. Classification may remain
+    # available when model provenance is incomplete, but campaign matching must
+    # not: applying centroids or a campaign transform to unknown/tampered
+    # weights can produce confident matches to the wrong campaign.
+    if centroids and (not served_model_version or model_integrity.status != "ok"):
+        reason = (
+            "the served model has no version identity"
+            if not served_model_version
+            else f"checkpoint integrity is {model_integrity.status}: {model_integrity.detail}"
+        )
+        logger.error(
+            "CAMPAIGN MODEL IDENTITY MISMATCH: %s. Campaign matching is DISABLED -- classification remains available.",
+            reason,
+        )
+        classify.matcher = CampaignMatcher([])
+        return
+
     # Item 19: centroids may live in a transformed space (their labels say
     # which). Comparing a raw embedding against transformed centroids -- or
     # against a space fitted on a different model -- produces confident
@@ -76,7 +93,7 @@ def load_campaign_centroids() -> None:
     enabled, space, reason = resolve_space(
         labels_of(centroids),
         space,
-        read_version(settings.model_dir),
+        served_model_version,
         centroid_vectors=[c.centroid for c in centroids],
     )
     if not enabled:
@@ -126,7 +143,7 @@ def _load_campaign_space():
         return None
 
 
-def check_served_version() -> None:
+def check_served_version(served: str | None, integrity: IntegrityResult) -> None:
     """Compare what this service is actually serving against what the
     backend's ``ModelVersions`` thinks is active (WBS 4.4.3).
 
@@ -141,15 +158,12 @@ def check_served_version() -> None:
     currently live -- has no ``version.json``, so ``served`` reads ``None``
     and this logs a one-time "not yet tracked" notice rather than a mismatch.
     """
-    served = read_version(settings.model_dir)
-
     # Does the checkpoint on disk still hash to what version.json recorded?
     # Logged, never fatal: a model whose files changed under it is still a
     # working classifier on a user's phone, and refusing to serve would turn a
     # bookkeeping problem into an outage. But it must be visible, or every
     # number this service produces is attributed to a checkpoint that may not
     # be the one that produced it (Reymark's audit, item 13).
-    integrity = verify_version(settings.model_dir)
     if integrity.status == "mismatch":
         logger.error(
             "CHECKPOINT INTEGRITY: %s no longer matches the digests recorded for %s -- %s. "
@@ -209,8 +223,10 @@ async def lifespan(_app: FastAPI):
             "reach this port. Fine on a laptop; set it before exposing this "
             "service beyond the backend."
         )
-    load_campaign_centroids()
-    check_served_version()
+    served = read_version(settings.model_dir)
+    integrity = verify_version(settings.model_dir)
+    check_served_version(served, integrity)
+    load_campaign_centroids(served, integrity)
     warm_up_model()
     yield
 

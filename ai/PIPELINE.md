@@ -1772,8 +1772,8 @@ off — fixed before the numbers above; the rule did not change.)
    selection method, epsilon; `min_cluster_size = 5` untouched) screened for
    fewer unassigned scams.
 
-Result (`evaluation/campaign_space_calibration.json`, space `ad000dee9174`,
-seeds 0–4 pooled):
+Result (`evaluation/campaign_space_calibration.json` — kept with the model
+artifacts, not in git; space `ad000dee9174`, seeds 0–4 pooled):
 
 | | Right campaign (range over splits) | Wrong campaign | Strangers attached |
 |---|---|---|---|
@@ -1817,8 +1817,17 @@ rejected. By the rule, clustering is unchanged.
 `models/campaign_space.json` disagree, if the space is uncalibrated or was
 fitted on a different model version than the one served, or if the vectors
 themselves contradict their labels (a transformed centroid has exactly zero
-weight on the removed directions; raw ones have 0.11–0.90). Raw centroids
-without a label keep working exactly as before.
+weight on the removed directions; raw ones have 0.11–0.90). Matching is also
+switched off — for raw centroids too — when the served model has no version
+identity (`version.json`) or its checkpoint digest is mismatched or
+unverifiable, since centroids are only meaningful for the weights that
+produced them. Otherwise, raw centroids without a label keep working as
+before.
+
+`models/campaign_space.json` and `evaluation/campaign_space_calibration.json`
+are **not tracked in git** (the repository is public; both are
+checkpoint-specific). Keep them with the model version they belong to and
+provision the space file at `BANTAI_AI_CAMPAIGN_SPACE_FILE`.
 `backend/src/campaigns/campaigns.service.ts` `findAllCentroids` now returns
 `label` (one-line change) — without it the service would see unlabelled
 transformed centroids and, by the guard above, refuse to match.

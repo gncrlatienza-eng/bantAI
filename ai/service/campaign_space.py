@@ -343,7 +343,11 @@ def _check_space(space, wanted, served_model_version, how) -> Tuple[bool, Option
         return False, None, f"centroids are in space {wanted} but the loaded space is {space.space_id}"
     if not space.calibrated:
         return False, None, f"space {wanted} has no calibrated thresholds (run scripts/calibrate_campaign_space.py)"
-    if space.model_version and served_model_version and space.model_version != served_model_version:
+    if not space.model_version:
+        return False, None, f"space {wanted} does not identify the model it was fitted on"
+    if not served_model_version:
+        return False, None, "the served model has no verifiable version identity"
+    if space.model_version != served_model_version:
         return (
             False,
             None,

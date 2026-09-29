@@ -2,29 +2,59 @@ package com.bantai.util
 
 private const val MIN_RECIPIENT_DIGITS = 7
 private const val MAX_RECIPIENT_DIGITS = 15
+private val SERVICE_CODE_DIGITS = 3..6
+
+/** Whether, and how, a thread's sender can be texted back. */
+enum class SenderReplyKind {
+    /** A real mobile/landline number -- an ordinary reply. */
+    PHONE_NUMBER,
+
+    /**
+     * A telco/service short code (8080, 3733, 9999...). PH carriers take
+     * keywords here (promo registration, load loans, balance checks), so
+     * replying is expected -- but a keyword can register a paid promo.
+     */
+    SERVICE_CODE,
+
+    /** An alphanumeric sender ID ("GCash", "GLOBE", "NDRRMC") -- one-way, no return path. */
+    ONE_WAY,
+}
+
+fun replyKindFor(sender: String): SenderReplyKind {
+    val cleaned = sender.replace(Regex("[\\s\\-()]"), "")
+    val digits = cleaned.removePrefix("+")
+    return when {
+        digits.isEmpty() || !digits.all { it.isDigit() } -> SenderReplyKind.ONE_WAY
+        !cleaned.startsWith("+") && digits.length in SERVICE_CODE_DIGITS -> SenderReplyKind.SERVICE_CODE
+        digits.length in MIN_RECIPIENT_DIGITS..MAX_RECIPIENT_DIGITS -> SenderReplyKind.PHONE_NUMBER
+        else -> SenderReplyKind.ONE_WAY
+    }
+}
+
+// Only codes confirmed from carrier help pages / real inbox traffic; anything
+// else gets the generic service-number caution rather than a guessed name.
+private val KNOWN_SERVICE_CODES =
+    mapOf(
+        "8080" to "Globe/TM promo registration",
+        "3733" to "Globe load loan",
+        "4438" to "Globe Rewards",
+        "9999" to "Smart promos and balance",
+        "4545" to "TNT promos",
+        "185" to "DITO self-service",
+    )
+
+/** What a known PH service short code is for, e.g. "Globe/TM promo registration". */
+fun serviceCodeLabel(code: String): String? = KNOWN_SERVICE_CODES[code.filter { it.isDigit() }]
 
 /**
- * Accept E.164 (+[1-15 digits]) or local all-digit numbers (7-15 digits).
- * Rejects alphanumeric sender IDs (which are receive-only, e.g. "GCash",
- * "PLDTHome") and short codes below 7 digits, to prevent accidental sends to
- * premium-rate services.
+ * Accepts anything that can actually receive an SMS: E.164 or local numbers
+ * (7-15 digits) and carrier service short codes (3-6 digits). Rejects
+ * alphanumeric sender IDs, which are receive-only -- SMS has no way to route
+ * text back to "GCash" or "PLDTHome", so a reply would only fail after
+ * SmsSender's 20s timeout.
  *
- * Shared by ComposeScreen (typing/pasting a recipient) and MessageDetailScreen
- * (the reply bar) so a thread whose sender is an alphanumeric ID never offers
- * a reply action that's guaranteed to fail after SmsSender's 20s timeout --
- * SMS has no way to route text back to a sender ID at all, unlike a real
- * phone number.
- *
- * Intentionally separate from OnboardingViewModel's normalizePhone: signup
- * requires a real PH mobile line to receive an OTP, so it validates and
- * rewrites to +63 form. This just needs "is this a plausible SMS-capable
- * recipient" for any number, PH or not -- don't merge the two.
+ * Shared by ComposeScreen and MessageDetailScreen's reply bar. Intentionally
+ * separate from OnboardingViewModel's normalizePhone: signup requires a real
+ * PH mobile line to receive an OTP -- don't merge the two.
  */
-fun isValidSmsRecipient(number: String): Boolean {
-    val cleaned = number.replace(Regex("[\\s\\-()]"), "")
-    if (cleaned.startsWith("+")) {
-        val digits = cleaned.drop(1)
-        return digits.all { it.isDigit() } && digits.length in MIN_RECIPIENT_DIGITS..MAX_RECIPIENT_DIGITS
-    }
-    return cleaned.all { it.isDigit() } && cleaned.length in MIN_RECIPIENT_DIGITS..MAX_RECIPIENT_DIGITS
-}
+fun isValidSmsRecipient(number: String): Boolean = replyKindFor(number) != SenderReplyKind.ONE_WAY

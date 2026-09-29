@@ -26,8 +26,11 @@ object NotificationHelper {
     /** Intent extra read by MainActivity/NavGraph to jump straight into one thread. */
     const val EXTRA_CONVERSATION_SENDER = "conversation_sender"
 
-    /** Brand indigo, used to tint the notification icon backdrop in the shade. */
-    private val BRAND_INDIGO = 0xFF5B4FE8.toInt()
+    /**
+     * Tints the notification icon backdrop in the shade: the middle of the app
+     * icon's gradient (#6366F1 -> #4338CA), so it reads as the same indigo.
+     */
+    private val BRAND_INDIGO = 0xFF534FDE.toInt()
 
     private const val SMISHING_CHANNEL_ID = "bantai_smishing"
     private const val SUSPICIOUS_CHANNEL_ID = "bantai_suspicious"
@@ -119,6 +122,42 @@ object NotificationHelper {
         manager.createNotificationChannel(spamChannel)
         manager.createNotificationChannel(messageChannel)
         manager.createNotificationChannel(sendStatusChannel)
+    }
+
+    /**
+     * A scam whose sender BantAI has already blocked. Nothing to decide, so the
+     * copy points at the alert as a chance to learn what the scam looked like.
+     */
+    fun sendScamBlockedNotice(
+        context: Context,
+        sender: String,
+        notifId: Int,
+    ) {
+        val safe = sanitizeSender(sender)
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                notifId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(context, SMISHING_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle("Scam blocked — $safe")
+                .setContentText("BantAI blocked a scam text. Tap to see what it looked like.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+        notifySafely(context, notifId, notification)
     }
 
     fun sendSmishingAlert(

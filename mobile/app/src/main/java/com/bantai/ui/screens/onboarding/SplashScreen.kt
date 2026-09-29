@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.bantai.ui.components.BantAILogo
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import kotlinx.coroutines.delay
 
@@ -73,7 +74,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            BantAILogo(containerSize = 80.dp, iconSize = 44.dp)
+            BantAILogo(size = 80.dp)
             Spacer(Modifier.height(12.dp))
             Text(
                 text = "BantAI",
@@ -83,7 +84,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             )
             Text(
                 text = "SMS threat intelligence",
-                fontSize = 14.sp,
+                fontSize = TextSize.Subhead,
                 color = TextSecondary,
             )
         }
@@ -95,7 +96,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = 24.dp),
-            fontSize = 12.sp,
+            fontSize = TextSize.Caption,
             color = TextSecondary,
             textAlign = TextAlign.Center,
         )

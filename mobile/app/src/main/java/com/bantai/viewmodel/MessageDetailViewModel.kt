@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.BuildConfig
+import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.DeletedMessagesStore
 import com.bantai.data.local.DraftsStore
@@ -17,9 +18,12 @@ import com.bantai.data.model.normalizeSenderKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private const val TAG = "MessageDetailViewModel"
@@ -32,7 +36,13 @@ class MessageDetailViewModel(
     private val draftsStore = DraftsStore(application)
 
     private val _conversation = MutableStateFlow<List<SmsMessage>>(emptyList())
-    val conversation: StateFlow<List<SmsMessage>> = _conversation.asStateFlow()
+
+    // Provider rows plus any "Sending…"/"Not delivered" bubble OutgoingSms is
+    // holding because the provider couldn't store it (BantAI not default).
+    val conversation: StateFlow<List<SmsMessage>> =
+        combine(_conversation, OutgoingSms.pending) { provider, _ ->
+            currentSender?.let { OutgoingSms.mergeInto(it, provider) } ?: provider
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -153,8 +163,9 @@ class MessageDetailViewModel(
             }
     }
 
-    fun selectAll() {
-        _selectedIds.value = _conversation.value.map { it.id }.toSet()
+    /** Selects [visibleIds] -- the screen may be showing only one chip's slice of the thread. */
+    fun selectAll(visibleIds: Collection<Long> = conversation.value.map { it.id }) {
+        _selectedIds.value = visibleIds.toSet()
     }
 
     fun exitSelectionMode() {
@@ -164,10 +175,13 @@ class MessageDetailViewModel(
 
     /** Soft-deletes exactly the selected messages — they move to Recently Deleted. */
     fun deleteSelected() {
-        val ids = _selectedIds.value
-        if (ids.isEmpty()) return
+        val selected = _selectedIds.value
+        if (selected.isEmpty()) return
+        // Negative ids are unsent local bubbles with no provider row.
+        val (localIds, ids) = selected.partition { it < 0 }
+        OutgoingSms.discard(localIds)
         viewModelScope.launch(Dispatchers.IO) {
-            deletedMessagesStore.markDeleted(ids)
+            if (ids.isNotEmpty()) deletedMessagesStore.markDeleted(ids.toSet())
             exitSelectionMode()
             currentSender?.let { loadConversation(it) }
         }

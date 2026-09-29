@@ -21,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.OnboardingHeader
@@ -31,6 +30,7 @@ import com.bantai.ui.components.SectionLabel
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.viewmodel.OnboardingViewModel
 
 @Composable
@@ -69,11 +69,11 @@ fun OnboardingConfirmNumberScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
         Spacer(Modifier.height(8.dp))
-        Text("Use an inbox you can open now.", fontSize = 12.sp, color = TextSecondary)
+        Text("Use an inbox you can open now.", fontSize = TextSize.Caption, color = TextSecondary)
 
         if (state.errorMessage != null) {
             Spacer(Modifier.height(12.dp))
-            Text(state.errorMessage ?: "", fontSize = 12.sp, color = Danger)
+            Text(state.errorMessage ?: "", fontSize = TextSize.Caption, color = Danger)
         }
 
         Spacer(Modifier.weight(1f))

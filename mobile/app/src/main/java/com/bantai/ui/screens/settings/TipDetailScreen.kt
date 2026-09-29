@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +35,7 @@ import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 private data class TipContent(
@@ -193,7 +193,7 @@ fun TipDetailScreen(
                 "Tip",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -207,9 +207,9 @@ fun TipDetailScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Title)
                 Spacer(Modifier.height(4.dp))
-                Text("BantAI Education · 3 min read", color = TextSecondary, fontSize = 12.sp)
+                Text("BantAI Education · 3 min read", color = TextSecondary, fontSize = TextSize.Caption)
             }
 
             item {
@@ -217,7 +217,7 @@ fun TipDetailScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
+                            .background(Indigo.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                             .padding(16.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
@@ -231,7 +231,7 @@ fun TipDetailScreen(
                     Text(
                         content.quote,
                         color = Indigo,
-                        fontSize = 13.sp,
+                        fontSize = TextSize.Footnote,
                         fontStyle = FontStyle.Italic,
                     )
                 }
@@ -243,7 +243,7 @@ fun TipDetailScreen(
                 Text(
                     content.whatIsIt,
                     color = TextSecondary,
-                    fontSize = 14.sp,
+                    fontSize = TextSize.Subhead,
                     lineHeight = 22.sp,
                 )
             }
@@ -264,7 +264,7 @@ fun TipDetailScreen(
                 Text(
                     content.whatToDo,
                     color = TextSecondary,
-                    fontSize = 14.sp,
+                    fontSize = TextSize.Subhead,
                     lineHeight = 22.sp,
                 )
             }
@@ -274,13 +274,13 @@ fun TipDetailScreen(
 
 @Composable
 private fun SectionHeading(text: String) {
-    Text(text, color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    Text(text, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
 }
 
 @Composable
 private fun BulletPoint(text: String) {
     Row(verticalAlignment = Alignment.Top) {
-        Text("·  ", color = TextSecondary, fontSize = 14.sp)
-        Text(text, color = TextSecondary, fontSize = 14.sp, lineHeight = 22.sp)
+        Text("·  ", color = TextSecondary, fontSize = TextSize.Subhead)
+        Text(text, color = TextSecondary, fontSize = TextSize.Subhead, lineHeight = 22.sp)
     }
 }

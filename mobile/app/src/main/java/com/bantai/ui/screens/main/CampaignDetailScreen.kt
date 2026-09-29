@@ -54,6 +54,7 @@ import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.CampaignDetailViewModel
@@ -99,14 +100,14 @@ fun CampaignDetailScreen(
                 modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(2.dp))
-            Text("Campaigns", color = Indigo, fontSize = 15.sp)
+            Text("Campaigns", color = Indigo, fontSize = TextSize.Body)
         }
 
         when {
             isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(errorMessage ?: "Could not load this campaign", color = Danger, fontSize = 14.sp)
+                    Text(errorMessage ?: "Could not load this campaign", color = Danger, fontSize = TextSize.Subhead)
                 }
             campaign != null -> CampaignDetailContent(campaign!!)
         }
@@ -164,7 +165,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                         campaign.label ?: "Unlabeled campaign",
                         color = White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = TextSize.Body,
                         lineHeight = 22.sp,
                     )
                     if (campaign.isActive) {
@@ -179,7 +180,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                         .size(6.dp)
                                         .background(Safe, CircleShape),
                             )
-                            Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = 12.sp)
+                            Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = TextSize.Caption)
                         }
                     } else {
                         Box(
@@ -189,7 +190,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                     .background(Hairline, RoundedCornerShape(100.dp))
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                         ) {
-                            Text("Inactive", color = TextTertiary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("Inactive", color = TextTertiary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -256,7 +257,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Icon(Icons.Default.Link, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))
-                            Text(domain, color = Danger, fontSize = 13.sp)
+                            Text(domain, color = Danger, fontSize = TextSize.Footnote)
                         }
                         if (index != campaign.urlDomains.lastIndex) {
                             HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 16.dp))
@@ -279,7 +280,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 campaignAdvice(campaign).forEach { advice ->
-                    Text("• $advice", color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp)
+                    Text("• $advice", color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 19.sp)
                 }
             }
         }
@@ -307,17 +308,17 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("Private device record", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Private device record", color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Footnote)
                                 Text(
                                     message.label ?: message.bucket ?: "Unclassified",
                                     color = if (message.bucket == "blocked") Danger else TextSecondary,
-                                    fontSize = 11.sp,
+                                    fontSize = TextSize.Caption2,
                                 )
                             }
                             Text(
                                 "Message content remains on your device.",
                                 color = TextSecondary,
-                                fontSize = 12.sp,
+                                fontSize = TextSize.Caption,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -358,7 +359,7 @@ private fun SectionLabel(text: String) {
     Text(
         text,
         color = TextTertiary,
-        fontSize = 12.sp,
+        fontSize = TextSize.Caption,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.6.sp,
         modifier = Modifier.padding(bottom = 8.dp),
@@ -374,7 +375,7 @@ private fun EmptySectionRow(message: String) {
                 .background(SurfaceElevated, RoundedCornerShape(18.dp))
                 .padding(16.dp),
     ) {
-        Text(message, color = TextSecondary, fontSize = 13.sp)
+        Text(message, color = TextSecondary, fontSize = TextSize.Footnote)
     }
 }
 
@@ -393,8 +394,8 @@ private fun StatCard(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(16.dp))
-        Text(value, color = White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-        Text(label, color = TextSecondary, fontSize = 12.sp)
+        Text(value, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Title)
+        Text(label, color = TextSecondary, fontSize = TextSize.Caption)
     }
 }
 

@@ -40,6 +40,7 @@ import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 
@@ -91,9 +92,9 @@ fun OnboardingTermsScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
             }
             Spacer(Modifier.height(8.dp))
-            Text("STEP 4 OF 4", color = Indigo, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("STEP 4 OF 4", color = Indigo, fontSize = TextSize.Caption, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Spacer(Modifier.height(12.dp))
-            Text("Terms & Privacy", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = White)
+            Text("Terms & Privacy", fontWeight = FontWeight.Bold, fontSize = TextSize.Title, color = White)
             Spacer(Modifier.height(16.dp))
         }
 
@@ -115,8 +116,8 @@ fun OnboardingTermsScreen(
                             .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(card.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
-                    Text(card.body, fontSize = 13.sp, color = TextSecondary, lineHeight = 20.sp)
+                    Text(card.title, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead, color = White)
+                    Text(card.body, fontSize = TextSize.Footnote, color = TextSecondary, lineHeight = 20.sp)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -141,7 +142,7 @@ fun OnboardingTermsScreen(
                 Text(
                     "I have read and agree to the Terms of Service and Privacy Policy.",
                     color = White,
-                    fontSize = 13.sp,
+                    fontSize = TextSize.Footnote,
                     lineHeight = 18.sp,
                     modifier = Modifier.padding(start = 4.dp),
                 )
@@ -158,7 +159,7 @@ fun OnboardingTermsScreen(
                         disabledContentColor = TextSecondary,
                     ),
             ) {
-                Text("Get started", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text("Get started", fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
             }
             Spacer(Modifier.height(16.dp))
         }

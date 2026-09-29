@@ -8,12 +8,15 @@ import android.provider.Telephony
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.BackendMessageIdStore
+import com.bantai.data.local.CampaignMatchStore
 import com.bantai.data.local.ClassificationStore
 import com.bantai.data.local.DeletedMessagesStore
 import com.bantai.data.local.DraftsStore
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.model.ConversationView
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
@@ -28,6 +31,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val TAG = "MessagesViewModel"
+
+/** The slice of a sender's thread that opening a row from [filter] shows. */
+fun conversationViewFor(filter: MessageFilter): ConversationView =
+    when (filter) {
+        MessageFilter.MESSAGES, MessageFilter.UNREAD -> ConversationView.MESSAGES
+        MessageFilter.SPAM -> ConversationView.SPAM
+        MessageFilter.UNKNOWN -> ConversationView.UNKNOWN
+        MessageFilter.RECENTLY_DELETED, MessageFilter.DRAFTS -> ConversationView.ALL
+    }
 
 enum class MessageFilter(
     val label: String,
@@ -95,6 +107,13 @@ class MessagesViewModel(
 
     private var loadJob: Job? = null
 
+    private var scanJob: Job? = null
+
+    // Ids already sent this session, whether or not the model answered, so a
+    // message that keeps failing can't stall the scan at the front of every
+    // batch. Cleared with the ViewModel, so the next app session retries them.
+    private val scanAttempted = mutableSetOf<Long>()
+
     private val _hasPermission = MutableStateFlow(smsRepository.hasReadSmsPermission())
     val hasPermission: StateFlow<Boolean> = _hasPermission.asStateFlow()
 
@@ -116,6 +135,8 @@ class MessagesViewModel(
         // real message's id, not just with another draft's. A 64-bit FNV-1a hash
         // (rather than String.hashCode()'s 32 bits) also makes a collision
         // between two different drafts astronomically less likely.
+        private const val SCAN_BATCH_SIZE = 20
+
         private const val FNV_OFFSET_BASIS = -3750763034362895579L
         private const val FNV_PRIME = 1099511628211L
 
@@ -192,7 +213,11 @@ class MessagesViewModel(
         loadJob?.cancel()
         loadJob =
             viewModelScope.launch(Dispatchers.IO) {
-                _isLoading.value = true
+                // The skeleton is for the first load only. A refresh (coming back
+                // from a thread, a new SMS) updates the list in place -- swapping it
+                // for the skeleton threw away the scroll position, so returning from
+                // a conversation always jumped back to the top.
+                if (allMessages.value.isEmpty()) _isLoading.value = true
                 _errorMessage.value = null
                 try {
                     val deletedIds =
@@ -208,6 +233,7 @@ class MessagesViewModel(
                             .filterNot { it.id in deletedIds }
                     recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
                     filterMessages(_searchQuery.value)
+                    scanUnclassifiedMessages()
                 } catch (e: CancellationException) {
                     // A newer loadMessages() call cancelled this one (see the comment
                     // above) — not a real failure, so it must not surface as one, and
@@ -224,6 +250,73 @@ class MessagesViewModel(
                     if (isActive) _isLoading.value = false
                 }
             }
+    }
+
+    /**
+     * Sends inbox messages that never got a model verdict (history from before
+     * install, or ones only checked by the offline heuristic while the backend
+     * was unreachable) through the same masked classifier a live SMS uses, so
+     * they land in the right Messages/Spam/Unknown chip. Silent: no
+     * notifications for old messages. Stops as soon as the model is unavailable
+     * and retries on a later reload.
+     */
+    private fun scanUnclassifiedMessages() {
+        if (scanJob?.isActive == true) return
+        scanJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                val token = runCatching { userPreferences.userData.first().authToken }.getOrDefault("")
+                if (token.isEmpty()) return@launch
+                // The whole history, not just the 500 rows the list shows:
+                // opening a conversation loads every message from that sender,
+                // and any row without a model verdict falls back to the offline
+                // heuristic there.
+                val stored = classificationStore.classifications.first()
+                val pending =
+                    smsRepository.getInboxMessages().filter { msg ->
+                        !msg.isOutgoing &&
+                            msg.id > 0 &&
+                            msg.id !in scanAttempted &&
+                            (stored[msg.id] == null || stored[msg.id] == "unverified")
+                    }
+                for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
+                    if (!isActive) return@launch
+                    val results = mutableMapOf<Long, String>()
+                    var modelUnavailable = false
+                    for (msg in batch) {
+                        val outcome =
+                            try {
+                                SmsIngestPipeline.classifyExisting(getApplication<Application>(), token, msg)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Inbox scan failed for message ${msg.id}", e)
+                                SmsIngestPipeline.ScanOutcome.Skipped
+                            }
+                        scanAttempted += msg.id
+                        when (outcome) {
+                            is SmsIngestPipeline.ScanOutcome.Classified -> results[msg.id] = outcome.classification
+                            SmsIngestPipeline.ScanOutcome.Skipped -> Unit
+                            SmsIngestPipeline.ScanOutcome.Unavailable -> {
+                                // Not this message's fault -- let the next session retry it.
+                                scanAttempted -= msg.id
+                                modelUnavailable = true
+                            }
+                        }
+                        if (modelUnavailable) break
+                    }
+                    classificationStore.setClassifications(results)
+                    if (results.isNotEmpty()) refreshAfterScan()
+                    if (modelUnavailable) return@launch
+                }
+            }
+    }
+
+    // Re-reads the provider so newly stored classifications re-sort the chips,
+    // without re-triggering the scan that is already running.
+    private suspend fun refreshAfterScan() {
+        val deletedIds = deletedMessagesStore.deletedEntries.first().map { it.id }.toSet()
+        allMessages.value = smsRepository.getInboxMessages(limit = 500).filterNot { it.id in deletedIds }
+        filterMessages(_searchQuery.value)
     }
 
     fun updateSearchQuery(query: String) {
@@ -264,21 +357,31 @@ class MessagesViewModel(
 
         _inboxMessages.value = filtered
 
-        val spam = filtered.filter { it.classification == "spam" }
+        // A scam blocks its sender (see SmsIngestPipeline.autoBlockSender), so
+        // none of that sender's messages stay in Messages/Spam/Review -- the
+        // scam lives in Alerts. Trusted senders never read as "blocked" (see
+        // SmsRepository.resolveClassification), so they're never hidden here.
+        val scamSenders =
+            filtered
+                .filter { it.classification == "blocked" }
+                .map { normalizeSenderKey(it.sender) }
+                .toSet()
+        val inbox = filtered.filterNot { normalizeSenderKey(it.sender) in scamSenders }
+
+        val spam = inbox.filter { it.classification == "spam" }
         _suspiciousMessages.value = spam
         _suspiciousTodayCount.value = spam.count { isToday(it.timestamp) }
 
-        val unknown = filtered.filter { it.classification == "unknown" }
+        val unknown = inbox.filter { it.classification == "unknown" }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
 
         // Team rule: confirmed scams are auto-blocked and live only in the
-        // Alerts tab; promotional/ad content goes to the Spam chip; the main
-        // Messages list keeps only legitimate/unclassified mail.
-        val legitimate =
-            filtered.filter {
-                it.classification != "spam" && it.classification != "blocked"
-            }
+        // Alerts tab. Everything else is placed per message, so a sender that
+        // mixes OTPs/balance notices with promos (GLOBE, AUTOLOADMAX, GCash)
+        // shows up in Messages for the former and Spam for the latter; opening
+        // it from a chip shows only that chip's messages (ConversationView).
+        val legitimate = inbox.filter { ConversationView.MESSAGES.includes(it) }
         val deletedFiltered =
             if (query.isEmpty()) {
                 recentlyDeleted.value
@@ -344,24 +447,14 @@ class MessagesViewModel(
         if (selectedRows.isEmpty()) return
         val filter = _selectedFilter.value
         viewModelScope.launch(Dispatchers.IO) {
-            // Each selected row represents a conversation (its latest message) — expand
-            // back out to every message id in that sender's thread that actually
-            // belongs to the filter being viewed, not the sender's entire history.
-            // Deleting a row from Spam, for example, must not silently also delete
-            // that same sender's unrelated Safe messages the user never saw or
-            // selected — Messages/Unread are the exception since they already show
-            // the full non-spam thread (getConversationBySender already excludes
-            // Blocked entirely, since that lives only in Alerts now).
+            // Each selected row is a sender's slice for this chip (its latest
+            // message) -- delete exactly what opening that row shows, so clearing
+            // GLOBE's promos from Spam never touches its OTPs in Messages.
+            // getConversationBySender already excludes Blocked, which lives in Alerts.
+            val view = conversationViewFor(filter)
             val idsToDelete = mutableSetOf<Long>()
             for (row in selectedRows) {
-                val conversation = smsRepository.getConversationBySender(row.sender)
-                val matching =
-                    when (filter) {
-                        MessageFilter.SPAM -> conversation.filter { it.classification == "spam" }
-                        MessageFilter.UNKNOWN -> conversation.filter { it.classification == "unknown" }
-                        else -> conversation
-                    }
-                idsToDelete += matching.map { it.id }
+                idsToDelete += smsRepository.getConversationBySender(row.sender).filter { view.includes(it) }.map { it.id }
                 idsToDelete += row.id
             }
             deletedMessagesStore.markDeleted(idsToDelete)
@@ -409,6 +502,7 @@ class MessagesViewModel(
             // row id is never reused, so nothing will ever look them up again).
             classificationStore.remove(ids)
             backendMessageIdStore.remove(ids)
+            CampaignMatchStore(getApplication()).remove(ids)
             exitSelectionMode()
             loadMessages()
         }

@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -34,8 +33,10 @@ import androidx.navigation.NavController
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 @Composable
@@ -79,13 +80,13 @@ fun ReportSentScreen(
                 modifier =
                     Modifier
                         .size(64.dp)
-                        .background(Color(0xFF0A2A0A), CircleShape),
+                        .background(Safe.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = White,
+                    tint = Safe,
                     modifier = Modifier.size(32.dp),
                 )
             }
@@ -94,14 +95,14 @@ fun ReportSentScreen(
                 title,
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
+                fontSize = TextSize.Title,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 body,
                 color = TextSecondary,
-                fontSize = 13.sp,
+                fontSize = TextSize.Footnote,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp,
             )
@@ -111,7 +112,7 @@ fun ReportSentScreen(
                 Text(
                     "What happens next",
                     color = TextSecondary,
-                    fontSize = 13.sp,
+                    fontSize = TextSize.Footnote,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
@@ -137,7 +138,7 @@ fun ReportSentScreen(
                             tint = Safe,
                             modifier = Modifier.size(20.dp),
                         )
-                        Text(item, color = White, fontSize = 14.sp)
+                        Text(item, color = White, fontSize = TextSize.Subhead)
                     }
                 }
             }
@@ -152,7 +153,7 @@ fun ReportSentScreen(
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {
-            Text(buttonText, color = White, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+            Text(buttonText, color = OnAccent, fontWeight = FontWeight.Medium, fontSize = TextSize.Body)
         }
         Spacer(Modifier.height(16.dp))
     }

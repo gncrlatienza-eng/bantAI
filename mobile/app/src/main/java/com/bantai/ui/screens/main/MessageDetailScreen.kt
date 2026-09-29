@@ -1,8 +1,5 @@
 package com.bantai.ui.screens.main
 
-import android.provider.Telephony
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -32,15 +29,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.ReportGmailerrorred
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,11 +55,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -72,11 +72,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.bantai.data.SmsRepository
+import com.bantai.data.OutgoingSms
 import com.bantai.data.local.BackendMessageIdStore
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.model.ConversationView
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.model.describeThread
 import com.bantai.data.model.summarizeThread
 import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
@@ -84,25 +86,30 @@ import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.components.ChatThreadSkeleton
 import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.getRelativeTime
+import com.bantai.ui.components.rememberSmsSendPermission
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
+import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
-import com.bantai.util.NotificationHelper
+import com.bantai.util.SenderReplyKind
 import com.bantai.util.SmsLinkSafety
-import com.bantai.util.SmsSender
+import com.bantai.util.SmsRiskSignals
+import com.bantai.util.TrustedSenders
 import com.bantai.util.isValidSmsRecipient
+import com.bantai.util.replyKindFor
+import com.bantai.util.serviceCodeLabel
 import com.bantai.viewmodel.MessageDetailViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Caps the AI Summary's TF-IDF scoring pass to the most recent incoming
@@ -115,10 +122,16 @@ fun MessageDetailScreen(
     sender: String,
     navController: NavController,
     viewModel: MessageDetailViewModel = viewModel(),
+    initialView: ConversationView = ConversationView.ALL,
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val conversation by viewModel.conversation.collectAsState()
+    val fullConversation by viewModel.conversation.collectAsState()
+    // Opened from a chip, only that chip's slice of the sender is shown (and
+    // drives the banner and summary), so GLOBE's OTPs and its promos don't mix.
+    // Opened from a tab, a thread shows only that tab's messages: a sender that
+    // mixes OTPs and promos appears in both Messages and Spam, each with its
+    // own slice. (There used to be a "show only / show all" toggle here.)
+    val conversation = remember(fullConversation, initialView) { fullConversation.filter { initialView.includes(it) } }
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val selectionMode by viewModel.selectionMode.collectAsState()
@@ -184,41 +197,79 @@ fun MessageDetailScreen(
         }
     }
 
+    val withSmsPermission = rememberSmsSendPermission()
+
     fun retryFailedMessage(msg: SmsMessage) {
-        val repo = SmsRepository(context)
-        coroutineScope.launch {
-            try {
-                // updateMessageType is a blocking ContentResolver call -- off Main.
-                withContext(Dispatchers.IO) { repo.updateMessageType(msg.id, Telephony.Sms.MESSAGE_TYPE_OUTBOX) }
-                viewModel.loadConversation(sender)
-                SmsSender.send(context, sender, msg.body) { success, error ->
-                    coroutineScope.launch(Dispatchers.IO) {
-                        repo.updateMessageType(msg.id, if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
-                    }
-                    if (!success) {
-                        Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
-                        NotificationHelper.sendFailedMessageNotification(context, sender, msg.body, NotificationHelper.notifIdFor(sender))
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MessageDetailScreen", "Failed to retry message ${msg.id}", e)
-                Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
-            }
-        }
+        withSmsPermission { OutgoingSms.retry(context, msg) }
     }
 
-    val hasSuspicious = conversation.any { it.classification == "blocked" }
-    val hasUnknown = conversation.any { it.classification == "unknown" }
+    // Telcos, banks, e-wallets, Google and other big apps (built-in list), or an
+    // organisation the backend registry verified. Their threads show no warnings
+    // and no report/block -- only the AI summary. See TrustedSenders.
+    val isTrusted = TrustedSenders.isTrusted(sender, senderVerification?.familiarity)
+    val hasSuspicious = !isTrusted && conversation.any { it.classification == "blocked" }
+    val hasUnknown = !isTrusted && conversation.any { it.classification == "unknown" }
+    // The one exception for a trusted name: content that gives a spoof away
+    // (a bank sending a link, anyone asking for an OTP). Names are fakeable,
+    // e.g. by SMS blasters, so this gets a warning with Report -- never Block,
+    // which would also cut off the real sender. See SmsRiskSignals.spoofWarning.
+    val spoofWarning =
+        remember(conversation, isTrusted) {
+            if (!isTrusted) {
+                null
+            } else {
+                conversation
+                    .asReversed()
+                    .firstNotNullOfOrNull { msg ->
+                        if (msg.isOutgoing) null else SmsRiskSignals.spoofWarning(sender, msg.body)
+                    }
+            }
+        }
+
+    // Report works for any message, whatever its verdict: TakeAction resolves (or
+    // registers) the backend id from the device row, and hides the option that
+    // would repeat the current label. Defaults to the flagged message, else the
+    // newest incoming message in the slice being shown.
+    fun openReport(
+        target: SmsMessage? = null,
+        action: String = "",
+        canBlock: Boolean = true,
+    ) {
+        val message =
+            target
+                ?: conversation.lastOrNull { it.classification == "blocked" || it.classification == "unknown" }
+                ?: conversation.lastOrNull { !it.isOutgoing }
+        val currentLabel =
+            when (message?.classification) {
+                "safe", "unverified" -> "Ham"
+                "spam" -> "Spam"
+                "blocked" -> "Scam"
+                else -> ""
+            }
+        val knownBackendId = if (target == null) flaggedMessageId else ""
+        navController.navigate(
+            Screen.TakeAction.createRoute(
+                messageId = knownBackendId,
+                sender = sender,
+                localId = message?.id?.takeIf { it > 0 },
+                currentLabel = currentLabel,
+                action = action,
+                canBlock = canBlock,
+            ),
+        )
+    }
     var showAISummary by remember { mutableStateOf(false) }
     var summaryText by remember { mutableStateOf<String?>(null) }
     var summaryLoading by remember { mutableStateOf(false) }
     var summarySourceCount by remember { mutableStateOf(0) }
+    var summaryTopic by remember { mutableStateOf<String?>(null) }
 
-    // Reset whenever the thread changes so a stale summary from a previous
-    // conversation can never be shown against this one.
-    LaunchedEffect(sender) {
+    // Reset whenever the thread or its visible slice changes so a stale summary
+    // can never be shown against different messages.
+    LaunchedEffect(sender, initialView) {
         summaryText = null
         summarySourceCount = 0
+        summaryTopic = null
     }
 
     // Computed on-device (TF-IDF extractive, data/model/SmsConversations.kt) --
@@ -226,11 +277,24 @@ fun MessageDetailScreen(
     // mode, there is no remote summarizer to call here. Only incoming messages
     // go in; the most recent ones, capped, so a very long thread doesn't stall
     // this on the scoring pass.
-    LaunchedEffect(showAISummary, sender) {
+    LaunchedEffect(showAISummary, sender, initialView) {
         if (showAISummary && summaryText == null) {
             summaryLoading = true
             val incoming = conversation.filter { !it.isOutgoing }.takeLast(MAX_AI_SUMMARY_SOURCE_MESSAGES)
-            val result = withContext(Dispatchers.Default) { summarizeThread(incoming) }
+            // The summary quotes message sentences, so it hides links under the
+            // same rule as the bubbles: only an all-safe thread keeps them.
+            val keepLinks = incoming.all { SmsLinkSafety.visibleBody(it.body, it.classification, sender) == it.body }
+            val (result, topic) =
+                withContext(Dispatchers.Default) {
+                    val summary = summarizeThread(incoming)
+                    val about = describeThread(incoming, sender)
+                    if (keepLinks) {
+                        summary to about
+                    } else {
+                        summary?.let(SmsLinkSafety::hideLinks) to about?.let(SmsLinkSafety::hideLinks)
+                    }
+                }
+            summaryTopic = topic
             if (result != null) {
                 summaryText = result
                 // Only set on a real summary -- the sheet uses this to show a
@@ -238,7 +302,7 @@ fun MessageDetailScreen(
                 // to the "not enough content" fallback below.
                 summarySourceCount = incoming.size
             } else {
-                summaryText = "Not enough content to summarize this conversation."
+                summaryText = if (topic != null) "" else "Not enough content to summarize this conversation."
             }
             summaryLoading = false
         }
@@ -247,9 +311,11 @@ fun MessageDetailScreen(
     if (showAISummary) {
         AISummaryBottomSheet(
             isSuspicious = hasSuspicious || hasUnknown,
+            isTrusted = isTrusted,
             summary = summaryText,
             sourceMessageCount = summarySourceCount.takeIf { it > 0 },
             isLoadingSummary = summaryLoading,
+            topic = summaryTopic,
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false
@@ -257,7 +323,7 @@ fun MessageDetailScreen(
                 // Action is the only screen with a working Report/Block entry
                 // point, ThreatAnalysisScreen's action button is permanently
                 // disabled.
-                navController.navigate(Screen.TakeAction.createRoute(messageId = flaggedMessageId, sender = sender))
+                openReport()
             },
         )
     }
@@ -305,15 +371,31 @@ fun MessageDetailScreen(
                     if (selectedIds.isEmpty()) "Select messages" else "${selectedIds.size} selected",
                     color = White,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
+                    fontSize = TextSize.Headline,
                     modifier = Modifier.weight(1f).padding(start = 4.dp),
                 )
-                TextButton(onClick = { viewModel.selectAll() }) {
-                    Text("Select All", color = IosBlue, fontSize = 14.sp)
+                TextButton(onClick = { viewModel.selectAll(conversation.map { it.id }) }) {
+                    Text("Select All", color = IosBlue, fontSize = TextSize.Subhead)
+                }
+                val reportTarget = conversation.singleOrNull { it.id in selectedIds }?.takeIf { !it.isOutgoing }
+                if (!isTrusted) {
+                    IconButton(
+                        onClick = {
+                            viewModel.exitSelectionMode()
+                            openReport(reportTarget, action = "report")
+                        },
+                        enabled = reportTarget != null && selectedIds.size == 1,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ReportGmailerrorred,
+                            contentDescription = "Report message",
+                            tint = if (reportTarget != null && selectedIds.size == 1) White else TextTertiary,
+                        )
+                    }
                 }
                 IconButton(onClick = { showDeleteConfirm = true }, enabled = selectedIds.isNotEmpty()) {
                     Icon(
-                        Icons.Filled.Delete,
+                        Icons.Outlined.Delete,
                         contentDescription = "Delete",
                         tint = if (selectedIds.isNotEmpty()) Danger else TextTertiary,
                     )
@@ -337,91 +419,100 @@ fun MessageDetailScreen(
                     modifier =
                         Modifier
                             .align(Alignment.Center)
-                            .padding(horizontal = 56.dp),
+                            .padding(horizontal = 100.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = sender,
                         color = White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = TextSize.Body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (hasSuspicious) {
-                        Text("Suspicious", color = Suspicious, fontSize = 11.sp)
+                        Text("Suspicious", color = Suspicious, fontSize = TextSize.Caption2)
+                    } else if (isTrusted && senderVerification?.familiarity != "verified_organization") {
+                        Text("Trusted sender", color = IosBlue, fontSize = TextSize.Caption2)
                     } else if (senderVerification?.risk == "confirmed_fraud") {
-                        Text("Confirmed fraud", color = Suspicious, fontSize = 11.sp)
+                        Text("Confirmed fraud", color = Suspicious, fontSize = TextSize.Caption2)
                     } else if (senderVerification?.familiarity == "verified_organization") {
                         Text(
                             "Verified organization${senderVerification?.organizationName?.let { " • $it" } ?: ""}",
                             color = IosBlue,
-                            fontSize = 11.sp,
+                            fontSize = TextSize.Caption2,
                         )
                     } else if (senderVerification?.familiarity == "known_contact") {
-                        Text("Known contact", color = IosBlue, fontSize = 11.sp)
+                        Text("Known contact", color = IosBlue, fontSize = TextSize.Caption2)
                     }
                 }
-                IconButton(
-                    onClick = { showAISummary = true },
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                ) {
-                    Icon(Icons.Default.Psychology, contentDescription = "AI Summary", tint = Indigo)
+                Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    IconButton(onClick = { showAISummary = true }) {
+                        Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI Summary", tint = Indigo)
+                    }
+                    if (!isTrusted) {
+                        ThreadMenu(
+                            enabled = conversation.any { !it.isOutgoing },
+                            onReport = { openReport(action = "report") },
+                            onBlock = { openReport(action = "block") },
+                        )
+                    }
                 }
             }
         }
 
         HorizontalDivider(color = Surface)
 
-        // Suspicious warning banner -- goes straight to Take Action (Report/Block)
+        // Suspicious warning -- goes straight to Take Action (Report/Block)
         // rather than the disabled-action ThreatAnalysisScreen; see
         // flaggedMessageId's comment above for why this needs its own lookup.
-        if (hasSuspicious) {
+        // Never shown for a trusted sender (hasSuspicious/hasUnknown are false).
+        if (hasSuspicious || hasUnknown) {
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF2A1A00))
-                        .clickable {
-                            navController.navigate(
-                                Screen.TakeAction.createRoute(messageId = flaggedMessageId, sender = sender),
-                            )
-                        }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                        .clickable { openReport() }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Outlined.WarningAmber,
+                    contentDescription = null,
+                    tint = Suspicious,
+                    modifier = Modifier.size(18.dp),
+                )
                 Text(
-                    "Suspicious messages detected — tap to report",
-                    color = Suspicious,
-                    fontSize = 13.sp,
+                    if (hasSuspicious) "This conversation looks like a scam" else "Some messages here look suspicious",
+                    color = White,
+                    fontSize = TextSize.Footnote,
                     modifier = Modifier.weight(1f),
                 )
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
+                Text("Review", color = Suspicious, fontSize = TextSize.Footnote, fontWeight = FontWeight.SemiBold)
             }
-        } else if (hasUnknown) {
-            // Unknown sender — likely-suspicious warning with a direct report affordance
+        } else if (spoofWarning != null) {
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF2A1A00))
-                        .clickable {
-                            navController.navigate(
-                                Screen.TakeAction.createRoute(messageId = flaggedMessageId, sender = sender),
-                            )
-                        }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                        .clickable { openReport(action = "report", canBlock = false) }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
-                Text(
-                    "Suspicious messages detected — tap to report",
-                    color = Suspicious,
-                    fontSize = 13.sp,
-                    modifier = Modifier.weight(1f),
+                Icon(
+                    Icons.Outlined.WarningAmber,
+                    contentDescription = null,
+                    tint = Suspicious,
+                    modifier = Modifier.size(18.dp),
                 )
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
+                Text(spoofWarning, color = White, fontSize = TextSize.Footnote, modifier = Modifier.weight(1f))
+                Text("Report", color = Suspicious, fontSize = TextSize.Footnote, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -433,11 +524,11 @@ fun MessageDetailScreen(
             ChatThreadSkeleton(modifier = Modifier.weight(1f).fillMaxWidth())
         } else if (errorMessage != null) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(errorMessage ?: "Couldn't load this conversation", color = Danger, fontSize = 14.sp)
+                Text(errorMessage ?: "Couldn't load this conversation", color = Danger, fontSize = TextSize.Subhead)
             }
         } else if (conversation.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No messages found", color = TextSecondary, fontSize = 14.sp)
+                Text("No messages found", color = TextSecondary, fontSize = TextSize.Subhead)
             }
         } else {
             LazyColumn(
@@ -490,7 +581,12 @@ fun MessageDetailScreen(
                                         Modifier
                                             .widthIn(max = bubbleMaxWidth)
                                             .background(
-                                                color = if (msg.classification == "blocked") Color(0xFF2A1A00) else Surface,
+                                                color =
+                                                    if (msg.classification == "blocked" && !isTrusted) {
+                                                        Suspicious.copy(alpha = 0.15f)
+                                                    } else {
+                                                        Surface
+                                                    },
                                                 shape =
                                                     RoundedCornerShape(
                                                         topStart = 4.dp,
@@ -502,23 +598,21 @@ fun MessageDetailScreen(
                                 ) {
                                     Column {
                                         Text(
-                                            SmsLinkSafety.visibleBody(msg.body, msg.classification),
+                                            SmsLinkSafety.visibleBody(msg.body, msg.classification, msg.sender),
                                             color = White,
-                                            fontSize = 14.sp,
+                                            fontSize = TextSize.Subhead,
                                             lineHeight = 20.sp,
                                         )
                                         Spacer(Modifier.height(2.dp))
                                         Text(
                                             getRelativeTime(msg.timestamp),
                                             color =
-                                                if (msg.classification ==
-                                                    "blocked"
-                                                ) {
+                                                if (msg.classification == "blocked" && !isTrusted) {
                                                     Suspicious.copy(alpha = 0.7f)
                                                 } else {
                                                     TextSecondary
                                                 },
-                                            fontSize = 10.sp,
+                                            fontSize = TextSize.Caption2,
                                         )
                                     }
                                 }
@@ -539,12 +633,17 @@ fun MessageDetailScreen(
                                             ).padding(horizontal = 12.dp, vertical = 8.dp),
                                 ) {
                                     Column {
-                                        Text(msg.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
+                                        Text(
+                                            msg.body,
+                                            color = OnAccent,
+                                            fontSize = TextSize.Subhead,
+                                            lineHeight = 20.sp,
+                                        )
                                         Spacer(Modifier.height(2.dp))
                                         Text(
                                             if (msg.sendStatus == SendStatus.SENDING) "Sending…" else getRelativeTime(msg.timestamp),
-                                            color = White.copy(alpha = 0.6f),
-                                            fontSize = 10.sp,
+                                            color = OnAccent.copy(alpha = 0.7f),
+                                            fontSize = TextSize.Caption2,
                                             modifier = Modifier.align(Alignment.End),
                                         )
                                     }
@@ -561,7 +660,7 @@ fun MessageDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Icon(Icons.Default.Warning, contentDescription = null, tint = Danger, modifier = Modifier.size(12.dp))
-                                Text("Not delivered · Tap to retry", color = Danger, fontSize = 11.sp)
+                                Text("Not delivered · Tap to retry", color = Danger, fontSize = TextSize.Caption2)
                             }
                         }
                     }
@@ -572,16 +671,84 @@ fun MessageDetailScreen(
         // Reply bar -- an alphanumeric sender ID (e.g. "GCash", "PLDTHome") has no
         // SMS return path at all, so replying would always fail after SmsSender's
         // 20s timeout with no way to succeed; show a disabled notice instead.
+        // Service short codes (8080, 3733) do take replies, with a load caution.
         if (isValidSmsRecipient(sender)) {
+            if (replyKindFor(sender) == SenderReplyKind.SERVICE_CODE) {
+                val purpose = serviceCodeLabel(sender)?.let { "$sender · $it. " } ?: "$sender is a service number. "
+                Text(
+                    purpose + "Sending a keyword here can register a promo and deduct load.",
+                    color = TextSecondary,
+                    fontSize = TextSize.Caption2,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            }
             ReplyBar(
                 sender = sender,
                 replyText = replyText,
                 onReplyTextChange = { replyText = it },
                 viewModel = viewModel,
-                coroutineScope = coroutineScope,
             )
         } else {
             UnreachableSenderNotice(sender)
+        }
+    }
+}
+
+// Report and Block live behind one "..." menu, iOS-style, rather than a
+// colored flag in the title bar.
+@Composable
+private fun ThreadMenu(
+    enabled: Boolean,
+    onReport: () -> Unit,
+    onBlock: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }, enabled = enabled) {
+            Icon(
+                Icons.Outlined.MoreHoriz,
+                contentDescription = "More",
+                tint = if (enabled) White else TextTertiary,
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = SurfaceElevated,
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            DropdownMenuItem(
+                text = { Text("Report message", color = White, fontSize = TextSize.Body) },
+                trailingIcon = {
+                    Icon(
+                        Icons.Outlined.ReportGmailerrorred,
+                        contentDescription = null,
+                        tint = White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onReport()
+                },
+            )
+            HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+            DropdownMenuItem(
+                text = { Text("Block sender", color = Danger, fontSize = TextSize.Body) },
+                trailingIcon = {
+                    Icon(
+                        Icons.Outlined.Block,
+                        contentDescription = null,
+                        tint = Danger,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onBlock()
+                },
+            )
         }
     }
 }
@@ -592,9 +759,9 @@ private fun ReplyBar(
     replyText: String,
     onReplyTextChange: (String) -> Unit,
     viewModel: MessageDetailViewModel,
-    coroutineScope: CoroutineScope,
 ) {
     val context = LocalContext.current
+    val withSmsPermission = rememberSmsSendPermission()
     HorizontalDivider(color = Surface)
     Row(
         modifier =
@@ -615,12 +782,12 @@ private fun ReplyBar(
             BasicTextField(
                 value = replyText,
                 onValueChange = onReplyTextChange,
-                textStyle = TextStyle(color = White, fontSize = 14.sp),
+                textStyle = TextStyle(color = White, fontSize = TextSize.Subhead),
                 cursorBrush = SolidColor(Indigo),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
                     if (replyText.isEmpty()) {
-                        Text("Message", color = TextSecondary, fontSize = 14.sp)
+                        Text("Message", color = TextSecondary, fontSize = TextSize.Subhead)
                     }
                     inner()
                 },
@@ -634,50 +801,20 @@ private fun ReplyBar(
                     .clickable {
                         val body = replyText.trim()
                         if (body.isEmpty()) return@clickable
-                        val repo = SmsRepository(context)
-                        coroutineScope.launch {
-                            try {
-                                // Record as Outbox and clear the box immediately — the new
-                                // bubble shows a "Sending…" state right away instead of
-                                // waiting on the network round trip for anything to appear.
-                                // insertOutgoingMessage is a blocking ContentResolver call,
-                                // so it runs on IO rather than this composable's Main-backed
-                                // coroutine scope.
-                                val outboxId = withContext(Dispatchers.IO) { repo.insertOutgoingMessage(sender, body) }
-                                viewModel.clearDraft()
-                                onReplyTextChange("")
-                                viewModel.loadConversation(sender)
-                                SmsSender.send(context, sender, body) { success, error ->
-                                    if (outboxId != null) {
-                                        coroutineScope.launch(Dispatchers.IO) {
-                                            repo.updateMessageType(
-                                                outboxId,
-                                                if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
-                                            )
-                                        }
-                                    }
-                                    if (!success) {
-                                        Toast.makeText(context, error ?: "Failed to send", Toast.LENGTH_LONG).show()
-                                        NotificationHelper.sendFailedMessageNotification(
-                                            context,
-                                            sender,
-                                            body,
-                                            NotificationHelper.notifIdFor(sender),
-                                        )
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Log.e("MessageDetailScreen", "Failed to send reply", e)
-                                Toast.makeText(context, "Failed to send", Toast.LENGTH_SHORT).show()
-                            }
+                        // The bubble shows "Sending…" at once and settles to sent or
+                        // "Not delivered · Tap to retry" -- see OutgoingSms.
+                        withSmsPermission {
+                            OutgoingSms.send(context, sender, body)
+                            viewModel.clearDraft()
+                            onReplyTextChange("")
                         }
                     },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
+                Icons.Filled.ArrowUpward,
                 contentDescription = "Send",
-                tint = if (replyText.isNotEmpty()) White else TextSecondary,
+                tint = if (replyText.isNotEmpty()) OnAccent else TextSecondary,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -698,7 +835,7 @@ private fun UnreachableSenderNotice(sender: String) {
         Text(
             "Can't reply to $sender — this sender doesn't accept text replies.",
             color = TextSecondary,
-            fontSize = 12.sp,
+            fontSize = TextSize.Caption,
             textAlign = TextAlign.Center,
         )
     }

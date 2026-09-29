@@ -12,6 +12,12 @@ import com.bantai.BuildConfig
 import com.bantai.data.local.ClassificationStore
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.remote.SmsApi
+import com.bantai.util.SmsLinkSafety
+import com.bantai.util.SmsRiskSignals
+import com.bantai.util.SmsSourceId
+import com.bantai.util.TransactionalMessage
+import com.bantai.util.TrustedSenders
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -20,6 +26,10 @@ private const val TAG = "SmsRepository"
 // SQLite's default host-parameter cap is ~999; chunking a batch IN (...) query/
 // delete keeps every call well under that regardless of how many ids are passed.
 private const val SQLITE_IN_CLAUSE_CHUNK_SIZE = 900
+
+// Matches the inbox list's 500-row window, so a sender that shows up in a
+// list also has those messages in its thread.
+private const val CONVERSATION_LIMIT = 500
 
 private fun <T> Collection<T>.chunkedForSqliteIn(): List<List<T>> = toList().chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE)
 
@@ -159,7 +169,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = stored[id] ?: classifyMessage(body),
+                            classification = resolveClassification(stored[id], body, sender),
                             isContact = false,
                             isRead = it.getInt(readCol) == 1,
                         ),
@@ -175,45 +185,26 @@ class SmsRepository(
 
     fun classifyMessagePublic(body: String): String = classifyMessage(body)
 
+    // The stored label is the model's verdict, with two read-time corrections
+    // that also fix every label already on the device: receipts/confirmations
+    // the model calls Spam read as safe (TransactionalMessage), and a scam
+    // verdict on a trusted sender reads as "needs review" rather than blocked
+    // (TrustedSenders -- telcos are never auto-blocked). No label -> heuristic.
+    private fun resolveClassification(
+        stored: String?,
+        body: String,
+        sender: String,
+    ): String {
+        val label = stored?.let { TransactionalMessage.correct(it, body) } ?: return classifyMessage(body)
+        return if (label == "blocked" && TrustedSenders.isBuiltIn(sender)) "unknown" else label
+    }
+
     private fun classifyMessage(body: String): String {
-        val bodyLower = body.lowercase()
         // Sender display names are spoofable. A familiar-looking name must
         // never certify a message as safe; verified organizations are assessed
         // server-side alongside the model and can never override fraud evidence.
-
-        // High-confidence scam signals — deliberately excludes words that are routine
-        // in legitimate financial messages (otp, verify, account, http, pin, password,
-        // confirm, bank, blocked, expire) to prevent false-positive auto-blocking.
-        val suspiciousKeywords =
-            listOf(
-                "click here",
-                "tap here",
-                "you have won",
-                "you won",
-                "you are selected",
-                "prize",
-                "claim your",
-                "claim now",
-                "congratulations",
-                "winner",
-                "bit.ly",
-                "tinyurl",
-                ".xyz",
-                ".info",
-                ".tk",
-                ".top",
-                "free gift",
-                "cash prize",
-                "verify your account",
-                "confirm your account",
-                "account suspended",
-                "account has been suspended",
-                "unauthorized access",
-                "immediately click",
-                "tap to claim",
-            )
-
-        val suspiciousScore = suspiciousKeywords.count { bodyLower.contains(it) }
+        // See SmsRiskSignals for why a lure phrase alone no longer flags.
+        val suspicious = SmsRiskSignals.looksSuspicious(body)
 
         // Sender IDs are trivially spoofable over SMS -- a scammer only has to
         // include a bank/telco name to match knownSenders. It still shouldn't be
@@ -243,7 +234,7 @@ class SmsRepository(
         // Removed 2026-09-16: a plain-number sender now gets the same
         // content-based treatment as a known sender -- suspicious only when
         // the body actually earns it.
-        return if (suspiciousScore >= 1) "unknown" else "unverified"
+        return if (suspicious) "unknown" else "unverified"
     }
 
     fun getMessageById(id: Long): SmsMessage? {
@@ -266,7 +257,7 @@ class SmsRepository(
                         sender = sender,
                         body = body,
                         timestamp = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE)),
-                        classification = storedClassifications()[id] ?: classifyMessage(body),
+                        classification = resolveClassification(storedClassifications()[id], body, sender),
                     )
                 }
             }
@@ -286,7 +277,7 @@ class SmsRepository(
 
     fun getConversationBySender(
         address: String,
-        limit: Int = 200,
+        limit: Int = CONVERSATION_LIMIT,
     ): List<SmsMessage> {
         if (!hasReadSmsPermission()) return emptyList()
         val messages = mutableListOf<SmsMessage>()
@@ -298,7 +289,12 @@ class SmsRepository(
                     arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE),
                     "${Telephony.Sms.ADDRESS} = ?",
                     arrayOf(address),
-                    "${Telephony.Sms.DATE} ASC",
+                    // Newest first, so the cap keeps the latest messages. It used
+                    // to be oldest-first: a sender with more than [limit] texts
+                    // (8080 has 440) only ever loaded its oldest ones, so the
+                    // spam that put it in the Spam tab never appeared in the
+                    // thread's "spam only" view.
+                    "${Telephony.Sms.DATE} DESC",
                 )
             cursor?.use {
                 val idCol = it.getColumnIndexOrThrow(Telephony.Sms._ID)
@@ -320,7 +316,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
+                            classification = if (isOutgoing) "safe" else (resolveClassification(stored[id], body, sender)),
                             isOutgoing = isOutgoing,
                             sendStatus = if (isOutgoing) sendStatusFor(type) else SendStatus.NONE,
                         ),
@@ -334,7 +330,8 @@ class SmsRepository(
         // must not leak them back in just because the sender also has other,
         // non-blocked messages. Spam is left untouched -- it's still a normal
         // (if hidden-by-default) part of Messages, not an Alerts-only concept.
-        return messages.filter { it.isOutgoing || it.classification != "blocked" }
+        // Reversed back to oldest-first for the chat layout.
+        return messages.asReversed().filter { it.isOutgoing || it.classification != "blocked" }
     }
 
     fun getMessagesByClassification(classification: String): List<SmsMessage> = getInboxMessages().filter { it.classification == classification }
@@ -372,13 +369,49 @@ class SmsRepository(
                         sender = sender,
                         body = body,
                         timestamp = it.getLong(dateCol),
-                        classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
+                        classification = if (isOutgoing) "safe" else (resolveClassification(stored[id], body, sender)),
                         isOutgoing = isOutgoing,
                     ),
                 )
             }
         }
         return messages
+    }
+
+    /**
+     * Fills in each alert's sender and text from this device's own inbox. The
+     * backend deliberately never returns either (privacy placeholder in
+     * SmsApi.parseAlert), but `sourceId` resolves to the local SMS row id when
+     * this device ingested the message (see SmsSourceId), so the content never
+     * has to leave the phone. Alerts with no local row (another device, or a
+     * deleted SMS) keep the placeholder.
+     */
+    fun withLocalContent(alerts: List<SmsApi.AlertSummary>): List<SmsApi.AlertSummary> {
+        val resolved = resolveLocal(alerts)
+        return resolved.map { (alert, message) -> message?.let { alert.withContent(it) } ?: alert }
+    }
+
+    /**
+     * Like [withLocalContent], but drops alerts with no local SMS row instead of
+     * keeping the placeholder. Alerts are account-wide, so one flagged on another
+     * device (or whose SMS was deleted) otherwise showed as an "Unknown sender"
+     * row with no content and no working Block/Report on this phone.
+     */
+    fun localAlertsOnly(alerts: List<SmsApi.AlertSummary>): List<SmsApi.AlertSummary> {
+        val resolved = resolveLocal(alerts)
+        return resolved.mapNotNull { (alert, message) -> message?.let { alert.withContent(it) } }
+    }
+
+    private fun resolveLocal(alerts: List<SmsApi.AlertSummary>): List<Pair<SmsApi.AlertSummary, SmsMessage?>> {
+        val rowIds = alerts.map { SmsSourceId.localRowId(context, it.sourceId) }
+        val local = getMessagesByIds(rowIds.filterNotNull().toSet()).associateBy { it.id }
+        return alerts.zip(rowIds) { alert, rowId -> alert to rowId?.let(local::get) }
+    }
+
+    // Every alert is a flagged message: links stay hidden, same as a non-safe thread.
+    private fun SmsApi.AlertSummary.withContent(message: SmsMessage): SmsApi.AlertSummary {
+        val safeBody = SmsLinkSafety.visibleBody(message.body, "blocked")
+        return copy(sender = message.sender, body = safeBody)
     }
 
     fun getMessagesByIds(ids: Set<Long>): List<SmsMessage> {
@@ -483,7 +516,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = stored[id] ?: classifyMessage(body),
+                            classification = resolveClassification(stored[id], body, sender),
                             isContact = false,
                             isRead = it.getInt(readCol) == 1,
                         ),

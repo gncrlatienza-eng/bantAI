@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
@@ -39,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
@@ -60,7 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bantai.ui.theme.Black
+import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.GlassFill
 import com.bantai.ui.theme.GlassStroke
 import com.bantai.ui.theme.Indigo
@@ -87,6 +90,8 @@ private const val UNSELECTED_TAB_COLOR = 0xFF8E8E93
 private val Unselected = Color(UNSELECTED_TAB_COLOR)
 
 private const val TAB_BAR_HEIGHT_DP = 74
+private const val ALERTS_TAB_INDEX = 1
+private const val MAX_BADGE = 99
 private const val TAB_TINT_ANIMATION_MS = 200
 
 // Each tab gets an equal-width slice of the bar (Modifier.weight(1f)) so the
@@ -109,6 +114,8 @@ private const val TAB_TINT_ANIMATION_MS = 200
 @Composable
 fun FloatingTabBar(
     selected: Int,
+    // Alerts not opened yet; shown as a small count on the Alerts tab.
+    alertsBadge: Int = 0,
     hazeState: HazeState,
     onSelect: (Int) -> Unit,
 ) {
@@ -116,6 +123,12 @@ fun FloatingTabBar(
     val haptics = LocalHapticFeedback.current
     var dragActive by remember { mutableStateOf(false) }
     var hoverIndex by remember { mutableIntStateOf(selected) }
+
+    // pointerInput(Unit) below never restarts, so without this its gesture
+    // handlers kept calling the onSelect from the first composition -- whose
+    // captured route said "main" -- and tapping a tab from a detail screen
+    // (alert, campaign, settings page) changed the tab but never navigated.
+    val currentOnSelect by rememberUpdatedState(onSelect)
 
     // Each TabItem reports its own measured position/size here as it's laid
     // out (see onGloballyPositioned below) -- the pill animates to whichever
@@ -135,13 +148,13 @@ fun FloatingTabBar(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .shadow(24.dp, RoundedCornerShape(30.dp), ambientColor = Black, spotColor = Black)
+                .shadow(24.dp, RoundedCornerShape(30.dp), ambientColor = Color.Black, spotColor = Color.Black)
                 .clip(RoundedCornerShape(30.dp))
                 .background(GlassFill)
                 .border(1.dp, GlassStroke, RoundedCornerShape(30.dp))
                 .height(TAB_BAR_HEIGHT_DP.dp)
                 .pointerInput(Unit) {
-                    detectTapGestures(onTap = { offset -> onSelect(indexAt(offset.x)) })
+                    detectTapGestures(onTap = { offset -> currentOnSelect(indexAt(offset.x)) })
                 }.pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = { offset ->
@@ -158,7 +171,7 @@ fun FloatingTabBar(
                             }
                         },
                         onDragEnd = {
-                            onSelect(hoverIndex)
+                            currentOnSelect(hoverIndex)
                             dragActive = false
                         },
                         onDragCancel = { dragActive = false },
@@ -172,7 +185,13 @@ fun FloatingTabBar(
             TabSelectionPill(targetBounds = targetBounds, density = density, hazeState = hazeState)
         }
 
-        TabBarItems(selected = selected, dragActive = dragActive, hoverIndex = hoverIndex, tabBounds = tabBounds)
+        TabBarItems(
+            selected = selected,
+            dragActive = dragActive,
+            hoverIndex = hoverIndex,
+            tabBounds = tabBounds,
+            alertsBadge = alertsBadge,
+        )
     }
 }
 
@@ -215,6 +234,7 @@ private fun TabBarItems(
     dragActive: Boolean,
     hoverIndex: Int,
     tabBounds: SnapshotStateList<Rect>,
+    alertsBadge: Int,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().fillMaxHeight(),
@@ -224,6 +244,7 @@ private fun TabBarItems(
         navTabs.forEachIndexed { index, tab ->
             TabItem(
                 tab = tab,
+                badge = if (index == ALERTS_TAB_INDEX) alertsBadge else 0,
                 selected = if (dragActive) hoverIndex == index else selected == index,
                 modifier =
                     Modifier
@@ -239,6 +260,7 @@ private fun TabBarItems(
 @Composable
 private fun TabItem(
     tab: NavTab,
+    badge: Int,
     selected: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -255,17 +277,43 @@ private fun TabItem(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "tabIconScale",
     )
+    // Small side padding only: each tab is already a quarter of the bar, and
+    // 16dp per side left ~55dp on a 1080px-wide phone, clipping "Campaigns"
+    // to "Campaig". The pill uses the slice bounds, so this doesn't change it.
     Column(
-        modifier = modifier.fillMaxHeight().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxHeight().padding(horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            imageVector = if (selected) tab.selectedIcon else tab.icon,
-            contentDescription = tab.label,
-            tint = tint,
-            modifier = Modifier.size(22.dp).scale(iconScale),
-        )
+        Box {
+            Icon(
+                imageVector = if (selected) tab.selectedIcon else tab.icon,
+                contentDescription = if (badge > 0) "${tab.label}, $badge new" else tab.label,
+                tint = tint,
+                modifier = Modifier.size(22.dp).scale(iconScale),
+            )
+            if (badge > 0) {
+                // iOS-style red count bubble on the icon's top-right corner.
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 9.dp, y = (-5).dp)
+                            .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
+                            .background(Danger, CircleShape)
+                            .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (badge > MAX_BADGE) "$MAX_BADGE+" else badge.toString(),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(0.dp))
         Text(
             tab.label,
@@ -273,6 +321,7 @@ private fun TabItem(
             fontSize = 10.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
+            softWrap = false,
         )
     }
 }

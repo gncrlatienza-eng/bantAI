@@ -23,6 +23,18 @@ object SmsApi {
         val messageId: String? = null,
         val senderStatus: String? = null,
         val suppressedLinks: List<String> = emptyList(),
+        /** The model's routing bucket (safe/unknown/spam/blocked); null from older backends. */
+        val bucket: String? = null,
+        /** The campaign the backend linked this message to; null when none (or an older backend). */
+        val campaign: CampaignMatch? = null,
+        /** False when the backend predates campaign linking, so "no campaign" can't be trusted. */
+        val campaignKnown: Boolean = false,
+    )
+
+    data class CampaignMatch(
+        val id: String,
+        val label: String?,
+        val category: String?,
     )
 
     data class AlertSummary(
@@ -157,6 +169,18 @@ object SmsApi {
             messageId = json.optString("messageId").takeIf { it.isNotEmpty() },
             senderStatus = json.optString("senderStatus").takeIf { it.isNotEmpty() },
             suppressedLinks = List(links?.length() ?: 0) { links!!.getString(it) },
+            bucket = classification.optNullableString("bucket"),
+            campaign =
+                json.optJSONObject("campaign")?.let { campaign ->
+                    campaign.optNullableString("id")?.let { id ->
+                        CampaignMatch(
+                            id = id,
+                            label = campaign.optNullableString("label"),
+                            category = campaign.optNullableString("category"),
+                        )
+                    }
+                },
+            campaignKnown = json.has("campaign"),
         )
     }
 

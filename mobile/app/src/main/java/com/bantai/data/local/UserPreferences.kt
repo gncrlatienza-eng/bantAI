@@ -9,6 +9,7 @@ import com.bantai.util.MAX_EMAIL_ADDRESS_LENGTH
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.io.IOException
 
 private const val TAG = "UserPreferences"
@@ -23,6 +24,7 @@ data class UserData(
     val scanPeriod: String = "daily",
     val smishingAlerts: Boolean = true,
     val suspiciousAlerts: Boolean = true,
+    val spamAlerts: Boolean = true,
     val autoBlockNotice: Boolean = true,
     val phoneNumber: String = "",
     val emailAddress: String = "",
@@ -40,9 +42,11 @@ class UserPreferences(
         val SCAN_PERIOD = stringPreferencesKey("scan_period")
         val SMISHING_ALERTS = booleanPreferencesKey("smishing_alerts")
         val SUSPICIOUS_ALERTS = booleanPreferencesKey("suspicious_alerts")
+        val SPAM_ALERTS = booleanPreferencesKey("spam_alerts")
         val AUTO_BLOCK_NOTICE = booleanPreferencesKey("auto_block_notice")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
         val EMAIL_ADDRESS = stringPreferencesKey("email_address")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     // The JWT is a bearer credential, not just text, so it's kept out of
@@ -70,6 +74,7 @@ class UserPreferences(
                 scanPeriod = prefs[Keys.SCAN_PERIOD] ?: "daily",
                 smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
                 suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
+                spamAlerts = prefs[Keys.SPAM_ALERTS] ?: true,
                 autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
                 phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
                 emailAddress = prefs[Keys.EMAIL_ADDRESS] ?: "",
@@ -131,17 +136,37 @@ class UserPreferences(
     suspend fun saveNotificationSettings(
         smishingAlerts: Boolean,
         suspiciousAlerts: Boolean,
+        spamAlerts: Boolean,
         autoBlockNotice: Boolean,
     ) {
         context.dataStore.edit { prefs ->
             prefs[Keys.SMISHING_ALERTS] = smishingAlerts
             prefs[Keys.SUSPICIOUS_ALERTS] = suspiciousAlerts
+            prefs[Keys.SPAM_ALERTS] = spamAlerts
             prefs[Keys.AUTO_BLOCK_NOTICE] = autoBlockNotice
         }
     }
 
+    // Read on its own, without userData's token store, so MainActivity can
+    // pick the theme before the first frame without touching the Keystore.
+    // "system" / "light" / "dark" -- see ThemeMode; blank if never chosen.
+    val themeMode: Flow<String> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.THEME_MODE] ?: "" }
+
+    suspend fun saveThemeMode(mode: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.THEME_MODE] = mode }
+    }
+
+    // Appearance is a device preference, not account data -- signing out
+    // shouldn't flip the app back to the default theme.
     suspend fun clearAll() {
         secureTokenStore.clear()
-        context.dataStore.edit { it.clear() }
+        context.dataStore.edit { prefs ->
+            val theme = prefs[Keys.THEME_MODE]
+            prefs.clear()
+            if (theme != null) prefs[Keys.THEME_MODE] = theme
+        }
     }
 }

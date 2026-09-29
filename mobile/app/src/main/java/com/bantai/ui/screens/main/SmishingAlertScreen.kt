@@ -20,12 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,33 +34,38 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.data.local.AlertStateStore
 import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.DetailSkeleton
+import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.IosBlue
+import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.util.SmsRiskSignals
 import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.roundToInt
 
 @Composable
 fun SmishingAlertScreen(
@@ -69,12 +75,18 @@ fun SmishingAlertScreen(
 ) {
     val alert by viewModel.alert.collectAsState()
     val indicators by viewModel.indicators.collectAsState()
-    val indicatorsLoading by viewModel.indicatorsLoading.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val resolvedSender by viewModel.resolvedSender.collectAsState()
+    val isTrustedSender by viewModel.isTrustedSender.collectAsState()
 
-    LaunchedEffect(messageId) { viewModel.load(messageId) }
+    val context = LocalContext.current
+    LaunchedEffect(messageId) {
+        viewModel.load(messageId)
+        // Opening an alert from anywhere (Alerts, a notification, Campaigns)
+        // clears its "new" dot and the tab count.
+        AlertStateStore(context).markSeen(messageId)
+    }
 
     Column(
         modifier =
@@ -82,9 +94,7 @@ fun SmishingAlertScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        // iOS-style back affordance: chevron + the screen you're returning to,
-        // not a generic "Back" label or a repeated page title -- the hero
-        // block right below already establishes what this screen is.
+        // iOS-style back affordance: chevron + the screen you're returning to.
         Row(
             modifier =
                 Modifier
@@ -97,361 +107,311 @@ fun SmishingAlertScreen(
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBackIos,
                 contentDescription = "Back",
-                tint = Indigo,
+                tint = IosBlue,
                 modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(2.dp))
-            Text("Alerts", color = Indigo, fontSize = 15.sp)
+            Text("Alerts", color = IosBlue, fontSize = TextSize.Body)
         }
 
         when {
             isLoading -> DetailSkeleton()
-            errorMessage != null ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
-                }
-            alert == null ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No alert details available", color = TextSecondary, fontSize = 14.sp)
-                }
-            else -> SmishingAlertContent(alert!!, resolvedSender, indicators, indicatorsLoading, navController)
+            errorMessage != null -> CenteredNote(errorMessage ?: "Could not load this alert", color = Danger)
+            alert == null -> CenteredNote("This alert is no longer available", color = TextSecondary)
+            else -> SmishingAlertContent(alert!!, resolvedSender, isTrustedSender, indicators, navController)
         }
     }
 }
 
+/**
+ * One fact per line, top to bottom: who sent it and the verdict, the message
+ * itself, why it was flagged, then what can be done.
+ * - A scam's sender is blocked automatically; the alert is a record, with a
+ *   "Not a scam?" report for a wrong verdict.
+ * - A trusted sender name (bank, e-wallet, telco, app -- see TrustedSenders)
+ *   is never blocked: names are spoofable (e.g. by SMS blasters), so blocking
+ *   "BDO" would block the real bank too. It gets Report only, plus a warning
+ *   when the content gives a spoof away (SmsRiskSignals.spoofWarning).
+ */
 @Composable
-@Suppress("LongMethod", "MagicNumber", "MaxLineLength")
 private fun SmishingAlertContent(
     alert: SmsApi.AlertSummary,
     resolvedSender: String,
+    isTrustedSender: Boolean,
     indicators: List<SmsApi.IndicatorTag>,
-    indicatorsLoading: Boolean,
     navController: NavController,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // Bottom clearance matches the floating tab bar's footprint (see
-        // MainScreen) -- this screen now renders behind that persistent bar.
-        contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 116.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        // Bottom clearance matches the floating tab bar's footprint.
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 116.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // High-risk banner. Blocking remains an explicit user choice.
-        item {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
-                Column {
-                    Text("High-risk message", color = Danger, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(
-                        "Review the message, then choose whether to block, report, or ignore it.",
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                    )
-                }
-            }
+        item { AlertHeader(alert, resolvedSender) }
+
+        item { MessageBubble(alert) }
+
+        if (indicators.isNotEmpty()) {
+            item { ReasonsCard(indicators) }
         }
 
-        // Sender info card
-        item {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Default.Block, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Sender retained on this device", color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = 12.sp)
-                    }
-                    alert.score?.let { score ->
-                        Text("${(score * 100).roundToInt()}% smishing", color = Danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                }
-                // Real campaign association (backend-sourced clusterId) — dropped back
-                // in August when this screen still showed mock content with no real
-                // link target; the data has been available in GET /sms/alerts all
-                // along, just never parsed on the mobile side until now.
-                alert.clusterId?.let { clusterId ->
-                    HorizontalDivider(color = BorderColor)
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Hub,
-                            contentDescription = null,
-                            tint = Suspicious,
-                            modifier = Modifier.size(14.dp),
-                        )
-                        Text(
-                            "Part of a tracked campaign",
-                            color = Suspicious,
-                            fontSize = 12.sp,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text("View campaign →", color = Indigo, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-
-        // Blocked message content header
-        item {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        "FLAGGED MESSAGE CONTENT",
-                        color = Color(0xFF666666),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 0.8.sp,
-                    )
-                    Row(
-                        modifier =
-                            Modifier
-                                .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Box(modifier = Modifier.size(6.dp).background(Danger, CircleShape))
-                        Text("Flagged", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    alert.label?.replaceFirstChar { it.uppercase() } ?: "Smishing",
-                    color = White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 30.sp,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    buildString {
-                        alert.score?.let { append("${(it * 100).roundToInt()}% confidence") }
-                        if (resolvedSender.isNotEmpty()) {
-                            if (isNotEmpty()) append(" · ")
-                            append(resolvedSender)
-                        }
-                    },
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                )
-            }
-        }
-
-        // Real campaign association (backend-sourced clusterId) -- only
-        // renders when the backend actually clustered this message into a
-        // tracked campaign, not just whenever this screen is shown.
         alert.clusterId?.let { clusterId ->
             item {
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
-                            .clickable { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Default.Hub, contentDescription = null, tint = Suspicious, modifier = Modifier.size(14.dp))
-                    Text(
-                        "Part of a tracked campaign",
-                        color = Suspicious,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text("View →", color = Suspicious, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
+                CampaignRow(onClick = { navController.navigate(Screen.CampaignDetail.createRoute(clusterId)) })
             }
         }
 
-        // Message content
-        item {
-            SectionLabel("MESSAGE")
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceElevated, RoundedCornerShape(18.dp))
-                        .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(alert.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
-                Text(formatFullTimestamp(alert.receivedAt), color = TextTertiary, fontSize = 11.sp)
-            }
-        }
-
-        // Why flagged section label
-        item {
-            Text(
-                "WHY BANTAI FLAGGED THIS",
-                color = Color(0xFF666666),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.8.sp,
+        val isScam = alert.bucket == "blocked" || alert.label == "Likely Smishing"
+        // resolvedSender (from the local SMS provider) instead of alert.sender,
+        // which the backend always sends as "".
+        val openReport = {
+            navController.navigate(
+                Screen.TakeAction.createRoute(
+                    messageId = alert.messageId,
+                    sender = resolvedSender,
+                    currentLabel = if (isScam) "Scam" else "",
+                    action = "report",
+                    canBlock = false,
+                ),
             )
         }
-
-        // Indicator tags -- server-computed (keyword tagger / SHAP, whichever
-        // ran; see explanation_method), fetched by AlertDetailViewModel.load()
-        // via GET /sms/:messageId/indicators. Previously that endpoint was
-        // never actually called from mobile at all, so `indicators` was always
-        // empty and this always showed "Still computing" no matter how long
-        // you waited, alongside a stale claim that indicators were
-        // unavailable because message text stays on the device -- the backend
-        // has always computed these server-side from the masked text it does
-        // receive, unrelated to raw-body-on-device privacy.
-        item {
-            if (indicatorsLoading) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                ) {
-                    Text("Loading threat indicators…", color = TextSecondary, fontSize = 13.sp)
-                }
-            } else if (indicators.isEmpty()) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                ) {
-                    Text("No specific indicators were recorded for this message.", color = TextSecondary, fontSize = 13.sp)
-                }
-            } else {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    indicators.forEachIndexed { index, indicator ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Bottom,
-                            ) {
-                                Text(indicator.tag, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text(
-                                    "${(indicator.weight.coerceIn(0.0, 1.0) * 100).roundToInt()}%",
-                                    color = Danger,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            }
-                            LinearProgressIndicator(
-                                progress = { indicator.weight.coerceIn(0.0, 1.0).toFloat() },
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                color = Danger,
-                                trackColor = BorderColor,
-                            )
-                            Text(severityLabel(indicator.weight), color = TextSecondary, fontSize = 13.sp)
-                        }
-                        if (index != indicators.lastIndex) {
-                            HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 16.dp))
-                        }
-                    }
-                }
+        if (isTrustedSender) {
+            SmsRiskSignals.spoofWarning(resolvedSender, alert.body)?.let { warning ->
+                item { SpoofWarningCard(warning) }
             }
+            item { TrustedSenderNote(resolvedSender.ifEmpty { "this sender" }) }
+            item { ReportButton(onClick = openReport) }
+        } else {
+            item { AutoBlockedNote(onReportMistake = openReport) }
         }
+    }
+}
 
-        // Actions -- only what's actually wired end to end. There's no
-        // standalone "mark as safe" or per-alert delete yet, and report/block
-        // share one confirm flow, so this is a single honest row into it
-        // rather than several buttons that all land on the same screen.
-        item {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceElevated, RoundedCornerShape(18.dp))
-                        .clickable {
-                            // resolvedSender (from the local SMS provider, via
-                            // AlertDetailViewModel) is used here instead of
-                            // alert.sender, which the backend always sends as ""
-                            // (privacy placeholder) -- passing that through
-                            // unconditionally made Block fail every time.
-                            navController.navigate(Screen.TakeAction.createRoute(alert.messageId, resolvedSender))
-                        }.padding(horizontal = 16.dp, vertical = 15.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
-                Text(
-                    buildString {
-                        append("Classified as ")
-                        append(alert.label ?: "smishing")
-                        alert.score?.let { append(" with ${(it * 100).roundToInt()}% confidence") }
-                        append(". Choose Block, Report, or Ignore after reviewing the result.")
-                    },
-                    color = White,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                )
+@Composable
+private fun AlertHeader(
+    alert: SmsApi.AlertSummary,
+    resolvedSender: String,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SenderAvatar(sender = resolvedSender.ifEmpty { "?" }, size = 64.dp)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            resolvedSender.ifEmpty { "Unknown sender" },
+            color = White,
+            fontWeight = FontWeight.Bold,
+            fontSize = TextSize.Title,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = TextSize.Footnote)
+        Spacer(Modifier.height(12.dp))
+        val isScam = alert.bucket == "blocked" || alert.label == "Likely Smishing"
+        val tint = if (isScam) Danger else Suspicious
+        Row(
+            modifier =
+                Modifier
+                    .background(tint.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(6.dp).background(tint, CircleShape))
+            Spacer(Modifier.width(6.dp))
+            // No percentage: the model's score is its confidence in itself (it
+            // reads ~99.9% on nearly every scam verdict), not how often it's
+            // right, so showing "100%" overstated certainty.
+            Text(
+                if (isScam) "Likely scam" else "Suspicious",
+                color = tint,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = TextSize.Footnote,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(alert: SmsApi.AlertSummary) {
+    Text(
+        alert.body,
+        color = White,
+        fontSize = TextSize.Body,
+        lineHeight = 21.sp,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceElevated, RoundedCornerShape(18.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+    )
+}
+
+@Composable
+private fun ReasonsCard(indicators: List<SmsApi.IndicatorTag>) {
+    Column {
+        Text(
+            "Why it was flagged",
+            color = TextSecondary,
+            fontSize = TextSize.Footnote,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceElevated, RoundedCornerShape(14.dp)),
+        ) {
+            // Strongest reason first; the raw weights read as noise to users.
+            indicators.sortedByDescending { it.weight }.forEachIndexed { index, indicator ->
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(6.dp).background(Danger, CircleShape))
+                    Spacer(Modifier.width(12.dp))
+                    Text(indicator.tag, color = White, fontSize = TextSize.Body)
+                }
+                if (index != indicators.lastIndex) {
+                    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 34.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text,
-        color = TextTertiary,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.6.sp,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
+private fun SpoofWarningCard(warning: String) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                .padding(16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            Icons.Outlined.WarningAmber,
+            contentDescription = null,
+            tint = Suspicious,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(warning, color = White, fontSize = TextSize.Subhead, lineHeight = 20.sp)
+    }
 }
 
-private fun severityLabel(weight: Double): String =
-    when (weight.coerceIn(0.0, 1.0)) {
-        in 0.66..1.0 -> "High"
-        in 0.33..0.66 -> "Medium"
-        else -> "Low"
+@Composable
+private fun ReportButton(onClick: () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Indigo, RoundedCornerShape(14.dp))
+                .clickable(onClick = onClick)
+                .padding(vertical = 15.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("Report this message", color = OnAccent, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
     }
+}
+
+@Composable
+private fun TrustedSenderNote(senderName: String) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceElevated, RoundedCornerShape(14.dp))
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Outlined.VerifiedUser,
+                contentDescription = null,
+                tint = IosBlue,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text("Why there's no Block", color = White, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
+        }
+        Text(
+            "Anyone can fake a sender name like \"$senderName\" -- scammers use fake cell towers to send texts " +
+                "that never pass through your telco. Blocking the name would also block the real $senderName's " +
+                "OTPs and alerts, so report the message instead, and don't open its links or share codes.",
+            color = TextSecondary,
+            fontSize = TextSize.Subhead,
+            lineHeight = 20.sp,
+        )
+    }
+}
+
+@Composable
+private fun AutoBlockedNote(onReportMistake: () -> Unit) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceElevated, RoundedCornerShape(14.dp))
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Shield, contentDescription = null, tint = Safe, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Text("Blocked automatically", color = White, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
+        }
+        Text(
+            "BantAI stopped this sender. If a message like this ever reaches your inbox, " +
+                "don't open its links or reply.",
+            color = TextSecondary,
+            fontSize = TextSize.Subhead,
+            lineHeight = 20.sp,
+        )
+        Text(
+            "Not a scam? Report a mistake",
+            color = Indigo,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = TextSize.Subhead,
+            modifier = Modifier.clickable(onClick = onReportMistake).padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun CampaignRow(onClick: () -> Unit) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceElevated, RoundedCornerShape(14.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Hub, contentDescription = null, tint = Suspicious, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(12.dp))
+        Text("Part of a scam campaign", color = White, fontSize = TextSize.Body, modifier = Modifier.weight(1f))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = TextTertiary,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun CenteredNote(
+    text: String,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = color, fontSize = TextSize.Body, textAlign = TextAlign.Center)
+    }
+}
 
 private fun formatFullTimestamp(iso: String): String =
     try {

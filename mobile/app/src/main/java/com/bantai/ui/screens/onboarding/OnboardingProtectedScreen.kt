@@ -45,6 +45,7 @@ import com.bantai.ui.components.GroupedDivider
 import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 
@@ -104,7 +105,7 @@ fun OnboardingProtectedScreen(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            BantAILogo(containerSize = 64.dp, iconSize = 36.dp)
+            BantAILogo(size = 64.dp)
         }
         Spacer(Modifier.height(24.dp))
 
@@ -119,7 +120,7 @@ fun OnboardingProtectedScreen(
         Spacer(Modifier.height(8.dp))
         Text(
             "BantAI is now monitoring your incoming messages for smishing threats.",
-            fontSize = 14.sp,
+            fontSize = TextSize.Subhead,
             color = TextSecondary,
             textAlign = TextAlign.Center,
             lineHeight = 19.sp,
@@ -151,7 +152,7 @@ fun OnboardingProtectedScreen(
             Spacer(Modifier.height(16.dp))
             Text(
                 "Threat notifications are off. You can enable them later in Android Settings.",
-                fontSize = 12.sp,
+                fontSize = TextSize.Caption,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),

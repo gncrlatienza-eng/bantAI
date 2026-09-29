@@ -1,14 +1,23 @@
 package com.bantai
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import com.bantai.data.local.UserPreferences
 import com.bantai.navigation.NavGraph
+import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.theme.BantAITheme
+import com.bantai.ui.theme.ThemeMode
+import com.bantai.ui.theme.isDark
 import com.bantai.util.NotificationHelper
 
 // smsto:/sms: are the schemes Android's own Contacts and Dialer apps use for
@@ -51,8 +60,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         NotificationHelper.createNotificationChannels(this)
         applyIntent(intent)
+        val themeModeFlow = UserPreferences(this).themeMode
         setContent {
-            BantAITheme {
+            // Until the stored theme choice is read (one small DataStore read),
+            // show the launch screen -- the same logo frame as the launch window
+            // (res/drawable/launch_background.xml) -- rather than a blank screen.
+            val storedMode by themeModeFlow.collectAsState(initial = null)
+            val mode =
+                storedMode ?: run {
+                    LaunchScreen()
+                    return@setContent
+                }
+            val dark = ThemeMode.fromValue(mode).isDark()
+            // Status/navigation bar icons follow the app's theme, not the system's.
+            DisposableEffect(dark) {
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose {}
+            }
+            BantAITheme(darkTheme = dark) {
                 NavGraph(
                     requestedTab = requestedTab.value,
                     requestedConversationSender = requestedConversationSender.value,

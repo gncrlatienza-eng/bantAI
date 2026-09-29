@@ -6,14 +6,16 @@ import com.bantai.BuildConfig
  * Shared connection settings for every backend call.
  *
  * The base URL is injected at build time (`BACKEND_BASE_URL` in
- * app/build.gradle.kts) so switching between an emulator and a USB-connected
- * device needs no source edit:
+ * app/build.gradle.kts), so switching setups needs no source edit:
  *
- *   USB device — http://localhost:3000/api, after `adb reverse tcp:3000 tcp:3000`
- *   Emulator   — http://10.0.2.2:3000/api
+ *   Debug default — http://<laptop LAN IP>:3000/api, detected at build time;
+ *                   phone on the same wifi, no USB/adb needed
+ *   USB device    — -PbantaiBackendUrl=http://localhost:3000/api, after `adb reverse tcp:3000 tcp:3000`
+ *   Emulator      — -PbantaiBackendUrl=http://10.0.2.2:3000/api
+ *   Release       — -PbantaiReleaseBackendUrl=https://<deployed host>/api
  *
- * Those two hosts are the only ones allowed to use plain HTTP; see
- * res/xml/network_security_config.xml before pointing this at a LAN address.
+ * Debug builds allow plain HTTP only to localhost, 10.0.2.2, and that one
+ * build-time host (generated from src/debug/network_security_config.template.xml).
  */
 object ApiConfig {
     val BASE_URL: String = BuildConfig.BACKEND_BASE_URL

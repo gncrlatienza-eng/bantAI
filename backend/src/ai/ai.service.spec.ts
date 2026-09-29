@@ -35,8 +35,37 @@ describe('AiService', () => {
         bucket: 'blocked',
         indicators: [],
         explanationMethod: 'keyword-fallback',
+        campaign: null,
       });
       expect(fetchMock.mock.calls[0][0]).toContain('/classify');
+    });
+
+    it('keeps a matched campaign and drops an unmatched one', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.97,
+          bucket: 'blocked',
+          campaign: { cluster_id: 'k1', matched: true, match_reason: 'hybrid' },
+        }),
+      });
+      await expect(service.classifyMasked('masked')).resolves.toMatchObject({
+        campaign: { clusterId: 'k1', matchReason: 'hybrid' },
+      });
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.97,
+          bucket: 'blocked',
+          campaign: { cluster_id: null, matched: false, should_buffer: true },
+        }),
+      });
+      await expect(service.classifyMasked('masked')).resolves.toMatchObject({
+        campaign: null,
+      });
     });
 
     it('rejects malformed model output as a non-authoritative fallback', async () => {

@@ -40,7 +40,7 @@ fun Throwable.toUserMessage(fallback: String): String = if (this is ApiException
 internal object HttpClient {
     suspend fun get(
         path: String,
-        token: String,
+        token: String?,
         timeoutMs: Int = ApiConfig.DEFAULT_TIMEOUT_MS,
     ): Result<String> = request("GET", path, token = token, timeoutMs = timeoutMs)
 

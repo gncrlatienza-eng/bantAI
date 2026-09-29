@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -19,11 +18,13 @@ import { ModelsService } from './models.service';
 export class InternalModelsController {
   constructor(private readonly modelsService: ModelsService) {}
 
+  // "Nothing promoted yet" is a normal state for a fresh environment, not an
+  // error: the AI service's startup check (ai/retraining/registry.py
+  // get_active) reads an empty 200 body as "none registered" and logs it
+  // plainly, whereas a 404 made it report the backend as unreachable.
   @Get('active')
   async findActive() {
-    const model = await this.modelsService.findActive();
-    if (!model) throw new NotFoundException('No active model version');
-    return model;
+    return (await this.modelsService.findActive()) ?? null;
   }
 
   @HttpCode(HttpStatus.CREATED)

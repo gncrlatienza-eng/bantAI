@@ -49,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.ui.components.OnboardingHeader
 import com.bantai.ui.components.PillTextField
@@ -58,6 +57,7 @@ import com.bantai.ui.components.SectionLabel
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.OnboardingViewModel
@@ -203,7 +203,7 @@ private fun ProfileActions(
 ) {
     Column {
         if (errorMessage != null) {
-            Text(errorMessage, fontSize = 12.sp, color = Danger)
+            Text(errorMessage, fontSize = TextSize.Caption, color = Danger)
             Spacer(Modifier.height(12.dp))
         }
         PrimaryButton(
@@ -264,12 +264,12 @@ private fun ProfileAvatar(
                     },
             contentAlignment = Alignment.Center,
         ) {
-            Text(initials, color = White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text(initials, color = White, fontSize = TextSize.LargeTitle, fontWeight = FontWeight.Bold)
         }
         Text(
             if (avatarTapped) "Looking good" else "Tap to change color",
             color = TextSecondary,
-            fontSize = 12.sp,
+            fontSize = TextSize.Caption,
         )
     }
 }
@@ -295,14 +295,14 @@ private fun ProfileNameField(
         )
         if (errorMessage != null) {
             Spacer(Modifier.height(4.dp))
-            Text(errorMessage, color = Danger, fontSize = 12.sp)
+            Text(errorMessage, color = Danger, fontSize = TextSize.Caption)
         }
         if (focused) {
             Spacer(Modifier.height(4.dp))
             Text(
                 "${value.length}/$NAME_MAX_LENGTH",
                 color = TextSecondary,
-                fontSize = 11.sp,
+                fontSize = TextSize.Caption2,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
             )

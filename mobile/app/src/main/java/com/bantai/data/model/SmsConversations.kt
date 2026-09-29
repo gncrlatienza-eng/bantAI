@@ -31,6 +31,36 @@ fun List<SmsMessage>.groupedBySenderLatest(): List<SmsMessage> {
     }
 }
 
+/**
+ * Which slice of a sender's messages is shown: the inbox chips place each
+ * message by its own verdict, so a sender that mixes OTPs with promos appears
+ * in both Messages and Spam, and opening it from a chip shows only that
+ * chip's messages. The user's own sent messages appear in every view so a
+ * reply (e.g. a promo keyword to 8080) keeps its context. Blocked scams live
+ * only in Alerts.
+ */
+enum class ConversationView(
+    val routeValue: String,
+) {
+    ALL("all"),
+    MESSAGES("messages"),
+    SPAM("spam"),
+    UNKNOWN("unknown"),
+    ;
+
+    fun includes(message: SmsMessage): Boolean =
+        when (this) {
+            ALL -> true
+            MESSAGES -> message.isOutgoing || message.classification !in setOf("spam", "unknown", "blocked")
+            SPAM -> message.isOutgoing || message.classification == "spam"
+            UNKNOWN -> message.isOutgoing || message.classification == "unknown"
+        }
+
+    companion object {
+        fun fromRoute(value: String?): ConversationView = entries.firstOrNull { it.routeValue == value } ?: ALL
+    }
+}
+
 // Strips whitespace, hyphens, and parentheses so "+63 917-123-4567" and
 // "+639171234567" collapse into the same conversation, matching the
 // normalization SmsReceiver already applies when storing incoming messages.
@@ -40,150 +70,22 @@ private const val MINIMUM_UNREAD_MESSAGES_FOR_SUMMARY = 2
 private const val MAXIMUM_SUMMARY_SENTENCES = 2
 private const val MAXIMUM_SUMMARY_CHARACTERS = 220
 
-private const val DEFAULT_THREAD_SUMMARY_SENTENCES = 3
-private const val DEFAULT_THREAD_SUMMARY_CHARACTERS = 400
-
 /**
  * Unread-preview variant used by the Messages list. The input is newest-first
  * because it comes from the SMS provider; it's reversed before summarizing.
  */
 fun summarizeUnreadThread(messages: List<SmsMessage>): String? {
     if (messages.count { !it.isRead } < MINIMUM_UNREAD_MESSAGES_FOR_SUMMARY) return null
-    return summarizeThread(
-        messages.asReversed(),
-        maxSentences = MAXIMUM_SUMMARY_SENTENCES,
-        maxChars = MAXIMUM_SUMMARY_CHARACTERS,
-    )
-}
-
-/**
- * Produces a small TF-IDF-style extractive summary entirely in memory.
- *
- * Sentences are selected by their distinctive terms, then restored to
- * chronological order so the result reads naturally. Extractive only: every
- * sentence returned was actually sent. This intentionally does not use a
- * network model or persist a derived copy of the message content -- the
- * backend's POST /ai/summarize is disabled (410) in privacy-first mode, so
- * this is what backs the in-thread AI Summary sheet too.
- *
- * @param messagesOldestFirst thread messages in chronological order.
- * @return null when there are fewer than two sentences to choose between.
- */
-fun summarizeThread(
-    messagesOldestFirst: List<SmsMessage>,
-    maxSentences: Int = DEFAULT_THREAD_SUMMARY_SENTENCES,
-    maxChars: Int = DEFAULT_THREAD_SUMMARY_CHARACTERS,
-): String? {
-    val sentences =
-        messagesOldestFirst
-            .flatMap { message -> splitSentences(message.body) }
-            .filter { it.isNotBlank() }
-    if (sentences.size < 2) return null
-
-    val tokenized = sentences.map(::meaningfulTokens)
-    val documentFrequency = mutableMapOf<String, Int>()
-    tokenized.forEach { tokens ->
-        tokens.toSet().forEach { token ->
-            documentFrequency[token] = (documentFrequency[token] ?: 0) + 1
-        }
-    }
-    val documentCount = sentences.size.toDouble()
-
-    val selectedIndices =
-        sentences.indices
-            .map { index ->
-                val tokens = tokenized[index]
-                val score =
-                    if (tokens.isEmpty()) {
-                        0.0
-                    } else {
-                        tokens.sumOf { token ->
-                            val idf =
-                                kotlin.math.ln(
-                                    (documentCount + 1) / ((documentFrequency[token] ?: 0) + 1),
-                                ) + 1
-                            idf
-                        } / tokens.size
-                    }
-                index to score
-            }.sortedWith(
-                compareByDescending<Pair<Int, Double>> { it.second }
-                    .thenBy { it.first },
-            ).take(maxSentences)
-            .map { it.first }
-            .sorted()
-
-    val summary = selectedIndices.joinToString(" ") { sentences[it] }.trim()
-    return summary.take(maxChars).trim().takeIf { it.isNotBlank() }
-}
-
-private fun splitSentences(body: String): List<String> =
-    body
-        .replace(Regex("\\s+"), " ")
+    val topic = threadTopicPhrase(messages)?.let { "$it." }
+    val extract =
+        summarizeThread(
+            messages.asReversed(),
+            maxSentences = MAXIMUM_SUMMARY_SENTENCES,
+            maxChars = MAXIMUM_SUMMARY_CHARACTERS,
+        )
+    return listOfNotNull(topic, extract)
+        .joinToString(" ")
+        .take(MAXIMUM_SUMMARY_CHARACTERS)
         .trim()
-        .split(Regex("(?<=[.!?])\\s+"))
-        .map(String::trim)
-        .filter(String::isNotBlank)
-
-private fun meaningfulTokens(text: String): List<String> =
-    TOKEN_REGEX
-        .findAll(text.lowercase())
-        .map { it.value }
-        .filterNot { it in SUMMARY_STOP_WORDS }
-        .toList()
-
-private val TOKEN_REGEX = Regex("[\\p{L}\\p{N}]{2,}")
-
-// Small bilingual stop-word list keeps common function words from winning the
-// extraction score while avoiding a bulky NLP dependency in the Android app.
-private val SUMMARY_STOP_WORDS =
-    setOf(
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "but",
-        "by",
-        "for",
-        "from",
-        "has",
-        "have",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "that",
-        "the",
-        "this",
-        "to",
-        "was",
-        "were",
-        "will",
-        "with",
-        "you",
-        "your",
-        "ang",
-        "at",
-        "ay",
-        "ba",
-        "dahil",
-        "ito",
-        "ka",
-        "ko",
-        "kung",
-        "mga",
-        "na",
-        "ng",
-        "para",
-        "po",
-        "sa",
-        "si",
-        "sila",
-        "tayo",
-        "yung",
-    )
+        .takeIf { it.isNotBlank() }
+}

@@ -24,6 +24,10 @@
     <permission
         android:name="com.bantai.permission.SMS_SEND_RESULT"
         android:protectionLevel="signature" />
+    <!-- The app must also hold it: the sent-result broadcast is sent with this
+         app's identity, and without this line Android dropped every result on
+         API < 33, so every send timed out as "failed" even when it went out. -->
+    <uses-permission android:name="com.bantai.permission.SMS_SEND_RESULT" />
 
     <application
         android:allowBackup="false"

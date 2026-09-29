@@ -51,11 +51,14 @@ export class PortalOrganizationsService {
   // enrolled in their organization; no raw sender/body content crosses this API.
   scopedAlertSummary(organizationId: string) {
     return this.prisma.alert.findMany({
+      // Same smishing-only rule as SmsService.getAlerts: legacy promo alerts
+      // (model bucket "spam") are excluded rather than deleted.
       where: {
         message: {
           user: {
             organizationMemberships: { some: { organizationId } },
           },
+          NOT: { classification: { is: { bucket: 'spam' } } },
         },
       },
       orderBy: { createdAt: 'desc' },

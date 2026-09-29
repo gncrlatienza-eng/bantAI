@@ -54,8 +54,12 @@ export class ReportsController {
   @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/validate')
-  validate(@Param('id') id: string, @Body() dto: ReviewReportDto) {
-    return this.reportsService.validate(id, dto.adminNote);
+  validate(
+    @Param('id') id: string,
+    @Body() dto: ReviewReportDto,
+    @Request() req: { user: { userId: string } },
+  ) {
+    return this.reportsService.validate(id, dto.adminNote, req.user.userId);
   }
 
   // Admin: reject a report — discards it from the training set.

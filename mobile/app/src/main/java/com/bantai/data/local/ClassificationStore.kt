@@ -45,6 +45,15 @@ class ClassificationStore(
         }
     }
 
+    suspend fun setClassifications(entries: Map<Long, String>) {
+        if (entries.isEmpty()) return
+        context.classificationsDataStore.edit { prefs ->
+            val current = parseEntries(prefs[Keys.ENTRIES] ?: "{}").toMutableMap()
+            current.putAll(entries)
+            prefs[Keys.ENTRIES] = serializeEntries(current)
+        }
+    }
+
     /** Called after a permanent delete so this store doesn't grow forever for ids that no longer exist anywhere. */
     suspend fun remove(messageIds: Collection<Long>) {
         if (messageIds.isEmpty()) return

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,7 +61,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.data.model.SmsMessage
@@ -77,15 +77,17 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
-import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.util.SmsLinkSafety
+import com.bantai.util.TrustedSenders
 import com.bantai.viewmodel.MessageFilter
 import com.bantai.viewmodel.MessagesViewModel
+import com.bantai.viewmodel.conversationViewFor
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -172,7 +174,7 @@ fun MessagesScreen(
                     if (selectedFilter == MessageFilter.MESSAGES) "Messages" else selectedFilter.label,
                     color = White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 32.sp,
+                    fontSize = TextSize.LargeTitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -228,7 +230,7 @@ fun MessagesScreen(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(errorMessage ?: "Couldn't load messages", color = Danger, fontSize = 15.sp)
+                            Text(errorMessage ?: "Couldn't load messages", color = Danger, fontSize = TextSize.Body)
                         }
                     }
                 } else if (tabMessages.isEmpty()) {
@@ -246,7 +248,7 @@ fun MessagesScreen(
                                     MessageFilter.DRAFTS -> "No Drafts"
                                     else -> "No Messages"
                                 }
-                            Text(emptyLabel, color = TextTertiary, fontSize = 15.sp)
+                            Text(emptyLabel, color = TextTertiary, fontSize = TextSize.Body)
                         }
                     }
                 } else {
@@ -265,7 +267,10 @@ fun MessagesScreen(
                                         navController.navigate(
                                             Screen.Compose.createRoute(recipient = msg.sender, body = msg.body),
                                         )
-                                    else -> navController.navigate(Screen.Detail.createRoute(msg.sender))
+                                    else ->
+                                        navController.navigate(
+                                            Screen.Detail.createRoute(msg.sender, conversationViewFor(selectedFilter)),
+                                        )
                                 }
                             },
                             onLongClick = {
@@ -278,7 +283,8 @@ fun MessagesScreen(
                         HorizontalDivider(
                             color = Hairline,
                             thickness = 0.5.dp,
-                            modifier = Modifier.padding(start = 92.dp),
+                            // Aligned with the text column (gutter + avatar + gap), as in iOS.
+                            modifier = Modifier.padding(start = 80.dp),
                         )
                     }
                 }
@@ -368,11 +374,11 @@ private fun SelectionTopBar(
             if (selectedCount == 0) "Select messages" else "$selectedCount selected",
             color = White,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 17.sp,
+            fontSize = TextSize.Headline,
             modifier = Modifier.weight(1f).padding(start = 4.dp),
         )
         TextButton(onClick = onSelectAll) {
-            Text("Select All", color = IosBlue, fontSize = 14.sp)
+            Text("Select All", color = IosBlue, fontSize = TextSize.Subhead)
         }
         if (isRecentlyDeleted) {
             IconButton(onClick = onRestore, enabled = selectedCount > 0) {
@@ -410,7 +416,7 @@ private fun SmsMessage.toDisplayItem(isDraft: Boolean = false) =
             when {
                 isDraft -> "Draft: $body"
                 isUnreadThreadSummary -> "Unread summary: $body"
-                else -> SmsLinkSafety.visibleBody(body, classification)
+                else -> SmsLinkSafety.visibleBody(body, classification, sender)
             },
         timestamp = getRelativeTime(timestamp),
         badge =
@@ -447,12 +453,12 @@ private fun SearchPill(
         Spacer(Modifier.width(6.dp))
         Box(modifier = Modifier.weight(1f)) {
             if (value.isEmpty()) {
-                Text("Search", color = TextSecondary, fontSize = 16.sp)
+                Text("Search", color = TextSecondary, fontSize = TextSize.Body)
             }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = TextStyle(color = White, fontSize = 16.sp),
+                textStyle = TextStyle(color = White, fontSize = TextSize.Body),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -561,7 +567,7 @@ private fun FilterMenuItem(
             Text(
                 label,
                 color = White,
-                fontSize = 15.sp,
+                fontSize = TextSize.Body,
                 fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
             )
         },
@@ -593,7 +599,7 @@ private fun MessageListRow(
             Modifier
                 .fillMaxWidth()
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(start = 8.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+                .padding(start = 8.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Unread indicator — iMessage-style blue dot in the gutter
@@ -612,10 +618,10 @@ private fun MessageListRow(
                 imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
                 contentDescription = if (isSelected) "Selected" else "Not selected",
                 tint = if (isSelected) Indigo else TextTertiary,
-                modifier = Modifier.size(40.dp).padding(10.dp),
+                modifier = Modifier.size(44.dp).padding(10.dp),
             )
         } else {
-            SenderAvatar(sender = item.sender, size = 40.dp)
+            SenderAvatar(sender = item.sender, size = 44.dp)
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -626,17 +632,29 @@ private fun MessageListRow(
                 Text(
                     item.sender,
                     color = White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = TextSize.Body,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
+                // Only messages that need a second look get a marker; a "Safe"
+                // label on every row was noise. Trusted senders never get one.
+                val needsReview = item.badge == BadgeType.BLOCKED || item.badge == BadgeType.UNKNOWN
+                if (needsReview && !TrustedSenders.isBuiltIn(item.sender)) {
+                    Icon(
+                        Icons.Outlined.WarningAmber,
+                        contentDescription = if (item.badge == BadgeType.BLOCKED) "Likely scam" else "Needs review",
+                        tint = if (item.badge == BadgeType.BLOCKED) Danger else Suspicious,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
                     item.timestamp,
                     color = TextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = TextSize.Footnote,
                 )
                 Icon(
                     Icons.Default.ChevronRight,
@@ -645,39 +663,14 @@ private fun MessageListRow(
                     modifier = Modifier.size(16.dp),
                 )
             }
-            Spacer(Modifier.height(1.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
                 item.preview,
                 color = TextSecondary,
-                fontSize = 13.sp,
-                lineHeight = 17.sp,
-                maxLines = 2,
+                fontSize = TextSize.Subhead,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(3.dp))
-            VerdictLabel(item.badge)
         }
-    }
-}
-
-@Composable
-private fun VerdictLabel(badge: BadgeType) {
-    val (label, color) =
-        when (badge) {
-            BadgeType.SAFE -> "Safe" to Safe
-            BadgeType.UNVERIFIED -> "Unverified" to TextTertiary
-            BadgeType.SPAM -> "Spam" to Suspicious
-            BadgeType.BLOCKED -> "Blocked" to Danger
-            else -> "Unknown" to TextTertiary
-        }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier =
-                Modifier
-                    .size(5.dp)
-                    .background(color, CircleShape),
-        )
-        Spacer(Modifier.width(5.dp))
-        Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }

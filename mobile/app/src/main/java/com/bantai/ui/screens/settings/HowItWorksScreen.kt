@@ -64,7 +64,7 @@ fun HowItWorksScreen(navController: NavController) {
                 "How BantAI Works",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -88,9 +88,9 @@ fun HowItWorksScreen(navController: NavController) {
                             .background(Surface, RoundedCornerShape(12.dp))
                             .padding(16.dp),
                 ) {
-                    Text(title, color = Indigo, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(title, color = Indigo, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
                     Spacer(Modifier.height(6.dp))
-                    Text(body, color = TextSecondary, fontSize = 13.sp, lineHeight = 20.sp)
+                    Text(body, color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 20.sp)
                 }
                 Spacer(Modifier.height(10.dp))
             }

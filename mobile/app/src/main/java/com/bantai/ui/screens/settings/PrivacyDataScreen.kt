@@ -37,6 +37,7 @@ import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 @Composable
@@ -62,7 +63,7 @@ fun PrivacyDataScreen(navController: NavController) {
                 "Privacy & data",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -116,7 +117,7 @@ fun PrivacyDataScreen(navController: NavController) {
                         "Download my data",
                         color = Indigo,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = TextSize.Subhead,
                         modifier = Modifier.weight(1f),
                     )
                     Icon(
@@ -144,7 +145,7 @@ private fun InfoCard(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        Text(body, color = TextSecondary, fontSize = 13.sp, lineHeight = 20.sp)
+        Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
+        Text(body, color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 20.sp)
     }
 }

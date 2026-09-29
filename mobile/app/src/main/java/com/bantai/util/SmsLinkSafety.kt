@@ -10,13 +10,22 @@ object SmsLinkSafety {
             RegexOption.IGNORE_CASE,
         )
 
+    /**
+     * Links stay visible only in a message rated safe -- and not even then when
+     * it's under a trusted name but shows a spoof sign (a bank sending a link,
+     * an OTP request; see SmsRiskSignals.spoofWarning), since the model can
+     * rate a well-forged "BDO" text safe.
+     */
     fun visibleBody(
         body: String,
         classification: String,
+        sender: String = "",
     ): String =
-        if (classification == "safe") {
+        if (classification == "safe" && SmsRiskSignals.spoofWarning(sender, body) == null) {
             body
         } else {
-            body.replace(url, "[Link hidden for safety]")
+            hideLinks(body)
         }
+
+    fun hideLinks(text: String): String = text.replace(url, "[Link hidden for safety]")
 }

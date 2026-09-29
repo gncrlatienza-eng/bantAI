@@ -6,8 +6,6 @@ import com.bantai.ui.theme.AvatarPink
 import com.bantai.ui.theme.AvatarPurple
 import com.bantai.ui.theme.AvatarRed
 import com.bantai.ui.theme.AvatarTeal
-import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Suspicious
 
 fun getAvatarColor(sender: String): Color {
     val colors =
@@ -16,9 +14,9 @@ fun getAvatarColor(sender: String): Color {
             AvatarTeal,
             AvatarPink,
             AvatarGreen,
-            Suspicious,
+            Color(0xFFFF9500),
             AvatarPurple,
-            Indigo,
+            Color(0xFF5B4FE8),
             Color(0xFFFF6B35),
         )
     // abs() must wrap the modulo, not the raw hashCode -- kotlin.math.abs(Int.MIN_VALUE)

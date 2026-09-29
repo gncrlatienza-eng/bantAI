@@ -43,12 +43,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
+import com.bantai.ui.theme.BantAIColors
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.Danger
-import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.LocalBantAIColors
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SystemGray
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.ScamAwarenessViewModel
 
@@ -57,18 +60,18 @@ private data class TipEntry(
     val category: String,
     val title: String,
     val icon: ImageVector,
-    val iconTint: Color,
-    val iconBg: Color,
+    // Picks the tint from the current theme's palette (tints differ in light/dark).
+    val tintOf: (BantAIColors) -> Color,
 )
 
 private val tips =
     listOf(
-        TipEntry("gcash", "FINANCE", "How to spot a GCash scam", Icons.Filled.Shield, Danger, Color(0xFF2A0A0A)),
-        TipEntry("urgency", "PSYCHOLOGY", "Why scammers use urgency", Icons.Filled.Bolt, Suspicious, Color(0xFF2A1A00)),
-        TipEntry("links", "TECHNICAL", "Safe links vs phishing links", Icons.Filled.Link, Indigo, Color(0xFF16163A)),
-        TipEntry("otp", "FINANCE", "OTP scams explained", Icons.Filled.Key, Suspicious, Color(0xFF2A1A00)),
-        TipEntry("action", "ACTION", "What to do when scammed", Icons.AutoMirrored.Filled.Help, TextSecondary, Surface),
-        TipEntry("shap", "AI/ML", "Understanding SHAP scores", Icons.Filled.Psychology, Indigo, Color(0xFF16163A)),
+        TipEntry("gcash", "FINANCE", "How to spot a GCash scam", Icons.Filled.Shield, { it.danger }),
+        TipEntry("urgency", "PSYCHOLOGY", "Why scammers use urgency", Icons.Filled.Bolt, { it.suspicious }),
+        TipEntry("links", "TECHNICAL", "Safe links vs phishing links", Icons.Filled.Link, { it.indigo }),
+        TipEntry("otp", "FINANCE", "OTP scams explained", Icons.Filled.Key, { it.suspicious }),
+        TipEntry("action", "ACTION", "What to do when scammed", Icons.AutoMirrored.Filled.Help, { SystemGray }),
+        TipEntry("shap", "AI/ML", "Understanding SHAP scores", Icons.Filled.Psychology, { it.indigo }),
     )
 
 @Composable
@@ -96,7 +99,7 @@ fun ScamAwarenessScreen(
                 "Scam Awareness",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -121,6 +124,23 @@ fun ScamAwarenessScreen(
                             .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // Icon beside the whole label+title block (it used to sit under
+                    // the category label only, leaving the card visually lopsided).
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(40.dp)
+                                .background(tip.tintOf(LocalBantAIColors.current).copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            tip.icon,
+                            contentDescription = null,
+                            tint = tip.tintOf(LocalBantAIColors.current),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -129,7 +149,7 @@ fun ScamAwarenessScreen(
                             Text(
                                 tip.category,
                                 color = TextSecondary,
-                                fontSize = 10.sp,
+                                fontSize = TextSize.Caption2,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.5.sp,
                             )
@@ -143,41 +163,25 @@ fun ScamAwarenessScreen(
                                     Text(
                                         "Relevant to you",
                                         color = Suspicious,
-                                        fontSize = 9.sp,
+                                        fontSize = TextSize.Caption2,
                                         fontWeight = FontWeight.Medium,
                                     )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .size(36.dp)
-                                        .background(tip.iconBg, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    tip.icon,
-                                    contentDescription = null,
-                                    tint = tip.iconTint,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                tip.title,
-                                color = White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                            )
-                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            tip.title,
+                            color = White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = TextSize.Subhead,
+                        )
                     }
+                    Spacer(Modifier.width(8.dp))
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowForwardIos,
                         contentDescription = null,
-                        tint = Color(0xFF666666),
+                        tint = TextTertiary,
                         modifier = Modifier.size(14.dp),
                     )
                 }

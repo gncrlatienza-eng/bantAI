@@ -117,6 +117,17 @@ export class CampaignsService {
         isActive: true,
         urlDomains: { hasSome: domains },
       },
+      select: { id: true, label: true, category: true },
+    });
+  }
+
+  // Resolves the cluster id the AI service matched. Inactive (superseded)
+  // clusters are ignored, so a stale centroid cache on the AI side can never
+  // link a message to a campaign the backend has switched off.
+  findActiveById(id: string) {
+    return this.prisma.campaignCluster.findFirst({
+      where: { id, isActive: true },
+      select: { id: true, label: true, category: true },
     });
   }
 

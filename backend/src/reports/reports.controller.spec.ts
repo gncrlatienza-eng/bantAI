@@ -46,10 +46,14 @@ describe('ReportsController', () => {
     expect(mockService.findPending).toHaveBeenCalled();
   });
 
-  it('validate passes id and adminNote to service', async () => {
+  it('validate passes id, adminNote, and the reviewing staff member to service', async () => {
     mockService.validate.mockResolvedValue({ id: 'r1', status: 'Validated' });
-    const result = await controller.validate('r1', { adminNote: 'OK' });
-    expect(mockService.validate).toHaveBeenCalledWith('r1', 'OK');
+    const result = await controller.validate(
+      'r1',
+      { adminNote: 'OK' },
+      { user: { userId: 'staff-1' } },
+    );
+    expect(mockService.validate).toHaveBeenCalledWith('r1', 'OK', 'staff-1');
     expect(result).toEqual({ id: 'r1', status: 'Validated' });
   });
 

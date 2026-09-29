@@ -280,14 +280,52 @@ export class VerificationService {
         `At least ${MINIMUM_CORROBORATING_REPORTS} independent pending reports are required.`,
       );
     }
+    await this.markSenderFraud(
+      selected.sender,
+      selected.reportWindow,
+      reviewerId,
+      reason,
+    );
+    return { reportId, status: 'fraud', reportCount };
+  }
+
+  /**
+   * Staff validating a Scam message report on the Reports dashboard is the
+   * same human review confirmFraud() requires, so it confirms the sender once
+   * enough independent users have reported it in the current window. Takes the
+   * stored HMAC fingerprint (SmsMessage.sender), never a raw number.
+   */
+  async escalateCorroboratedSender(
+    senderFingerprint: string,
+    reviewerId: string,
+    reason: string,
+  ): Promise<{ escalated: boolean; reportCount: number }> {
+    const reportWindow = Math.floor(Date.now() / FRAUD_TTL_MS).toString();
+    const reportCount = await this.prisma.senderReport.count({
+      where: { sender: senderFingerprint, reportWindow, status: 'Pending' },
+    });
+    if (reportCount < MINIMUM_CORROBORATING_REPORTS) {
+      return { escalated: false, reportCount };
+    }
+    await this.markSenderFraud(
+      senderFingerprint,
+      reportWindow,
+      reviewerId,
+      reason,
+    );
+    return { escalated: true, reportCount };
+  }
+
+  private async markSenderFraud(
+    senderFingerprint: string,
+    reportWindow: string,
+    reviewerId: string,
+    reason: string,
+  ) {
     const expiresAt = new Date(Date.now() + FRAUD_TTL_MS);
     await this.prisma.$transaction([
       this.prisma.senderReport.updateMany({
-        where: {
-          sender: selected.sender,
-          reportWindow: selected.reportWindow,
-          status: 'Pending',
-        },
+        where: { sender: senderFingerprint, reportWindow, status: 'Pending' },
         data: {
           status: 'Validated',
           validatedAt: new Date(),
@@ -296,9 +334,9 @@ export class VerificationService {
         },
       }),
       this.prisma.senderVerificationCache.upsert({
-        where: { sender: selected.sender },
+        where: { sender: senderFingerprint },
         create: {
-          sender: selected.sender,
+          sender: senderFingerprint,
           status: 'fraud',
           source: 'corroborated-admin-review',
           expiresAt,
@@ -310,7 +348,6 @@ export class VerificationService {
         },
       }),
     ]);
-    return { reportId, status: 'fraud', reportCount };
   }
 
   // Normalizes phone numbers for consistent DB lookups.

@@ -101,16 +101,15 @@ class SmsConversationsTest {
     @Test
     fun `summarizeThread restores chronological order regardless of score`() {
         // Selecting all sentences (maxSentences >= total) forces the result
-        // back into chronological order even though "unique distinctive rare
-        // terms" (the second sentence) would score higher than "the the the"
-        // (deliberately full of a stop word) if order weren't restored.
+        // back into chronological order even though the newer second
+        // sentence scores higher (recency weighting) and is picked first.
         val messages =
             listOf(
-                message(1, "Globe", "the the the.", timestamp = 100),
-                message(2, "Globe", "unique distinctive rare terms.", timestamp = 200),
+                message(1, "Globe", "Your prepaid load balance is running low today.", timestamp = 100),
+                message(2, "Globe", "Unique distinctive rare promo terms apply here.", timestamp = 200),
             )
         val summary = summarizeThread(messages, maxSentences = 2, maxChars = 200)
-        assertTrue(summary != null && summary.startsWith("the the the"))
+        assertTrue(summary, summary != null && summary.startsWith("Your prepaid load balance"))
     }
 
     @Test

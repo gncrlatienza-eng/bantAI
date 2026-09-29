@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.SmsApi
+import com.bantai.data.remote.VerificationApi
 import com.bantai.data.remote.toUserMessage
+import com.bantai.util.TrustedSenders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,8 +47,8 @@ class AlertDetailViewModel(
     // The backend never sends a real sender (AlertSummary.sender is always "" --
     // see SmsApi.parseAlert's privacy placeholder), so Block from this screen
     // always failed with "Can't block — no number for this message." When this
-    // device ingested the message itself, `sourceId` is the local SMS provider
-    // row id (SmsIngestPipeline sets it to `messageId.toString()`), which lets
+    // device ingested the message itself, `sourceId` resolves to the local SMS
+    // provider row id (see SmsSourceId), which lets
     // the real sender be recovered from the on-device inbox -- the same data
     // MessagesScreen/MessageDetailScreen already show, just not previously
     // looked up here. Falls back to the empty placeholder (Block still
@@ -54,6 +56,12 @@ class AlertDetailViewModel(
     // resolve, e.g. a different device on the same account.
     private val _resolvedSender = MutableStateFlow("")
     val resolvedSender: StateFlow<String> = _resolvedSender.asStateFlow()
+
+    // Scams block their sender automatically, so the alert is a learning record
+    // with nothing to act on -- except for trusted senders (telcos, registry
+    // organisations), which are never auto-blocked and keep Block/Report.
+    private val _isTrustedSender = MutableStateFlow(false)
+    val isTrustedSender: StateFlow<Boolean> = _isTrustedSender.asStateFlow()
 
     fun load(messageId: String) {
         // Two legacy entry points (the AI-summary shortcut and the suspicious-thread
@@ -70,6 +78,7 @@ class AlertDetailViewModel(
             _isLoading.value = true
             _errorMessage.value = null
             _resolvedSender.value = ""
+            _isTrustedSender.value = false
             _indicators.value = emptyList()
 
             val token = userPreferences.userData.first().authToken
@@ -84,17 +93,34 @@ class AlertDetailViewModel(
             SmsApi
                 .getAlerts(token)
                 .onSuccess { alerts ->
-                    val found = alerts.find { it.messageId == messageId }
+                    val found =
+                        alerts.find { it.messageId == messageId }?.let { alert ->
+                            withContext(Dispatchers.IO) { smsRepository.withLocalContent(listOf(alert)).first() }
+                        }
                     _alert.value = found
-                    _resolvedSender.value = resolveSender(found?.sourceId)
+                    _resolvedSender.value = found?.sender.orEmpty()
                 }.onFailure { error -> _errorMessage.value = error.toUserMessage("Could not reach the server") }
 
             _isLoading.value = false
 
             if (_alert.value != null) {
+                resolveTrust(token, _resolvedSender.value)
                 loadIndicators(token, messageId)
             }
         }
+    }
+
+    private suspend fun resolveTrust(
+        token: String,
+        sender: String,
+    ) {
+        if (sender.isEmpty()) return
+        if (TrustedSenders.isBuiltIn(sender)) {
+            _isTrustedSender.value = true
+            return
+        }
+        val registry = VerificationApi.verifySender(token, sender).getOrNull()?.familiarity
+        _isTrustedSender.value = TrustedSenders.isTrusted(sender, registry)
     }
 
     private suspend fun loadIndicators(
@@ -108,12 +134,5 @@ class AlertDetailViewModel(
         // the empty-indicators state already reads as "none recorded".
         SmsApi.getIndicators(token, messageId).onSuccess { _indicators.value = it }
         _indicatorsLoading.value = false
-    }
-
-    private suspend fun resolveSender(sourceId: String?): String {
-        val localId = sourceId?.toLongOrNull() ?: return ""
-        return withContext(Dispatchers.IO) {
-            smsRepository.getMessageById(localId)?.sender.orEmpty()
-        }
     }
 }

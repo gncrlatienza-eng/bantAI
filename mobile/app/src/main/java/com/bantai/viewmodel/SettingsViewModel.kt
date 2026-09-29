@@ -4,24 +4,33 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.SmsRepository
+import com.bantai.data.local.AlertStateStore
 import com.bantai.data.local.BackendMessageIdStore
+import com.bantai.data.local.CampaignMatchStore
 import com.bantai.data.local.ClassificationStore
 import com.bantai.data.local.DeletedMessagesStore
 import com.bantai.data.local.DraftsStore
 import com.bantai.data.local.UserData
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.remote.ApiConfig
+import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.AuthApi
+import com.bantai.data.remote.HealthApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.toUserMessage
+import com.bantai.ui.theme.ThemeMode
 import com.bantai.util.OnnxBenchmark
 import com.bantai.util.isValidName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -29,6 +38,7 @@ class SettingsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val userPreferences = UserPreferences(application)
+    private val smsRepository = SmsRepository(application)
 
     private val _userData = MutableStateFlow(UserData())
     val userData: StateFlow<UserData> = _userData.asStateFlow()
@@ -69,6 +79,9 @@ class SettingsViewModel(
     private val _suspiciousAlerts = MutableStateFlow(true)
     val suspiciousAlerts: StateFlow<Boolean> = _suspiciousAlerts.asStateFlow()
 
+    private val _spamAlerts = MutableStateFlow(true)
+    val spamAlerts: StateFlow<Boolean> = _spamAlerts.asStateFlow()
+
     private val _autoBlockNotice = MutableStateFlow(true)
     val autoBlockNotice: StateFlow<Boolean> = _autoBlockNotice.asStateFlow()
 
@@ -95,6 +108,7 @@ class SettingsViewModel(
                 _editAvatarColor.value = data.avatarColor
                 _smishingAlerts.value = data.smishingAlerts
                 _suspiciousAlerts.value = data.suspiciousAlerts
+                _spamAlerts.value = data.spamAlerts
                 _autoBlockNotice.value = data.autoBlockNotice
                 _scanPeriod.value = data.scanPeriod
             }
@@ -114,7 +128,13 @@ class SettingsViewModel(
                         return@collect
                     }
                     _alertsLoading.value = true
-                    SmsApi.getAlerts(token).onSuccess { _recentAlerts.value = it }
+                    // Same filtering as the Alerts tab: the backend sends sender = ""
+                    // (privacy placeholder), so the real sender/body come from this
+                    // phone's inbox, and alerts with no local SMS can't be shown.
+                    SmsApi.getAlerts(token).onSuccess { alerts ->
+                        val smishing = alerts.filter { it.bucket != "spam" }
+                        _recentAlerts.value = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(smishing) }
+                    }
                     _alertsLoading.value = false
                 }
         }
@@ -217,6 +237,11 @@ class SettingsViewModel(
         saveNotificationSettings()
     }
 
+    fun toggleSpamAlerts(value: Boolean) {
+        _spamAlerts.value = value
+        saveNotificationSettings()
+    }
+
     fun toggleAutoBlockNotice(value: Boolean) {
         _autoBlockNotice.value = value
         saveNotificationSettings()
@@ -227,9 +252,19 @@ class SettingsViewModel(
             userPreferences.saveNotificationSettings(
                 smishingAlerts = _smishingAlerts.value,
                 suspiciousAlerts = _suspiciousAlerts.value,
+                spamAlerts = _spamAlerts.value,
                 autoBlockNotice = _autoBlockNotice.value,
             )
         }
+    }
+
+    val themeMode: StateFlow<ThemeMode> =
+        userPreferences.themeMode
+            .map { ThemeMode.fromValue(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.DARK)
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { userPreferences.saveThemeMode(mode.value) }
     }
 
     fun setScanPeriod(period: String) {
@@ -261,6 +296,8 @@ class SettingsViewModel(
             DeletedMessagesStore(getApplication()).clearAll()
             DraftsStore(getApplication()).clearAll()
             BackendMessageIdStore(getApplication()).clear()
+            CampaignMatchStore(getApplication()).clear()
+            AlertStateStore(getApplication()).clearAll()
             onComplete()
         }
     }
@@ -323,5 +360,29 @@ class SettingsViewModel(
 
     fun clearOnnxBenchmarkStatus() {
         _onnxBenchmarkStatus.value = null
+    }
+
+    // Debug-only: confirms this build's BASE_URL is actually reachable from the
+    // phone (same wifi, no adb). The raw failure reason is shown on purpose --
+    // it's the diagnostic, and this never ships in a release build.
+    private val _backendCheckStatus = MutableStateFlow<String?>(null)
+    val backendCheckStatus: StateFlow<String?> = _backendCheckStatus.asStateFlow()
+
+    fun checkBackendConnection() {
+        viewModelScope.launch {
+            _backendCheckStatus.value = "Checking ${ApiConfig.BASE_URL}/health…"
+            _backendCheckStatus.value =
+                HealthApi.check().fold(
+                    onSuccess = { "Reachable" },
+                    onFailure = { e ->
+                        val reason = if (e is ApiException) "HTTP ${e.status}" else e.message ?: e.javaClass.simpleName
+                        "Unreachable: $reason"
+                    },
+                )
+        }
+    }
+
+    fun clearBackendCheckStatus() {
+        _backendCheckStatus.value = null
     }
 }

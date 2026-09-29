@@ -6,7 +6,10 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
+import { VerificationService } from '../verification/verification.service';
 import { ReportsService } from './reports.service';
+
+const mockVerification = { escalateCorroboratedSender: jest.fn() };
 
 const mockPrisma = {
   smsMessage: { findUnique: jest.fn() },
@@ -28,6 +31,7 @@ describe('ReportsService', () => {
       providers: [
         ReportsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: VerificationService, useValue: mockVerification },
       ],
     }).compile();
 
@@ -207,6 +211,53 @@ describe('ReportsService', () => {
       await expect(service.validate('missing-id')).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('confirms the sender when staff validate a Scam report', async () => {
+      mockPrisma.userReport.update.mockResolvedValue({ id: 'r1' });
+      mockPrisma.userReport.findUnique.mockResolvedValue({
+        reportedLabel: 'Scam',
+        message: { sender: 'hmac-sender' },
+      });
+      mockVerification.escalateCorroboratedSender.mockResolvedValue({
+        escalated: true,
+        reportCount: 3,
+      });
+
+      await expect(
+        service.validate('r1', 'Same scam from 3 users', 'staff-1'),
+      ).resolves.toEqual({ id: 'r1' });
+      expect(mockVerification.escalateCorroboratedSender).toHaveBeenCalledWith(
+        'hmac-sender',
+        'staff-1',
+        'Same scam from 3 users',
+      );
+    });
+
+    it('does not touch sender reputation for Spam or Ham corrections', async () => {
+      mockPrisma.userReport.update.mockResolvedValue({ id: 'r1' });
+      mockPrisma.userReport.findUnique.mockResolvedValue({
+        reportedLabel: 'Ham',
+        message: { sender: 'hmac-sender' },
+      });
+      await service.validate('r1', undefined, 'staff-1');
+      expect(
+        mockVerification.escalateCorroboratedSender,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('still validates the report if sender escalation fails', async () => {
+      mockPrisma.userReport.update.mockResolvedValue({ id: 'r1' });
+      mockPrisma.userReport.findUnique.mockResolvedValue({
+        reportedLabel: 'Scam',
+        message: { sender: 'hmac-sender' },
+      });
+      mockVerification.escalateCorroboratedSender.mockRejectedValue(
+        new Error('db down'),
+      );
+      await expect(
+        service.validate('r1', undefined, 'staff-1'),
+      ).resolves.toEqual({ id: 'r1' });
     });
   });
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,7 +23,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,7 +35,9 @@ import androidx.navigation.navArgument
 import com.bantai.data.AuthEventBus
 import com.bantai.data.SmsRepository
 import com.bantai.data.local.UserPreferences
+import com.bantai.data.model.ConversationView
 import com.bantai.ui.components.FloatingTabBar
+import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.screens.main.BlockedNumbersScreen
 import com.bantai.ui.screens.main.CampaignDetailScreen
 import com.bantai.ui.screens.main.ComposeScreen
@@ -61,6 +63,8 @@ import com.bantai.ui.screens.settings.NotificationsScreen
 import com.bantai.ui.screens.settings.PrivacyDataScreen
 import com.bantai.ui.screens.settings.ScamAwarenessScreen
 import com.bantai.ui.screens.settings.TipDetailScreen
+import com.bantai.ui.theme.Black
+import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.OnboardingViewModel
 import com.bantai.viewmodel.SettingsViewModel
 import dev.chrisbanes.haze.HazeState
@@ -88,11 +92,28 @@ sealed class Screen(
         fun createRoute(messageId: String = "") = "threat_analysis?messageId=${Uri.encode(messageId)}"
     }
 
-    data object TakeAction : Screen("take_action?messageId={messageId}&sender={sender}") {
+    // localId (the device SMS row) lets any message be reported even before the
+    // backend has seen it; label (Ham/Spam/Scam, blank if unsure) hides the
+    // report option that would just repeat the current verdict. action
+    // ("report" / "block", blank for neither) preselects that option when the
+    // caller already knows which one the user picked (the thread's menu).
+    // canBlock=false hides Block: a trusted sender name (blocking "BDO" would
+    // also block the real bank -- names are spoofable) or an already-blocked one.
+    data object TakeAction : Screen(
+        "take_action?messageId={messageId}&sender={sender}&localId={localId}&label={label}&action={action}" +
+            "&canBlock={canBlock}",
+    ) {
+        @Suppress("LongParameterList") // one per route argument, all optional
         fun createRoute(
             messageId: String = "",
             sender: String = "",
-        ) = "take_action?messageId=${Uri.encode(messageId)}&sender=${Uri.encode(sender)}"
+            localId: Long? = null,
+            currentLabel: String = "",
+            action: String = "",
+            canBlock: Boolean = true,
+        ) = "take_action?messageId=${Uri.encode(messageId)}&sender=${Uri.encode(sender)}" +
+            "&localId=${localId ?: ""}&label=${Uri.encode(currentLabel)}&action=${Uri.encode(action)}" +
+            "&canBlock=$canBlock"
     }
 
     data object ReportSent : Screen("report_sent/{type}") {
@@ -146,8 +167,13 @@ sealed class Screen(
 
     data object OnboardingTerms : Screen("onboarding_terms")
 
-    data object Detail : Screen("detail/{sender}") {
-        fun createRoute(sender: String) = "detail/${Uri.encode(sender)}"
+    // view is optional: notifications and Compose open the full thread, while
+    // the inbox chips open only their slice (see ConversationView).
+    data object Detail : Screen("detail/{sender}?view={view}") {
+        fun createRoute(
+            sender: String,
+            view: ConversationView = ConversationView.ALL,
+        ) = "detail/${Uri.encode(sender)}?view=${view.routeValue}"
     }
 }
 
@@ -185,9 +211,26 @@ private val takeActionArguments =
             type = NavType.StringType
             defaultValue = ""
         },
+        navArgument("localId") {
+            type = NavType.StringType
+            defaultValue = ""
+        },
+        navArgument("label") {
+            type = NavType.StringType
+            defaultValue = ""
+        },
+        navArgument("action") {
+            type = NavType.StringType
+            defaultValue = ""
+        },
+        navArgument("canBlock") {
+            type = NavType.BoolType
+            defaultValue = true
+        },
     )
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod") // the app's one route table, kept in one place
 fun NavGraph(
     requestedTab: Int? = null,
     requestedConversationSender: String? = null,
@@ -198,6 +241,11 @@ fun NavGraph(
     val context = LocalContext.current
     val viewModel: OnboardingViewModel = viewModel()
     val settingsViewModel: SettingsViewModel = viewModel()
+
+    // Hoisted to the navigation root (not MainScreen) so the floating tab bar
+    // can show the Alerts count, and one poller serves both.
+    val alertsViewModel: AlertsViewModel = viewModel()
+    val unseenAlerts by alertsViewModel.unseenCount.collectAsState()
 
     var startDestination by remember { mutableStateOf<String?>(null) }
 
@@ -248,8 +296,9 @@ fun NavGraph(
         }
     }
 
+    // Same logo frame as the launch window until the first screen is known.
     if (startDestination == null) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black))
+        LaunchScreen()
         return
     }
 
@@ -257,7 +306,7 @@ fun NavGraph(
     val currentRoute = topBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in BOTTOM_BAR_ROUTES
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier = Modifier.fillMaxSize().background(Black)) {
         // Shared between the screen content (the blur source) and the pill (the
         // blurred surface) -- Haze reads whatever's been drawn to this state's
         // source(s) each frame the pill is on top of them. Wraps the whole
@@ -354,7 +403,7 @@ fun NavGraph(
                 }
 
                 composable("main") {
-                    MainScreen(navController, settingsViewModel, selectedTab = selectedTab)
+                    MainScreen(navController, settingsViewModel, alertsViewModel, selectedTab = selectedTab)
                 }
 
                 // Main app sub-screens
@@ -387,6 +436,10 @@ fun NavGraph(
                         navController = navController,
                         messageId = backStackEntry.arguments?.getString("messageId") ?: "",
                         sender = backStackEntry.arguments?.getString("sender") ?: "",
+                        localMessageId = backStackEntry.arguments?.getString("localId")?.toLongOrNull(),
+                        currentLabel = backStackEntry.arguments?.getString("label") ?: "",
+                        preselect = backStackEntry.arguments?.getString("action") ?: "",
+                        canBlock = backStackEntry.arguments?.getBoolean("canBlock") ?: true,
                     )
                 }
                 composable(
@@ -445,10 +498,21 @@ fun NavGraph(
                 composable(Screen.SettingsPrivacy.route) { PrivacyDataScreen(navController) }
                 composable(
                     route = Screen.Detail.route,
-                    arguments = listOf(navArgument("sender") { type = NavType.StringType }),
+                    arguments =
+                        listOf(
+                            navArgument("sender") { type = NavType.StringType },
+                            navArgument("view") {
+                                type = NavType.StringType
+                                defaultValue = ConversationView.ALL.routeValue
+                            },
+                        ),
                 ) { backStackEntry ->
                     val sender = backStackEntry.arguments?.getString("sender") ?: return@composable
-                    MessageDetailScreen(sender = sender, navController = navController)
+                    MessageDetailScreen(
+                        sender = sender,
+                        navController = navController,
+                        initialView = ConversationView.fromRoute(backStackEntry.arguments?.getString("view")),
+                    )
                 }
             }
         }
@@ -466,14 +530,15 @@ fun NavGraph(
             ) {
                 FloatingTabBar(
                     selected = selectedTab,
+                    alertsBadge = unseenAlerts,
                     hazeState = hazeState,
                     onSelect = { index ->
                         selectedTab = index
-                        if (currentRoute != "main") {
-                            navController.navigate("main") {
-                                popUpTo("main") { inclusive = true }
-                                launchSingleTop = true
-                            }
+                        // Back to the tabs from any browsing sub-screen: pop down to
+                        // the existing "main" entry (which keeps each tab's state)
+                        // rather than re-creating it; navigate only if it's gone.
+                        if (currentRoute != "main" && !navController.popBackStack("main", inclusive = false)) {
+                            navController.navigate("main") { launchSingleTop = true }
                         }
                     },
                 )

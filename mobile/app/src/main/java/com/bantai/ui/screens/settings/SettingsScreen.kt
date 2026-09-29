@@ -2,11 +2,14 @@ package com.bantai.ui.screens.settings
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,16 +27,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,6 +47,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +57,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.BuildConfig
+import com.bantai.data.remote.ApiConfig
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.AvatarTeal
 import com.bantai.ui.theme.Black
@@ -69,10 +79,14 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.GlassStroke
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
+import com.bantai.ui.theme.ThemeMode
 import com.bantai.ui.theme.White
+import com.bantai.ui.theme.isDark
 import com.bantai.viewmodel.SettingsViewModel
 
 @Composable
@@ -83,6 +97,7 @@ fun SettingsScreen(
 ) {
     val userData by viewModel.userData.collectAsState()
     val scanPeriod by viewModel.scanPeriod.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     val context = LocalContext.current
 
     val avatarColorParsed =
@@ -103,11 +118,11 @@ fun SettingsScreen(
     val fullName = "${userData.firstName} ${userData.lastName}".trim().ifEmpty { "Your Name" }
 
     var showSignOutDialog by remember { mutableStateOf(false) }
-    var showSmsMonitoringDialog by remember { mutableStateOf(false) }
-    var showPhoneDialog by remember { mutableStateOf(false) }
     var showScanPeriodDialog by remember { mutableStateOf(false) }
     var showSimulateSmsDialog by remember { mutableStateOf(false) }
     var showOnnxBenchmarkDialog by remember { mutableStateOf(false) }
+    var showBackendCheckDialog by remember { mutableStateOf(false) }
+    var developerOptionsExpanded by rememberSaveable { mutableStateOf(false) }
 
     if (showSignOutDialog) {
         AlertDialog(
@@ -117,7 +132,7 @@ fun SettingsScreen(
                 Text(
                     "You'll need to verify your email again to sign back in.",
                     color = TextSecondary,
-                    fontSize = 14.sp,
+                    fontSize = TextSize.Subhead,
                 )
             },
             confirmButton = {
@@ -133,52 +148,12 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Danger),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Sign out", color = White, fontWeight = FontWeight.Bold)
+                    Text("Sign out", color = OnAccent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSignOutDialog = false }) {
                     Text("Cancel", color = TextSecondary)
-                }
-            },
-            containerColor = SurfaceElevated,
-        )
-    }
-
-    if (showSmsMonitoringDialog) {
-        AlertDialog(
-            onDismissRequest = { showSmsMonitoringDialog = false },
-            title = { Text("SMS Monitoring", color = White, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "SMS Monitoring is always active while BantAI is your default SMS app.",
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showSmsMonitoringDialog = false }) {
-                    Text("OK", color = Indigo, fontWeight = FontWeight.Bold)
-                }
-            },
-            containerColor = SurfaceElevated,
-        )
-    }
-
-    if (showPhoneDialog) {
-        AlertDialog(
-            onDismissRequest = { showPhoneDialog = false },
-            title = { Text("Change phone number", color = White, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Phone number change coming in a future update.",
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showPhoneDialog = false }) {
-                    Text("OK", color = Indigo, fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = SurfaceElevated,
@@ -195,7 +170,7 @@ fun SettingsScreen(
                     Text(
                         "Choose how far back BantAI scans your messages for threats.",
                         color = TextSecondary,
-                        fontSize = 13.sp,
+                        fontSize = TextSize.Footnote,
                     )
                     Spacer(Modifier.height(8.dp))
                     listOf(
@@ -214,7 +189,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text(label, color = White, fontSize = 14.sp)
+                            Text(label, color = White, fontSize = TextSize.Subhead)
                             if (scanPeriod == value) {
                                 Icon(
                                     Icons.Default.Check,
@@ -253,7 +228,7 @@ fun SettingsScreen(
                         "Debug-only: feeds a message straight into the same detection " +
                             "pipeline a real SMS would, for testing/demos.",
                         color = TextSecondary,
-                        fontSize = 12.sp,
+                        fontSize = TextSize.Caption,
                     )
                     OutlinedTextField(
                         value = simSender,
@@ -290,7 +265,7 @@ fun SettingsScreen(
                             ),
                     )
                     if (simulateStatus != null) {
-                        Text(simulateStatus!!, color = Indigo, fontSize = 12.sp)
+                        Text(simulateStatus!!, color = Indigo, fontSize = TextSize.Caption)
                     }
                 }
             },
@@ -300,7 +275,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Simulate", color = White, fontWeight = FontWeight.Bold)
+                    Text("Simulate", color = OnAccent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -328,10 +303,10 @@ fun SettingsScreen(
                             "Says nothing about accuracy — push model_int8.onnx to the app's " +
                             "external files dir first (adb push).",
                         color = TextSecondary,
-                        fontSize = 12.sp,
+                        fontSize = TextSize.Caption,
                     )
                     if (benchmarkStatus != null) {
-                        Text(benchmarkStatus!!, color = Indigo, fontSize = 12.sp)
+                        Text(benchmarkStatus!!, color = Indigo, fontSize = TextSize.Caption)
                     }
                 }
             },
@@ -341,11 +316,55 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Run", color = White, fontWeight = FontWeight.Bold)
+                    Text("Run", color = OnAccent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showOnnxBenchmarkDialog = false }) {
+                    Text("Close", color = TextSecondary)
+                }
+            },
+        )
+    }
+
+    if (showBackendCheckDialog) {
+        val backendCheckStatus by viewModel.backendCheckStatus.collectAsState()
+
+        LaunchedEffect(Unit) {
+            viewModel.clearBackendCheckStatus()
+            viewModel.checkBackendConnection()
+        }
+
+        AlertDialog(
+            onDismissRequest = { showBackendCheckDialog = false },
+            containerColor = SurfaceElevated,
+            title = { Text("Backend connection", color = White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(ApiConfig.BASE_URL, color = White, fontSize = TextSize.Footnote)
+                    Text(
+                        "Debug-only. Set at build time to this laptop's LAN IP — the phone must be " +
+                            "on the same wifi, with the backend running. If unreachable after " +
+                            "switching networks, rebuild and reinstall the app.",
+                        color = TextSecondary,
+                        fontSize = TextSize.Caption,
+                    )
+                    if (backendCheckStatus != null) {
+                        Text(backendCheckStatus!!, color = Indigo, fontSize = TextSize.Caption)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.checkBackendConnection() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Indigo),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Check again", color = OnAccent, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBackendCheckDialog = false }) {
                     Text("Close", color = TextSecondary)
                 }
             },
@@ -359,11 +378,14 @@ fun SettingsScreen(
         // shouldn't be the odd one out just because the profile hero sits
         // right below it. Pinned above the scrolling list along with the
         // profile hero, rather than scrolling away with everything else.
+        // The 16dp gap matches the other tabs, so the title doesn't jump
+        // when switching to this tab.
+        Spacer(Modifier.height(16.dp))
         Text(
             "Settings",
             color = White,
             fontWeight = FontWeight.Bold,
-            fontSize = 32.sp,
+            fontSize = TextSize.LargeTitle,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
 
@@ -386,10 +408,10 @@ fun SettingsScreen(
                         .background(avatarColorParsed),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(initials, color = White, fontWeight = FontWeight.SemiBold, fontSize = 28.sp)
+                Text(initials, color = OnAccent, fontWeight = FontWeight.SemiBold, fontSize = 28.sp)
             }
             Spacer(Modifier.height(10.dp))
-            Text(fullName, color = White, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+            Text(fullName, color = White, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Headline)
         }
 
         LazyColumn(
@@ -403,45 +425,50 @@ fun SettingsScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // Protection + learn -- one grouped card rather than several small
-            // labeled ones, matching the reference's "You" tab.
+            // iOS-style inset grouped list: one card per topic, each under a
+            // small caps heading, so related settings read as a set.
             item {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(SurfaceElevated, RoundedCornerShape(18.dp)),
-                ) {
-                    SettingsRow(
-                        icon = Icons.Filled.Shield,
-                        title = "SMS Monitoring",
-                        onClick = { showSmsMonitoringDialog = true },
+                SettingsGroup("Appearance") {
+                    DarkModeRow(
+                        checked = themeMode.isDark(),
+                        onCheckedChange = { dark ->
+                            viewModel.setThemeMode(if (dark) ThemeMode.DARK else ThemeMode.LIGHT)
+                        },
                     )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                }
+            }
+
+            item {
+                SettingsGroup("Notifications") {
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
                         title = "Notifications",
                         onClick = { navController.navigate(Screen.SettingsNotifications.route) },
                     )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Schedule,
                         title = "Scan period",
+                        value = scanPeriodLabel(scanPeriod),
                         onClick = { showScanPeriodDialog = true },
                     )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Block,
                         title = "Blocked numbers",
                         onClick = { navController.navigate(Screen.BlockedNumbers.route) },
                     )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                }
+            }
+
+            item {
+                SettingsGroup("Tips") {
                     SettingsRow(
                         icon = Icons.AutoMirrored.Filled.Article,
                         title = "Scam awareness tips",
                         onClick = { navController.navigate(Screen.SettingsScamAwareness.route) },
                     )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Psychology,
                         title = "How BantAI works",
@@ -450,49 +477,14 @@ fun SettingsScreen(
                 }
             }
 
-            // DEVELOPER section — debug builds only, never ships in a release build.
-            if (BuildConfig.DEBUG) {
-                item {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .background(SurfaceElevated, RoundedCornerShape(18.dp)),
-                    ) {
-                        SettingsRow(
-                            icon = Icons.Filled.BugReport,
-                            title = "Simulate incoming SMS",
-                            onClick = { showSimulateSmsDialog = true },
-                        )
-                        HorizontalDivider(color = Hairline, thickness = 1.dp)
-                        SettingsRow(
-                            icon = Icons.Filled.BugReport,
-                            title = "ONNX latency benchmark",
-                            onClick = { showOnnxBenchmarkDialog = true },
-                        )
-                    }
-                }
-            }
-
             item {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(SurfaceElevated, RoundedCornerShape(18.dp)),
-                ) {
-                    SettingsRow(
-                        icon = Icons.Filled.Phone,
-                        title = "Change phone number",
-                        onClick = { showPhoneDialog = true },
-                    )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                SettingsGroup("Privacy & Support") {
                     SettingsRow(
                         icon = Icons.Filled.Lock,
                         title = "Privacy & data",
                         onClick = { navController.navigate(Screen.SettingsPrivacy.route) },
                     )
-                    HorizontalDivider(color = Hairline, thickness = 1.dp)
+                    RowDivider()
                     SettingsRow(
                         icon = Icons.AutoMirrored.Filled.Help,
                         title = "Contact support",
@@ -507,42 +499,71 @@ fun SettingsScreen(
                 }
             }
 
-            // Sign out — separate card. Not "Delete account": there is no backend
-            // account-deletion endpoint yet, only this local session clear.
+            // Developer options — debug builds only, never ships in a release
+            // build. One collapsed parent row so the tools don't crowd the
+            // everyday settings above.
+            if (BuildConfig.DEBUG) {
+                item {
+                    SettingsGroup("Developer") {
+                        SettingsRow(
+                            icon = Icons.Filled.Code,
+                            title = "Developer options",
+                            onClick = { developerOptionsExpanded = !developerOptionsExpanded },
+                            trailingIcon =
+                                if (developerOptionsExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        )
+                        AnimatedVisibility(visible = developerOptionsExpanded) {
+                            Column {
+                                RowDivider()
+                                SettingsRow(
+                                    icon = Icons.Filled.Wifi,
+                                    title = "Backend connection",
+                                    onClick = { showBackendCheckDialog = true },
+                                    indented = true,
+                                )
+                                RowDivider()
+                                SettingsRow(
+                                    icon = Icons.Filled.BugReport,
+                                    title = "Simulate incoming SMS",
+                                    onClick = { showSimulateSmsDialog = true },
+                                    indented = true,
+                                )
+                                RowDivider()
+                                SettingsRow(
+                                    icon = Icons.Filled.Speed,
+                                    title = "ONNX latency benchmark",
+                                    onClick = { showOnnxBenchmarkDialog = true },
+                                    indented = true,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sign out -- its own card, centered red text like iOS's destructive
+            // rows. Not "Delete account": there is no backend account-deletion
+            // endpoint yet, only this local session clear.
             item {
-                Row(
+                Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .background(SurfaceElevated, RoundedCornerShape(18.dp))
                             .clickable { showSignOutDialog = true }
-                            .padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                            .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "Sign out",
-                        color = Danger,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForwardIos,
-                        contentDescription = null,
-                        tint = Danger,
-                        modifier = Modifier.size(14.dp),
-                    )
+                    Text("Sign Out", color = Danger, fontWeight = FontWeight.Medium, fontSize = TextSize.Body)
                 }
             }
 
             // Version footer
             item {
                 Text(
-                    "BantAI v1.0.0 · SDK 34",
+                    "BantAI v${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE}",
                     color = TextSecondary,
-                    fontSize = 11.sp,
+                    fontSize = TextSize.Caption2,
                     textAlign = TextAlign.Center,
                     modifier =
                         Modifier
@@ -555,27 +576,126 @@ fun SettingsScreen(
 }
 
 @Composable
+@Suppress("LongParameterList") // all but the first three are optional styling defaults
 private fun SettingsRow(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit,
+    value: String? = null,
+    trailingIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+    indented: Boolean = false,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(start = if (indented) 32.dp else 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(12.dp))
-        Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(
+            title,
+            color = White,
+            fontWeight = FontWeight.Medium,
+            fontSize = TextSize.Subhead,
+            modifier = Modifier.weight(1f),
+        )
+        if (value != null) {
+            Text(value, color = TextSecondary, fontSize = TextSize.Footnote)
+            Spacer(Modifier.width(8.dp))
+        }
+        // A chevron glyph fills its box; expand/collapse arrows need a larger box to match its weight.
+        val isChevron = trailingIcon == Icons.AutoMirrored.Filled.ArrowForwardIos
         Icon(
-            Icons.AutoMirrored.Filled.ArrowForwardIos,
+            trailingIcon,
             contentDescription = null,
             tint = TextTertiary,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(if (isChevron) 14.dp else 20.dp),
         )
     }
 }
+
+// A small caps heading over one rounded card of rows -- iOS Settings' inset
+// grouped style.
+@Composable
+private fun SettingsGroup(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column {
+        Text(
+            title.uppercase(),
+            color = TextSecondary,
+            fontSize = TextSize.Caption,
+            letterSpacing = 0.4.sp,
+            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceElevated, RoundedCornerShape(18.dp)),
+            content = content,
+        )
+    }
+}
+
+// Inset to the row text (16dp padding + 18dp icon + 12dp gap), as in iOS.
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 46.dp))
+}
+
+// Same row shape as SettingsRow, with a switch in place of the chevron --
+// matches the toggles on the Notifications page.
+@Composable
+private fun DarkModeRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onCheckedChange(!checked) }
+                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.DarkMode,
+            contentDescription = null,
+            tint = TextTertiary,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "Dark mode",
+            color = White,
+            fontWeight = FontWeight.Medium,
+            fontSize = TextSize.Subhead,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = OnAccent,
+                    checkedTrackColor = Indigo,
+                    checkedBorderColor = Indigo,
+                    uncheckedThumbColor = OnAccent,
+                    uncheckedTrackColor = Hairline,
+                    uncheckedBorderColor = Hairline,
+                ),
+        )
+    }
+}
+
+private fun scanPeriodLabel(period: String): String =
+    when (period) {
+        "weekly" -> "Last 7 days"
+        "monthly" -> "Last 30 days"
+        else -> "Today only"
+    }

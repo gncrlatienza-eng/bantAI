@@ -1,3 +1,6 @@
+import java.net.Inet4Address
+import java.net.NetworkInterface
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -30,6 +33,79 @@ val keystoreProperties =
 // is missing" for everyone until it's wired up.
 val googleServicesFile = file("google-services.json")
 
+val releaseBackendUrl = (project.findProperty("bantaiReleaseBackendUrl") as String?) ?: "https://api.bantai.invalid/api"
+
+// A tester APK pointed at the placeholder, or at plain http (blocked in release),
+// installs fine but can never reach the backend -- fail the build instead.
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        require(releaseBackendUrl.startsWith("https://") && !releaseBackendUrl.contains(".invalid")) {
+            "Release builds need the deployed HTTPS backend: -PbantaiReleaseBackendUrl=https://<host>/api"
+        }
+    }
+}
+
+// Debug backend URL. A real phone on the same wifi reaches the backend at the dev
+// laptop's LAN IP -- no USB/`adb reverse` needed -- but that IP is DHCP-assigned
+// and changes with the network (a hard-coded 192.168.0.125 went stale this way),
+// so it's detected from this machine's interfaces on every build instead.
+// Virtual adapters (WSL/Hyper-V, VirtualBox, VMware, Docker, Tailscale) are
+// skipped since a phone can't reach them; Wi-Fi is preferred over Ethernet.
+// Override per build, e.g. USB: -PbantaiBackendUrl=http://localhost:3000/api,
+// emulator: -PbantaiBackendUrl=http://10.0.2.2:3000/api
+fun detectLanIp(): String? {
+    val virtualAdapter = Regex("vEthernet|Hyper-V|VirtualBox|vboxnet|VMware|docker|WSL|Tailscale", RegexOption.IGNORE_CASE)
+    val wifiAdapter = Regex("wi-?fi|wlan|wireless", RegexOption.IGNORE_CASE)
+    return NetworkInterface
+        .getNetworkInterfaces()
+        .toList()
+        .filter { it.isUp && !it.isLoopback && !it.isVirtual && !virtualAdapter.containsMatchIn("${it.name} ${it.displayName}") }
+        .sortedByDescending { wifiAdapter.containsMatchIn("${it.name} ${it.displayName}") }
+        .flatMap { it.inetAddresses.toList() }
+        .filterIsInstance<Inet4Address>()
+        .firstOrNull { it.isSiteLocalAddress }
+        ?.hostAddress
+}
+
+val debugBackendUrl =
+    (project.findProperty("bantaiBackendUrl") as String?)
+        ?: detectLanIp()?.let { "http://$it:3000/api" }
+        ?: "http://10.0.2.2:3000/api"
+val debugBackendHost: String = URI(debugBackendUrl).host
+logger.lifecycle("bantAI debug backend URL: $debugBackendUrl")
+
+// The debug cleartext allowlist has to name the same host as the URL above, so
+// it's generated from src/debug/network_security_config.template.xml rather
+// than kept as a static res file that silently drifts from the detected IP.
+abstract class GenerateNetworkSecurityConfig : DefaultTask() {
+    @get:Input
+    abstract val backendHost: Property<String>
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val template: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val host = backendHost.get()
+        // localhost/10.0.2.2 are already in the template; a duplicate <domain> is rejected at runtime.
+        val entry = if (host in setOf("localhost", "10.0.2.2")) "" else "<domain includeSubdomains=\"false\">$host</domain>"
+        val xml = template.get().asFile.readText()
+        val xmlDir = outputDir.dir("xml").get().asFile
+        xmlDir.mkdirs()
+        File(xmlDir, "network_security_config.xml").writeText(xml.replace("<!-- @BACKEND_HOST_ENTRY@ -->", entry))
+    }
+}
+
+val generateDebugNetworkSecurityConfig =
+    tasks.register<GenerateNetworkSecurityConfig>("generateDebugNetworkSecurityConfig") {
+        backendHost.set(debugBackendHost)
+        template.set(layout.projectDirectory.file("src/debug/network_security_config.template.xml"))
+    }
+
 if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
@@ -48,16 +124,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Backend base URL, read through ApiConfig. Set to the dev laptop's
-        // current LAN IP so a real device on the same wifi can reach it with no
-        // USB/`adb reverse` connection required. Alternatives: "http://localhost:3000/api"
-        // for a USB-connected device after `adb reverse tcp:3000 tcp:3000`, or
-        // "http://10.0.2.2:3000/api" for the Android Studio emulator.
-        // Only localhost, 10.0.2.2, and this LAN IP are cleartext-permitted — see
-        // src/debug/res/xml/network_security_config.xml. The LAN IP is
-        // DHCP-assigned and can change; re-check with `ipconfig` and update both
-        // this value and that file if the app stops reaching the backend.
-        buildConfigField("String", "BACKEND_BASE_URL", "\"http://192.168.0.125:3000/api\"")
+        // Backend base URL, read through ApiConfig -- see debugBackendUrl above.
+        // Release overrides this below with the deployed HTTPS backend.
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$debugBackendUrl\"")
     }
 
     signingConfigs {
@@ -82,13 +151,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Deliberately not localhost: a production backend doesn't exist yet
-            // (WBS 6.3.2), and defaultConfig's dev URL must never ship in a
-            // release build — src/debug's network_security_config.xml already
-            // makes cleartext-to-localhost debug-only, but this closes the gap
-            // structurally too. Replace with the real HTTPS backend URL once
-            // 6.3.2 lands.
-            buildConfigField("String", "BACKEND_BASE_URL", "\"https://api.bantai.invalid/api\"")
+            // Never defaultConfig's dev URL: src/main's network_security_config.xml
+            // blocks all cleartext in release, so the deployed backend must be
+            // HTTPS. Supplied per build (the tester APK), e.g.
+            // ./gradlew assembleRelease -PbantaiReleaseBackendUrl=https://api.example.com/api
+            // The placeholder only keeps non-release tasks configurable; the
+            // check below refuses to package a release APK with it.
+            buildConfigField("String", "BACKEND_BASE_URL", "\"$releaseBackendUrl\"")
         }
     }
 
@@ -104,6 +173,15 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.sources.res?.addGeneratedSourceDirectory(
+            generateDebugNetworkSecurityConfig,
+            GenerateNetworkSecurityConfig::outputDir,
+        )
     }
 }
 

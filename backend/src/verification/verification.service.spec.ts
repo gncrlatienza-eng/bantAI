@@ -75,6 +75,30 @@ describe('VerificationService', () => {
     expect(prisma.senderVerificationCache.upsert).not.toHaveBeenCalled();
   });
 
+  it('does not escalate a sender reported by only one user', async () => {
+    prisma.senderReport.count.mockResolvedValue(1);
+    await expect(
+      service.escalateCorroboratedSender('fingerprint', 'staff', 'validated'),
+    ).resolves.toEqual({ escalated: false, reportCount: 1 });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('confirms fraud once independent users corroborate and staff validate', async () => {
+    prisma.senderReport.count.mockResolvedValue(3);
+    await expect(
+      service.escalateCorroboratedSender('fingerprint', 'staff', 'validated'),
+    ).resolves.toEqual({ escalated: true, reportCount: 3 });
+    expect(prisma.senderVerificationCache.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sender: 'fingerprint' },
+        create: expect.objectContaining({
+          status: 'fraud',
+          source: 'corroborated-admin-review',
+        }),
+      }),
+    );
+  });
+
   it('returns a vetted organization separately from risk and never treats it as a fraud override', async () => {
     prisma.senderVerificationCache.findUnique.mockResolvedValue(null);
     prisma.trustedOrganization.findFirst.mockResolvedValue({

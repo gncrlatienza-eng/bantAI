@@ -48,9 +48,11 @@ import androidx.compose.ui.unit.sp
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.DarkIndigo
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 @Composable
@@ -101,11 +103,11 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
             Icon(Icons.Filled.Sms, contentDescription = null, tint = Indigo, modifier = Modifier.size(28.dp))
         }
         Spacer(Modifier.height(16.dp))
-        Text("Read your SMS", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = White)
+        Text("Read your SMS", fontWeight = FontWeight.Bold, fontSize = TextSize.Title, color = White)
         Spacer(Modifier.height(8.dp))
         Text(
             "BantAI reads incoming messages on your device to detect phishing. SMS content stays on your phone; only privacy-minimized threat metadata is synchronized after you sign in.",
-            fontSize = 13.sp,
+            fontSize = TextSize.Footnote,
             color = TextSecondary,
             lineHeight = 20.sp,
         )
@@ -147,14 +149,14 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {
-            Text("Allow SMS Access", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text("Allow SMS Access", color = OnAccent, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
         }
         Spacer(Modifier.height(4.dp))
         TextButton(
             onClick = { onNext() },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Skip for now", color = TextSecondary, fontSize = 14.sp)
+            Text("Skip for now", color = TextSecondary, fontSize = TextSize.Subhead)
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -177,8 +179,8 @@ private fun PermissionCheckRow(
     ) {
         Icon(icon, contentDescription = null, tint = Indigo, modifier = Modifier.size(22.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
-            Text(subtitle, fontSize = 12.sp, color = TextSecondary)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead, color = White)
+            Text(subtitle, fontSize = TextSize.Caption, color = TextSecondary)
         }
         Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Safe, modifier = Modifier.size(20.dp))
     }

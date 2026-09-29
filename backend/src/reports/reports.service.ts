@@ -2,15 +2,22 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
 import { PrismaService } from '../../database/prisma.service';
+import { VerificationService } from '../verification/verification.service';
 import { SubmitReportDto } from './dto/submit-report.dto';
 
 @Injectable()
 export class ReportsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(ReportsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private verificationService: VerificationService,
+  ) {}
 
   // Mobile: user submits a correction (FP or FN) on a classified message.
   async submit(userId: string, dto: SubmitReportDto) {
@@ -95,7 +102,17 @@ export class ReportsService {
   }
 
   // Admin: accept the report — queues it for the next retraining snapshot.
-  async validate(id: string, adminNote?: string) {
+  // Validating a Scam report is also the staff review that confirms the
+  // sender once enough independent users have reported it (see
+  // VerificationService.escalateCorroboratedSender). The response shape is
+  // unchanged for the web dashboard.
+  async validate(id: string, adminNote?: string, reviewerId?: string) {
+    const validated = await this.markValidated(id, adminNote);
+    if (reviewerId) await this.escalateSenderIfScam(id, reviewerId, adminNote);
+    return validated;
+  }
+
+  private async markValidated(id: string, adminNote?: string) {
     try {
       return await this.prisma.userReport.update({
         where: { id },
@@ -117,6 +134,31 @@ export class ReportsService {
         throw new NotFoundException(`Report ${id} not found`);
       }
       throw err;
+    }
+  }
+
+  private async escalateSenderIfScam(
+    reportId: string,
+    reviewerId: string,
+    adminNote?: string,
+  ) {
+    const report = await this.prisma.userReport.findUnique({
+      where: { id: reportId },
+      select: { reportedLabel: true, message: { select: { sender: true } } },
+    });
+    if (report?.reportedLabel !== 'Scam' || !report.message) return;
+    try {
+      await this.verificationService.escalateCorroboratedSender(
+        report.message.sender,
+        reviewerId,
+        adminNote?.trim() || 'Validated scam report',
+      );
+    } catch (err) {
+      // The report itself is validated either way; sender escalation is a
+      // follow-on that staff can still do through the verification API.
+      this.logger.warn(
+        `Sender escalation failed for report ${reportId}: ${(err as Error).message}`,
+      );
     }
   }
 

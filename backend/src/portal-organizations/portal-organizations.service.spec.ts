@@ -22,6 +22,7 @@ describe('PortalOrganizationsService', () => {
             user: {
               organizationMemberships: { some: { organizationId: 'org-1' } },
             },
+            NOT: { classification: { is: { bucket: 'spam' } } },
           },
         },
       }),

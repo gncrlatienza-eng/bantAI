@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="background">#121212</color>
+    <color name="background">#000000</color>
+    <!-- The app icon's tile gradient (ic_launcher_background), top-left to
+         bottom-right. Every in-app logo tile uses these same two colors. -->
+    <color name="logo_gradient_start">#6366F1</color>
+    <color name="logo_gradient_end">#4338CA</color>
 </resources>

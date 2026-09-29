@@ -1,8 +1,6 @@
 package com.bantai.ui.screens.main
 
 import android.provider.ContactsContract
-import android.provider.Telephony
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,7 +21,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -35,7 +33,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,21 +46,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.bantai.data.SmsRepository
+import com.bantai.data.OutgoingSms
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.rememberSmsSendPermission
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
-import com.bantai.util.NotificationHelper
-import com.bantai.util.SmsSender
 import com.bantai.util.isValidSmsRecipient
 import com.bantai.viewmodel.ComposeViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun ComposeScreen(
@@ -73,7 +69,6 @@ fun ComposeScreen(
     viewModel: ComposeViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     var recipient by remember { mutableStateOf(initialRecipient) }
     var messageBody by remember { mutableStateOf(initialBody) }
     var isSending by remember { mutableStateOf(false) }
@@ -117,6 +112,8 @@ fun ComposeScreen(
             }
         }
 
+    val withSmsPermission = rememberSmsSendPermission()
+
     fun sendMessage() {
         val to = recipient.trim().replace(Regex("[\\s\\-()]"), "")
         val body = messageBody.trim()
@@ -132,42 +129,15 @@ fun ComposeScreen(
             Toast.makeText(context, "Enter a message", Toast.LENGTH_SHORT).show()
             return
         }
-        isSending = true
-        val repo = SmsRepository(context)
-        coroutineScope.launch {
-            try {
-                // Record it as Outbox and jump into the thread immediately — like a
-                // normal messaging app, the message shows right away with a "Sending…"
-                // state instead of the UI just sitting there through the network round
-                // trip. insertOutgoingMessage is a blocking ContentResolver call, so it
-                // runs on IO rather than this composable's Main-backed coroutine scope.
-                val outboxId = withContext(Dispatchers.IO) { repo.insertOutgoingMessage(to, body) }
-                viewModel.clearDraft(to)
-                justSent = true
-                isSending = false
-                navController.navigate(Screen.Detail.createRoute(to)) {
-                    popUpTo(Screen.Compose.route) { inclusive = true }
-                }
-                SmsSender.send(context, to, body) { success, error ->
-                    if (outboxId != null) {
-                        coroutineScope.launch(Dispatchers.IO) {
-                            repo.updateMessageType(
-                                outboxId,
-                                if (success) Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED,
-                            )
-                        }
-                    }
-                    if (!success) {
-                        Log.w("ComposeScreen", "Send failed: $error")
-                        // Real-time, not just the in-thread indicator — the result can
-                        // resolve well after the user has moved past this screen.
-                        NotificationHelper.sendFailedMessageNotification(context, to, body, NotificationHelper.notifIdFor(to))
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("ComposeScreen", "Failed to send message", e)
-                Toast.makeText(context, "Failed to send message", Toast.LENGTH_SHORT).show()
-                isSending = false
+        // Sending, recording the result and the failure notice all happen in
+        // OutgoingSms's own scope: this screen is popped right after, which
+        // used to cancel the result update and leave the message "Sending…".
+        withSmsPermission {
+            OutgoingSms.send(context, to, body)
+            viewModel.clearDraft(to)
+            justSent = true
+            navController.navigate(Screen.Detail.createRoute(to)) {
+                popUpTo(Screen.Compose.route) { inclusive = true }
             }
         }
     }
@@ -197,7 +167,7 @@ fun ComposeScreen(
                 "New Message",
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
             Box(
@@ -210,7 +180,7 @@ fun ComposeScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 if (isSending) {
-                    CircularProgressIndicator(color = White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
                     IconButton(
                         onClick = { sendMessage() },
@@ -218,9 +188,9 @@ fun ComposeScreen(
                         enabled = !isSending,
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowForward,
+                            Icons.Filled.ArrowUpward,
                             contentDescription = "Send",
-                            tint = if (recipient.isNotEmpty() && messageBody.isNotEmpty()) White else TextSecondary,
+                            tint = if (recipient.isNotEmpty() && messageBody.isNotEmpty()) OnAccent else TextSecondary,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -240,12 +210,12 @@ fun ComposeScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("To:", color = TextSecondary, fontSize = 13.sp)
+            Text("To:", color = TextSecondary, fontSize = TextSize.Footnote)
             BasicTextField(
                 value = recipient,
                 onValueChange = { recipient = it },
                 modifier = Modifier.weight(1f),
-                textStyle = TextStyle(color = White, fontSize = 15.sp),
+                textStyle = TextStyle(color = White, fontSize = TextSize.Body),
                 cursorBrush = SolidColor(Indigo),
                 singleLine = true,
                 keyboardOptions =
@@ -255,7 +225,7 @@ fun ComposeScreen(
                     ),
                 decorationBox = { inner ->
                     if (recipient.isEmpty()) {
-                        Text("Phone number", color = TextSecondary, fontSize = 15.sp)
+                        Text("Phone number", color = TextSecondary, fontSize = TextSize.Body)
                     }
                     inner()
                 },
@@ -277,11 +247,11 @@ fun ComposeScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(16.dp),
-            textStyle = TextStyle(color = White, fontSize = 15.sp, lineHeight = 22.sp),
+            textStyle = TextStyle(color = White, fontSize = TextSize.Body, lineHeight = 22.sp),
             cursorBrush = SolidColor(Indigo),
             decorationBox = { inner ->
                 if (messageBody.isEmpty()) {
-                    Text("Type a message...", color = TextSecondary, fontSize = 15.sp)
+                    Text("Type a message...", color = TextSecondary, fontSize = TextSize.Body)
                 }
                 inner()
             },

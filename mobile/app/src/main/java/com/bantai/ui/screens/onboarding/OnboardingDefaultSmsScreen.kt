@@ -33,14 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.bantai.R
-import com.bantai.ui.components.AccentIconTile
+import com.bantai.ui.components.BantAILogo
 import com.bantai.ui.components.FeatureListRow
 import com.bantai.ui.components.GroupedCard
 import com.bantai.ui.components.GroupedDivider
@@ -48,6 +44,7 @@ import com.bantai.ui.components.OnboardingHeader
 import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 
 @Composable
 fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
@@ -90,7 +87,7 @@ fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
     ) {
         Spacer(Modifier.height(48.dp))
 
-        AccentIconTile(icon = ImageVector.vectorResource(id = R.drawable.ic_bantai_logo_monochrome), size = 56.dp)
+        BantAILogo(size = 56.dp)
         Spacer(Modifier.height(20.dp))
 
         OnboardingHeader(
@@ -151,7 +148,7 @@ fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
                     ),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Not now", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text("Not now", color = TextSecondary, fontSize = TextSize.Body, fontWeight = FontWeight.Medium)
         }
         Spacer(Modifier.height(16.dp))
     }

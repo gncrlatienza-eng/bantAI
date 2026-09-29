@@ -44,7 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.OnboardingHeader
@@ -54,6 +53,7 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 import kotlinx.coroutines.delay
@@ -155,19 +155,19 @@ fun OnboardingEnterCodeScreen(
 
         if (state.errorMessage != null) {
             Spacer(Modifier.height(16.dp))
-            Text(state.errorMessage ?: "", fontSize = 12.sp, color = Danger)
+            Text(state.errorMessage ?: "", fontSize = TextSize.Caption, color = Danger)
         }
 
         Spacer(Modifier.height(24.dp))
         Row {
-            Text("Didn't get it? ", color = TextSecondary, fontSize = 15.sp)
+            Text("Didn't get it? ", color = TextSecondary, fontSize = TextSize.Body)
             if (resendRemainingSec > 0) {
-                Text("Resend code in ${resendRemainingSec}s", color = TextSecondary, fontSize = 15.sp)
+                Text("Resend code in ${resendRemainingSec}s", color = TextSecondary, fontSize = TextSize.Body)
             } else {
                 Text(
                     "Resend code",
                     color = Indigo,
-                    fontSize = 15.sp,
+                    fontSize = TextSize.Body,
                     modifier =
                         Modifier.clickable {
                             viewModel.resendVerificationCode()
@@ -208,7 +208,7 @@ private fun OtpBox(
         textStyle =
             TextStyle(
                 color = White,
-                fontSize = 20.sp,
+                fontSize = TextSize.Title,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             ),

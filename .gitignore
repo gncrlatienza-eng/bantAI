@@ -137,6 +137,11 @@ ai/colab/*.zip
 
 # Trained model artifacts (1GB+ binaries, regenerable via training/train.py).
 ai/models/*/
+# Model-derived campaign transforms and calibration reports are deployment
+# artifacts. They expose checkpoint-specific projection data and thresholds,
+# so they must be provisioned privately rather than committed.
+ai/models/campaign_space.json
+ai/evaluation/campaign_space_calibration*.json
 
 # ─── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store

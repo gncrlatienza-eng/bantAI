@@ -48,7 +48,7 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         # The raw body (not ``masked_text``) goes in: the matcher masks
         # internally for its wording comparison, but ``shares_domain`` needs
         # the link identity that masking is specifically designed to destroy.
-        match = matcher.match(result.embedding, req.message)
+        match = matcher.match(result.embedding, req.message, label=result.label)
         campaign = CampaignMatch(**match.to_dict())
 
     # Keyword tagger only -- deliberately no model/tokenizer, so real SHAP never

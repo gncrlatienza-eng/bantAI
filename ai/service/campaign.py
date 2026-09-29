@@ -30,7 +30,7 @@ instead of circular.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
 
 from .lexical import (
     LexicalProfile,
@@ -40,6 +40,9 @@ from .lexical import (
     shingles,
     similarity_from_shingles,
 )
+
+if TYPE_CHECKING:
+    from .campaign_space import CampaignSpace
 
 # Campaign match threshold, re-calibrated against real data (Sprint 5, WBS
 # 5.3.6). The manuscript specifies 0.85; that value does not discriminate on
@@ -277,14 +280,31 @@ class CampaignMatcher:
 
     Centroids are refreshed from the backend (or seeded from an offline
     clustering run); this object just holds them and answers "closest match?".
+
+    ``space`` (item 19, see ``service/campaign_space.py``): when given, the
+    centroids are already in that transformed space, every incoming embedding
+    is transformed the same way before comparing, and all three tiers use the
+    thresholds calibrated in that space instead of the raw-space constants
+    above -- ``threshold`` is then ignored. ``LEXICAL_GATE`` is unchanged: it
+    measures wording, which the transform does not touch. Without ``space``
+    the matcher behaves exactly as before.
     """
 
     def __init__(
         self,
         centroids: Optional[Sequence[CampaignCentroid]] = None,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+        space: Optional["CampaignSpace"] = None,
     ) -> None:
-        self.threshold = threshold
+        if space is not None and not space.calibrated:
+            raise ValueError(f"campaign space {space.space_id} has no calibrated thresholds")
+        self.space = space
+        if space is not None:
+            self.threshold, self.hybrid_gate, self.domain_floor = _tier_values(*space.tiers_for(None))
+        else:
+            self.threshold = threshold
+            self.hybrid_gate = HYBRID_EMBEDDING_GATE
+            self.domain_floor = DOMAIN_EMBEDDING_FLOOR
         self._centroids: List[CampaignCentroid] = list(centroids or [])
 
     def replace_centroids(self, centroids: Sequence[CampaignCentroid]) -> None:
@@ -295,7 +315,7 @@ class CampaignMatcher:
     def centroids(self) -> List[CampaignCentroid]:
         return list(self._centroids)
 
-    def match(self, embedding, text: Optional[str] = None) -> MatchResult:
+    def match(self, embedding, text: Optional[str] = None, label: Optional[str] = None) -> MatchResult:
         """Find the best-matching active campaign for one embedding.
 
         ``text`` is the raw message body. It is optional so every existing
@@ -303,6 +323,10 @@ class CampaignMatcher:
         fire and the behaviour is exactly the pre-hybrid, embedding-only rule.
         Passing it enables the two corroborated tiers described at the top of
         this module.
+
+        ``label`` is the classifier's label for the message. It only matters
+        with a campaign space that has thresholds for that label (item 19
+        follow-up: Scam gets its own); otherwise it is ignored.
 
         With no active clusters yet (cold start), everything buffers -- which
         is correct: campaigns can only be discovered by the offline pass once
@@ -312,6 +336,11 @@ class CampaignMatcher:
             return MatchResult(cluster_id=None, similarity=0.0, matched=False, should_buffer=True)
 
         import numpy as np
+
+        threshold, hybrid_gate, domain_floor = self.threshold, self.hybrid_gate, self.domain_floor
+        if self.space is not None:
+            embedding = self.space.apply(embedding)
+            threshold, hybrid_gate, domain_floor = _tier_values(*self.space.tiers_for(label))
 
         # norm(embedding) is identical on every iteration of the loop below --
         # computed once here instead of once per centroid inside
@@ -353,12 +382,12 @@ class CampaignMatcher:
             if msg_shingles is not None and profile is not None:
                 lex = similarity_from_shingles(msg_shingles, profile)
 
-                if sim >= DOMAIN_EMBEDDING_FLOOR and domains_overlap(msg_domains, profile):
+                if sim >= domain_floor and domains_overlap(msg_domains, profile):
                     cand = (sim, lex, centroid.cluster_id)
                     if domain_hit is None or sim > domain_hit[0]:
                         domain_hit = cand
 
-                if sim >= HYBRID_EMBEDDING_GATE and lex >= LEXICAL_GATE:
+                if sim >= hybrid_gate and lex >= LEXICAL_GATE:
                     cand = (sim, lex, centroid.cluster_id)
                     # Ranked by *lexical* score, not cosine: above the hybrid
                     # gate the embeddings are all within ~0.01 of each other
@@ -367,7 +396,7 @@ class CampaignMatcher:
                     if hybrid_hit is None or lex > hybrid_hit[1]:
                         hybrid_hit = cand
 
-            if sim >= self.threshold:
+            if sim >= threshold:
                 if embedding_hit is None or sim > embedding_hit[0]:
                     embedding_hit = (sim, lex, centroid.cluster_id)
 
@@ -398,6 +427,17 @@ class CampaignMatcher:
         )
 
 
+def _tier_values(threshold, hybrid_gate, domain_floor) -> tuple:
+    """A space's tier settings as numbers; a tier it switched off (None) can
+    never be cleared."""
+    off = float("inf")
+    return (
+        float(threshold),
+        off if hybrid_gate is None else float(hybrid_gate),
+        off if domain_floor is None else float(domain_floor),
+    )
+
+
 def compute_centroid(embeddings):
     """Mean of a cluster's embeddings, re-normalized to unit length.
 
@@ -422,6 +462,7 @@ def build_matcher_from_clusters(
     cluster_labels: Sequence[int],
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     texts: Optional[Sequence[str]] = None,
+    space: Optional["CampaignSpace"] = None,
 ) -> CampaignMatcher:
     """Build a matcher from an HDBSCAN result.
 
@@ -433,10 +474,16 @@ def build_matcher_from_clusters(
     supplied, each cluster also gets a lexical profile built from its members,
     enabling the corroborated tiers; when omitted the matcher is
     embedding-only, which is the pre-WBS-5.3.6 behaviour.
+
+    ``embeddings`` are raw classifier embeddings; with ``space`` they are
+    transformed before centroids are computed, so the centroids live in the
+    same space the matcher compares in.
     """
     import numpy as np
 
     arr = np.asarray(embeddings, dtype="float32")
+    if space is not None:
+        arr = space.apply(arr)
     centroids: List[CampaignCentroid] = []
     by_cluster: Dict[int, List[int]] = {}
     for idx, cid in enumerate(cluster_labels):
@@ -458,4 +505,4 @@ def build_matcher_from_clusters(
                 lexical=profile,
             )
         )
-    return CampaignMatcher(centroids, threshold=threshold)
+    return CampaignMatcher(centroids, threshold=threshold, space=space)

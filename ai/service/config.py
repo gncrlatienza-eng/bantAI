@@ -72,6 +72,14 @@ class Settings(BaseSettings):
     # cannot silently drift apart if the calibrated value ever changes.
     campaign_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
 
+    # Item 19 (scam campaign separation): the transformed space campaign
+    # matching runs in, plus the thresholds calibrated in it. Only used when
+    # the loaded centroids declare a space (``@space:<id>`` in their label);
+    # raw-space centroids ignore it and use ``campaign_threshold`` above.
+    # Tracked in git -- it holds a mean vector and k directions, no message
+    # text. See service/campaign_space.py.
+    campaign_space_file: str = "models/campaign_space.json"
+
     # Shared secret callers must present as ``x-api-key`` on /classify,
     # /summarize and /retrain. Empty (the default) leaves the service open,
     # which is fine on a laptop where only the local backend can reach it and

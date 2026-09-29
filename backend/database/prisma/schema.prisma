@@ -224,6 +224,7 @@ model CampaignCluster {
   id String @id @default(uuid())
 
   label        String? // human-readable campaign label set by AI/ML
+  category     String? // stable AI-assigned category used by web/mobile grouping
   centroid     Json? // embedding vector used for cosine similarity (set by AI/ML)
   urlDomains   String[] // known URL domains in this campaign (for link suppression)
   isActive     Boolean  @default(true)

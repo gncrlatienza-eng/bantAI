@@ -1726,6 +1726,145 @@ real centroid drift against, at either value. If campaigns begin reporting as
 *dissolved + new* rather than *continuing*, this is the first thing to check;
 the fix is a separate constant there.
 
+#### Item 19 — scam campaigns separated with a "campaign space" — 2026-09-28
+
+Adviser-approved (deviations document, item 19). **Problem:** on Model C,
+HDBSCAN put 97.5% of clustered scam messages into one cluster. That cluster
+was the embedding's "this is a scam" region, not a campaign: the classifier is
+trained to make all scams look alike, which is the opposite of what campaign
+separation needs.
+
+**Fix (all-but-the-top):** before clustering *and* before matching, centre the
+embeddings and remove their top **k = 2** shared directions, then
+re-normalize (`service/campaign_space.py`). The raw embedding still does the
+classifying; only campaign grouping runs in the transformed space.
+
+Designs compared first (scratch experiment, Model C, held-out 20% of each
+scam cluster matched against all centroids):
+
+| Design | Scam clusters | Largest scam cluster | Right campaign ranked first |
+|---|---|---|---|
+| raw (today) | 5 | 97.5% of clustered scams | — (one blob) |
+| cluster transformed, match raw | 48 | 12.8% | 81.8% |
+| **cluster + match transformed, k=2 (adopted)** | **48** | **12.8%** | **93.5%** |
+| cluster + match transformed, k=3 | 45 | 21.7% | 83.2% |
+
+Matching in the raw space cannot tell the new campaigns apart, so the matcher
+transforms every incoming embedding too, and the three tiers get thresholds
+calibrated **in the new space** (`scripts/calibrate_campaign_space.py`).
+Selection rule, fixed before the run: maximize correct matches subject to
+≤ 2% wrong-campaign and ≤ 2.8% stranger attachment (the stranger rate 0.998
+was approved at); strangers = the 4,196 Spam/Scam messages HDBSCAN left
+unclustered.
+
+**First calibration (one shared set of thresholds, one split):** 75.0% right
+campaign, 0.2% wrong, 2.5% strangers — but **Scam members matched their own
+campaign only 23%** of the time. Almost every stranger that attached was a
+Spam message, so the one shared set was being dictated by Spam. (That run
+also first exposed a search-grid limitation — a tier could not be switched
+off — fixed before the numbers above; the rule did not change.)
+
+**Follow-up, same day — rules written down first**
+(`evaluation/item19_preregistration_2026-09-28.md`), then measured:
+
+1. **Separate thresholds for Scam and Spam messages.** The matcher now takes
+   the classifier's label and uses that label's set. To avoid choosing on ~86
+   Scam members, five different held-out splits are pooled (433 Scam members).
+2. **HDBSCAN settings the manuscript leaves open** (`min_samples`,
+   selection method, epsilon; `min_cluster_size = 5` untouched) screened for
+   fewer unassigned scams.
+
+Result (`evaluation/campaign_space_calibration.json` — kept with the model
+artifacts, not in git; space `ad000dee9174`, seeds 0–4 pooled):
+
+| | Right campaign (range over splits) | Wrong campaign | Strangers attached |
+|---|---|---|---|
+| raw space, raw thresholds (before, all; Model C bar 0.999) | 66.5% | 5.8% | **37.9%** |
+| **Scam messages, own set** (0.9066 / hybrid 0.8996 / domain 0.8351) | **56.6%** (52.3–59.3%) | 1.8% | 1.4% |
+| Spam messages, own set (0.9465 / hybrid off / domain 0.937) | 78.3% (78.1–78.9%) | 0.2% | 2.7% |
+| shared fallback, any other label (0.9402 / off / 0.9255) | 75.8% | 0.3% | 2.6% |
+
+Scam: **23% → 56.6%**, inside both limits. The wording (hybrid) tier ends up
+**on** for Scam and **off** for Spam — chosen by the calibration, not by hand:
+spam campaigns share templates across clusters, so for them wording picks the
+wrong campaign; scam wording does not.
+
+Clustering screen: no tested setting left fewer scams unassigned
+(`leaf`: 76.2% vs 74.0%; `min_samples 1`: identical). Every epsilon > 0
+setting **crashes inside scikit-learn 1.9.0 / numpy 2.4.6** — untested, not
+rejected. By the rule, clustering is unchanged.
+
+⚠️ **Honest limits — say these out loud at the defense:**
+
+- **74% of scams are left unclustered** (were 8% in the blob). No setting
+  that could be run improved it. It is the data: no sender numbers or send
+  times, and after de-duplication most scams appear once. Real campaigns
+  should form from live traffic, where one message arrives many times.
+- Scam matching is 56.6%, not higher, and the 5 splits range 52–59%.
+- Calibration groups by the dataset label; live, the classifier's label is
+  used. They agree for ~96% of scams (Model C holdout recall 95.7%).
+- The stranger set is imperfect: some "noise" messages are probably real
+  campaign members HDBSCAN did not include, so stranger rates are pessimistic.
+- **Backend path:** the backend stores no wording profile, so in production
+  only the embedding tier can fire. Embedding tier alone at Scam's 0.9066:
+  53.6% right / **2.1% wrong** / 1.2% strangers — just over the 2% limit.
+  Fix: a wording-profile column in the backend (already on its list), or a
+  separately calibrated embedding-only set.
+- The space is fitted on Model C and is **invalid for any other checkpoint**;
+  after a retrain, re-run clustering and calibration.
+
+**Safety guards.** Centroids declare their space in their label
+(`cluster-12@space:ad000dee9174`). At startup (`service/main.py`) matching is
+**switched off** with a loud error if the labels and the loaded
+`models/campaign_space.json` disagree, if the space is uncalibrated or was
+fitted on a different model version than the one served, or if the vectors
+themselves contradict their labels (a transformed centroid has exactly zero
+weight on the removed directions; raw ones have 0.11–0.90). Matching is also
+switched off — for raw centroids too — when the served model has no version
+identity (`version.json`) or its checkpoint digest is mismatched or
+unverifiable, since centroids are only meaningful for the weights that
+produced them. Otherwise, raw centroids without a label keep working as
+before.
+
+`models/campaign_space.json` and `evaluation/campaign_space_calibration.json`
+are **not tracked in git** (the repository is public; both are
+checkpoint-specific). Keep them with the model version they belong to and
+provision the space file at `BANTAI_AI_CAMPAIGN_SPACE_FILE`.
+`backend/src/campaigns/campaigns.service.ts` `findAllCentroids` now returns
+`label` (one-line change) — without it the service would see unlabelled
+transformed centroids and, by the guard above, refuse to match.
+
+⚠️ **Found while checking this, not fixed here:** `findAllCentroids` also has
+`take: 100` with no ordering, so the AI service loads only 100 of the active
+clusters (Model C has 321; this space 375). Raised with the backend owner.
+
+**Names and categories (UAT, 2026-09-28).** The app showed `cluster-9`.
+`cluster_campaigns.py` now gives every cluster a `category` and a unique
+readable `name` (`Bank phishing (BDO)`, `Online gambling / casino #3`,
+`Promo (Globe)`) from keyword votes over its members
+(`service/campaign_naming.py`). Names use fixed vocabularies only, never
+message text. On Model C's 375 clusters: 27 online gambling, 4 e-wallet
+phishing, 4 loan, 3 rewards/prize, 2 bank phishing, 2 parcel, 1 OTP, 5 other
+scam, 327 promo. The sync sends the name as `label`, so the `@space` tag no
+longer reaches the backend; the service now identifies the space from the
+vectors, and if no space file is deployed it still refuses centroids that
+look transformed (raw centroid sets have a mean-direction length of
+0.955–0.963, campaign-space sets 0.20).
+
+Run order after a model change:
+
+```bash
+python scripts/embed_dataset.py
+python scripts/cluster_campaigns.py            # fits + writes models/campaign_space.json
+python scripts/calibrate_campaign_space.py     # fills in its thresholds (~5 min)
+python scripts/cluster_campaigns.py            # re-writes match_threshold in the cluster file
+python scripts/sync_campaigns_to_backend.py --apply
+```
+
+`--remove-directions 0` on `cluster_campaigns.py` restores the raw behaviour.
+`track_campaign_evolution.py` refuses to compare snapshots from different
+spaces and uses the space's own threshold for continuity.
+
 ---
 
 ## Stage 9b — Campaign evolution tracking — Sprint 4, WBS 4.3.8

@@ -189,9 +189,24 @@ the list every client fetches wasn't worth it for one internal consumer.
 
 ```json
 [
-  { "id": "7", "centroid": [0.0123, -0.0456, "... 768 floats"] }
+  { "id": "7", "label": "Bank phishing (BDO)", "centroid": [0.0123, -0.0456, "... 768 floats"] }
 ]
 ```
+
+`label` is the campaign's readable name (e.g. `Bank phishing (BDO)`,
+`Online gambling / casino #3`, `Promo (Globe)`), written by
+`cluster_campaigns.py` from fixed keyword vocabularies — never copied from
+message text (`ai/service/campaign_naming.py`). Each cluster in
+`campaign_clusters.json` also has a `category` (Bank phishing, E-wallet
+phishing, Parcel / delivery scam, Online gambling / casino, Loan / credit
+offer, Rewards / prize claim, OTP / account update, Government / ID request,
+Other scam, or Promo / marketing for Spam clusters).
+`sync_campaigns_to_backend.py` sends it with every new campaign; the backend
+persists the optional `category` field for web/mobile grouping. Promo clusters
+should stay synced (they are matched against), but can be hidden in the app.
+
+The AI service does not need the label to know which campaign space a
+centroid is in: it tells from the vector itself (see "Campaign space" below).
 
 Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.py`
 (`load_from_backend`), which is the default centroid source
@@ -211,6 +226,31 @@ this refresh **must** also happen after any model retrain.
 
 ---
 
+## Campaign space (item 19, 2026-09-28)
+
+Campaigns are clustered and matched in a transformed copy of the embedding —
+its top 2 shared directions removed — because in the raw embedding nearly all
+scams fall into one cluster. The service identifies campaign-space centroids
+from the vectors themselves (nothing left on the removed directions; raw
+centroids all point nearly the same way, campaign-space ones do not). The space
+holds separate thresholds for messages the classifier labels Scam and Spam
+(Scam's are looser — with one shared set, scam messages matched their own
+campaign only 23% of the time; now 56.6%).
+
+The generated transform and its calibrated thresholds are checkpoint-specific
+deployment artifacts. They are no longer tracked in Git (this repository is
+public): provision the approved `campaign_space.json` at
+`BANTAI_AI_CAMPAIGN_SPACE_FILE` together with the exact model bundle that
+produced it.
+
+The AI service checks at startup that the centroids, the space file, the served
+model identity and the checkpoint digest agree. Missing, unverifiable or
+mismatched inputs make it log a mismatch and turn campaign matching **off**
+(classification is unaffected). Details and the measured numbers:
+`ai/PIPELINE.md`, "Item 19".
+
+---
+
 ## Retraining invalidates clusters
 
 ⚠️ Retraining XLM-RoBERTa changes how embeddings are computed. Centroids
@@ -222,7 +262,9 @@ one — similarity scores become meaningless, not merely shifted.
 ```bash
 cd ai
 python scripts/embed_dataset.py                    # re-embed with the new checkpoint
-python scripts/cluster_campaigns.py                # rebuild clusters + centroids
+python scripts/cluster_campaigns.py                # rebuild clusters + centroids + campaign space
+python scripts/calibrate_campaign_space.py         # thresholds for the new space (~5 min)
+python scripts/cluster_campaigns.py                # re-write match_threshold into the cluster file
 python scripts/sync_campaigns_to_backend.py        # dry run: check the plan
 python scripts/sync_campaigns_to_backend.py --apply  # push to the backend
 # then restart the AI service so it loads them

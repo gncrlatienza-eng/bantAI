@@ -68,14 +68,20 @@ def _is_shared_platform(host: str) -> bool:
     return any(host == d or host.endswith(f".{d}") for d in _SHARED_PLATFORMS)
 
 
-def build_payloads(data: dict) -> List[dict]:
+def build_payloads(data: dict, send_category: bool = False) -> List[dict]:
     """One POST /campaigns body per cluster. No ``lexical`` key: the backend
     has no column for it and rejects unknown fields (forbidNonWhitelisted)."""
     return [
         {
-            "label": f"cluster-{c['cluster_id']}",
+            # The readable name the app shows (cluster_campaigns.py, UAT
+            # 2026-09-28). The AI service no longer needs the @space tag from
+            # the backend: it identifies the space from the centroid itself.
+            "label": c.get("name") or f"cluster-{c['cluster_id']}",
             "centroid": c["centroid"],
             "urlDomains": suppression_domains(c),
+            # Kept as an argument for callers/tests that build legacy payloads;
+            # the CLI now always enables it because the backend persists it.
+            **({"category": c.get("category")} if send_category and c.get("category") else {}),
         }
         for c in data.get("clusters", [])
         if c.get("centroid")
@@ -147,7 +153,7 @@ def main() -> int:
 
     with open(args.file, encoding="utf-8") as f:
         data = json.load(f)
-    payloads = build_payloads(data)
+    payloads = build_payloads(data, send_category=True)
     with_domains = [p for p in payloads if p["urlDomains"]]
     all_domains = sorted({d for p in payloads for d in p["urlDomains"]})
 

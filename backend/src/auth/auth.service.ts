@@ -15,11 +15,15 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import {
   AccessRequestStatus,
+  AuditEventType,
   EmailOtpPurpose,
+  OrganizationMemberRole,
+  Prisma,
   type UserRole,
 } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -31,8 +35,10 @@ import { PortalRegisterDto } from './dto/portal-register.dto';
 import {
   RequestClaimEmailOtpDto,
   RequestEmailOtpDto,
+  RequestPortalEmailOtpDto,
   VerifyClaimEmailOtpDto,
   VerifyEmailOtpDto,
+  VerifySignUpDto,
 } from './dto/email-otp.dto';
 import { PortalOtpEmailService } from './portal-otp-email.service';
 import { AuthAudience, JWT_ISSUER, jwtSecretFor } from './constants';
@@ -58,6 +64,7 @@ export class AuthService {
     private jwtService: JwtService,
     private otpSmsService: OtpSmsService,
     private portalOtpEmailService: PortalOtpEmailService,
+    private audit: AuditService,
   ) {}
 
   register(dto: RegisterDto) {
@@ -108,6 +115,7 @@ export class AuthService {
                 passwordHash,
                 company: accessRequest.organization.trim(),
                 role: 'USER',
+                webRole: 'SHIELD',
               },
             });
             const claimed = await tx.accessRequest.updateMany({
@@ -150,11 +158,172 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
+    if (
+      !user.webRole ||
+      (user.webRole === 'SHIELD' && user.portalAccessStatus !== 'ACTIVE')
+    ) {
+      throw new UnauthorizedException(
+        'This account does not have web portal access.',
+      );
+    }
     return this.issueToken(
       user.id,
       user.role,
-      user.role === 'ADMIN' ? AuthAudience.ADMIN : AuthAudience.CLIENT,
+      user.webRole === 'ADMIN' ? AuthAudience.ADMIN : AuthAudience.CLIENT,
     );
+  }
+
+  /*
+   * Account-first registration, step 1. Sign-up is intentionally explicit
+   * when an account already owns the address so the form can direct the user
+   * to sign in. Other OTP purposes retain their generic anti-enumeration
+   * response.
+   */
+  async requestSignUpOtp(dto: RequestEmailOtpDto) {
+    const email = this.normalizeEmail(dto.email);
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: email, mode: 'insensitive' } },
+          { mobileAuthEmail: { equals: email, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'An account already uses this email. Sign in instead.',
+      );
+    }
+    return this.requestEmailOtp(email, EmailOtpPurpose.CLIENT_SIGN_UP);
+  }
+
+  /*
+   * Account-first registration, step 2. The consumed code proves control of
+   * the email, so the account starts verified. Its web lifecycle begins at
+   * mandatory setup; no license, workspace, or application is created here.
+   */
+  async verifySignUp(dto: VerifySignUpDto) {
+    const email = this.normalizeEmail(dto.email);
+    await this.consumePortalEmailOtp(
+      email,
+      EmailOtpPurpose.CLIENT_SIGN_UP,
+      dto.otp,
+    );
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const now = new Date();
+    let user: { id: string; role: UserRole };
+    try {
+      user = await this.withSerializationRetry(async () =>
+        this.prisma.$transaction(
+          async (tx) => {
+            const existing = await tx.user.findFirst({
+              where: {
+                OR: [
+                  { email: { equals: email, mode: 'insensitive' } },
+                  {
+                    mobileAuthEmail: {
+                      equals: email,
+                      mode: 'insensitive',
+                    },
+                  },
+                ],
+              },
+              select: { id: true },
+            });
+            // Only someone who just proved control of this email reaches
+            // this message, so it does not leak account existence.
+            if (existing) {
+              throw new ConflictException(
+                'An account already uses this email. Sign in instead.',
+              );
+            }
+            const created = await tx.user.create({
+              data: {
+                email,
+                passwordHash,
+                role: 'USER',
+                webRole: 'SHIELD',
+                emailVerifiedAt: now,
+              },
+              select: { id: true, role: true },
+            });
+            const linkedRequests = await this.linkLegacyRequests(
+              tx,
+              created.id,
+              email,
+            );
+            await this.audit.record(
+              {
+                type: AuditEventType.ACCOUNT_CREATED,
+                actorUserId: created.id,
+                targetUserId: created.id,
+                metadata: { linkedLegacyRequests: linkedRequests },
+              },
+              tx,
+            );
+            return created;
+          },
+          { isolationLevel: 'Serializable' },
+        ),
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        throw new ConflictException(
+          'An account already uses this email. Sign in instead.',
+        );
+      }
+      throw error;
+    }
+    return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
+  }
+
+  /*
+   * Requests filed through the retired anonymous form carry only an email.
+   * They join this account only after it proved control of that same email.
+   * A paid-but-unclaimed legacy workspace is handed to its owner here, which
+   * is the same proof the old post-payment claim step relied on.
+   */
+  private async linkLegacyRequests(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    email: string,
+  ): Promise<number> {
+    const orphans = await tx.accessRequest.findMany({
+      where: {
+        portalUserId: null,
+        email: { equals: email, mode: 'insensitive' },
+      },
+      select: { id: true, status: true, portalOrganizationId: true },
+    });
+    for (const orphan of orphans) {
+      await tx.accessRequest.updateMany({
+        where: { id: orphan.id, portalUserId: null },
+        data: { portalUserId: userId },
+      });
+      if (
+        orphan.status !== AccessRequestStatus.ACTIVE ||
+        !orphan.portalOrganizationId
+      ) {
+        continue;
+      }
+      const owner = await tx.organizationMembership.findFirst({
+        where: {
+          organizationId: orphan.portalOrganizationId,
+          role: OrganizationMemberRole.SHIELD,
+        },
+        select: { userId: true },
+      });
+      if (owner) continue;
+      await tx.organizationMembership.create({
+        data: {
+          organizationId: orphan.portalOrganizationId,
+          userId,
+          role: OrganizationMemberRole.SHIELD,
+        },
+      });
+    }
+    return orphans.length;
   }
 
   requestClientEmailOtp(dto: RequestEmailOtpDto) {
@@ -164,6 +333,76 @@ export class AuthService {
   requestAdminEmailOtp(dto: RequestEmailOtpDto) {
     return this.requestEmailOtp(dto.email, EmailOtpPurpose.ADMIN_SIGN_IN);
   }
+
+  /*
+   * Unified web sign-in — email + password + Gmail OTP (3-factor).
+   *
+   * Step 1 validates the email/password pair against the DB. On a bad pair
+   * we return 401 immediately so the UI can show "invalid email or
+   * password"; there is no point pretending to send an OTP that will never
+   * verify. Enumeration risk is accepted here because the portal is not a
+   * public-signup product — accounts are provisioned by admins, and the
+   * per-IP throttle plus bcrypt cost keep brute-force expensive.
+   *
+   * When the pair matches AND the account is ADMIN or a licensed client,
+   * we mint and email a 6-digit code and return 202 with a clear message.
+   * The OTP challenge is single-use and expires in 5 minutes.
+   *
+   * Step 2 (`verifyPortalEmailOtp`) is unchanged in shape — it only takes
+   * the email + 6-digit code. The password is not re-collected because the
+   * OTP challenge was issued only after a successful password check.
+   */
+  async requestPortalEmailOtp(dto: RequestPortalEmailOtpDto) {
+    const email = this.normalizeEmail(dto.email);
+    const account = await this.prisma.user.findUnique({ where: { email } });
+
+    // Always run bcrypt.compare, even for unknown accounts, so response
+    // latency does not distinguish "no such email" from "wrong password"
+    // when the caller times requests. Correctness of the boolean is what
+    // gates the outcome; timing just prevents a cheap oracle.
+    const hashToTest = account?.passwordHash ?? AuthService.dummyPasswordHash;
+    const passwordOk = await bcrypt.compare(dto.password, hashToTest);
+    if (!account || !passwordOk) {
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    // Password was correct — now check the account may sign in on the web at
+    // all. A license is NOT required: authentication proves identity, and
+    // PortalRoutePolicy decides what the session may reach (pending, declined,
+    // and expired users still need their account and application pages).
+    // Account-level enforcement (SUSPENDED/REVOKED) does block sign-in.
+    let purpose: EmailOtpPurpose;
+    if (account.webRole === 'ADMIN') {
+      purpose = EmailOtpPurpose.ADMIN_SIGN_IN;
+    } else {
+      const identity = await this.findPortalIdentity(email);
+      if (!identity || identity.id !== account.id) {
+        throw new UnauthorizedException(
+          'This account does not have web portal access.',
+        );
+      }
+      purpose = EmailOtpPurpose.CLIENT_SIGN_IN;
+    }
+
+    return this.requestEmailOtp(dto.email, purpose);
+  }
+
+  async verifyPortalEmailOtp(dto: VerifyEmailOtpDto) {
+    const email = this.normalizeEmail(dto.email);
+    const account = await this.prisma.user.findUnique({ where: { email } });
+    if (account?.webRole === 'ADMIN') {
+      return this.verifyAdminEmailOtp(dto);
+    }
+    return this.verifyClientEmailOtp(dto);
+  }
+
+  /*
+   * A precomputed bcrypt hash of a value the caller cannot know. Used only
+   * to normalize timing when no account exists — the compare will always
+   * fail, but it takes roughly the same time as a real check.
+   */
+  private static readonly dummyPasswordHash =
+    '$2b$12$C6UzMDM.H6dfI/f/IKcEeu5vGH6Cw4tp5o3lZOl8bH3W1JmT2LcJq';
 
   requestClientClaimEmailOtp(dto: RequestClaimEmailOtpDto) {
     return this.requestEmailOtp(
@@ -220,14 +459,14 @@ export class AuthService {
               email: true,
               mobileAuthEmail: true,
               passwordHash: true,
-              licensedAccessRequest: { select: { id: true } },
+              accessRequests: { select: { id: true }, take: 1 },
               organizationMemberships: { select: { id: true }, take: 1 },
             },
           });
           const safeExistingMobileUser =
             mobileIdentity?.role === 'USER' &&
             !mobileIdentity.passwordHash &&
-            !mobileIdentity.licensedAccessRequest &&
+            mobileIdentity.accessRequests.length === 0 &&
             mobileIdentity.organizationMemberships.length === 0;
           if (mobileIdentity && !safeExistingMobileUser) {
             await tx.emailOtpChallenge.updateMany({
@@ -242,8 +481,9 @@ export class AuthService {
                 where: { email },
                 select: {
                   role: true,
+                  webRole: true,
                   passwordHash: true,
-                  licensedAccessRequest: { select: { id: true } },
+                  accessRequests: { select: { id: true }, take: 1 },
                   organizationMemberships: { select: { id: true }, take: 1 },
                 },
               });
@@ -289,7 +529,7 @@ export class AuthService {
       dto.otp,
     );
     const user =
-      (await this.findEligibleClient(email)) ??
+      (await this.findPortalIdentity(email)) ??
       (await this.acceptPendingWorkspaceInvitations(email));
     if (!user) throw new BadRequestException('Invalid or expired OTP.');
     return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
@@ -303,7 +543,7 @@ export class AuthService {
       dto.otp,
     );
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user || user.role !== 'ADMIN') {
+    if (!user || user.webRole !== 'ADMIN') {
       throw new BadRequestException('Invalid or expired OTP.');
     }
     return this.issueToken(user.id, user.role, AuthAudience.ADMIN);
@@ -312,19 +552,27 @@ export class AuthService {
   async verifyClientClaimEmailOtp(dto: VerifyClaimEmailOtpDto) {
     const email = this.normalizeEmail(dto.email);
     const checkoutSessionId = dto.checkoutSessionId.trim();
-    await this.consumePortalEmailOtp(
+    const purpose = EmailOtpPurpose.CLIENT_CLAIM;
+    const challengeKey = this.emailOtpChallengeKey(
       email,
-      EmailOtpPurpose.CLIENT_CLAIM,
+      purpose,
+      checkoutSessionId,
+    );
+    const codeHash = this.hashEmailOtp(
+      email,
+      purpose,
       dto.otp,
       checkoutSessionId,
     );
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const now = new Date();
 
     const user = await this.withSerializationRetry(async () =>
       this.prisma.$transaction(
         async (tx) => {
           const accessRequest = await tx.accessRequest.findUnique({
             where: { stripeCheckoutSessionId: checkoutSessionId },
-            include: { license: true },
+            include: { license: true, portalUser: true },
           });
           if (
             !accessRequest ||
@@ -332,37 +580,114 @@ export class AuthService {
             accessRequest.status !== AccessRequestStatus.ACTIVE ||
             !accessRequest.activatedAt ||
             !accessRequest.license ||
-            accessRequest.license.status !== 'ACTIVE'
+            accessRequest.license.status !== 'ACTIVE' ||
+            !accessRequest.license.shieldApprovedAt ||
+            accessRequest.license.shieldReviewDecision !== 'APPROVED' ||
+            accessRequest.license.validFrom > now ||
+            (accessRequest.license.validUntil &&
+              accessRequest.license.validUntil <= now)
           ) {
             throw new BadRequestException(
               'This checkout is not eligible for account activation.',
             );
           }
-          if (accessRequest.portalUserId) {
-            throw new ConflictException(
-              'An account has already been created for this license.',
-            );
+
+          const challenge = await tx.emailOtpChallenge.findUnique({
+            where: { challengeKey },
+          });
+          const validChallenge =
+            challenge &&
+            challenge.accessRequestId === accessRequest.id &&
+            !challenge.consumedAt &&
+            challenge.expiresAt > now &&
+            challenge.attempts < EMAIL_OTP_MAX_ATTEMPTS &&
+            this.hashesMatch(challenge.codeHash, codeHash);
+          if (!validChallenge) {
+            if (
+              challenge &&
+              !challenge.consumedAt &&
+              challenge.attempts < EMAIL_OTP_MAX_ATTEMPTS
+            ) {
+              await tx.emailOtpChallenge.update({
+                where: { challengeKey },
+                data: { attempts: { increment: 1 } },
+              });
+            }
+            return null;
           }
 
-          let user = await tx.user.findUnique({ where: { email } });
-          if (user?.role === 'ADMIN') {
+          const consumed = await tx.emailOtpChallenge.updateMany({
+            where: {
+              challengeKey,
+              accessRequestId: accessRequest.id,
+              codeHash,
+              consumedAt: null,
+              expiresAt: { gt: now },
+              attempts: { lt: EMAIL_OTP_MAX_ATTEMPTS },
+            },
+            data: { consumedAt: now },
+          });
+          if (consumed.count !== 1) return null;
+
+          let user =
+            accessRequest.portalUser ??
+            (await tx.user.findUnique({ where: { email } }));
+          if (user && this.normalizeEmail(user.email ?? '') !== email) {
+            throw new ConflictException(
+              'This paid access belongs to a different account.',
+            );
+          }
+          if (user?.webRole === 'ADMIN') {
             throw new ConflictException(
               'This email belongs to a staff account and cannot claim a client license.',
             );
           }
-          user ??= await tx.user.create({
-            data: {
-              email,
-              company: accessRequest.organization.trim(),
-              role: 'USER',
-            },
-          });
+          if (user && user.portalAccessStatus !== 'ACTIVE') {
+            throw new BadRequestException(
+              'This account is not eligible for portal activation.',
+            );
+          }
+          if (user?.passwordHash) {
+            throw new ConflictException(
+              'This account is already set up. Sign in instead.',
+            );
+          }
+
+          if (user) {
+            const passwordSet = await tx.user.updateMany({
+              where: {
+                id: user.id,
+                role: 'USER',
+                portalAccessStatus: 'ACTIVE',
+                passwordHash: null,
+              },
+              data: { passwordHash, webRole: 'SHIELD' },
+            });
+            if (passwordSet.count !== 1) {
+              throw new ConflictException(
+                'This account is already set up. Sign in instead.',
+              );
+            }
+            user = { ...user, passwordHash };
+          } else {
+            user = await tx.user.create({
+              data: {
+                email,
+                passwordHash,
+                company: accessRequest.organization.trim(),
+                role: 'USER',
+                webRole: 'SHIELD',
+                portalAccessStatus: 'ACTIVE',
+              },
+            });
+          }
 
           const claimed = await tx.accessRequest.updateMany({
             where: {
               id: accessRequest.id,
               status: AccessRequestStatus.ACTIVE,
-              portalUserId: null,
+              activatedAt: { not: null },
+              OR: [{ portalUserId: null }, { portalUserId: user.id }],
             },
             data: { portalUserId: user.id },
           });
@@ -382,20 +707,22 @@ export class AuthService {
             create: {
               organizationId: accessRequest.license.organizationId,
               userId: user.id,
-              role: 'OWNER',
+              role: 'SHIELD',
             },
-            update: { role: 'OWNER' },
+            update: { role: 'SHIELD' },
           });
           await tx.portalOrganization.update({
             where: { id: accessRequest.license.organizationId },
             data: { ownerId: user.id },
           });
+
           return user;
         },
         { isolationLevel: 'Serializable' },
       ),
     );
 
+    if (!user) throw new BadRequestException('Invalid or expired OTP.');
     return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
   }
 
@@ -536,14 +863,14 @@ export class AuthService {
           role: true,
           mobileAuthEmail: true,
           passwordHash: true,
-          licensedAccessRequest: { select: { id: true } },
+          accessRequests: { select: { id: true }, take: 1 },
           organizationMemberships: { select: { id: true }, take: 1 },
         },
       });
       if (mobileIdentity) {
         return mobileIdentity.role === 'USER' &&
           !mobileIdentity.passwordHash &&
-          !mobileIdentity.licensedAccessRequest &&
+          mobileIdentity.accessRequests.length === 0 &&
           mobileIdentity.organizationMemberships.length === 0
           ? { accessRequestId: null }
           : null;
@@ -552,8 +879,9 @@ export class AuthService {
         where: { email },
         select: {
           role: true,
+          webRole: true,
           passwordHash: true,
-          licensedAccessRequest: { select: { id: true } },
+          accessRequests: { select: { id: true }, take: 1 },
           organizationMemberships: { select: { id: true }, take: 1 },
         },
       });
@@ -563,10 +891,17 @@ export class AuthService {
     }
     if (purpose === EmailOtpPurpose.ADMIN_SIGN_IN) {
       const user = await this.prisma.user.findUnique({ where: { email } });
-      return user?.role === 'ADMIN' ? { accessRequestId: null } : null;
+      return user?.webRole === 'ADMIN' ? { accessRequestId: null } : null;
+    }
+    if (purpose === EmailOtpPurpose.CLIENT_SIGN_UP) {
+      const taken = await this.prisma.user.findFirst({
+        where: { OR: [{ email }, { mobileAuthEmail: email }] },
+        select: { id: true },
+      });
+      return taken ? null : { accessRequestId: null };
     }
     if (purpose === EmailOtpPurpose.CLIENT_SIGN_IN) {
-      const user = await this.findEligibleClient(email);
+      const user = await this.findPortalIdentity(email);
       if (user) return { accessRequestId: null };
       const invitation = await this.prisma.organizationInvitation.findFirst({
         where: {
@@ -590,38 +925,46 @@ export class AuthService {
     if (!binding) return null;
     const request = await this.prisma.accessRequest.findUnique({
       where: { stripeCheckoutSessionId: binding },
-      include: { license: true },
+      include: { license: true, portalUser: true },
     });
-    return request &&
-      this.normalizeEmail(request.email) === email &&
-      request.status === AccessRequestStatus.ACTIVE &&
-      !request.portalUserId &&
-      request.license?.status === 'ACTIVE'
+    if (
+      !request ||
+      this.normalizeEmail(request.email) !== email ||
+      request.status !== AccessRequestStatus.ACTIVE ||
+      !request.activatedAt ||
+      !request.license ||
+      request.license.status !== 'ACTIVE' ||
+      !request.license.shieldApprovedAt ||
+      request.license.shieldReviewDecision !== 'APPROVED' ||
+      request.license.validFrom > new Date() ||
+      (request.license.validUntil && request.license.validUntil <= new Date())
+    ) {
+      return null;
+    }
+
+    const user =
+      request.portalUser ??
+      (await this.prisma.user.findUnique({ where: { email } }));
+    return !user ||
+      (user.role === 'USER' &&
+        user.portalAccessStatus === 'ACTIVE' &&
+        !user.passwordHash)
       ? { accessRequestId: request.id }
       : null;
   }
 
-  private async findEligibleClient(email: string) {
+  /**
+   * A web portal identity: a USER with a portal password whose account is not
+   * suspended or revoked. Deliberately independent of any license — licensed
+   * data is enforced per request by PortalRoutePolicy, not at sign-in.
+   */
+  private async findPortalIdentity(email: string) {
     return this.prisma.user.findFirst({
       where: {
         email,
-        role: 'USER',
-        organizationMemberships: {
-          some: {
-            organization: {
-              isActive: true,
-              licenses: {
-                some: {
-                  status: 'ACTIVE',
-                  OR: [
-                    { validUntil: null },
-                    { validUntil: { gt: new Date() } },
-                  ],
-                },
-              },
-            },
-          },
-        },
+        webRole: 'SHIELD',
+        portalAccessStatus: 'ACTIVE',
+        passwordHash: { not: null },
       },
     });
   }
@@ -654,7 +997,13 @@ export class AuthService {
           let user = await tx.user.findUnique({ where: { email } });
           if (user?.role === 'ADMIN') return null;
           user ??= await tx.user.create({
-            data: { email, role: 'USER' },
+            data: {
+              email,
+              role: 'USER',
+              webRole: 'SHIELD',
+              portalAccessStatus: 'ACTIVE',
+              emailVerifiedAt: new Date(),
+            },
           });
 
           for (const invitation of invitations) {
@@ -916,16 +1265,17 @@ export class AuthService {
   private isAuthoritativePortalIdentity(
     identity: {
       role: UserRole;
+      webRole?: string | null;
       passwordHash: string | null;
-      licensedAccessRequest: { id: string } | null;
+      accessRequests: { id: string }[];
       organizationMemberships: { id: string }[];
     } | null,
   ) {
     return Boolean(
       identity &&
-      (identity.role === 'ADMIN' ||
+      (identity.webRole != null ||
         identity.passwordHash ||
-        identity.licensedAccessRequest ||
+        identity.accessRequests.length > 0 ||
         identity.organizationMemberships.length > 0),
     );
   }
@@ -965,9 +1315,8 @@ export class AuthService {
 
   private requireLegacyPasswordAuth() {
     const enabled =
-      process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH === 'true' ||
-      (process.env.NODE_ENV !== 'production' &&
-        process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH !== 'false');
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH === 'true';
     if (!enabled) {
       throw new GoneException(
         'Password authentication has been replaced by email verification codes.',

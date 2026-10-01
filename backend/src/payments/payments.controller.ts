@@ -10,6 +10,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
+import { ReconcileTestCheckoutDto } from './dto/reconcile-test-checkout.dto';
 import { PaymentsService } from './payments.service';
 
 /*
@@ -33,6 +34,13 @@ export class PaymentsController {
   @Post('checkout-session')
   createCheckoutSession(@Body() dto: CreateCheckoutSessionDto) {
     return this.svc.createCheckoutSession(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 20 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('test/reconcile-checkout')
+  reconcileTestCheckout(@Body() dto: ReconcileTestCheckoutDto) {
+    return this.svc.reconcileTestCheckout(dto.checkoutSessionId);
   }
 
   @HttpCode(HttpStatus.OK)

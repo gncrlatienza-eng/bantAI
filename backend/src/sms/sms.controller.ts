@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 
 import { AiIndicatorsKeyGuard } from '../auth/guards/api-key.guard';
+import { PortalLicensed } from '../access-control/portal-route.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IngestSmsDto } from './dto/ingest-sms.dto';
 import { StoreIndicatorsDto } from './dto/store-indicators.dto';
@@ -32,6 +33,10 @@ export class SmsController {
 
   // Mobile: list all alerts for the authenticated user, newest first.
   @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
   @Get('alerts')
   getAlerts(@Request() req: { user: { userId: string } }) {
     return this.smsService.getAlerts(req.user.userId);
@@ -40,6 +45,10 @@ export class SmsController {
   // Mobile: fetch SHAP indicator tags for a specific message.
   // Returns { indicators: [] } while SHAP is still computing — not an error.
   @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
   @Get(':messageId/indicators')
   getIndicators(
     @Request() req: { user: { userId: string } },

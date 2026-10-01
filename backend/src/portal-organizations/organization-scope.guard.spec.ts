@@ -29,7 +29,9 @@ describe('OrganizationScopeGuard', () => {
             role,
             organization: {
               isActive: true,
-              licenses: hasActiveLicense ? [{ id: 'license-1' }] : [],
+              licenses: hasActiveLicense
+                ? [{ id: 'license-1', tier: 'SHIELD' }]
+                : [],
             },
           }
         : null,
@@ -44,8 +46,8 @@ describe('OrganizationScopeGuard', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('allows an active Tier-2 member only for their requested organization', async () => {
-    const { context, request } = contextFor('TIER_2');
+  it('allows an active Shield member only for their requested organization', async () => {
+    const { context, request } = contextFor('SHIELD');
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(prisma.organizationMembership.findUnique).toHaveBeenCalledWith(
@@ -59,8 +61,13 @@ describe('OrganizationScopeGuard', () => {
       }),
     );
     expect(request.organizationMembership).toEqual(
-      expect.objectContaining({ role: 'TIER_2' }),
+      expect.objectContaining({ role: 'SHIELD' }),
     );
+    expect(request).toHaveProperty('organizationAccess', {
+      organizationId: 'org-1',
+      licenseId: 'license-1',
+      tier: 'SHIELD',
+    });
   });
 
   it('rejects a user without membership', async () => {
@@ -71,14 +78,14 @@ describe('OrganizationScopeGuard', () => {
   });
 
   it('rejects a mobile token even when the user belongs to the organization', async () => {
-    const { context } = contextFor('OWNER', AuthAudience.MOBILE);
+    const { context } = contextFor('SHIELD', AuthAudience.MOBILE);
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
   it('rejects an organization without an active license', async () => {
-    const { context } = contextFor('OWNER', AuthAudience.CLIENT, false);
+    const { context } = contextFor('SHIELD', AuthAudience.CLIENT, false);
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       ForbiddenException,
     );

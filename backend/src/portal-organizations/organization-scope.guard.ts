@@ -7,6 +7,7 @@ import {
 
 import { PrismaService } from '../../database/prisma.service';
 import { AuthAudience } from '../auth/constants';
+import type { OrganizationMemberRole } from '@prisma/client';
 
 @Injectable()
 export class OrganizationScopeGuard implements CanActivate {
@@ -16,7 +17,12 @@ export class OrganizationScopeGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{
       params: { organizationId?: string };
       user?: { userId?: string; audience?: AuthAudience };
-      organizationMembership?: { role: 'OWNER' | 'TIER_1' | 'TIER_2' };
+      organizationMembership?: { role: OrganizationMemberRole };
+      organizationAccess?: {
+        organizationId: string;
+        tier: 'SHIELD';
+        licenseId: string;
+      };
     }>();
     const organizationId = request.params.organizationId;
     const userId = request.user?.userId;
@@ -37,9 +43,13 @@ export class OrganizationScopeGuard implements CanActivate {
             licenses: {
               where: {
                 status: 'ACTIVE',
+                shieldApprovedAt: { not: null },
+                shieldReviewDecision: 'APPROVED',
+                validFrom: { lte: new Date() },
                 OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
               },
-              select: { id: true },
+              orderBy: { validFrom: 'desc' },
+              select: { id: true, tier: true },
               take: 1,
             },
           },
@@ -55,6 +65,11 @@ export class OrganizationScopeGuard implements CanActivate {
       );
     }
     request.organizationMembership = membership;
+    request.organizationAccess = {
+      organizationId,
+      licenseId: membership.organization.licenses[0].id,
+      tier: membership.organization.licenses[0].tier,
+    };
     return true;
   }
 }

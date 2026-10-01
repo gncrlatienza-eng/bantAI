@@ -12,8 +12,9 @@ import {
 } from '@nestjs/common';
 
 import { StaffGuard } from '../auth/guards/staff.guard';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { PortalLicensed } from '../access-control/portal-route.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReviewReportDto } from './dto/review-report.dto';
 import { SubmitReportDto } from './dto/submit-report.dto';
 import { ReportsService } from './reports.service';
@@ -24,6 +25,10 @@ export class ReportsController {
 
   // Mobile: authenticated user submits a FP/FN correction on a message.
   @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
   @HttpCode(HttpStatus.CREATED)
   @Post()
   submit(
@@ -37,16 +42,16 @@ export class ReportsController {
   @UseGuards(JwtAuthGuard, StaffGuard)
   @RequirePermissions('reports:read')
   @Get()
-  findAll() {
-    return this.reportsService.findAll();
+  findAll(@Request() req: { user: { userId: string } }) {
+    return this.reportsService.findAll(req.user.userId);
   }
 
   // Admin: list only Pending reports.
   @UseGuards(JwtAuthGuard, StaffGuard)
   @RequirePermissions('reports:read')
   @Get('pending')
-  findPending() {
-    return this.reportsService.findPending();
+  findPending(@Request() req: { user: { userId: string } }) {
+    return this.reportsService.findPending(req.user.userId);
   }
 
   // Admin: validate a report — accepts it into the training set.
@@ -54,8 +59,12 @@ export class ReportsController {
   @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/validate')
-  validate(@Param('id') id: string, @Body() dto: ReviewReportDto) {
-    return this.reportsService.validate(id, dto.adminNote);
+  validate(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() dto: ReviewReportDto,
+  ) {
+    return this.reportsService.validate(id, req.user.userId, dto.adminNote);
   }
 
   // Admin: reject a report — discards it from the training set.
@@ -63,7 +72,11 @@ export class ReportsController {
   @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/reject')
-  reject(@Param('id') id: string, @Body() dto: ReviewReportDto) {
-    return this.reportsService.reject(id, dto.adminNote);
+  reject(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() dto: ReviewReportDto,
+  ) {
+    return this.reportsService.reject(id, req.user.userId, dto.adminNote);
   }
 }

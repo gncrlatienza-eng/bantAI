@@ -10,10 +10,10 @@ import { AuthAudience } from '../constants';
 export class AdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<{
-      user?: { role?: string; audience?: AuthAudience };
+      user?: { webRole?: string | null; audience?: AuthAudience };
     }>();
     if (
-      req.user?.role !== 'ADMIN' ||
+      req.user?.webRole !== 'ADMIN' ||
       req.user.audience !== AuthAudience.ADMIN
     ) {
       throw new ForbiddenException('Administrator access is required.');

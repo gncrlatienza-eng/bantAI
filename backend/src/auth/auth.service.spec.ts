@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
 import { PortalOtpEmailService } from './portal-otp-email.service';
@@ -19,6 +21,7 @@ describe('AuthService', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
+      updateMany: jest.fn(),
     },
     accessRequest: { findUnique: jest.fn(), updateMany: jest.fn() },
     emailOtpChallenge: {
@@ -33,6 +36,7 @@ describe('AuthService', () => {
       findMany: jest.fn(),
       updateMany: jest.fn(),
     },
+    portalOrganization: { update: jest.fn() },
     otpCode: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
@@ -45,6 +49,13 @@ describe('AuthService', () => {
   const email = { send: jest.fn() };
   const jwt = { signAsync: jest.fn() };
   let service: AuthService;
+  const originalLegacyAuth = process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH;
+
+  afterEach(() => {
+    if (originalLegacyAuth === undefined)
+      delete process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH;
+    else process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH = originalLegacyAuth;
+  });
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -58,6 +69,7 @@ describe('AuthService', () => {
         { provide: OtpSmsService, useValue: sms },
         { provide: PortalOtpEmailService, useValue: email },
         { provide: JwtService, useValue: jwt },
+        { provide: AuditService, useValue: { record: jest.fn() } },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -72,7 +84,58 @@ describe('AuthService', () => {
     expect(prisma.user.upsert).not.toHaveBeenCalled();
   });
 
+  it('disables password-only session issuance unless explicitly enabled locally', async () => {
+    delete process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH;
+    await expect(
+      service.login({ email: 'qa@example.com', password: 'test-password' }),
+    ).rejects.toThrow(GoneException);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(jwt.signAsync).not.toHaveBeenCalled();
+  });
+
+  it('refuses password-only sessions in production even with the legacy flag', async () => {
+    const original = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH = 'true';
+      await expect(
+        service.login({ email: 'qa@example.com', password: 'test-password' }),
+      ).rejects.toThrow(GoneException);
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it('rejects a sign-up OTP request when the email already belongs to an account', async () => {
+    prisma.user.findFirst.mockResolvedValue({ id: 'u-existing' });
+
+    await expect(
+      service.requestSignUpOtp({ email: '  Existing@Example.com ' }),
+    ).rejects.toThrow('An account already uses this email. Sign in instead.');
+
+    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          {
+            email: { equals: 'existing@example.com', mode: 'insensitive' },
+          },
+          {
+            mobileAuthEmail: {
+              equals: 'existing@example.com',
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(prisma.emailOtpChallenge.upsert).not.toHaveBeenCalled();
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
   it('registers exactly one portal user from an active checkout', async () => {
+    process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH = 'true';
     prisma.accessRequest.findUnique.mockResolvedValue({
       id: 'ar-1',
       email: ' Client@Example.com ',
@@ -100,6 +163,7 @@ describe('AuthService', () => {
         email: 'client@example.com',
         company: 'Example Co',
         role: 'USER',
+        webRole: 'SHIELD',
         passwordHash: expect.not.stringMatching(/^strong-password$/),
       }),
     });
@@ -112,6 +176,7 @@ describe('AuthService', () => {
   });
 
   it('rejects portal registration until the checkout is active', async () => {
+    process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH = 'true';
     prisma.accessRequest.findUnique.mockResolvedValue({
       id: 'ar-1',
       status: 'PAYMENT_PENDING',
@@ -129,6 +194,7 @@ describe('AuthService', () => {
   });
 
   it('rejects a second account claim for the same license', async () => {
+    process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH = 'true';
     prisma.accessRequest.findUnique.mockResolvedValue({
       id: 'ar-1',
       email: 'client@example.com',
@@ -147,6 +213,7 @@ describe('AuthService', () => {
   });
 
   it('authenticates a portal user with email and password', async () => {
+    process.env.ENABLE_LEGACY_PORTAL_PASSWORD_AUTH = 'true';
     jwt.signAsync.mockResolvedValue('portal-jwt');
     const passwordHash = await import('bcrypt').then((bcrypt) =>
       bcrypt.hash('strong-password', 12),
@@ -154,7 +221,9 @@ describe('AuthService', () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'u-web',
       role: 'USER',
+      webRole: 'SHIELD',
       passwordHash,
+      portalAccessStatus: 'ACTIVE',
     });
 
     await expect(
@@ -273,8 +342,9 @@ describe('AuthService', () => {
   it('does not send a mobile OTP to an address owned by a portal identity', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
       role: 'ADMIN',
+      webRole: 'ADMIN',
       passwordHash: null,
-      licensedAccessRequest: null,
+      accessRequests: [],
       organizationMemberships: [],
     });
 
@@ -290,8 +360,9 @@ describe('AuthService', () => {
   it('does not let an unverified profile email deny first-time mobile OTP', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
       role: 'USER',
+      webRole: null,
       passwordHash: null,
-      licensedAccessRequest: null,
+      accessRequests: [],
       organizationMemberships: [],
     });
     prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
@@ -312,7 +383,7 @@ describe('AuthService', () => {
       role: 'USER',
       mobileAuthEmail: 'mobile@example.com',
       passwordHash: null,
-      licensedAccessRequest: null,
+      accessRequests: [],
       organizationMemberships: [],
     });
     prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
@@ -382,7 +453,7 @@ describe('AuthService', () => {
     prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
       role: 'USER',
       passwordHash: null,
-      licensedAccessRequest: null,
+      accessRequests: [],
       organizationMemberships: [],
     });
     prisma.user.create.mockResolvedValue({ id: 'u-mobile', role: 'USER' });
@@ -414,6 +485,7 @@ describe('AuthService', () => {
       expiresAt: new Date(Date.now() + 60_000),
       attempts: 0,
     });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
 
     await expect(
       service.verifyMobileEmailOtp({ email: emailAddress, otp: '123456' }),
@@ -470,49 +542,296 @@ describe('AuthService', () => {
     );
   });
 
-  it('accepts an active workspace invitation only after email OTP proof', async () => {
-    const emailAddress = 'invitee@example.com';
+  it('lets a portal identity sign in without an active license (authentication ≠ license)', async () => {
+    const emailAddress = 'expired@example.com';
+    const bcrypt = await import('bcrypt');
+    const account = {
+      id: 'u-expired',
+      email: emailAddress,
+      role: 'USER',
+      webRole: 'SHIELD',
+      portalAccessStatus: 'ACTIVE',
+      passwordHash: await bcrypt.hash('correct-password', 4),
+    };
+    prisma.user.findUnique.mockResolvedValue(account);
+    prisma.user.findFirst.mockResolvedValue(account);
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+
+    await service.requestPortalEmailOtp({
+      email: emailAddress,
+      password: 'correct-password',
+    });
+
+    expect(email.send).toHaveBeenCalledWith(
+      emailAddress,
+      expect.stringMatching(/^\d{6}$/),
+      'CLIENT_SIGN_IN',
+    );
+    // The identity lookup must not require a membership or license.
+    for (const [query] of prisma.user.findFirst.mock.calls) {
+      expect(query.where).toEqual({
+        email: emailAddress,
+        webRole: 'SHIELD',
+        portalAccessStatus: 'ACTIVE',
+        passwordHash: { not: null },
+      });
+    }
+  });
+
+  it('still refuses web sign-in for suspended, revoked, or mobile-only accounts', async () => {
+    const bcrypt = await import('bcrypt');
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'u-suspended',
+      email: 'suspended@example.com',
+      role: 'USER',
+      webRole: 'SHIELD',
+      portalAccessStatus: 'SUSPENDED',
+      passwordHash: await bcrypt.hash('correct-password', 4),
+    });
+    // findPortalIdentity filters on portalAccessStatus ACTIVE → no match.
+    prisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.requestPortalEmailOtp({
+        email: 'suspended@example.com',
+        password: 'correct-password',
+      }),
+    ).rejects.toThrow('This account does not have web portal access.');
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it('sets an initial claim password and makes the account eligible for password-gated sign-in', async () => {
+    const emailAddress = 'client@example.com';
+    const checkoutSessionId = 'cs_test_paid_checkout_123';
     const codeHash = (service as any).hashEmailOtp(
       emailAddress,
-      'CLIENT_SIGN_IN',
+      'CLIENT_CLAIM',
       '123456',
+      checkoutSessionId,
     );
+    const passwordlessUser = {
+      id: 'u-web',
+      email: emailAddress,
+      role: 'USER',
+      webRole: 'SHIELD',
+      passwordHash: null,
+      portalAccessStatus: 'ACTIVE',
+    };
+    prisma.accessRequest.findUnique.mockResolvedValue({
+      id: 'ar-1',
+      email: emailAddress,
+      organization: 'Example Co',
+      status: 'ACTIVE',
+      activatedAt: new Date(),
+      portalUserId: 'u-web',
+      portalUser: passwordlessUser,
+      license: {
+        organizationId: 'org-1',
+        status: 'ACTIVE',
+        shieldApprovedAt: new Date(),
+        shieldReviewDecision: 'APPROVED',
+        validFrom: new Date(Date.now() - 60_000),
+        validUntil: new Date(Date.now() + 60_000),
+      },
+    });
     prisma.emailOtpChallenge.findUnique.mockResolvedValue({
-      challengeKey: 'challenge',
+      accessRequestId: 'ar-1',
+      codeHash,
+      consumedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      attempts: 0,
+    });
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+    prisma.accessRequest.updateMany.mockResolvedValue({ count: 1 });
+    prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
+    prisma.organizationMembership.upsert.mockResolvedValue({});
+    jwt.signAsync.mockResolvedValue('client-jwt');
+
+    await expect(
+      service.verifyClientClaimEmailOtp({
+        email: emailAddress,
+        checkoutSessionId,
+        otp: '123456',
+        password: 'a-new-password',
+      }),
+    ).resolves.toMatchObject({
+      access_token: 'client-jwt',
+      audience: AuthAudience.CLIENT,
+    });
+
+    const persistedHash = prisma.user.updateMany.mock.calls[0][0].data
+      .passwordHash as string;
+    expect(persistedHash).not.toBe('a-new-password');
+    expect(
+      await import('bcrypt').then((bcrypt) =>
+        bcrypt.compare('a-new-password', persistedHash),
+      ),
+    ).toBe(true);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'u-web',
+        role: 'USER',
+        portalAccessStatus: 'ACTIVE',
+        passwordHash: null,
+      },
+      data: { passwordHash: persistedHash, webRole: 'SHIELD' },
+    });
+    expect(prisma.organizationMembership.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ role: 'SHIELD', userId: 'u-web' }),
+      }),
+    );
+
+    prisma.user.findUnique.mockResolvedValue({
+      ...passwordlessUser,
+      passwordHash: persistedHash,
+    });
+    prisma.user.findFirst.mockResolvedValue({
+      ...passwordlessUser,
+      passwordHash: persistedHash,
+    });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue(null);
+    email.send.mockResolvedValue(undefined);
+    await expect(
+      service.requestPortalEmailOtp({
+        email: emailAddress,
+        password: 'a-new-password',
+      }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+    expect(email.send).toHaveBeenCalledWith(
+      emailAddress,
+      expect.stringMatching(/^\d{6}$/),
+      'CLIENT_SIGN_IN',
+    );
+  });
+
+  it('never overwrites an existing password during a repeated claim', async () => {
+    const emailAddress = 'client@example.com';
+    const checkoutSessionId = 'cs_test_paid_checkout_123';
+    const codeHash = (service as any).hashEmailOtp(
+      emailAddress,
+      'CLIENT_CLAIM',
+      '123456',
+      checkoutSessionId,
+    );
+    prisma.accessRequest.findUnique.mockResolvedValue({
+      id: 'ar-1',
+      email: emailAddress,
+      organization: 'Example Co',
+      status: 'ACTIVE',
+      activatedAt: new Date(),
+      portalUserId: 'u-web',
+      portalUser: {
+        id: 'u-web',
+        email: emailAddress,
+        role: 'USER',
+        passwordHash: 'existing-hash',
+        portalAccessStatus: 'ACTIVE',
+      },
+      license: {
+        organizationId: 'org-1',
+        status: 'ACTIVE',
+        shieldApprovedAt: new Date(),
+        shieldReviewDecision: 'APPROVED',
+        validFrom: new Date(Date.now() - 60_000),
+        validUntil: null,
+      },
+    });
+    prisma.emailOtpChallenge.findUnique.mockResolvedValue({
+      accessRequestId: 'ar-1',
       codeHash,
       consumedAt: null,
       expiresAt: new Date(Date.now() + 60_000),
       attempts: 0,
     });
     prisma.emailOtpChallenge.updateMany.mockResolvedValue({ count: 1 });
-    prisma.user.findFirst.mockResolvedValue(null);
-    prisma.organizationInvitation.findMany.mockResolvedValue([
-      {
-        id: 'invite-1',
-        organizationId: 'org-1',
-        role: 'TIER_2',
-      },
-    ]);
-    prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockResolvedValue({ id: 'invitee-1', role: 'USER' });
-    prisma.organizationMembership.upsert.mockResolvedValue({ id: 'member-1' });
-    prisma.organizationInvitation.updateMany.mockResolvedValue({ count: 1 });
-    jwt.signAsync.mockResolvedValue('client-jwt');
 
     await expect(
-      service.verifyClientEmailOtp({ email: emailAddress, otp: '123456' }),
-    ).resolves.toMatchObject({ access_token: 'client-jwt' });
-    expect(prisma.organizationMembership.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({
-          organizationId: 'org-1',
-          userId: 'invitee-1',
-          role: 'TIER_2',
-        }),
+      service.verifyClientClaimEmailOtp({
+        email: emailAddress,
+        checkoutSessionId,
+        otp: '123456',
+        password: 'replacement-password',
       }),
-    );
-    expect(prisma.organizationInvitation.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'ACCEPTED' } }),
-    );
+    ).rejects.toThrow('This account is already set up. Sign in instead.');
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
+
+  it('returns the generic response for an unknown claim checkout session', async () => {
+    prisma.accessRequest.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.requestClientClaimEmailOtp({
+        email: 'client@example.com',
+        checkoutSessionId: 'cs_test_unknown_checkout_123',
+      }),
+    ).resolves.toEqual({
+      message: 'If the account is eligible, a verification code has been sent.',
+    });
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['wrong email', { email: 'other@example.com' }],
+    ['unpaid checkout', { status: 'PAYMENT_PENDING', activatedAt: null }],
+    [
+      'legacy contract awaiting Shield review',
+      { license: { shieldApprovedAt: null } },
+    ],
+    [
+      'expired license',
+      { license: { validUntil: new Date(Date.now() - 60_000) } },
+    ],
+    ['revoked account', { portalUser: { portalAccessStatus: 'REVOKED' } }],
+    ['already-passworded account', { portalUser: { passwordHash: 'hash' } }],
+    ['staff account', { portalUser: { role: 'ADMIN' } }],
+  ])(
+    'does not send a claim OTP for an ineligible %s',
+    async (_name, override) => {
+      const base = {
+        id: 'ar-1',
+        email: 'client@example.com',
+        organization: 'Example Co',
+        status: 'ACTIVE',
+        activatedAt: new Date(),
+        portalUserId: 'u-web',
+        portalUser: {
+          id: 'u-web',
+          email: 'client@example.com',
+          role: 'USER',
+          passwordHash: null,
+          portalAccessStatus: 'ACTIVE',
+        },
+        license: {
+          organizationId: 'org-1',
+          status: 'ACTIVE',
+          shieldApprovedAt: new Date(),
+          shieldReviewDecision: 'APPROVED',
+          validFrom: new Date(Date.now() - 60_000),
+          validUntil: null,
+        },
+      };
+      prisma.accessRequest.findUnique.mockResolvedValue({
+        ...base,
+        ...override,
+        license: { ...base.license, ...override.license },
+        portalUser: { ...base.portalUser, ...override.portalUser },
+      });
+
+      await expect(
+        service.requestClientClaimEmailOtp({
+          email: 'client@example.com',
+          checkoutSessionId: 'cs_test_paid_checkout_123',
+        }),
+      ).resolves.toEqual({
+        message:
+          'If the account is eligible, a verification code has been sent.',
+      });
+      expect(email.send).not.toHaveBeenCalled();
+      expect(prisma.emailOtpChallenge.upsert).not.toHaveBeenCalled();
+    },
+  );
 });

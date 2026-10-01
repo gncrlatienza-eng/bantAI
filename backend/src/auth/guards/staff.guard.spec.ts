@@ -2,8 +2,24 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { StaffGuard } from './staff.guard';
 import { resolveStaffPermissions } from '../constants/staff-permissions';
+import { AuthAudience } from '../constants';
 
 describe('StaffGuard', () => {
+  it.each([
+    { webRole: null, audience: AuthAudience.ADMIN },
+    { webRole: 'ADMIN', audience: AuthAudience.MOBILE },
+    { webRole: 'ADMIN', audience: AuthAudience.CLIENT },
+  ])('rejects an incompatible web identity or audience: %o', (identity) => {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(['models:deploy']),
+    };
+    const guard = new StaffGuard(reflector as any);
+    const context = createMockContext(
+      { role: 'ADMIN', permissions: ['*'], ...identity },
+      ['models:deploy'],
+    );
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+  });
   let guard: StaffGuard;
   let reflector: Reflector;
 
@@ -21,7 +37,13 @@ describe('StaffGuard', () => {
       .mockReturnValue(requiredPermissions);
     return {
       switchToHttp: () => ({
-        getRequest: () => ({ user }),
+        getRequest: () => ({
+          user: {
+            webRole: 'ADMIN',
+            audience: AuthAudience.ADMIN,
+            ...user,
+          },
+        }),
       }),
       getHandler: () => ({}),
       getClass: () => ({}),

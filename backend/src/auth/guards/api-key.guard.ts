@@ -53,3 +53,9 @@ export class AiModelsKeyGuard extends ScopedApiKeyGuard {
 export class AiIndicatorsKeyGuard extends ScopedApiKeyGuard {
   protected readonly environmentVariable = 'AI_INDICATORS_API_KEY';
 }
+
+/** Machine credential limited to reading frozen training dataset snapshots. */
+@Injectable()
+export class AiDatasetsKeyGuard extends ScopedApiKeyGuard {
+  protected readonly environmentVariable = 'AI_DATASETS_API_KEY';
+}

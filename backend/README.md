@@ -83,6 +83,17 @@ The API will be available at:
 http://localhost:3000/api
 ```
 
+### Give an admin account a staff role
+
+Admin screens are gated by staff permissions, and an admin with no `staffRole` gets none (nothing in the API assigns one). After migrating, give each admin account its role explicitly. The command is a dry run until `--apply`, and each change is written to the audit log as `ADMIN_ROLE_CHANGED`:
+
+```bash
+node --env-file=.env scripts/grant-staff-role.mjs --list
+node --env-file=.env scripts/grant-staff-role.mjs admin@example.com SUPERADMIN --apply
+```
+
+Roles: `SUPERADMIN`, `SUPPORT`, `ANALYST`, `OPERATIONS`, `PRIVACY` (see `src/auth/constants/staff-permissions.ts`).
+
 ---
 
 ## Code Quality & Security

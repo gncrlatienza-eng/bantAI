@@ -11,6 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ClientAudienceGuard } from './client-audience.guard';
+import { PortalLicensed } from '../access-control/portal-route.decorator';
 import {
   InviteMemberDto,
   TransferOwnershipDto,
@@ -18,7 +20,8 @@ import {
 import { PortalOrganizationsCustomerService } from './portal-organizations-customer.service';
 
 @Controller('portal-organizations/me')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ClientAudienceGuard)
+@PortalLicensed({ capability: 'viewWorkspace' })
 export class PortalOrganizationsCustomerController {
   constructor(
     private readonly workspaceService: PortalOrganizationsCustomerService,
@@ -30,6 +33,7 @@ export class PortalOrganizationsCustomerController {
   }
 
   @Post('invitations')
+  @PortalLicensed({ capability: 'manageMembers' })
   @HttpCode(HttpStatus.CREATED)
   inviteMember(
     @Request() req: { user: { userId: string } },
@@ -39,6 +43,7 @@ export class PortalOrganizationsCustomerController {
   }
 
   @Delete('invitations/:id')
+  @PortalLicensed({ capability: 'manageMembers' })
   @HttpCode(HttpStatus.OK)
   revokeInvitation(
     @Request() req: { user: { userId: string } },
@@ -51,6 +56,7 @@ export class PortalOrganizationsCustomerController {
   }
 
   @Delete('members/:userId')
+  @PortalLicensed({ capability: 'manageMembers' })
   @HttpCode(HttpStatus.OK)
   removeMember(
     @Request() req: { user: { userId: string } },
@@ -60,6 +66,7 @@ export class PortalOrganizationsCustomerController {
   }
 
   @Post('transfer-ownership')
+  @PortalLicensed({ capability: 'manageWorkspace' })
   @HttpCode(HttpStatus.OK)
   transferOwnership(
     @Request() req: { user: { userId: string } },
@@ -74,6 +81,7 @@ export class PortalOrganizationsCustomerController {
   }
 
   @Get('billing')
+  @PortalLicensed({ capability: 'viewBilling' })
   getMyBilling(@Request() req: { user: { userId: string } }) {
     return this.workspaceService.getMyBilling(req.user.userId);
   }

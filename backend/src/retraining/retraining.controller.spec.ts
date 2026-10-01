@@ -5,8 +5,15 @@ import { RetrainingService } from './retraining.service';
 
 const mockService = {
   triggerRetrain: jest.fn(),
-  evaluateTriggers: jest.fn(),
+  status: jest.fn(),
+  listJobs: jest.fn(),
+  listInvestigations: jest.fn(),
+  openInvestigation: jest.fn(),
+  updateInvestigation: jest.fn(),
+  retrainForInvestigation: jest.fn(),
 };
+
+const req = { user: { userId: 'admin-1' } };
 
 describe('RetrainingController', () => {
   let controller: RetrainingController;
@@ -25,29 +32,51 @@ describe('RetrainingController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('trigger calls triggerRetrain with "manual" and returns triggered:true', async () => {
-    mockService.triggerRetrain.mockResolvedValue(undefined);
+  it('trigger records a manual request for the acting Admin', async () => {
+    const job = { id: 'job-1', status: 'ACCEPTED' };
+    mockService.triggerRetrain.mockResolvedValue(job);
 
-    const result = await controller.trigger();
+    const result = await controller.trigger(req);
 
-    expect(mockService.triggerRetrain).toHaveBeenCalledWith('manual');
-    expect(result).toEqual({ triggered: true, reason: 'manual' });
+    expect(mockService.triggerRetrain).toHaveBeenCalledWith(
+      'manual',
+      'admin-1',
+    );
+    expect(result).toEqual({ triggered: true, reason: 'manual', job });
   });
 
-  it('status delegates to evaluateTriggers without firing retraining', async () => {
-    const evalResult = {
+  it('status evaluates the signal without firing retraining', async () => {
+    const status = {
       triggered: false,
       reason: '',
       validatedCount: 12,
       currentF1: 0.9438,
       drift: false,
+      enabled: false,
+      thresholds: {},
     };
-    mockService.evaluateTriggers.mockResolvedValue(evalResult);
+    mockService.status.mockResolvedValue(status);
 
     const result = await controller.status();
 
-    expect(mockService.evaluateTriggers).toHaveBeenCalled();
+    expect(mockService.status).toHaveBeenCalled();
     expect(mockService.triggerRetrain).not.toHaveBeenCalled();
-    expect(result).toEqual(evalResult);
+    expect(result).toEqual(status);
+  });
+
+  it('opens an investigation for the acting Admin', async () => {
+    await controller.open({ notes: 'Scores dipped after holiday' }, req);
+    expect(mockService.openInvestigation).toHaveBeenCalledWith(
+      'admin-1',
+      'Scores dipped after holiday',
+    );
+  });
+
+  it('links retraining to an investigation', async () => {
+    await controller.retrain('inv-1', req);
+    expect(mockService.retrainForInvestigation).toHaveBeenCalledWith(
+      'inv-1',
+      'admin-1',
+    );
   });
 });

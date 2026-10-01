@@ -58,6 +58,18 @@ describe('PortalOrganizationsCustomerService', () => {
       },
     ],
     invitations: [],
+    licenses: [
+      {
+        status: 'ACTIVE',
+        tier: 'SHIELD',
+        billingPeriod: 'ANNUAL',
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        accessRequest: { tier: 'SHIELD', status: 'ACTIVE' },
+      },
+    ],
   };
 
   beforeEach(() => {
@@ -85,6 +97,25 @@ describe('PortalOrganizationsCustomerService', () => {
   });
 
   describe('getMyWorkspace', () => {
+    it('refuses a workspace with no active reviewed license', async () => {
+      prisma.organizationMembership.findFirst.mockResolvedValue({
+        role: 'SHIELD',
+        organization: { ...mockOrg, licenses: [] },
+      });
+      await expect(service.getMyWorkspace('owner-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('does not invent a paid invoice when billing is unavailable', async () => {
+      prisma.organizationMembership.findFirst.mockResolvedValue({
+        role: 'SHIELD',
+        organization: mockOrg,
+      });
+      const billing = await service.getMyBilling('owner-1');
+      expect(billing.billingAvailable).toBe(false);
+      expect(billing.invoices).toEqual([]);
+    });
     it('returns workspace with correct ownership, tier, and seat calculation', async () => {
       prisma.organizationMembership.findFirst.mockResolvedValue({
         role: 'TIER_1',

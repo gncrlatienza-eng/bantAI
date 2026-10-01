@@ -37,8 +37,12 @@ import {
   type ReadinessStatus,
 } from '../../services/healthService';
 import { getPortalOrganizations } from '../../services/portalOrganizationsService';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import {
+  getAdminMobileSync,
+  type AdminMobileSyncSummary,
+} from '../../services/smsService';
+
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'The backend request failed.';
 }
@@ -71,9 +75,7 @@ function toReportRow(item: UserReportItem): ReportRow {
     originalLabel: item.originalLabel,
     reportedLabel: item.reportedLabel,
     status: item.status,
-    submitter: item.user?.firstName
-      ? `${item.user.firstName} ${item.user.lastName ?? ''}`.trim()
-      : (item.user?.id ?? item.userId),
+    submitter: item.user?.id ?? item.userId ?? 'Account record unavailable',
     createdAt: new Date(item.createdAt).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -135,6 +137,9 @@ export function OverviewPage() {
   const [pending, setPending] = useState<UserReportItem[]>([]);
   const [campaigns, setCampaigns] = useState<CampaignCluster[]>([]);
   const [orgCount, setOrgCount] = useState<number | null>(null);
+  const [mobileSync, setMobileSync] = useState<AdminMobileSyncSummary | null>(
+    null,
+  );
   const [sys, setSys] = useState<SystemStatus>({
     health: null,
     readiness: null,
@@ -148,17 +153,22 @@ export function OverviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const [allReports, pendingReports, activeCampaigns, orgs] =
+      const [allReports, pendingReports, activeCampaigns, orgs, sync] =
         await Promise.all([
           getAllReports(),
           getPendingReports(),
           getActiveCampaigns(),
           getPortalOrganizations(),
+          // Mobile sync is additive telemetry. Keep the rest of the overview
+          // usable if this newer endpoint is temporarily unavailable during a
+          // staggered backend/web deployment.
+          getAdminMobileSync().catch(() => null),
         ]);
       setReports(allReports);
       setPending(pendingReports);
       setCampaigns(activeCampaigns);
       setOrgCount(Array.isArray(orgs) ? orgs.length : null);
+      setMobileSync(sync);
 
       const [health, readiness] = await Promise.all([
         getHealthStatus().catch((e): { err: string } => ({
@@ -185,32 +195,17 @@ export function OverviewPage() {
     void load();
   }, [load]);
 
-  const navGroups = useAdminNavGroups();
   const reportRows = pending.slice(0, 5).map(toReportRow);
 
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}
       onNavigate={(p) => void navigate(p)}
       topbarContext={<span>System Administration &middot; Overview</span>}
-      topbarUtility={
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              logout();
-              void navigate('/admin-login');
-            }}
-          >
-            Sign out
-          </Button>
-        </>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
@@ -219,7 +214,7 @@ export function OverviewPage() {
         meta={
           loading
             ? 'Loading live telemetry...'
-            : `${reports.length.toLocaleString()} reports · ${campaigns.length.toLocaleString()} active campaigns · ${
+            : `${mobileSync?.classifiedMessages.toLocaleString() ?? 0} mobile classifications · ${reports.length.toLocaleString()} reports · ${campaigns.length.toLocaleString()} active campaigns · ${
                 orgCount ?? 0
               } organizations`
         }
@@ -267,6 +262,64 @@ export function OverviewPage() {
 
       {!error && !loading && (
         <>
+          <section style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
+                Mobile sync activity
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void navigate('/admin/mobile-sync')}
+              >
+                Open mobile sync
+              </Button>
+            </div>
+            <div
+              style={{
+                background: 'var(--surface-raised)',
+                borderRadius: 8,
+                padding: '20px 24px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: 24,
+                }}
+              >
+                <Metric
+                  label="Synced accounts"
+                  value={(mobileSync?.syncedAccounts ?? 0).toLocaleString()}
+                  meta="with mobile SMS metadata"
+                />
+                <Metric
+                  label="Classified"
+                  value={(mobileSync?.classifiedMessages ?? 0).toLocaleString()}
+                  meta="received from mobile"
+                />
+                <Metric
+                  label="Scam"
+                  value={(mobileSync?.scamCount ?? 0).toLocaleString()}
+                  meta="privacy-safe detections"
+                />
+                <Metric
+                  label="Spam"
+                  value={(mobileSync?.spamCount ?? 0).toLocaleString()}
+                  meta="privacy-safe detections"
+                />
+              </div>
+            </div>
+          </section>
+
           <section
             style={{
               background: 'var(--surface-raised)',

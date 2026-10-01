@@ -6,10 +6,9 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import { Button, EmptyState, InfoBadge } from '../../components/primitives';
 import { ProfileForm } from '../../features/settings/ProfileForm';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
+import { NotificationCenter } from '../../features/notifications/NotificationCenter';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 interface SettingsPageProps {
   notifications?: boolean;
@@ -18,12 +17,11 @@ interface SettingsPageProps {
 export function SettingsPage({ notifications = false }: SettingsPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const navGroups = useAdminNavGroups();
 
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}
@@ -33,39 +31,17 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
           Administration &middot; {notifications ? 'Notifications' : 'Settings'}
         </span>
       }
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/admin-login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
         title={notifications ? 'Notifications' : 'Settings'}
         description={
           notifications
-            ? 'Notification preferences require a backend endpoint that has not shipped yet.'
-            : 'Manage your admin profile. Phone and role are managed by the backend and shown read-only.'
+            ? 'Review queues, applications and contracts, API quota and AI system health, built from verified system records.'
+            : 'Manage your admin profile. Your role is managed by the backend and shown read-only.'
         }
       />
-      {notifications ? (
-        <EmptyState
-          title="Notification preferences not connected"
-          description="Delivery channel selection (email, in-app, SMS) requires an authenticated endpoint."
-          action={
-            <InfoBadge>Requires GET/PUT /users/me/notifications</InfoBadge>
-          }
-        />
-      ) : (
-        <ProfileForm role="admin" />
-      )}
+      {notifications ? <NotificationCenter area="admin" /> : <ProfileForm />}
     </AppShell>
   );
 }

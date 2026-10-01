@@ -1,139 +1,73 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { ProtectedRoute } from '../../routes/ProtectedRoute';
-import * as authService from '../../services/authService';
+import { AccountStateProvider } from '../../context/AccountStateContext';
+import { LifecycleRoute } from '../../routes/LifecycleRoute';
+import { ApiError } from '../../api/apiClient';
+import * as account from '../../services/accountService';
 
-describe('Frontend Security: Protected Routes & Bundle Boundary (W9)', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    localStorage.clear();
-  });
-
-  it('redirects unauthenticated users from client protected routes to /login', async () => {
-    vi.spyOn(authService, 'getCurrentUser').mockRejectedValue(
-      new Error('Unauthenticated'),
-    );
-
-    render(
-      <MemoryRouter initialEntries={['/client/overview']}>
+function mount(group: 'admin' | 'workspace') {
+  render(
+    <MemoryRouter initialEntries={['/protected']}>
+      <AccountStateProvider>
         <Routes>
           <Route
-            path="/client/overview"
+            path="/protected"
             element={
-              <ProtectedRoute role="client">
-                <div>Client Dashboard Content</div>
-              </ProtectedRoute>
+              <LifecycleRoute group={group}>
+                <div>Protected content</div>
+              </LifecycleRoute>
             }
           />
-          <Route path="/login" element={<div>Public Login Page</div>} />
+          <Route path="/login" element={<div>Sign in</div>} />
+          <Route path="/application" element={<div>Application status</div>} />
         </Routes>
-      </MemoryRouter>,
-    );
+      </AccountStateProvider>
+    </MemoryRouter>,
+  );
+}
 
-    await waitFor(() => {
-      expect(screen.getByText('Public Login Page')).toBeInTheDocument();
-      expect(
-        screen.queryByText('Client Dashboard Content'),
-      ).not.toBeInTheDocument();
-    });
+describe('Server account lifecycle routing', () => {
+  beforeEach(() => vi.restoreAllMocks());
+  it.each(['admin', 'workspace'] as const)(
+    'refuses anonymous %s content',
+    async (group) => {
+      vi.spyOn(account, 'getAccountState').mockRejectedValue(
+        new ApiError('Unauthorized', 401),
+      );
+      mount(group);
+      expect(await screen.findByText('Sign in')).toBeInTheDocument();
+      expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
+    },
+  );
+  it('routes a pending applicant to the server destination instead of admin', async () => {
+    vi.spyOn(account, 'getAccountState').mockResolvedValue({
+      routeGroups: ['application'],
+      destination: '/application',
+      state: 'APPLICATION_PENDING',
+    } as account.AccountState);
+    mount('admin');
+    expect(await screen.findByText('Application status')).toBeInTheDocument();
+    expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
   });
-
-  it('redirects unauthenticated users from admin protected routes to /admin-login', async () => {
-    vi.spyOn(authService, 'getCurrentUser').mockRejectedValue(
-      new Error('Unauthenticated'),
-    );
-
-    render(
-      <MemoryRouter initialEntries={['/admin/overview']}>
-        <Routes>
-          <Route
-            path="/admin/overview"
-            element={
-              <ProtectedRoute role="admin">
-                <div>Admin Secret Dashboard</div>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/admin-login" element={<div>Admin Login Page</div>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Admin Login Page')).toBeInTheDocument();
-      expect(
-        screen.queryByText('Admin Secret Dashboard'),
-      ).not.toBeInTheDocument();
-    });
+  it('renders an authorized server route group', async () => {
+    vi.spyOn(account, 'getAccountState').mockResolvedValue({
+      routeGroups: ['admin'],
+      destination: '/protected',
+      state: 'ADMIN',
+    } as account.AccountState);
+    mount('admin');
+    expect(await screen.findByText('Protected content')).toBeInTheDocument();
   });
-
-  it('prevents client users from accessing admin routes and redirects to /admin-login', async () => {
-    vi.spyOn(authService, 'getCurrentUser').mockResolvedValue({
-      id: 'client-1',
-      phone: '+639171234567',
-      email: 'client@company.com',
-      role: 'USER',
-      firstName: 'John',
-      lastName: 'Client',
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/admin/users']}>
-        <Routes>
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute role="admin">
-                <div>Privileged Staff User Management</div>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/admin-login" element={<div>Staff Login Screen</div>} />
-        </Routes>
-      </MemoryRouter>,
+  it('keeps content hidden on network failure', async () => {
+    vi.spyOn(account, 'getAccountState').mockRejectedValue(
+      new Error('Offline'),
     );
-
-    await waitFor(() => {
-      expect(screen.getByText('Staff Login Screen')).toBeInTheDocument();
-      expect(
-        screen.queryByText('Privileged Staff User Management'),
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  it('allows authenticated admin staff to access admin routes', async () => {
-    vi.spyOn(authService, 'getCurrentUser').mockResolvedValue({
-      id: 'admin-1',
-      phone: '+639170000001',
-      email: 'staff@bantai.ph',
-      role: 'ADMIN',
-      firstName: 'Staff',
-      lastName: 'Admin',
-      staffRole: 'SUPERADMIN',
-      permissions: ['*'],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/admin/overview']}>
-        <Routes>
-          <Route
-            path="/admin/overview"
-            element={
-              <ProtectedRoute role="admin">
-                <div>Staff Operations Dashboard</div>
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
+    mount('admin');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'reach BantAI to load your account',
     );
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Staff Operations Dashboard'),
-      ).toBeInTheDocument();
-    });
+    expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
   });
 });

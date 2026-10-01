@@ -1,59 +1,76 @@
 /*
- * Shared client sidebar groups.
+ * Shared Shield sidebar groups. Every external portal page must use
+ * useClientSidebarGroups() so the portal shows the same navigation
+ * everywhere.
+ *
+ * Visibility is a product boundary, while the backend remains responsible for
+ * authorization. Shield intentionally has no raw message, dataset, model, or
+ * administration entry points.
  */
 
 import React from 'react';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
+import type {
+  NavGroupDef,
+  NavItemDef,
+} from '../../components/appshell/AppShell';
 import {
   NavOverviewIcon,
   NavCampaignsIcon,
-  NavMessagesIcon,
-  NavAnalyticsIcon,
   NavReportsIcon,
-  NavUsersIcon,
   NavSystemIcon,
+  NotificationsIcon,
 } from '../../components/primitives';
 
-export const CLIENT_SIDEBAR_GROUPS: NavGroupDef[] = [
-  {
-    label: 'Threat Intelligence',
-    items: [
-      {
-        label: 'Overview',
-        path: '/client/overview',
-        icon: <NavOverviewIcon />,
-      },
-      {
-        label: 'Messages',
-        path: '/client/messages',
-        icon: <NavMessagesIcon />,
-      },
-      {
-        label: 'Campaigns',
-        path: '/client/campaigns',
-        icon: <NavCampaignsIcon />,
-      },
-      {
-        label: 'Analytics',
-        path: '/client/analytics',
-        icon: <NavAnalyticsIcon />,
-      },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      {
-        label: 'Workspace',
-        path: '/client/workspace',
-        icon: <NavUsersIcon />,
-      },
-      { label: 'Help', path: '/client/help', icon: <NavReportsIcon /> },
-      {
-        label: 'Account settings',
-        path: '/client/settings',
-        icon: <NavSystemIcon />,
-      },
-    ],
-  },
-];
+const CLIENT_NAV: Array<Omit<NavGroupDef, 'items'> & { items: NavItemDef[] }> =
+  [
+    {
+      label: 'Threat Intelligence',
+      items: [
+        {
+          label: 'Overview',
+          path: '/shield/overview',
+          icon: <NavOverviewIcon />,
+        },
+        {
+          label: 'Campaigns',
+          path: '/shield/campaigns',
+          icon: <NavCampaignsIcon />,
+        },
+      ],
+    },
+    {
+      label: 'Access',
+      items: [
+        {
+          label: 'API',
+          path: '/shield/api',
+          icon: <NavReportsIcon />,
+        },
+        {
+          label: 'Exports',
+          path: '/shield/exports',
+          icon: <NavReportsIcon />,
+        },
+        {
+          label: 'Notifications',
+          path: '/shield/notifications',
+          icon: <NotificationsIcon />,
+        },
+        {
+          label: 'Documentation',
+          path: '/shield/documentation',
+          icon: <NavReportsIcon />,
+        },
+        {
+          label: 'Account',
+          path: '/account',
+          icon: <NavSystemIcon />,
+        },
+      ],
+    },
+  ];
+
+/** The deliberately narrow navigation for the external Shield portal. */
+export function useClientSidebarGroups(): NavGroupDef[] {
+  return CLIENT_NAV;
+}

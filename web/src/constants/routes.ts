@@ -2,24 +2,24 @@ export const ROUTES = {
   HOME: '/',
   HOW_IT_WORKS: '/how-it-works',
   ABOUT: '/about',
-  RESEARCH: '/research',
   LICENSING: '/request-access',
   LOGIN: '/login',
-  ADMIN_LOGIN: '/admin-login',
+  // Legacy alias — admin sign-in now uses the unified /login page. Kept so any
+  // older link resolves without leaking an admin-specific URL. Prefer LOGIN.
+  ADMIN_LOGIN: '/login',
   FORGOT_PASSWORD: '/forgot-password',
   TWO_FACTOR: '/2fa',
   PROFILE: '/profile',
   SETTINGS: '/settings',
 
-  CLIENT: {
-    OVERVIEW: '/client/overview',
-    MESSAGES: '/client/messages',
-    CAMPAIGNS: '/client/campaigns',
-    ANALYTICS: '/client/analytics',
-    EXPORT: '/client/export',
-    HELP: '/client/help',
-    SETTINGS: '/client/settings',
-    NOTIFICATIONS: '/client/notifications',
+  SHIELD: {
+    OVERVIEW: '/shield/overview',
+    CAMPAIGNS: '/shield/campaigns',
+    API: '/shield/api',
+    EXPORTS: '/shield/exports',
+    NOTIFICATIONS: '/shield/notifications',
+    DOCUMENTATION: '/shield/documentation',
+    ACCOUNT: '/account',
   },
 
   ADMIN: {

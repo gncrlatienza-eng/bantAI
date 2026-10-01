@@ -26,9 +26,7 @@ import {
   validateReport,
   type UserReportItem,
 } from '../../services/reportsService';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
-import { useStaffPermission } from '../../components/common/StaffPermissionGate';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -57,7 +55,7 @@ function labelToStatusKind(label: string): StatusKind {
   }
 }
 
-type StatusFilter = 'all' | 'PENDING' | 'VALIDATED' | 'REJECTED';
+type StatusFilter = 'all' | UserReportItem['status'];
 
 interface ReportRow {
   id: string;
@@ -71,15 +69,12 @@ interface ReportRow {
 }
 
 function toRow(r: UserReportItem): ReportRow {
-  const submitter = r.user
-    ? [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') ||
-      r.user.phone
-    : 'Unknown';
+  const submitter = r.user?.id ?? 'Account record unavailable';
   return {
     id: r.id,
     submitter,
-    originalLabel: r.originalLabel,
-    reportedLabel: r.reportedLabel,
+    originalLabel: r.originalLabel || 'Unlabeled',
+    reportedLabel: r.reportedLabel || 'Unlabeled',
     status: r.status,
     isMismatch: r.originalLabel !== r.reportedLabel,
     createdAt: r.createdAt,
@@ -87,10 +82,16 @@ function toRow(r: UserReportItem): ReportRow {
   };
 }
 
+function formatStatus(status: string): string {
+  return status
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function ReportsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const canManageReports = useStaffPermission('reports:manage');
 
   const [reports, setReports] = useState<UserReportItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,9 +140,9 @@ export function ReportsPage() {
       rejected = 0,
       mismatches = 0;
     for (const r of reports) {
-      if (r.status === 'PENDING') pending++;
-      else if (r.status === 'VALIDATED') validated++;
-      else if (r.status === 'REJECTED') rejected++;
+      if (r.status === 'Pending') pending++;
+      else if (r.status === 'Validated') validated++;
+      else if (r.status === 'Rejected') rejected++;
       if (r.originalLabel !== r.reportedLabel) mismatches++;
     }
     return { pending, validated, rejected, mismatches };
@@ -176,7 +177,7 @@ export function ReportsPage() {
     },
     {
       key: 'originalLabel',
-      header: 'Model',
+      header: 'Model label',
       render: (r) => (
         <StatusBadge
           kind={labelToStatusKind(r.originalLabel)}
@@ -187,7 +188,7 @@ export function ReportsPage() {
     },
     {
       key: 'reportedLabel',
-      header: 'User',
+      header: 'Reported label',
       render: (r) => (
         <StatusBadge
           kind={labelToStatusKind(r.reportedLabel)}
@@ -199,7 +200,7 @@ export function ReportsPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (r) => r.status,
+      render: (r) => formatStatus(r.status),
       width: '12%',
     },
     {
@@ -207,7 +208,7 @@ export function ReportsPage() {
       header: '',
       align: 'right',
       render: (r) =>
-        r.status === 'PENDING' && canManageReports ? (
+        r.status === 'Pending' ? (
           <span style={{ display: 'inline-flex', gap: 6 }}>
             <Button
               size="sm"
@@ -236,29 +237,15 @@ export function ReportsPage() {
     },
   ];
 
-  const navGroups = useAdminNavGroups();
-
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}
       onNavigate={(p) => void navigate(p)}
       topbarContext={<span>Intelligence &middot; Reports</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/admin-login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
@@ -319,9 +306,9 @@ export function ReportsPage() {
                 }
                 options={[
                   { value: 'all', label: 'All' },
-                  { value: 'PENDING', label: 'Pending' },
-                  { value: 'VALIDATED', label: 'Approved' },
-                  { value: 'REJECTED', label: 'Rejected' },
+                  { value: 'Pending', label: 'Pending' },
+                  { value: 'Validated', label: 'Approved' },
+                  { value: 'Rejected', label: 'Rejected' },
                 ]}
               />
             </div>
@@ -359,7 +346,7 @@ export function ReportsPage() {
                 description={
                   search || statusFilter !== 'all'
                     ? 'Clear filters to see more results.'
-                    : 'Reports appear here when users submit label corrections from the client portal.'
+                    : 'Reports appear here when mobile users submit label corrections.'
                 }
               />
             }

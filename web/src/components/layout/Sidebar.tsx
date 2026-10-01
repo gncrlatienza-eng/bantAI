@@ -98,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
       >
         <Link
-          to={role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW}
+          to={role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.SHIELD.OVERVIEW}
           className="brand-lockup"
           onClick={saveScrollPos}
         >

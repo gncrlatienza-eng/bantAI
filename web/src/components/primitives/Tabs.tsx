@@ -36,6 +36,20 @@ export function Tabs({
 }: TabsProps) {
   const listRef = React.useRef<HTMLDivElement>(null);
 
+  // On a phone the strip scrolls sideways, so a selected tab (a deep link
+  // like ?tab=fpfn, or arrow-key navigation) can sit off-screen. Scroll only
+  // the strip, never the page.
+  React.useEffect(() => {
+    const list = listRef.current;
+    const selected = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !selected) return;
+    const strip = list.getBoundingClientRect();
+    const tab = selected.getBoundingClientRect();
+    if (tab.left < strip.left) list.scrollLeft -= strip.left - tab.left;
+    else if (tab.right > strip.right)
+      list.scrollLeft += tab.right - strip.right;
+  }, [activeId]);
+
   const focusableIndexes = tabs
     .map((t, i) => (t.disabled ? -1 : i))
     .filter((i) => i >= 0);

@@ -30,7 +30,6 @@ export const Footer: React.FC = () => {
               Platform
             </strong>
             <Link to={ROUTES.HOW_IT_WORKS}>How It Works</Link>
-            <Link to={ROUTES.RESEARCH}>Research and Methodology</Link>
             <Link to={ROUTES.LOGIN}>Sign in</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

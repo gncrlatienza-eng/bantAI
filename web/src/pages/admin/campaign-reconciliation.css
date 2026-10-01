@@ -1,0 +1,13 @@
+.campaign-reconciliation-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.campaign-reconciliation-form input,
+.campaign-reconciliation-form select,
+.campaign-reconciliation-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}

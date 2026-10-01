@@ -1,14 +1,13 @@
 /*
- * AuthLayout — cream canvas, atmospheric left, card-on-the-right.
+ * AuthLayout — cream canvas, intro + diagram on the left, card on the right.
+ *
+ * Every row (header, main, footer) shares one horizontal container so the
+ * brand, the intro, the card and the footer all align to the same edges.
  *
  * Grid columns:
- *   desktop  ≥ 1024px : [decor 1fr] [form 1fr]  — card sits at ~68% x
- *   tablet   640..1023: single column, form centered horizontally
- *   mobile   < 640px  : single column, form full width with page padding
- *
- * The card is intentionally NOT vertically centered — it sits above the
- * midline (align-items: center on a slightly-taller grid) so the eye
- * lands on the form quickly instead of hunting for it.
+ *   desktop  ≥ 1100px : [intro ~54%] [card ~46%] — both vertically centred
+ *   tablet   768..1099: two columns, smaller diagram, tighter gutters
+ *   mobile   < 768px  : single column, decor hidden, form full width
  */
 
 .bantai-auth-layout {
@@ -16,8 +15,13 @@
      decorative SVG and the passkey ghost button. Blue is a supporting
      note, never a primary surface. */
   --auth-accent-slate: #5b6b7a;
+  --auth-gutter: clamp(16px, 4vw, 56px);
 
   min-height: 100vh;
+  min-height: 100svh;
+  /* The app root is color-scheme: dark (tokens.css); these pages are a light
+     cream surface, so native checkboxes/radios/scrollbars must render light. */
+  color-scheme: light;
   background: var(--surface-canvas);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -25,13 +29,25 @@
   grid-template-rows: auto 1fr auto;
 }
 
+.bantai-auth-layout__container {
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-inline: var(--auth-gutter);
+  box-sizing: border-box;
+}
+
 /* ————— Header ————— */
 
 .bantai-auth-layout__header {
+  padding-block: 10px;
+}
+
+.bantai-auth-layout__header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 40px;
+  gap: 16px;
 }
 
 .bantai-auth-layout__brand {
@@ -44,8 +60,8 @@
 
 .bantai-auth-layout__brand-mark {
   display: inline-flex;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
 }
 
 .bantai-auth-layout__brand-word {
@@ -54,46 +70,141 @@
   letter-spacing: -0.005em;
 }
 
-.bantai-auth-layout__utility {
+/* "Back to site" — compact ghost navigation that sits on the card's left
+   edge. Quiet by default (secondary text, no fill), a soft plum tint on
+   hover, a clear plum ring for keyboard focus. Always subordinate to the
+   Sign in button. */
+.bantai-auth-layout__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 8px;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   text-decoration: none;
-  transition: color 150ms var(--motion-ease, ease);
+  transition:
+    background-color 150ms var(--motion-ease, ease),
+    color 150ms var(--motion-ease, ease);
 }
 
-.bantai-auth-layout__utility:hover {
-  color: var(--text-primary);
+.bantai-auth-layout__back:hover {
+  background: var(--plum-08);
+  color: var(--brand-primary);
+}
+
+.bantai-auth-layout__back:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.bantai-auth-layout__back svg {
+  flex-shrink: 0;
+}
+
+/* Pull the ghost control's right padding out so its label ends exactly on
+   the container edge — the same edge the card's right side sits on. */
+.bantai-auth-layout__header nav {
+  margin-right: -10px;
 }
 
 /* ————— Main grid ————— */
 
 .bantai-auth-layout__main {
-  position: relative;
+  display: flex;
+  align-items: center;
+  padding-block: 8px 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bantai-auth-layout__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  padding: 24px 24px 48px;
-  min-height: 0;
-  min-width: 0;
+  justify-items: center;
+  gap: 32px;
 }
 
-@media (min-width: 1024px) {
-  .bantai-auth-layout__main {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    padding: 32px 40px 64px;
-    /* Card slightly above vertical centre — feels intentional, not floaty */
-    align-items: start;
-    padding-top: max(64px, 10vh);
+@media (min-width: 768px) {
+  .bantai-auth-layout__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+    justify-items: stretch;
+    gap: clamp(32px, 5vw, 72px);
   }
 }
 
-/* Decorative panel — hidden on mobile/tablet so the form breathes */
+@media (min-width: 1100px) {
+  .bantai-auth-layout__grid {
+    grid-template-columns: minmax(0, 56fr) minmax(0, 44fr);
+  }
+
+  .bantai-auth-layout__main {
+    padding-block: 8px 20px;
+  }
+}
+
+/* Left column — intro copy + campaign-intelligence diagram */
+
+.bantai-auth-layout__intro {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  /* Heading + illustration read as one group. The bottom margin lifts the
+     group's centre a little above the card's, so it sits slightly high. */
+  .bantai-auth-layout__intro {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-bottom: 56px;
+  }
+}
+
+.bantai-auth-layout__intro-title {
+  margin: 0;
+  max-width: 18ch;
+  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.bantai-auth-layout__art {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 720px;
+}
+
+/* The illustration is capped by the viewport height, not just the column
+   width: whatever is left after the header, footer, main padding and intro
+   heading (~275px together). object-fit keeps its aspect ratio under the cap
+   and pins it top-left, so it stays tucked under the heading. */
+.bantai-auth-art-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100svh - 275px);
+  object-fit: contain;
+  object-position: left top;
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .bantai-auth-layout__art {
+    max-width: 480px;
+  }
+}
+
+/* 'paused' decor (request-access pages) — atmospheric, desktop only */
 
 .bantai-auth-layout__decor {
   display: none;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1100px) {
   .bantai-auth-layout__decor {
     display: block;
     position: relative;
@@ -111,10 +222,14 @@
   opacity: 0.9;
 }
 
-/* Card slot — where the sign-in card lives.
-   On desktop we push it towards ~68% of the page (i.e. slightly left of
-   right-edge) by placing it in the right column with a max-width and
-   right-aligned padding. */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .bantai-auth-layout--paused .bantai-auth-layout__grid {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}
+
+/* Card slot — right-weighted in its column rather than centred */
 
 .bantai-auth-layout__slot {
   display: flex;
@@ -123,23 +238,24 @@
   min-width: 0;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1100px) {
   .bantai-auth-layout__slot {
-    justify-content: flex-start;
-    padding-left: 40px;
-    max-width: 560px;
+    justify-content: flex-end;
   }
 }
 
 /* ————— Footer ————— */
 
 .bantai-auth-layout__footer {
+  padding-block: 8px 12px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.bantai-auth-layout__footer-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 40px 28px;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -169,26 +285,33 @@
  * rather than depending on the legacy AuthShell card styles.
  */
 
-.bantai-auth-card {
+.bantai-auth-layout .bantai-auth-card {
   width: 100%;
-  max-width: 460px;
+  max-width: 464px;
   background: var(--surface-raised);
   border: 1px solid var(--border-default);
   border-radius: 14px;
-  padding: 40px 36px 32px;
-  box-shadow: 0 12px 32px
-    color-mix(in srgb, var(--palette-warm-ink, #211f24) 6%, transparent);
+  padding: 28px 28px 24px;
+  box-shadow:
+    0 1px 2px
+      color-mix(in srgb, var(--palette-warm-ink, #211f24) 5%, transparent),
+    0 6px 16px
+      color-mix(in srgb, var(--palette-warm-ink, #211f24) 5%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
+  box-sizing: border-box;
 }
 
-@media (max-width: 640px) {
-  .bantai-auth-card {
-    padding: 32px 24px 28px;
-    border-radius: 12px;
+@media (max-width: 767px) {
+  /* Mobile: drop the container look — the form sits directly on the page. */
+  .bantai-auth-layout .bantai-auth-card {
+    max-width: 480px;
+    padding: 8px 0 16px;
+    border-radius: 0;
+    border-color: transparent;
+    background: transparent;
     box-shadow: none;
-    border-color: color-mix(in srgb, var(--palette-warm-ink) 10%, transparent);
   }
 }
 
@@ -221,7 +344,7 @@
 .bantai-auth-card__form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 /* Light input treatment — subtle border on cream, plum focus ring.
@@ -249,16 +372,24 @@
   border-color: color-mix(in srgb, var(--palette-warm-ink) 24%, transparent);
 }
 
+/* Focus = one soft plum edge. The border simply shifts from warm grey to
+   muted plum — no inset ring, no halo, no browser outline — so the field
+   reads as active without looking boxed in. */
 .bantai-auth-card .form-input:focus,
 .bantai-auth-card .form-input:focus-visible {
   outline: none;
   background: var(--surface-canvas);
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px var(--plum-14);
+  border-color: color-mix(in srgb, var(--brand-primary) 72%, transparent);
+  box-shadow: none;
 }
 
 .bantai-auth-card .form-input.error {
   border-color: color-mix(in srgb, var(--status-threat) 60%, transparent);
+}
+
+.bantai-auth-card .form-input.error:focus {
+  border-color: var(--status-threat);
+  box-shadow: inset 0 0 0 1px var(--status-threat);
 }
 
 /* Chrome/Edge/Safari default the autofill fill to a bright yellow or the
@@ -275,12 +406,86 @@
   transition: background-color 5000s ease-in-out 0s;
 }
 
+.bantai-auth-card .form-label-row {
+  margin-bottom: 6px;
+}
+
 .bantai-auth-card .form-label {
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 6px;
   display: block;
+}
+
+.bantai-auth-card .form-help-text {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* Card heading block — eyebrow, title and subtitle sit closer together
+   than the form fields below them. */
+.bantai-auth-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Resend confirmation. Always mounted (so screen readers announce it) but
+   pulled out of the flow while empty, so it adds no gap. */
+.bantai-auth-card__notice {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.bantai-auth-card__notice:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.bantai-auth-card .toggle-password-btn {
+  color: var(--text-secondary);
+}
+
+.bantai-auth-card .toggle-password-btn:hover {
+  color: var(--text-primary);
+  background: var(--plum-08);
+}
+
+.bantai-auth-card .toggle-password-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -4px;
+}
+
+/* Inline text action on a label row (e.g. "Forgot password?") */
+.bantai-auth-card__label-action {
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 150ms var(--motion-ease, ease);
+}
+
+.bantai-auth-card__label-action:hover {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bantai-auth-card__label-action:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
 }
 
 .bantai-auth-card .form-group {
@@ -324,13 +529,56 @@
 }
 
 .bantai-auth-card__primary:hover:not(:disabled) {
-  filter: brightness(1.06);
+  background: color-mix(
+    in srgb,
+    var(--brand-primary) 88%,
+    var(--palette-warm-ink)
+  );
+}
+
+.bantai-auth-card__primary:active:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--brand-primary) 78%,
+    var(--palette-warm-ink)
+  );
+  transform: translateY(1px);
+}
+
+.bantai-auth-card__primary:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 3px;
+}
+
+.bantai-auth-card__primary[aria-busy='true'] {
+  cursor: progress;
+}
+
+.bantai-auth-card__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--text-on-brand) 35%, transparent);
+  border-top-color: var(--text-on-brand);
+  animation: bantai-auth-spin 700ms linear infinite;
+}
+
+@keyframes bantai-auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .bantai-auth-card__primary:disabled,
 .bantai-auth-card__primary[aria-disabled='true'] {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Loading keeps the button readable — it is busy, not unavailable. */
+.bantai-auth-card__primary[aria-busy='true'] {
+  opacity: 0.88;
+  cursor: progress;
 }
 
 .bantai-auth-card__secondary {
@@ -382,7 +630,7 @@
 
 .bantai-auth-card__foot a {
   color: var(--brand-primary);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
 }
 
@@ -421,7 +669,7 @@
  * unavailable state reads as an intentional posture rather than a stripped
  * login form. */
 
-.bantai-auth-card--notice {
+.bantai-auth-layout .bantai-auth-card--notice {
   max-width: 520px;
   gap: 22px;
 }
@@ -547,8 +795,50 @@
   .bantai-auth-card__primary,
   .bantai-auth-card__secondary,
   .bantai-auth-card .form-input,
-  .bantai-auth-layout__utility,
+  .bantai-auth-layout__back,
   .bantai-auth-layout__utils a {
     transition: none !important;
   }
+
+  .bantai-auth-card__primary:active:not(:disabled) {
+    transform: none;
+  }
+
+  .bantai-auth-card__spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+/* One-time code field — wide tracking and tabular digits so six characters
+   read as a code, while staying a single input (paste and autofill of
+   one-time-code keep working). */
+.bantai-auth-card .form-input.bantai-auth-card__otp {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5em;
+  text-align: center;
+  padding-inline: 14px 7px;
+}
+
+/* 'none' variant — a long, scrolling page (request access) that owns its
+   own columns. Single full-width column, top-aligned, normal page flow. */
+/* Full-bleed section art may extend past the container and below the last
+   section; clip at the page root so it never adds scroll in either axis. */
+.bantai-auth-layout--none {
+  overflow: clip;
+}
+
+.bantai-auth-layout--none .bantai-auth-layout__main {
+  align-items: flex-start;
+  padding-block: 8px 48px;
+}
+
+.bantai-auth-layout--none .bantai-auth-layout__grid {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: stretch;
+}
+
+.bantai-auth-layout--none .bantai-auth-layout__slot {
+  display: block;
 }

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+: allowBackup="false" stops cloud backup but NOT phone-to-phone
+    transfer (Smart Switch, Google's setup copy). Without these rules, BantAI's
+    drafts, locally kept messages, name/email and flagged/blocked numbers were
+    copied to the new phone in plain files. Nothing is backed up or transferred;
+    the new phone starts fresh and re-reads the SMS database.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

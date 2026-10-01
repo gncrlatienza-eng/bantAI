@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,12 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.ui.components.OnboardingHeader
 import com.bantai.ui.components.PillTextField
 import com.bantai.ui.components.PrimaryButton
@@ -58,6 +60,7 @@ import com.bantai.ui.components.SectionLabel
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.OnboardingViewModel
@@ -114,6 +117,7 @@ fun OnboardingProfileScreen(
                 .background(Black)
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
     ) {
@@ -123,9 +127,9 @@ fun OnboardingProfileScreen(
 
         AnimatedVisibility(visible = visible, enter = staggeredEnter(DELAY_HEADER_MS)) {
             OnboardingHeader(
-                eyebrow = "Almost there",
-                title = "Set up your profile",
-                subtitle = "This is how BantAI will address you — kept on this device, never shared.",
+                eyebrow = stringResource(R.string.onboarding_profile_step_5_of_5),
+                title = stringResource(R.string.onboarding_profile_set_up_your_profile),
+                subtitle = stringResource(R.string.onboarding_profile_this_is_how_bantai_will),
             )
         }
         Spacer(Modifier.height(40.dp))
@@ -157,7 +161,11 @@ fun OnboardingProfileScreen(
 @Composable
 private fun ProfileBackButton(onClick: () -> Unit) {
     IconButton(onClick = onClick) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = stringResource(R.string.action_back),
+            tint = White,
+        )
     }
 }
 
@@ -175,10 +183,10 @@ private fun ProfileNameFields(
 
     AnimatedVisibility(visible = visible, enter = staggeredEnter(DELAY_FIRST_NAME_MS)) {
         ProfileNameField(
-            label = "First name",
+            label = stringResource(R.string.onboarding_profile_first_name),
             value = firstName,
             onValueChange = { if (it.length <= NAME_MAX_LENGTH) viewModel.updateFirstName(it) },
-            placeholder = "e.g. Maria",
+            placeholder = stringResource(R.string.onboarding_profile_e_g_maria),
             errorMessage = firstNameErrorMessage.takeIf { firstNameError },
         )
     }
@@ -186,10 +194,10 @@ private fun ProfileNameFields(
 
     AnimatedVisibility(visible = visible, enter = staggeredEnter(DELAY_LAST_NAME_MS)) {
         ProfileNameField(
-            label = "Last name (optional)",
+            label = stringResource(R.string.onboarding_profile_last_name_optional),
             value = lastName,
             onValueChange = { if (it.length <= NAME_MAX_LENGTH) viewModel.updateLastName(it) },
-            placeholder = "e.g. Santos",
+            placeholder = stringResource(R.string.onboarding_profile_e_g_santos),
             errorMessage = lastNameErrorMessage.takeIf { lastNameError },
         )
     }
@@ -203,7 +211,7 @@ private fun ProfileActions(
 ) {
     Column {
         if (errorMessage != null) {
-            Text(errorMessage, fontSize = 12.sp, color = Danger)
+            Text(errorMessage, fontSize = TextSize.Caption, color = Danger)
             Spacer(Modifier.height(12.dp))
         }
         PrimaryButton(
@@ -264,12 +272,18 @@ private fun ProfileAvatar(
                     },
             contentAlignment = Alignment.Center,
         ) {
-            Text(initials, color = White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text(initials, color = White, fontSize = TextSize.LargeTitle, fontWeight = FontWeight.Bold)
         }
         Text(
-            if (avatarTapped) "Looking good" else "Tap to change color",
+            stringResource(
+                if (avatarTapped) {
+                    R.string.onboarding_profile_looking_good
+                } else {
+                    R.string.edit_profile_tap_to_change_color
+                },
+            ),
             color = TextSecondary,
-            fontSize = 12.sp,
+            fontSize = TextSize.Caption,
         )
     }
 }
@@ -295,14 +309,14 @@ private fun ProfileNameField(
         )
         if (errorMessage != null) {
             Spacer(Modifier.height(4.dp))
-            Text(errorMessage, color = Danger, fontSize = 12.sp)
+            Text(errorMessage, color = Danger, fontSize = TextSize.Caption)
         }
         if (focused) {
             Spacer(Modifier.height(4.dp))
             Text(
                 "${value.length}/$NAME_MAX_LENGTH",
                 color = TextSecondary,
-                fontSize = 11.sp,
+                fontSize = TextSize.Caption2,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
             )

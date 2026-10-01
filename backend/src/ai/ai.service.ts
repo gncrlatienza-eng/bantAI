@@ -24,6 +24,8 @@ export interface ClassifyResult {
   bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
   indicators: { tag: string; weight: number }[];
   explanationMethod: 'shap' | 'keyword-fallback';
+  /** The campaign the AI matched this message to, or null when nothing cleared a tier. */
+  campaign: { clusterId: string; matchReason: string | null } | null;
 }
 
 interface AiClassifyResponse {
@@ -32,6 +34,11 @@ interface AiClassifyResponse {
   bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
   indicators?: { tag?: unknown; weight?: unknown }[];
   explanation_method?: unknown;
+  campaign?: {
+    cluster_id?: unknown;
+    matched?: unknown;
+    match_reason?: unknown;
+  } | null;
 }
 
 @Injectable()
@@ -95,12 +102,31 @@ export class AiService {
       );
       const explanationMethod =
         data.explanation_method === 'shap' ? 'shap' : 'keyword-fallback';
+      // Only a positive match is kept. cluster_id is the backend's own
+      // CampaignCluster id (the AI service loads centroids from
+      // GET /campaigns/centroids), so the caller can look it up directly.
+      const match = data.campaign;
+      const campaign =
+        match &&
+        match.matched === true &&
+        typeof match.cluster_id === 'string' &&
+        match.cluster_id.length > 0 &&
+        match.cluster_id.length <= 64
+          ? {
+              clusterId: match.cluster_id,
+              matchReason:
+                typeof match.match_reason === 'string'
+                  ? match.match_reason
+                  : null,
+            }
+          : null;
       return {
         label: data.label,
         score: data.score,
         bucket: data.bucket,
         indicators,
         explanationMethod,
+        campaign,
       };
     } catch (err) {
       this.logger.warn(

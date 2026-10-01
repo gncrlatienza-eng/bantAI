@@ -8,13 +8,13 @@ package com.bantai.data.model
 // a local extractive preview of that unread batch; otherwise it keeps the
 // newest SMS body as its preview. The row is marked unread if any message in
 // that sender's group is unread.
-fun List<SmsMessage>.groupedBySenderLatest(): List<SmsMessage> {
+fun List<SmsMessage>.groupedBySenderLatest(summarizeUnread: Boolean = true): List<SmsMessage> {
     val latestBySender = LinkedHashMap<String, SmsMessage>()
     val hasUnreadBySender = mutableMapOf<String, Boolean>()
     val unreadBySender = mutableMapOf<String, MutableList<SmsMessage>>()
 
     for (msg in this) {
-        val key = normalizeSenderKey(msg.sender)
+        val key = msg.conversationKey
         latestBySender.putIfAbsent(key, msg)
         hasUnreadBySender[key] = (hasUnreadBySender[key] ?: false) || !msg.isRead
         if (!msg.isRead) unreadBySender.getOrPut(key) { mutableListOf() }.add(msg)
@@ -22,8 +22,11 @@ fun List<SmsMessage>.groupedBySenderLatest(): List<SmsMessage> {
 
     return latestBySender.map { (key, msg) ->
         val unread = unreadBySender[key].orEmpty()
-        val summary = summarizeUnreadThread(unread)
+        val summary = if (summarizeUnread) summarizeUnreadThread(unread) else null
         msg.copy(
+            // A group's row is the group, not whoever wrote last: opening,
+            // deleting or muting it acts on the whole thread.
+            sender = if (msg.groupThreadId != null) key else msg.sender,
             body = summary ?: msg.body,
             isRead = !(hasUnreadBySender[key] ?: false),
             isUnreadThreadSummary = summary != null,
@@ -31,17 +34,113 @@ fun List<SmsMessage>.groupedBySenderLatest(): List<SmsMessage> {
     }
 }
 
+private const val GROUP_KEY_PREFIX = "group:"
+private const val GROUP_TITLE_NAMES = 3
+
+/** The conversation key of a group thread (see [conversationKey]). */
+fun groupKey(threadId: Long): String = "$GROUP_KEY_PREFIX$threadId"
+
+/** The thread id in a group key; null for a 1:1 key (a phone number or sender ID). */
+fun groupThreadIdOf(key: String): Long? {
+    if (!key.startsWith(GROUP_KEY_PREFIX)) return null
+    return key.removePrefix(GROUP_KEY_PREFIX).toLongOrNull()
+}
+
+fun isGroupKey(key: String): Boolean = groupThreadIdOf(key) != null
+
+/** "Ana, Ben and Carl", or "Ana, Ben, Carl +2" for bigger groups. */
+fun groupTitle(names: List<String>): String =
+    when {
+        names.isEmpty() -> "Group"
+        names.size == 1 -> names.single()
+        names.size <= GROUP_TITLE_NAMES -> names.dropLast(1).joinToString(", ") + " and " + names.last()
+        else -> names.take(GROUP_TITLE_NAMES).joinToString(", ") + " +${names.size - GROUP_TITLE_NAMES}"
+    }
+
+/**
+ * Which slice of a sender's messages is shown: the inbox chips place each
+ * message by its own verdict, so a sender that mixes OTPs with promos appears
+ * in both Messages and Spam, and opening it from a chip shows only that
+ * chip's messages. The user's own sent messages appear in every view so a
+ * reply (e.g. a promo keyword to 8080) keeps its context. Blocked scams live
+ * only in Alerts.
+ */
+private val HIDDEN_FROM_MESSAGES = setOf(Classification.SPAM, Classification.UNKNOWN, Classification.SCAM)
+
+enum class ConversationView(
+    val routeValue: String,
+) {
+    ALL("all"),
+    MESSAGES("messages"),
+    SPAM("spam"),
+    UNKNOWN("unknown"),
+
+    /**
+     * Only this sender's messages in Recently Deleted. MessageDetailViewModel
+     * loads exactly those rows for this view, so [includes] passes them all.
+     * Opening a Recently Deleted row used to show the rest of the conversation
+     * (everything *but* the deleted messages), which looked like a duplicate.
+     */
+    DELETED("deleted"),
+    ;
+
+    fun includes(message: SmsMessage): Boolean =
+        when (this) {
+            ALL -> true
+            MESSAGES -> message.isOutgoing || message.classification !in HIDDEN_FROM_MESSAGES
+            SPAM -> message.isOutgoing || message.classification == Classification.SPAM
+            UNKNOWN -> message.isOutgoing || message.classification == Classification.UNKNOWN
+            DELETED -> true
+        }
+
+    companion object {
+        fun fromRoute(value: String?): ConversationView = entries.firstOrNull { it.routeValue == value } ?: ALL
+    }
+}
+
 // Strips whitespace, hyphens, and parentheses so "+63 917-123-4567" and
 // "+639171234567" collapse into the same conversation, matching the
 // normalization SmsReceiver already applies when storing incoming messages.
-fun normalizeSenderKey(address: String): String = address.replace(Regex("[\\s\\-()]"), "")
+// Compiled once: this runs for every message on every regroup of the inbox.
+private val SENDER_SEPARATORS = Regex("[\\s\\-()]")
+private val PH_MOBILE_LOCAL = Regex("^09\\d{9}$")
+private val PH_MOBILE_NO_PLUS = Regex("^639\\d{9}$")
+private val PH_MOBILE_BARE = Regex("^9\\d{9}$")
+
+/**
+ * One key per person. Besides formatting, a PH mobile number arrives as
+ * "+639171234567" but is usually typed as "09171234567": those used to be two
+ * different conversations, so a thread started from Compose never showed the
+ * other person's replies. All PH mobile forms now collapse to "+639...".
+ */
+fun normalizeSenderKey(address: String): String {
+    if (isGroupKey(address)) return address
+    val stripped = address.replace(SENDER_SEPARATORS, "")
+    return when {
+        PH_MOBILE_LOCAL.matches(stripped) -> "+63" + stripped.drop(1)
+        PH_MOBILE_NO_PLUS.matches(stripped) -> "+$stripped"
+        PH_MOBILE_BARE.matches(stripped) -> "+63$stripped"
+        else -> stripped
+    }
+}
+
+/** The ADDRESS spellings the SMS database may hold for this person (for exact-match queries). */
+fun addressVariants(address: String): List<String> {
+    val key = normalizeSenderKey(address)
+    val variants = linkedSetOf(address, address.replace(SENDER_SEPARATORS, ""), key)
+    if (key.startsWith("+639") && key.length == PH_E164_LENGTH) {
+        variants += "0" + key.drop(PH_COUNTRY_PREFIX.length)
+        variants += key.drop(1)
+    }
+    return variants.toList()
+}
+
+private const val PH_E164_LENGTH = 13
+private const val PH_COUNTRY_PREFIX = "+63"
 
 private const val MINIMUM_UNREAD_MESSAGES_FOR_SUMMARY = 2
 private const val MAXIMUM_SUMMARY_SENTENCES = 2
 private const val MAXIMUM_SUMMARY_CHARACTERS = 220
-
-private const val DEFAULT_THREAD_SUMMARY_SENTENCES = 3
-private const val DEFAULT_THREAD_SUMMARY_CHARACTERS = 400
 
 /**
  * Unread-preview variant used by the Messages list. The input is newest-first
@@ -49,141 +148,16 @@ private const val DEFAULT_THREAD_SUMMARY_CHARACTERS = 400
  */
 fun summarizeUnreadThread(messages: List<SmsMessage>): String? {
     if (messages.count { !it.isRead } < MINIMUM_UNREAD_MESSAGES_FOR_SUMMARY) return null
-    return summarizeThread(
-        messages.asReversed(),
-        maxSentences = MAXIMUM_SUMMARY_SENTENCES,
-        maxChars = MAXIMUM_SUMMARY_CHARACTERS,
-    )
-}
-
-/**
- * Produces a small TF-IDF-style extractive summary entirely in memory.
- *
- * Sentences are selected by their distinctive terms, then restored to
- * chronological order so the result reads naturally. Extractive only: every
- * sentence returned was actually sent. This intentionally does not use a
- * network model or persist a derived copy of the message content -- the
- * backend's POST /ai/summarize is disabled (410) in privacy-first mode, so
- * this is what backs the in-thread AI Summary sheet too.
- *
- * @param messagesOldestFirst thread messages in chronological order.
- * @return null when there are fewer than two sentences to choose between.
- */
-fun summarizeThread(
-    messagesOldestFirst: List<SmsMessage>,
-    maxSentences: Int = DEFAULT_THREAD_SUMMARY_SENTENCES,
-    maxChars: Int = DEFAULT_THREAD_SUMMARY_CHARACTERS,
-): String? {
-    val sentences =
-        messagesOldestFirst
-            .flatMap { message -> splitSentences(message.body) }
-            .filter { it.isNotBlank() }
-    if (sentences.size < 2) return null
-
-    val tokenized = sentences.map(::meaningfulTokens)
-    val documentFrequency = mutableMapOf<String, Int>()
-    tokenized.forEach { tokens ->
-        tokens.toSet().forEach { token ->
-            documentFrequency[token] = (documentFrequency[token] ?: 0) + 1
-        }
-    }
-    val documentCount = sentences.size.toDouble()
-
-    val selectedIndices =
-        sentences.indices
-            .map { index ->
-                val tokens = tokenized[index]
-                val score =
-                    if (tokens.isEmpty()) {
-                        0.0
-                    } else {
-                        tokens.sumOf { token ->
-                            val idf =
-                                kotlin.math.ln(
-                                    (documentCount + 1) / ((documentFrequency[token] ?: 0) + 1),
-                                ) + 1
-                            idf
-                        } / tokens.size
-                    }
-                index to score
-            }.sortedWith(
-                compareByDescending<Pair<Int, Double>> { it.second }
-                    .thenBy { it.first },
-            ).take(maxSentences)
-            .map { it.first }
-            .sorted()
-
-    val summary = selectedIndices.joinToString(" ") { sentences[it] }.trim()
-    return summary.take(maxChars).trim().takeIf { it.isNotBlank() }
-}
-
-private fun splitSentences(body: String): List<String> =
-    body
-        .replace(Regex("\\s+"), " ")
+    val topic = threadTopicPhrase(messages)?.let { "$it." }
+    val extract =
+        summarizeThread(
+            messages.asReversed(),
+            maxSentences = MAXIMUM_SUMMARY_SENTENCES,
+            maxChars = MAXIMUM_SUMMARY_CHARACTERS,
+        )
+    return listOfNotNull(topic, extract)
+        .joinToString(" ")
+        .take(MAXIMUM_SUMMARY_CHARACTERS)
         .trim()
-        .split(Regex("(?<=[.!?])\\s+"))
-        .map(String::trim)
-        .filter(String::isNotBlank)
-
-private fun meaningfulTokens(text: String): List<String> =
-    TOKEN_REGEX
-        .findAll(text.lowercase())
-        .map { it.value }
-        .filterNot { it in SUMMARY_STOP_WORDS }
-        .toList()
-
-private val TOKEN_REGEX = Regex("[\\p{L}\\p{N}]{2,}")
-
-// Small bilingual stop-word list keeps common function words from winning the
-// extraction score while avoiding a bulky NLP dependency in the Android app.
-private val SUMMARY_STOP_WORDS =
-    setOf(
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "but",
-        "by",
-        "for",
-        "from",
-        "has",
-        "have",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "that",
-        "the",
-        "this",
-        "to",
-        "was",
-        "were",
-        "will",
-        "with",
-        "you",
-        "your",
-        "ang",
-        "at",
-        "ay",
-        "ba",
-        "dahil",
-        "ito",
-        "ka",
-        "ko",
-        "kung",
-        "mga",
-        "na",
-        "ng",
-        "para",
-        "po",
-        "sa",
-        "si",
-        "sila",
-        "tayo",
-        "yung",
-    )
+        .takeIf { it.isNotBlank() }
+}

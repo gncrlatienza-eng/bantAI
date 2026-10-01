@@ -56,6 +56,12 @@ def test_extract_domains_handles_defanged_urls():
     assert extract_domains("hxxp://evil-bank.top/login") == ["evil-bank.top"]
 
 
+def test_extract_domains_skips_malformed_links():
+    """A stray "[" makes urlparse raise "Invalid IPv6 URL"; that link is skipped
+    instead of turning /classify into a 500 (seen live, 2026-09-30)."""
+    assert extract_domains("claim at http://[bad/x or https://bit.ly/abc") == ["bit.ly"]
+
+
 def test_profile_keeps_common_wording_not_member_noise():
     texts = CAMPAIGN + ["Congrats! Your GCash account won P100. zzz unique filler"]
     profile = build_profile(texts)

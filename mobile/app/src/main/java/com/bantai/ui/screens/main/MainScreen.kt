@@ -9,9 +9,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.screens.settings.SettingsScreen
 import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.SettingsViewModel
@@ -26,14 +25,13 @@ private const val TAB_FADE_OUT_MS = 140
 fun MainScreen(
     navController: NavController,
     settingsViewModel: SettingsViewModel,
+    // Hoisted to NavGraph so it survives tab switches and also feeds the tab
+    // bar's Alerts count.
+    alertsViewModel: AlertsViewModel,
     selectedTab: Int,
 ) {
-    // Hoisted here (rather than left as AlertsScreen's default viewModel())
-    // so it survives tab switches instead of being recreated each time.
-    val alertsViewModel: AlertsViewModel = viewModel()
-
     // Content draws edge to edge behind the floating bar.
-    val contentPadding = PaddingValues(bottom = 116.dp)
+    val contentPadding = PaddingValues(bottom = LocalBottomBarClearance.current)
 
     AnimatedContent(
         targetState = selectedTab,

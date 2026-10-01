@@ -78,4 +78,28 @@ class SmsPrivacyMaskerTest {
         val result = SmsPrivacyMasker.maskForRemoteClassification("You sent ₱1,500.00 to Juan")
         assertEquals("You sent [AMOUNT] to Juan", result)
     }
+
+    @Test
+    fun `masks a plain P amount`() {
+        assertEquals(
+            "Received [AMOUNT] from Maria",
+            SmsPrivacyMasker.maskForRemoteClassification("Received P5,000 from Maria"),
+        )
+        assertEquals("Load [AMOUNT] now", SmsPrivacyMasker.maskForRemoteClassification("Load P 250.00 now"))
+    }
+
+    @Test
+    fun `leaves words and codes that start with P alone`() {
+        assertEquals("Try P2P transfers", SmsPrivacyMasker.maskForRemoteClassification("Try P2P transfers"))
+    }
+
+    @Test
+    fun `masks a 4-digit MPIN and passcode`() {
+        assertEquals("Your MPIN is [OTP]", SmsPrivacyMasker.maskForRemoteClassification("Your MPIN is 4821"))
+        assertEquals("passcode: [OTP]", SmsPrivacyMasker.maskForRemoteClassification("passcode: 90210"))
+        assertEquals(
+            "Security number [OTP] expires soon",
+            SmsPrivacyMasker.maskForRemoteClassification("Security number 7731 expires soon"),
+        )
+    }
 }

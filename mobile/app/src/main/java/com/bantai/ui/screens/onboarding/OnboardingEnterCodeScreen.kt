@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,13 +41,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.OnboardingHeader
 import com.bantai.ui.components.PrimaryButton
@@ -54,6 +57,7 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 import kotlinx.coroutines.delay
@@ -71,19 +75,22 @@ fun OnboardingEnterCodeScreen(
     val focusRequesters = remember { List(6) { FocusRequester() } }
 
     // Fires after the backend accepts the typed OTP and the JWT is persisted.
-    // A returning user (401 bounced them back here with onboardingComplete
-    // already true -- see NavGraph's AuthEventBus.sessionExpired handler) has
-    // already been through Terms/Profile/Protected; re-verifying their email
-    // is not a fresh signup, so this sends them straight back into the
-    // app instead of forcing the whole onboarding flow again.
+    // This phone already finished setup (a sign-out, or a 401 from
+    // NavGraph's AuthEventBus.sessionExpired handler): straight back into the
+    // app, via the name step only when the account has no saved name yet.
     LaunchedEffect(Unit) {
         viewModel.onboardingAuthComplete.collect {
             if (viewModel.userData.value.onboardingComplete) {
-                navController.navigate(Screen.Main.route) {
+                val needsName = viewModel.firstName.value.isBlank()
+                val route = if (needsName) Screen.OnboardingProfile.route else Screen.Main.route
+                navController.navigate(route) {
                     popUpTo(0) { inclusive = true }
                 }
             } else {
-                navController.navigate(Screen.OnboardingTerms.route)
+                // Signed in now, so Back shouldn't lead to the email/code screens again.
+                navController.navigate(Screen.OnboardingDefaultSms.route) {
+                    popUpTo(0) { inclusive = true }
+                }
             }
         }
     }
@@ -110,19 +117,24 @@ fun OnboardingEnterCodeScreen(
                 .background(Black)
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
         IconButton(onClick = { navController.popBackStack() }) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.action_back),
+                tint = White,
+            )
         }
         Spacer(Modifier.height(16.dp))
 
         OnboardingHeader(
-            eyebrow = "Step 3 of 4",
-            title = "Enter the code",
-            subtitle = "We sent a 6-digit verification code to ${state.emailAddress}.",
+            eyebrow = stringResource(R.string.onboarding_enter_code_step_3_of_5),
+            title = stringResource(R.string.onboarding_enter_code_enter_the_code),
+            subtitle = stringResource(R.string.onboarding_code_sent_to, state.emailAddress),
         )
         Spacer(Modifier.height(32.dp))
 
@@ -155,19 +167,27 @@ fun OnboardingEnterCodeScreen(
 
         if (state.errorMessage != null) {
             Spacer(Modifier.height(16.dp))
-            Text(state.errorMessage ?: "", fontSize = 12.sp, color = Danger)
+            Text(state.errorMessage ?: "", fontSize = TextSize.Caption, color = Danger)
         }
 
         Spacer(Modifier.height(24.dp))
         Row {
-            Text("Didn't get it? ", color = TextSecondary, fontSize = 15.sp)
+            Text(
+                stringResource(R.string.onboarding_enter_code_didn_t_get_it),
+                color = TextSecondary,
+                fontSize = TextSize.Body,
+            )
             if (resendRemainingSec > 0) {
-                Text("Resend code in ${resendRemainingSec}s", color = TextSecondary, fontSize = 15.sp)
+                Text(
+                    stringResource(R.string.onboarding_resend_in, resendRemainingSec),
+                    color = TextSecondary,
+                    fontSize = TextSize.Body,
+                )
             } else {
                 Text(
-                    "Resend code",
+                    stringResource(R.string.onboarding_enter_code_resend_code),
                     color = Indigo,
-                    fontSize = 15.sp,
+                    fontSize = TextSize.Body,
                     modifier =
                         Modifier.clickable {
                             viewModel.resendVerificationCode()
@@ -179,7 +199,12 @@ fun OnboardingEnterCodeScreen(
         Spacer(Modifier.weight(1f))
 
         PrimaryButton(
-            text = if (verifyLockedRemainingSec > 0) "Try again in ${verifyLockedRemainingSec}s" else "Verify",
+            text =
+                if (verifyLockedRemainingSec > 0) {
+                    stringResource(R.string.onboarding_try_again_in, verifyLockedRemainingSec)
+                } else {
+                    stringResource(R.string.onboarding_verify)
+                },
             onClick = { viewModel.verifyCode() },
             enabled = !state.isLoading && verifyLockedRemainingSec == 0L,
             isLoading = state.isLoading,
@@ -203,12 +228,12 @@ private fun OtpBox(
         onValueChange = onValueChange,
         modifier =
             modifier
-                .height(52.dp)
+                .heightIn(min = 52.dp)
                 .focusRequester(focusRequester),
         textStyle =
             TextStyle(
                 color = White,
-                fontSize = 20.sp,
+                fontSize = TextSize.Title,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             ),

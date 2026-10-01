@@ -11,257 +11,404 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.HourglassEmpty
-import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Casino
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.Payments
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.bantai.data.remote.CampaignsApi
+import com.bantai.R
+import com.bantai.data.model.LocalCampaign
+import com.bantai.data.model.OTHER_SCAM_CATEGORY
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.MessageRowSkeleton
+import com.bantai.ui.components.StateMessage
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
-import com.bantai.ui.theme.Hairline
+import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
-import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SystemGray
+import com.bantai.ui.theme.TabTitleTopSpacing
 import com.bantai.ui.theme.TextSecondary
-import com.bantai.ui.theme.TextTertiary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
+import com.bantai.util.MessageTime
+import com.bantai.util.SmsLinkSafety
+import com.bantai.viewmodel.CampaignsUiState
 import com.bantai.viewmodel.CampaignsViewModel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.bantai.viewmodel.OpenTarget
 
+/**
+ * Scam Waves (the Campaigns tab, hidden unless Settings → "Show Scam Waves
+ * tab" is on). A wave is several scam texts on this phone that look like one
+ * blast -- grouped on the device, see LocalCampaigns.kt.
+ *
+ * One flat list of cards, newest activity first, split Active / Inactive. Each
+ * card says what the scam pretends to be, how many texts, when it was last
+ * seen, and a sample. Tapping opens ScamWaveScreen, like an alert.
+ *
+ * This replaced a three-level layout (category sections → row → sheet →
+ * separate detail screen) plus "Other scam texts" and footnotes, which users
+ * found messy; a bottom sheet after that felt abrupt (it rose from the
+ * bottom to the top). Single scams that belong to no wave already live in Alerts.
+ */
 @Composable
+@Suppress("LongMethod") // pinned header + chips + list + sheet, one screen
 fun CampaignsScreen(
     navController: NavController,
     innerPadding: PaddingValues,
     viewModel: CampaignsViewModel = viewModel(),
 ) {
-    val activeCampaigns by viewModel.activeCampaigns.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val errorMessage by viewModel.errorMessage.collectAsState()
-    val inactiveCampaigns by viewModel.inactiveCampaigns.collectAsState()
-    val isLoadingInactive by viewModel.isLoadingInactive.collectAsState()
-    val inactiveErrorMessage by viewModel.inactiveErrorMessage.collectAsState()
+    val state by viewModel.state.collectAsState()
+    var showEnded by rememberSaveable { mutableStateOf(false) }
 
-    LazyColumn(
+    // The ViewModel outlives this tab; re-reading on each visit picks up new
+    // messages. It refreshes in place -- the skeleton only shows before the first load.
+    LaunchedEffect(Unit) { viewModel.loadCampaigns() }
+
+    val now = System.currentTimeMillis()
+    val waves =
+        remember(state.overview) {
+            state.overview
+                ?.sections
+                ?.flatMap { it.campaigns }
+                .orEmpty()
+                .sortedByDescending { it.latestTimestamp }
+        }
+    val (active, ended) = waves.partition { it.isActive(now) }
+
+    Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(Black)
                 .statusBarsPadding(),
-        contentPadding =
-            PaddingValues(
-                start = 20.dp,
-                top = 16.dp,
-                end = 20.dp,
-                bottom = innerPadding.calculateBottomPadding() + 24.dp,
-            ),
     ) {
-        item {
-            Text("Campaigns", color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
-            Spacer(Modifier.height(4.dp))
-            Text("Coordinated smishing waves", color = TextSecondary, fontSize = 14.sp)
-            Spacer(Modifier.height(20.dp))
-        }
-
-        item {
-            SectionHeader("ACTIVE")
-            when {
-                isLoading -> LoadingRow()
-                errorMessage != null -> InfoRow(errorMessage ?: "Could not load campaigns", isError = true)
-                activeCampaigns.isEmpty() -> InfoRow("No active campaigns right now")
-                else ->
-                    GroupedList(
-                        items = activeCampaigns,
-                        onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
-                    )
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-
-        item {
-            SectionHeader("PAST CAMPAIGNS")
-            when {
-                isLoadingInactive -> LoadingRow()
-                inactiveErrorMessage != null -> InfoRow(inactiveErrorMessage ?: "Could not load past campaigns", isError = true)
-                inactiveCampaigns.isEmpty() -> InfoRow("No past campaigns yet")
-                else ->
-                    GroupedList(
-                        items = inactiveCampaigns,
-                        onClick = { campaign -> navController.navigate(Screen.CampaignDetail.createRoute(campaign.id)) },
-                    )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(label: String) {
-    Text(
-        label,
-        color = TextTertiary,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.5.sp,
-        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun LoadingRow() {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(18.dp)),
-    ) {
-        repeat(2) {
-            MessageRowSkeleton(avatarSize = 36.dp, horizontalPadding = 16.dp, verticalPadding = 10.dp)
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(
-    message: String,
-    isError: Boolean = false,
-    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.HourglassEmpty,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(18.dp))
-                .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(icon, contentDescription = null, tint = if (isError) Danger else TextTertiary, modifier = Modifier.size(18.dp))
-        Text(message, color = if (isError) Danger else TextSecondary, fontSize = 13.sp)
-    }
-}
-
-@Composable
-private fun GroupedList(
-    items: List<CampaignsApi.CampaignSummary>,
-    onClick: (CampaignsApi.CampaignSummary) -> Unit,
-) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(18.dp)),
-    ) {
-        items.forEachIndexed { index, campaign ->
-            CampaignRow(campaign = campaign, onClick = { onClick(campaign) })
-            if (index < items.lastIndex) {
-                HorizontalDivider(
-                    color = Hairline,
-                    modifier = Modifier.padding(start = 66.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CampaignRow(
-    campaign: CampaignsApi.CampaignSummary,
-    onClick: () -> Unit,
-) {
-    val accent = if (campaign.isActive) Suspicious else TextTertiary
-
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(36.dp)
-                    .background(accent.copy(alpha = 0.15f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Default.Hub,
-                contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Spacer(Modifier.height(TabTitleTopSpacing))
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Text(
-                campaign.label ?: "Unlabeled campaign",
+                stringResource(R.string.campaign_detail_campaigns),
                 color = White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.Bold,
+                fontSize = TextSize.LargeTitle,
             )
             Spacer(Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(6.dp)
-                            .background(if (campaign.isActive) Safe else TextTertiary, CircleShape),
-                )
-                Spacer(Modifier.width(5.dp))
+            Text(
+                state.matchingProgress ?: summaryLine(active.size),
+                color = TextSecondary,
+                fontSize = TextSize.Subhead,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        WaveChips(showEnded = showEnded, onSelect = { showEnded = it })
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding =
+                PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 24.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            waveItems(
+                state = state,
+                waves = if (showEnded) ended else active,
+                showEnded = showEnded,
+                onRetry = { viewModel.loadCampaigns() },
+                onOpen = { navController.navigate(Screen.ScamWave.createRoute(it.key)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun summaryLine(activeCount: Int): String =
+    if (activeCount == 0) {
+        stringResource(R.string.waves_summary_none)
+    } else {
+        pluralStringResource(R.plurals.waves_summary_active, activeCount, activeCount)
+    }
+
+@Composable
+private fun WaveChips(
+    showEnded: Boolean,
+    onSelect: (Boolean) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(listOf(false, true)) { ended ->
+            val isSelected = ended == showEnded
+            Box(
+                modifier =
+                    Modifier
+                        .heightIn(min = 36.dp)
+                        .clip(RoundedCornerShape(100.dp))
+                        .background(if (isSelected) Indigo else SurfaceElevated)
+                        .clickable { onSelect(ended) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
-                    buildString {
-                        append(if (campaign.isActive) "Active" else "Ended")
-                        append(" · ${campaign.messageCount} messages")
-                    },
-                    color = TextSecondary,
-                    fontSize = 12.sp,
+                    stringResource(if (ended) R.string.waves_tab_ended else R.string.waves_tab_active),
+                    color = if (isSelected) OnIndigo else White,
+                    fontSize = TextSize.Subhead,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
+        }
+    }
+}
+
+private fun LazyListScope.waveItems(
+    state: CampaignsUiState,
+    waves: List<LocalCampaign>,
+    showEnded: Boolean,
+    onRetry: () -> Unit,
+    onOpen: (LocalCampaign) -> Unit,
+) {
+    when {
+        state.isLoading -> item { LoadingRows() }
+        state.errorMessage != null ->
+            item {
+                StateMessage(
+                    icon = Icons.Outlined.CloudOff,
+                    title = state.errorMessage,
+                    actionLabel = stringResource(R.string.action_retry),
+                    onAction = onRetry,
+                    modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                )
+            }
+        waves.isEmpty() ->
+            item {
+                StateMessage(
+                    icon = Icons.Outlined.Shield,
+                    iconTint = Safe,
+                    title =
+                        stringResource(
+                            if (showEnded) R.string.waves_empty_ended_title else R.string.waves_empty_active_title,
+                        ),
+                    detail = stringResource(R.string.campaigns_when_several_scam_texts_share),
+                    modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                )
+            }
+        else ->
+            items(waves, key = { it.key }) { wave ->
+                WaveCard(wave, isActive = !showEnded, onClick = { onOpen(wave) })
+            }
+    }
+}
+
+@Composable
+private fun WaveCard(
+    wave: LocalCampaign,
+    isActive: Boolean,
+    onClick: () -> Unit,
+) {
+    val category = friendlyCategory(wave.category)
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(SurfaceElevated)
+                .clickable(onClick = onClick)
+                .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(category.icon, if (isActive) Danger else SystemGray)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    waveTitle(wave),
+                    color = White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = TextSize.Body,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    countAndAge(wave),
+                    color = TextSecondary,
+                    fontSize = TextSize.Footnote,
+                    maxLines = 1,
+                )
+            }
+            if (isActive) {
+                Spacer(Modifier.width(8.dp))
+                ActiveTag()
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Text(formatShortDate(campaign.createdAt), color = TextTertiary, fontSize = 12.sp)
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = TextTertiary,
-            modifier = Modifier.size(18.dp),
+        Spacer(Modifier.height(10.dp))
+        Text(
+            SmsLinkSafety.hideLinks(wave.messages.first().body),
+            color = TextSecondary,
+            fontSize = TextSize.Footnote,
+            lineHeight = 18.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-private fun formatShortDate(iso: String): String =
-    try {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
-    } catch (_: Exception) {
-        ""
+@Composable
+internal fun IconTile(
+    icon: ImageVector,
+    tint: Color,
+) {
+    Box(
+        Modifier.size(36.dp).background(tint.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
     }
+}
+
+@Composable
+private fun ActiveTag() {
+    Box(
+        Modifier
+            .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(
+            stringResource(R.string.waves_tag_active),
+            color = Danger,
+            fontSize = TextSize.Caption,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun LoadingRows() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        repeat(LOADING_ROWS) {
+            MessageRowSkeleton(avatarSize = 36.dp, horizontalPadding = 4.dp, verticalPadding = 12.dp)
+        }
+    }
+}
+
+internal fun waveTitle(wave: LocalCampaign): String =
+    // An unnamed group is titled with its raw category; show the friendly one.
+    if (wave.title == wave.category) friendlyCategory(wave.category).label else wave.title
+
+@Composable
+internal fun countAndAge(wave: LocalCampaign): String =
+    pluralStringResource(R.plurals.campaigns_messages, wave.messages.size, wave.messages.size) +
+        " · " +
+        stringResource(R.string.waves_last_seen, MessageTime.listLabel(LocalContext.current, wave.latestTimestamp))
+
+/** Still arriving: the newest text is under [ACTIVE_WINDOW_MS] old. */
+internal fun LocalCampaign.isActive(now: Long): Boolean = now - latestTimestamp < ACTIVE_WINDOW_MS
+
+// Same keyword rules as CampaignDetailScreen.campaignAdvice, over what this
+// phone actually has: the texts and their links.
+internal fun waveAdvice(
+    wave: LocalCampaign,
+    domains: List<String>,
+): List<Int> {
+    val evidence = (wave.messages.joinToString(" ") { it.body } + " " + wave.category).lowercase()
+    val advice = mutableListOf<Int>()
+    if (domains.isNotEmpty()) advice += R.string.campaign_advice_links
+    if (listOf("gcash", "maya", "bank", "bdo", "bpi", "wallet", "otp", "pin").any { it in evidence }) {
+        advice += R.string.campaign_advice_otp
+    }
+    if (listOf("job", "loan", "prize", "winner", "reward", "cash").any { it in evidence }) {
+        advice += R.string.campaign_advice_fees
+    }
+    if (advice.isEmpty()) advice += R.string.campaign_advice_generic
+    // At most two, most specific first: a long list read as boilerplate.
+    return advice.distinct().take(MAX_ADVICE)
+}
+
+internal fun openTarget(
+    target: OpenTarget,
+    navController: NavController,
+) {
+    when (target) {
+        is OpenTarget.Thread -> navController.navigate(Screen.Detail.createRoute(target.sender))
+        is OpenTarget.Alert -> navController.navigate(Screen.SmishingAlert.createRoute(target.backendMessageId))
+    }
+}
+
+internal data class FriendlyCategory(
+    val label: String,
+    val icon: ImageVector,
+)
+
+// The AI's category names ("Bank phishing", "OTP / account update") are
+// analyst vocabulary; these say what the text pretends to be. Keyed by the
+// names in LocalCampaigns.kt / ai/service/campaign_naming.py -- an unknown
+// one shows as-is.
+internal fun friendlyCategory(category: String): FriendlyCategory =
+    when (category) {
+        "Parcel / delivery scam" -> FriendlyCategory("Fake delivery texts", Icons.Outlined.LocalShipping)
+        "Bank phishing" -> FriendlyCategory("Fake bank texts", Icons.Outlined.AccountBalance)
+        "E-wallet phishing" -> FriendlyCategory("Fake GCash / Maya texts", Icons.Outlined.AccountBalanceWallet)
+        "Loan / credit offer" -> FriendlyCategory("Loan offers", Icons.Outlined.Payments)
+        "Online gambling / casino" -> FriendlyCategory("Gambling & casino", Icons.Outlined.Casino)
+        "Rewards / prize claim" -> FriendlyCategory("Fake prizes & rewards", Icons.Outlined.CardGiftcard)
+        "Job / task offer" -> FriendlyCategory("Job & task offers", Icons.Outlined.Work)
+        "OTP / account update" -> FriendlyCategory("Requests for codes", Icons.Outlined.Key)
+        "Government / ID request" -> FriendlyCategory("Fake government texts", Icons.Outlined.Badge)
+        OTHER_SCAM_CATEGORY -> FriendlyCategory("Other scams", Icons.Outlined.WarningAmber)
+        else -> FriendlyCategory(category, Icons.Outlined.WarningAmber)
+    }
+
+// Active while its newest text is under 30 days old. Nothing is stored: a new
+// text for an inactive wave makes it recent again, so it moves back to Active
+// and the 30 days restart from that text.
+private const val ACTIVE_WINDOW_MS = 30L * 24 * 60 * 60 * 1000
+private const val MAX_ADVICE = 2
+private const val LOADING_ROWS = 3
+
+// Empty/error states fill this much of the list's height and center in it,
+// so they sit in the visible middle rather than behind the floating tab bar.
+private const val EMPTY_STATE_HEIGHT = 0.8f

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.core.content.ContextCompat
+import com.bantai.data.model.isGroupKey
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextTertiary
 import kotlinx.coroutines.Dispatchers
@@ -140,7 +142,7 @@ fun SenderAvatar(
             )
         } else {
             Icon(
-                Icons.Filled.Person,
+                if (isGroupKey(sender)) Icons.Filled.Groups else Icons.Filled.Person,
                 contentDescription = null,
                 tint = TextTertiary,
                 modifier = Modifier.size(size * 0.58f).align(Alignment.Center),

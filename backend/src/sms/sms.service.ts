@@ -78,9 +78,17 @@ export class SmsService {
     // class's confidence, so a confidently-Ham message (Ham at 0.94) would
     // otherwise block a legitimate sender.
     const domains = (dto.domains ?? []).map((domain) => domain.toLowerCase());
-    const cluster = domains.length
-      ? await this.campaignsService.findByDomains(domains)
-      : null;
+    // The AI's own campaign match (embedding / hybrid / domain tiers) comes
+    // first; a shared blasted domain is the fallback when the model had no
+    // match or was unavailable.
+    const aiClusterId = modelResult?.campaign?.clusterId;
+    const cluster =
+      (aiClusterId
+        ? await this.campaignsService.findActiveById(aiClusterId)
+        : null) ??
+      (domains.length
+        ? await this.campaignsService.findByDomains(domains)
+        : null);
 
     // Link suppression: for flagged messages or unknown senders, mark
     // shortener/known-campaign domains so the mobile UI can strip or warn on
@@ -108,9 +116,20 @@ export class SmsService {
       result = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.smsMessage.findUnique({
           where: { userId_sourceId: { userId, sourceId: dto.sourceId } },
-          select: { id: true },
+          select: { id: true, clusterId: true },
         });
-        if (existing) return { id: existing.id, duplicate: true };
+        if (existing) {
+          // A re-send links a message stored before its campaign existed
+          // (e.g. ingested before a campaign sync). Only this user's own row
+          // changes; global campaign counts are not touched.
+          if (!existing.clusterId && cluster) {
+            await tx.smsMessage.update({
+              where: { id: existing.id },
+              data: { clusterId: cluster.id },
+            });
+          }
+          return { id: existing.id, duplicate: true };
+        }
 
         const message = await tx.smsMessage.create({
           data: {
@@ -168,19 +187,32 @@ export class SmsService {
 
     return {
       messageId: result.id,
-      classification: { label, score },
+      classification: { label, score, bucket },
       classificationSource,
       action: effectiveAction,
       senderStatus: senderVerification.familiarity,
       senderVerification,
       suppressedLinks,
+      // Lets the phone group its own messages by campaign and category
+      // without a second request per message.
+      campaign: cluster
+        ? { id: cluster.id, label: cluster.label, category: cluster.category }
+        : null,
       duplicate: result.duplicate,
     };
   }
 
   async getAlerts(userId: string) {
     return this.prisma.alert.findMany({
-      where: { message: { userId } },
+      // Alerts are smishing only. Earlier builds created an Alert for every
+      // model Spam (promos); those rows are excluded here rather than deleted,
+      // so every existing environment is corrected without a data migration.
+      where: {
+        message: {
+          userId,
+          NOT: { classification: { is: { bucket: 'spam' } } },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
       select: {
@@ -195,6 +227,14 @@ export class SmsService {
             clusterId: true,
             classification: {
               select: { label: true, score: true, bucket: true },
+            },
+            // This user's own report on the message, if any (one per user per
+            // message), so the phone can file it under Reported and show its
+            // review status instead of offering Report again.
+            reports: {
+              where: { userId },
+              select: { reportedLabel: true, status: true, createdAt: true },
+              take: 1,
             },
           },
         },
@@ -248,20 +288,20 @@ export class SmsService {
     });
   }
 
+  // Alerts are for smishing only. Spam is promotional/ad content (telco and
+  // retail promos) that the client files in its Spam folder, and an
+  // uncertain result goes to the client's review bucket -- neither creates an
+  // Alert row. The label and bucket in the response tell the client which.
   private routeFromBucket(
     bucket: 'safe' | 'unknown' | 'spam' | 'blocked',
-  ): 'blocked' | 'alert' | 'inbox' {
-    if (bucket === 'blocked') return 'blocked';
-    if (bucket === 'spam') return 'alert';
-    return 'inbox';
+  ): 'blocked' | 'inbox' {
+    return bucket === 'blocked' ? 'blocked' : 'inbox';
   }
 
   private routeFromLabel(
     label: 'Ham' | 'Spam' | 'Scam',
     score: number,
-  ): 'blocked' | 'alert' | 'inbox' {
-    if (label === 'Scam' && score >= 0.9) return 'blocked';
-    if (label === 'Spam' || label === 'Scam') return 'alert';
-    return 'inbox';
+  ): 'blocked' | 'inbox' {
+    return label === 'Scam' && score >= 0.9 ? 'blocked' : 'inbox';
   }
 }

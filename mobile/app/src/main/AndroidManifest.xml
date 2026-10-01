@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_MMS" />
+    <!-- Part of the default SMS app role: without it Samsung's role check logs
+         "lost android:receive_wap_push (no permission to fix)" (see DefaultSmsApp). -->
+    <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
@@ -24,9 +28,16 @@
     <permission
         android:name="com.bantai.permission.SMS_SEND_RESULT"
         android:protectionLevel="signature" />
+    <!-- The app must also hold it: the sent-result broadcast is sent with this
+         app's identity, and without this line Android dropped every result on
+         API < 33, so every send timed out as "failed" even when it went out. -->
+    <uses-permission android:name="com.bantai.permission.SMS_SEND_RESULT" />
 
     <application
+        android:name=".BantaiApp"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -85,6 +96,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- Reply / Mark as read on message notifications; only reachable
+             through BantAI's own explicit PendingIntents. -->
+        <receiver
+            android:name=".receiver.NotificationActionReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".receiver.WapPushReceiver"
             android:exported="true"
@@ -94,6 +111,31 @@
                 <data android:mimeType="application/vnd.wap.mms-message" />
             </intent-filter>
         </receiver>
+
+        <!-- Result of an MMS download (see MmsDownloader); only reachable through
+             BantAI's own explicit PendingIntent. -->
+        <receiver
+            android:name=".receiver.MmsDownloadedReceiver"
+            android:exported="false" />
+
+        <!-- Carrier delivery reports for sent SMS (see SmsSender); only reachable
+             through BantAI's own explicit PendingIntent. -->
+        <receiver
+            android:name=".receiver.DeliveryReceiver"
+            android:exported="false" />
+
+        <!-- Result of an MMS send (see MmsSender); same protection as above. -->
+        <receiver
+            android:name=".receiver.MmsSentReceiver"
+            android:exported="false" />
+
+        <!-- Files Android's MMS service downloads MMS into / sends them from.
+             Not exported: the phone process gets per-file URI grants only. -->
+        <provider
+            android:name=".mms.MmsFileProvider"
+            android:authorities="${applicationId}.mmsfile"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
     </application>
 

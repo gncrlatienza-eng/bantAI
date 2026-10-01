@@ -27,10 +27,24 @@ Open in Android Studio, or from the command line:
 The backend base URL is injected at build time (`BACKEND_BASE_URL` in
 `app/build.gradle.kts`) and now differs by build type:
 
-- **Debug** (what you build day to day): `http://localhost:3000/api` for a USB-connected device
-  after `adb reverse tcp:3000 tcp:3000`; override for the emulator with
-  `http://10.0.2.2:3000/api`. Cleartext to `localhost`/`10.0.2.2` is permitted only for debug
-  builds — see `app/src/debug/res/xml/network_security_config.xml`.
+- **Debug** (what you build day to day): `http://<laptop LAN IP>:3000/api`, with the IP
+  **detected automatically at build time** (the build prints `bantAI debug backend URL: …`).
+  A real phone on the **same wifi** reaches the backend with no USB or `adb reverse`. That
+  covers OTP, Alerts, Campaigns, and everything else. The cleartext allowlist is generated
+  from the same host (`app/src/debug/network_security_config.template.xml`), so the two
+  can't drift apart. Overrides:
+  `-PbantaiBackendUrl=http://localhost:3000/api` (USB + `adb reverse tcp:3000 tcp:3000`) or
+  `-PbantaiBackendUrl=http://10.0.2.2:3000/api` (emulator).
+  - The IP is baked into the APK. **After switching networks, rebuild and reinstall.**
+  - To check what the phone can reach, go to Settings → Developer Tools → **Backend connection**.
+    Or open `http://<laptop IP>:3000/api/health` in the phone's browser.
+  - If it's unreachable while the backend is running, Windows Firewall is probably blocking
+    Node on port 3000. This often happens when the wifi is set as a "Public" network. Switch
+    it to Private, or allow Node through the firewall.
+  - Campus or guest wifi often has client isolation, which blocks phone-to-laptop traffic
+    completely. No app change can fix that. Use a phone hotspot instead, or Tailscale:
+    `-PbantaiBackendUrl=http://<laptop tailscale IP>:3000/api`. That host is added to the
+    allowlist automatically.
 - **Release**: intentionally points at `https://api.bantai.invalid/api`, a placeholder that
   cannot resolve, until a real backend exists — see **Deployment** below. Release builds have
   **no cleartext exception at all** (`app/src/main/res/xml/network_security_config.xml`), so

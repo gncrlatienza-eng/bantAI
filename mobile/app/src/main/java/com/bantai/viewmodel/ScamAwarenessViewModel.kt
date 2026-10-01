@@ -3,7 +3,7 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bantai.data.local.UserPreferences
+import com.bantai.container
 import com.bantai.data.remote.SmsApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 class ScamAwarenessViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
+    private val userPreferences = application.container.userPreferences
 
     private val _relevantTipIds = MutableStateFlow<Set<String>>(emptySet())
     val relevantTipIds: StateFlow<Set<String>> = _relevantTipIds.asStateFlow()

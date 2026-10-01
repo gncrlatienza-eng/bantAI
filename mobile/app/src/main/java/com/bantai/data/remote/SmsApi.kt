@@ -23,6 +23,18 @@ object SmsApi {
         val messageId: String? = null,
         val senderStatus: String? = null,
         val suppressedLinks: List<String> = emptyList(),
+        /** The model's routing bucket (safe/unknown/spam/blocked); null from older backends. */
+        val bucket: String? = null,
+        /** The campaign the backend linked this message to; null when none (or an older backend). */
+        val campaign: CampaignMatch? = null,
+        /** False when the backend predates campaign linking, so "no campaign" can't be trusted. */
+        val campaignKnown: Boolean = false,
+    )
+
+    data class CampaignMatch(
+        val id: String,
+        val label: String?,
+        val category: String?,
     )
 
     data class AlertSummary(
@@ -38,6 +50,23 @@ object SmsApi {
         val score: Double?,
         val bucket: String?,
         val clusterId: String?,
+        /**
+         * Set on the phone, not by the backend: whether this alert's sender is
+         * actually blocked (Android's block list or BantAI's own record, see
+         * BlockHelper.isSenderBlocked). A scam verdict alone doesn't mean that.
+         */
+        val senderBlocked: Boolean = false,
+        /** The user's own report on this message, if they filed one. */
+        val report: AlertReport? = null,
+    )
+
+    /**
+     * A user's report on an alert: what they said it is (Scam/Spam/Ham) and
+     * where BantAI's review of it stands (Pending, Validated, Rejected).
+     */
+    data class AlertReport(
+        val reportedLabel: String,
+        val status: String,
     )
 
     data class IndicatorTag(
@@ -120,6 +149,10 @@ object SmsApi {
             score = classification?.takeIf { it.has("score") }?.optDouble("score"),
             bucket = classification?.optNullableString("bucket"),
             clusterId = message.optNullableString("clusterId"),
+            report =
+                message.optJSONArray("reports")?.optJSONObject(0)?.let {
+                    AlertReport(reportedLabel = it.optString("reportedLabel"), status = it.optString("status"))
+                },
         )
     }
     // optNullableString moved to JsonExtensions.kt -- CampaignsApi needed the
@@ -157,6 +190,18 @@ object SmsApi {
             messageId = json.optString("messageId").takeIf { it.isNotEmpty() },
             senderStatus = json.optString("senderStatus").takeIf { it.isNotEmpty() },
             suppressedLinks = List(links?.length() ?: 0) { links!!.getString(it) },
+            bucket = classification.optNullableString("bucket"),
+            campaign =
+                json.optJSONObject("campaign")?.let { campaign ->
+                    campaign.optNullableString("id")?.let { id ->
+                        CampaignMatch(
+                            id = id,
+                            label = campaign.optNullableString("label"),
+                            category = campaign.optNullableString("category"),
+                        )
+                    }
+                },
+            campaignKnown = json.has("campaign"),
         )
     }
 

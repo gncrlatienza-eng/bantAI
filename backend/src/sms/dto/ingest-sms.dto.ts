@@ -23,7 +23,10 @@ export class IngestSmsDto {
   @MaxLength(1600)
   maskedBody: string;
 
-  // Device-local SMS row id. Retried deliveries use the same value.
+  // Device-scoped SMS id, "<deviceKey>:<rowId>" from current mobile builds
+  // (older builds sent the bare row id). The device prefix keeps two phones on
+  // one account from colliding on the (userId, sourceId) unique key. Retried
+  // deliveries use the same value.
   @IsString()
   @IsNotEmpty()
   @MaxLength(128)

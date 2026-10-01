@@ -33,11 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.bantai.R
 import com.bantai.ui.components.BantAILogo
 import com.bantai.ui.components.FeatureListRow
 import com.bantai.ui.components.GroupedCard
@@ -45,6 +47,7 @@ import com.bantai.ui.components.GroupedDivider
 import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 
@@ -104,12 +107,12 @@ fun OnboardingProtectedScreen(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            BantAILogo(containerSize = 64.dp, iconSize = 36.dp)
+            BantAILogo(size = 64.dp)
         }
         Spacer(Modifier.height(24.dp))
 
         Text(
-            "You're protected.",
+            stringResource(R.string.onboarding_protected_you_re_protected),
             fontWeight = FontWeight.Bold,
             fontSize = 28.sp,
             color = White,
@@ -118,8 +121,8 @@ fun OnboardingProtectedScreen(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "BantAI is now monitoring your incoming messages for smishing threats.",
-            fontSize = 14.sp,
+            stringResource(R.string.onboarding_protected_bantai_is_now_monitoring_your),
+            fontSize = TextSize.Subhead,
             color = TextSecondary,
             textAlign = TextAlign.Center,
             lineHeight = 19.sp,
@@ -130,28 +133,28 @@ fun OnboardingProtectedScreen(
         GroupedCard {
             FeatureListRow(
                 icon = Icons.Filled.Shield,
-                title = "Real-time detection",
-                subtitle = "Every SMS checked instantly",
+                title = stringResource(R.string.onboarding_protected_real_time_detection),
+                subtitle = stringResource(R.string.onboarding_protected_every_sms_checked_instantly),
             )
             GroupedDivider()
             FeatureListRow(
                 icon = Icons.Default.AutoAwesome,
-                title = "On-device protection",
-                subtitle = "Privacy-preserving threat checks",
+                title = stringResource(R.string.onboarding_protected_on_device_protection),
+                subtitle = stringResource(R.string.onboarding_protected_privacy_preserving_threat_checks),
             )
             GroupedDivider()
             FeatureListRow(
                 icon = Icons.Default.Hub,
-                title = "Campaign intelligence",
-                subtitle = "Track coordinated attack waves",
+                title = stringResource(R.string.onboarding_protected_campaign_intelligence),
+                subtitle = stringResource(R.string.onboarding_protected_track_coordinated_attack_waves),
             )
         }
 
         if (!notificationsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Spacer(Modifier.height(16.dp))
             Text(
-                "Threat notifications are off. You can enable them later in Android Settings.",
-                fontSize = 12.sp,
+                stringResource(R.string.onboarding_protected_threat_notifications_are_off_you),
+                fontSize = TextSize.Caption,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
@@ -161,7 +164,7 @@ fun OnboardingProtectedScreen(
         Spacer(Modifier.weight(1f))
 
         PrimaryButton(
-            text = "Open BantAI",
+            text = stringResource(R.string.onboarding_protected_open_bantai),
             onClick = { viewModel.completeOnboarding(onSuccess = onFinish) },
         )
         Spacer(Modifier.height(24.dp))

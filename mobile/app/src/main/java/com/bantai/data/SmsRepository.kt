@@ -1,19 +1,22 @@
 package com.bantai.data
 
 import android.Manifest
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.bantai.BuildConfig
-import com.bantai.data.local.ClassificationStore
+import com.bantai.container
+import com.bantai.data.local.LocalMessageStore
+import com.bantai.data.local.LocalRow
+import com.bantai.data.model.Classification
+import com.bantai.data.model.PendingMmsDownload
 import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import com.bantai.data.model.addressVariants
+import com.bantai.data.model.groupThreadIdOf
+import com.bantai.data.model.normalizeSenderKey
+import com.bantai.mms.MmsDownloader
 
 private const val TAG = "SmsRepository"
 
@@ -21,12 +24,22 @@ private const val TAG = "SmsRepository"
 // delete keeps every call well under that regardless of how many ids are passed.
 private const val SQLITE_IN_CLAUSE_CHUNK_SIZE = 900
 
-private fun <T> Collection<T>.chunkedForSqliteIn(): List<List<T>> = toList().chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE)
+// Matches the inbox list's 500-row window, so a sender that shows up in a
+// list also has those messages in its thread.
+private const val CONVERSATION_LIMIT = 500
 
+internal fun <T> Collection<T>.chunkedForSqliteIn(): List<List<T>> = toList().chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE)
+
+/**
+ * Reads messages: the SMS database, MMS (MmsReader) and BantAI's own kept
+ * messages (LocalMessageStore), merged and labelled. Writes are SmsWriter's;
+ * the labelling rules are MessageClassifier's.
+ */
 class SmsRepository(
-    private val context: Context,
+    internal val context: Context,
 ) {
-    private val classificationStore = ClassificationStore(context)
+    private val classificationStore = context.container.classificationStore
+    private val localStore = LocalMessageStore.get(context)
 
     fun hasReadSmsPermission(): Boolean = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
 
@@ -36,93 +49,29 @@ class SmsRepository(
     // touched) on an already-read thread, so re-marking on every observer refresh
     // can't loop.
     fun markConversationRead(address: String): Int {
-        val values =
-            ContentValues().apply {
-                put(Telephony.Sms.READ, 1)
-                put(Telephony.Sms.SEEN, 1)
-            }
-        return try {
-            context.contentResolver.update(
-                Telephony.Sms.Inbox.CONTENT_URI,
-                values,
-                "${Telephony.Sms.ADDRESS} = ? AND ${Telephony.Sms.READ} = 0",
-                arrayOf(address),
-            )
-        } catch (e: Exception) {
-            if (BuildConfig.DEBUG) Log.e(TAG, "Failed to mark conversation with $address read", e)
-            0
-        }
+        val unread = getConversationBySender(address).filter { !it.isOutgoing && !it.isRead }.map { it.id }
+        context.container.smsWriter.markMessagesRead(unread)
+        return unread.size
     }
 
-    // Called by getInboxMessages, getMessageById, getConversationBySender,
-    // getMessagesByIds, and getInboxMessagesByPeriod -- every one of them is only
-    // ever invoked from a Dispatchers.IO coroutine (every ViewModel in this app
-    // loads via viewModelScope.launch(Dispatchers.IO) or withContext(Dispatchers.IO)),
-    // so a single blocking DataStore read per query here is cheap and safe -- it
-    // avoids making all five of those methods suspend just for this lookup.
-    // IMPORTANT: calling any of those five methods from Dispatchers.Main will
-    // deadlock (runBlocking on the main thread blocks the very thread the
-    // underlying coroutine needs to resume on) -- this is a real, load-bearing
-    // invariant, not a stylistic preference.
-    private fun storedClassifications(): Map<Long, String> =
+    // Blocking Room read, like the provider queries it sits beside. Room throws
+    // on the main thread, so a caller on the wrong thread fails loudly (this used
+    // to be runBlocking over DataStore, which deadlocked there instead).
+    private fun storedClassifications(): Map<Long, Classification> =
         try {
-            runBlocking { classificationStore.classifications.first() }
+            classificationStore.snapshot()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read stored classifications", e)
             emptyMap()
         }
 
-    // SmsManager.sendTextMessage() only transmits the SMS over the network — it does
-    // NOT write a local record, even for the default SMS app. Inserted as OUTBOX
-    // immediately (before the send result is known) so the UI can show a "Sending…"
-    // state right away instead of nothing happening until a network round trip
-    // resolves; call updateMessageType() once SmsSender reports success/failure.
-    // Returns the inserted row's real id, or null on failure.
-    fun insertOutgoingMessage(
-        address: String,
-        body: String,
-    ): Long? {
-        val values =
-            ContentValues().apply {
-                put(Telephony.Sms.ADDRESS, address)
-                put(Telephony.Sms.BODY, body)
-                put(Telephony.Sms.DATE, System.currentTimeMillis())
-                put(Telephony.Sms.READ, 1)
-                put(Telephony.Sms.SEEN, 1)
-                put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_OUTBOX)
-            }
-        return try {
-            val uri = context.contentResolver.insert(Telephony.Sms.Outbox.CONTENT_URI, values)
-            uri?.let { ContentUris.parseId(it) }
-        } catch (e: Exception) {
-            if (BuildConfig.DEBUG) Log.e(TAG, "Failed to record outgoing message to $address", e)
-            null
-        }
-    }
-
-    /** Resolves a previously-inserted outgoing message to MESSAGE_TYPE_SENT or MESSAGE_TYPE_FAILED. */
-    fun updateMessageType(
-        id: Long,
-        type: Int,
-    ): Boolean {
-        val values = ContentValues().apply { put(Telephony.Sms.TYPE, type) }
-        return try {
-            context.contentResolver.update(
-                Telephony.Sms.CONTENT_URI,
-                values,
-                "${Telephony.Sms._ID} = ?",
-                arrayOf(id.toString()),
-            ) > 0
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update message $id status", e)
-            false
-        }
-    }
-
+    @Suppress("NestedBlockDepth") // cursor loop plus merged sources
     fun getInboxMessages(limit: Int = Int.MAX_VALUE): List<SmsMessage> {
         if (!hasReadSmsPermission()) return emptyList()
         val messages = mutableListOf<SmsMessage>()
         val stored = storedClassifications()
+        val readIds = localStore.readOverrides()
+        val hidden = localStore.deletedOverrides()
 
         try {
             val cursor =
@@ -149,8 +98,9 @@ class SmsRepository(
                 var count = 0
 
                 while (it.moveToNext() && count < limit) {
-                    count++
                     val id = it.getLong(idCol)
+                    if (id in hidden) continue
+                    count++
                     val sender = it.getString(addressCol) ?: "Unknown"
                     val body = it.getString(bodyCol) ?: ""
                     messages.add(
@@ -159,9 +109,9 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = stored[id] ?: classifyMessage(body),
+                            classification = MessageClassifier.resolve(stored[id], body, sender),
                             isContact = false,
-                            isRead = it.getInt(readCol) == 1,
+                            isRead = it.getInt(readCol) == 1 || id in readIds,
                         ),
                     )
                 }
@@ -169,85 +119,138 @@ class SmsRepository(
         } catch (e: Exception) {
             Log.e(TAG, "SMS provider query failed", e)
         }
-
-        return messages
+        val local = localRows(stored) { it.type == Telephony.Sms.MESSAGE_TYPE_INBOX }
+        val mms = mms(stored, readIds, hidden) { !it.isOutgoing }
+        return (messages + local + mms).sortedByDescending { it.timestamp }.take(limit)
     }
 
-    fun classifyMessagePublic(body: String): String = classifyMessage(body)
+    // The phone's MMS (read-only), plus the ones still waiting to be downloaded,
+    // with this app's verdicts and read/delete marks applied.
+    private fun mms(
+        stored: Map<Long, Classification>,
+        readIds: Set<Long>,
+        hidden: Set<Long>,
+        filter: (SmsMessage) -> Boolean,
+    ): List<SmsMessage> =
+        (MmsReader.all(context) + pendingMms())
+            .filter { it.id !in hidden && filter(it) }
+            .map { m ->
+                if (m.isOutgoing) {
+                    m
+                } else if (m.mmsDownload != null) {
+                    // Nothing downloaded to classify yet; the text is only a label.
+                    m
+                } else {
+                    m.copy(
+                        classification = MessageClassifier.resolve(stored[m.id], m.body, m.sender),
+                        isRead = m.isRead || m.id in readIds,
+                    )
+                }
+            }
 
-    private fun classifyMessage(body: String): String {
-        val bodyLower = body.lowercase()
-        // Sender display names are spoofable. A familiar-looking name must
-        // never certify a message as safe; verified organizations are assessed
-        // server-side alongside the model and can never override fraud evidence.
-
-        // High-confidence scam signals — deliberately excludes words that are routine
-        // in legitimate financial messages (otp, verify, account, http, pin, password,
-        // confirm, bank, blocked, expire) to prevent false-positive auto-blocking.
-        val suspiciousKeywords =
-            listOf(
-                "click here",
-                "tap here",
-                "you have won",
-                "you won",
-                "you are selected",
-                "prize",
-                "claim your",
-                "claim now",
-                "congratulations",
-                "winner",
-                "bit.ly",
-                "tinyurl",
-                ".xyz",
-                ".info",
-                ".tk",
-                ".top",
-                "free gift",
-                "cash prize",
-                "verify your account",
-                "confirm your account",
-                "account suspended",
-                "account has been suspended",
-                "unauthorized access",
-                "immediately click",
-                "tap to claim",
+    // MMS the carrier announced but that aren't downloaded yet ("Tap to download").
+    private fun pendingMms(): List<SmsMessage> {
+        val now = System.currentTimeMillis()
+        return context.container.mmsDownloader.all().map { row ->
+            SmsMessage(
+                id = PENDING_MMS_ID_OFFSET + row.id,
+                sender = row.sender,
+                body = "[Picture message]",
+                timestamp = row.receivedAt,
+                classification = Classification.UNVERIFIED,
+                // No row to mark read; a failed download is announced by its own notification.
+                isRead = true,
+                subId = row.subId,
+                mmsDownload = PendingMmsDownload(MmsDownloader.effectiveState(row, now), row.sizeBytes),
             )
+        }
+    }
 
-        val suspiciousScore = suspiciousKeywords.count { bodyLower.contains(it) }
+    // LocalMessageStore rows as messages, newest first.
+    private fun localRows(
+        stored: Map<Long, Classification>,
+        filter: (LocalRow) -> Boolean,
+    ): List<SmsMessage> =
+        localStore
+            .rows()
+            .filter(filter)
+            .map { row ->
+                val outgoing = row.type != Telephony.Sms.MESSAGE_TYPE_INBOX
+                SmsMessage(
+                    id = row.id,
+                    sender = row.address,
+                    body = row.body,
+                    timestamp = row.date,
+                    classification =
+                        if (outgoing) {
+                            Classification.SAFE
+                        } else {
+                            MessageClassifier.resolve(
+                                stored[row.id],
+                                row.body,
+                                row.address,
+                            )
+                        },
+                    isOutgoing = outgoing,
+                    isRead = row.read || outgoing,
+                    sendStatus = if (outgoing) sendStatusFor(row.type) else SendStatus.NONE,
+                    subId = row.subId,
+                )
+            }.sortedByDescending { it.timestamp }
 
-        // Sender IDs are trivially spoofable over SMS -- a scammer only has to
-        // include a bank/telco name to match knownSenders. It still shouldn't be
-        // auto-blocked outright (a false-positive block on a real OTP/bank alert
-        // is disruptive), but the name alone no longer guarantees a clean result
-        // when the body itself carries high-confidence scam signals: that
-        // combination is surfaced as "unknown" for the user to review instead of
-        // being trusted.
-        // "blocked" is reserved for a genuine backend AI verdict (Scam winning,
-        // >= 0.90, leading the runner-up by >= 0.15 -- see docs/api/classify.md;
-        // mobile never re-derives this, it only reads the backend's decision).
-        // This on-device heuristic is only a keyword/pattern score, never
-        // confident enough to claim that, so its worst outcome is "unknown".
-        //
-        // Its best outcome is "unverified", not "safe" -- "safe" is reserved for
-        // a genuine backend verdict (see SmsIngestPipeline.applyBackendAction).
-        // This heuristic only ever runs when the backend couldn't be reached, so
-        // "found nothing suspicious" and "the model actually checked this and
-        // it's clean" must stay distinguishable in storage and in the UI
-        // (Maxene's audit, 2026-09-16) -- collapsing them into one "safe" value
-        // is what made them indistinguishable in the first place.
-        // A bare phone-number sender used to be flagged "unknown" on format
-        // alone (any +63 number, or anything that's just digits/+/-/space),
-        // regardless of content -- but real people text from phone numbers,
-        // not bank/telco sender IDs, so that caught ordinary "hello" texts
-        // from unsaved contacts as often as it caught anything suspicious.
-        // Removed 2026-09-16: a plain-number sender now gets the same
-        // content-based treatment as a known sender -- suspicious only when
-        // the body actually earns it.
-        return if (suspiciousScore >= 1) "unknown" else "unverified"
+    /**
+     * Messages this phone sent (sent, queued or failed), newest first. The
+     * Messages list is otherwise built from the inbox alone, so a
+     * conversation the user started with Compose -- which has no received
+     * message yet -- never appeared and couldn't be opened again.
+     */
+    @Suppress("NestedBlockDepth", "LoopWithTooManyJumpStatements") // cursor loop that skips unusable rows
+    fun getSentMessages(limit: Int = Int.MAX_VALUE): List<SmsMessage> {
+        if (!hasReadSmsPermission()) return emptyList()
+        val messages = mutableListOf<SmsMessage>()
+        try {
+            context.contentResolver
+                .query(
+                    Telephony.Sms.CONTENT_URI,
+                    arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
+                    "${Telephony.Sms.TYPE} != ?",
+                    arrayOf(Telephony.Sms.MESSAGE_TYPE_INBOX.toString()),
+                    "${Telephony.Sms.DATE} DESC",
+                )?.use {
+                    val idCol = it.getColumnIndexOrThrow(Telephony.Sms._ID)
+                    val addressCol = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+                    val bodyCol = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
+                    val dateCol = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
+                    val hidden = localStore.deletedOverrides()
+                    while (it.moveToNext() && messages.size < limit) {
+                        val address = it.getString(addressCol) ?: continue
+                        if (it.getLong(idCol) in hidden) continue
+                        messages.add(
+                            SmsMessage(
+                                id = it.getLong(idCol),
+                                sender = address,
+                                body = it.getString(bodyCol) ?: "",
+                                timestamp = it.getLong(dateCol),
+                                classification = Classification.SAFE,
+                                isContact = false,
+                                isRead = true,
+                                isOutgoing = true,
+                            ),
+                        )
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "SMS provider query failed", e)
+        }
+        val local = localRows(emptyMap()) { it.type != Telephony.Sms.MESSAGE_TYPE_INBOX }
+        val mms = mms(emptyMap(), emptySet(), localStore.deletedOverrides()) { it.isOutgoing }
+        return (messages + local + mms).sortedByDescending { it.timestamp }.take(limit)
     }
 
     fun getMessageById(id: Long): SmsMessage? {
         if (!hasReadSmsPermission()) return null
+        if (id < 0) return localRows(storedClassifications()) { it.id == id }.firstOrNull()
+        if (isMmsId(id)) return mms(storedClassifications(), emptySet(), emptySet()) { it.id == id }.firstOrNull()
         try {
             val cursor =
                 context.contentResolver.query(
@@ -266,7 +269,7 @@ class SmsRepository(
                         sender = sender,
                         body = body,
                         timestamp = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE)),
-                        classification = storedClassifications()[id] ?: classifyMessage(body),
+                        classification = MessageClassifier.resolve(storedClassifications()[id], body, sender),
                     )
                 }
             }
@@ -284,21 +287,44 @@ class SmsRepository(
             else -> SendStatus.NONE
         }
 
+    // One query merging SMS, MMS and locally kept rows.
+    @Suppress("LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth")
     fun getConversationBySender(
         address: String,
-        limit: Int = 200,
+        limit: Int = CONVERSATION_LIMIT,
     ): List<SmsMessage> {
         if (!hasReadSmsPermission()) return emptyList()
+        groupThreadIdOf(address)?.let { return groupConversation(it, limit) }
         val messages = mutableListOf<SmsMessage>()
         val stored = storedClassifications()
+        val variants = addressVariants(address)
+        val readIds = localStore.readOverrides()
+        val hidden = localStore.deletedOverrides()
         try {
             val cursor =
                 context.contentResolver.query(
                     Telephony.Sms.CONTENT_URI,
-                    arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE),
-                    "${Telephony.Sms.ADDRESS} = ?",
-                    arrayOf(address),
-                    "${Telephony.Sms.DATE} ASC",
+                    arrayOf(
+                        Telephony.Sms._ID,
+                        Telephony.Sms.ADDRESS,
+                        Telephony.Sms.BODY,
+                        Telephony.Sms.DATE,
+                        Telephony.Sms.TYPE,
+                        Telephony.Sms.READ,
+                        Telephony.Sms.SUBSCRIPTION_ID,
+                        Telephony.Sms.STATUS,
+                    ),
+                    // Every spelling of this person's number ("+639...", "09...",
+                    // "639..."): matching the exact address split one person into
+                    // two conversations whenever the formats differed.
+                    "${Telephony.Sms.ADDRESS} IN (${variants.joinToString(",") { "?" }})",
+                    variants.toTypedArray(),
+                    // Newest first, so the cap keeps the latest messages. It used
+                    // to be oldest-first: a sender with more than [limit] texts
+                    // (8080 has 440) only ever loaded its oldest ones, so the
+                    // spam that put it in the Spam tab never appeared in the
+                    // thread's "spam only" view.
+                    "${Telephony.Sms.DATE} DESC",
                 )
             cursor?.use {
                 val idCol = it.getColumnIndexOrThrow(Telephony.Sms._ID)
@@ -306,10 +332,14 @@ class SmsRepository(
                 val bodyCol = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
                 val dateCol = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
                 val typeCol = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
+                val readCol = it.getColumnIndexOrThrow(Telephony.Sms.READ)
+                val subCol = it.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID)
+                val statusCol = it.getColumnIndex(Telephony.Sms.STATUS)
                 var count = 0
                 while (it.moveToNext() && count < limit) {
-                    count++
                     val id = it.getLong(idCol)
+                    if (id in hidden) continue
+                    count++
                     val sender = it.getString(addressCol) ?: address
                     val body = it.getString(bodyCol) ?: ""
                     val type = it.getInt(typeCol)
@@ -320,9 +350,18 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
+                            classification =
+                                if (isOutgoing) {
+                                    Classification.SAFE
+                                } else {
+                                    MessageClassifier.resolve(stored[id], body, sender)
+                                },
                             isOutgoing = isOutgoing,
+                            isRead = isOutgoing || it.getInt(readCol) == 1 || id in readIds,
                             sendStatus = if (isOutgoing) sendStatusFor(type) else SendStatus.NONE,
+                            subId = if (subCol >= 0) it.getInt(subCol) else -1,
+                            delivered =
+                                isOutgoing && statusCol >= 0 && it.getInt(statusCol) == Telephony.Sms.STATUS_COMPLETE,
                         ),
                     )
                 }
@@ -330,20 +369,37 @@ class SmsRepository(
         } catch (e: Exception) {
             Log.e(TAG, "SMS provider query failed", e)
         }
+        val key = normalizeSenderKey(address)
+        messages += localRows(stored) { normalizeSenderKey(it.address) == key }
+        // A group MMS from this person belongs to the group's thread, not theirs.
+        messages += mms(stored, readIds, hidden) { it.groupThreadId == null && normalizeSenderKey(it.sender) == key }
+        messages.sortByDescending { it.timestamp }
+        if (messages.size > limit) messages.subList(limit, messages.size).clear()
         // Blocked messages live exclusively in the Alerts tab, so a thread view
         // must not leak them back in just because the sender also has other,
         // non-blocked messages. Spam is left untouched -- it's still a normal
         // (if hidden-by-default) part of Messages, not an Alerts-only concept.
-        return messages.filter { it.isOutgoing || it.classification != "blocked" }
+        // Reversed back to oldest-first for the chat layout.
+        return messages.asReversed().filter { it.isOutgoing || it.classification != Classification.SCAM }
     }
 
-    fun getMessagesByClassification(classification: String): List<SmsMessage> = getInboxMessages().filter { it.classification == classification }
+    // A group thread holds MMS only (SMS can't have several recipients).
+    private fun groupConversation(
+        threadId: Long,
+        limit: Int,
+    ): List<SmsMessage> {
+        val messages =
+            mms(storedClassifications(), localStore.readOverrides(), localStore.deletedOverrides()) {
+                it.groupThreadId == threadId
+            }.sortedByDescending { it.timestamp }.take(limit)
+        return messages.asReversed().filter { it.isOutgoing || it.classification != Classification.SCAM }
+    }
 
     // Backs the Recently Deleted view — queries the full table (not just Inbox) since
     // a soft-deleted conversation can include the user's own outgoing replies too.
     private fun queryMessagesChunk(
         chunk: List<Long>,
-        stored: Map<Long, String>,
+        stored: Map<Long, Classification>,
     ): List<SmsMessage> {
         val messages = mutableListOf<SmsMessage>()
         val placeholders = chunk.joinToString(",") { "?" }
@@ -372,7 +428,12 @@ class SmsRepository(
                         sender = sender,
                         body = body,
                         timestamp = it.getLong(dateCol),
-                        classification = if (isOutgoing) "safe" else (stored[id] ?: classifyMessage(body)),
+                        classification =
+                            if (isOutgoing) {
+                                Classification.SAFE
+                            } else {
+                                MessageClassifier.resolve(stored[id], body, sender)
+                            },
                         isOutgoing = isOutgoing,
                     ),
                 )
@@ -385,37 +446,26 @@ class SmsRepository(
         if (!hasReadSmsPermission() || ids.isEmpty()) return emptyList()
         val messages = mutableListOf<SmsMessage>()
         val stored = storedClassifications()
+        val (localIds, otherIds) = ids.partition { it < 0 }
+        val (mmsIds, providerIds) = otherIds.partition { isMmsId(it) || isPendingMmsId(it) }
+        if (mmsIds.isNotEmpty()) {
+            val wantedMms = mmsIds.toSet()
+            messages += mms(stored, emptySet(), emptySet()) { it.id in wantedMms }
+        }
         try {
-            for (chunk in ids.chunkedForSqliteIn()) {
+            for (chunk in providerIds.chunkedForSqliteIn()) {
                 messages.addAll(queryMessagesChunk(chunk, stored))
             }
         } catch (e: Exception) {
             Log.e(TAG, "SMS provider query failed", e)
         }
+        if (localIds.isNotEmpty()) {
+            val wanted = localIds.toSet()
+            messages += localRows(stored) { it.id in wanted }
+        }
         // Each chunk is independently ordered by DATE DESC; re-sort across chunks
         // so a caller passing >900 ids still gets one globally-ordered result.
         return messages.sortedByDescending { it.timestamp }
-    }
-
-    // Real, irreversible deletion from the phone's actual SMS database. Only the
-    // default SMS app may call this at all — the OS silently deletes 0 rows otherwise.
-    fun deletePermanently(ids: Collection<Long>): Int {
-        if (ids.isEmpty()) return 0
-        var deleted = 0
-        try {
-            for (chunk in ids.chunkedForSqliteIn()) {
-                val placeholders = chunk.joinToString(",") { "?" }
-                deleted +=
-                    context.contentResolver.delete(
-                        Telephony.Sms.CONTENT_URI,
-                        "${Telephony.Sms._ID} IN ($placeholders)",
-                        chunk.map { it.toString() }.toTypedArray(),
-                    )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Permanent delete failed", e)
-        }
-        return deleted
     }
 
     fun getStartTimestamp(period: String): Long {
@@ -483,7 +533,7 @@ class SmsRepository(
                             sender = sender,
                             body = body,
                             timestamp = it.getLong(dateCol),
-                            classification = stored[id] ?: classifyMessage(body),
+                            classification = MessageClassifier.resolve(stored[id], body, sender),
                             isContact = false,
                             isRead = it.getInt(readCol) == 1,
                         ),

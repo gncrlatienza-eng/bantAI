@@ -3,26 +3,42 @@ package com.bantai.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.*
+import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.SettingsViewModel
 
+// Longest PH number with separators, e.g. "+63 917 123 4567".
+private const val MY_NUMBER_MAX_LENGTH = 16
+
+@Suppress("LongMethod", "CyclomaticComplexMethod") // the whole form; one branch per field's error/hint state
 @Composable
 fun EditProfileScreen(
     navController: NavController,
@@ -30,6 +46,8 @@ fun EditProfileScreen(
 ) {
     val firstName by viewModel.editFirstName.collectAsState()
     val lastName by viewModel.editLastName.collectAsState()
+    val myNumber by viewModel.editMyNumber.collectAsState()
+    val myNumberError by viewModel.myNumberError.collectAsState()
     val avatarColor by viewModel.editAvatarColor.collectAsState()
     val firstNameError by viewModel.firstNameError.collectAsState()
     val lastNameError by viewModel.lastNameError.collectAsState()
@@ -64,13 +82,17 @@ fun EditProfileScreen(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                "Edit Profile",
+                stringResource(R.string.edit_profile_edit_profile),
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -81,6 +103,8 @@ fun EditProfileScreen(
                 Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp),
         ) {
             Spacer(Modifier.height(20.dp))
@@ -95,16 +119,24 @@ fun EditProfileScreen(
                                 .clickable { viewModel.cycleAvatarColor() },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(viewModel.getInitials(), color = White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+                        Text(viewModel.getInitials(), color = OnAccent, fontWeight = FontWeight.Bold, fontSize = 28.sp)
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text("Tap to change color", color = TextSecondary, fontSize = 11.sp)
+                    Text(
+                        stringResource(R.string.edit_profile_tap_to_change_color),
+                        color = TextSecondary,
+                        fontSize = TextSize.Caption2,
+                    )
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            Text("First name", color = TextSecondary, fontSize = 12.sp)
+            Text(
+                stringResource(R.string.onboarding_profile_first_name),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+            )
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = firstName,
@@ -128,16 +160,25 @@ fun EditProfileScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 if (firstNameError != null) {
-                    Text(firstNameError ?: "", color = Danger, fontSize = 11.sp)
+                    Text(
+                        firstNameError ?: "",
+                        color = Danger,
+                        fontSize = TextSize.Footnote,
+                        modifier = Modifier.weight(1f),
+                    )
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-                Text("${firstName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = 11.sp)
+                Text("${firstName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = TextSize.Caption2)
             }
 
             Spacer(Modifier.height(16.dp))
 
-            Text("Last name (optional)", color = TextSecondary, fontSize = 12.sp)
+            Text(
+                stringResource(R.string.onboarding_profile_last_name_optional),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+            )
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = lastName,
@@ -161,20 +202,57 @@ fun EditProfileScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 if (lastNameError != null) {
-                    Text(lastNameError ?: "", color = Danger, fontSize = 11.sp)
+                    Text(
+                        lastNameError ?: "",
+                        color = Danger,
+                        fontSize = TextSize.Footnote,
+                        modifier = Modifier.weight(1f),
+                    )
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-                Text("${lastName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = 11.sp)
+                Text("${lastName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = TextSize.Caption2)
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
+            Text(
+                stringResource(R.string.edit_profile_my_number),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = myNumber,
+                onValueChange = { if (it.length <= MY_NUMBER_MAX_LENGTH) viewModel.updateEditMyNumber(it) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = myNumberError != null,
+                placeholder = { Text("09171234567", color = TextTertiary) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Indigo,
+                        unfocusedBorderColor = BorderColor,
+                        focusedTextColor = White,
+                        unfocusedTextColor = White,
+                        errorBorderColor = Danger,
+                        cursorColor = Indigo,
+                    ),
+            )
+            Text(
+                myNumberError ?: stringResource(R.string.edit_profile_my_number_hint),
+                color = if (myNumberError != null) Danger else TextSecondary,
+                fontSize = TextSize.Footnote,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+
+            Spacer(Modifier.height(32.dp))
 
             if (syncError != null) {
                 Text(
                     syncError ?: "",
                     color = Danger,
-                    fontSize = 13.sp,
+                    fontSize = TextSize.Footnote,
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -183,9 +261,9 @@ fun EditProfileScreen(
                 )
             } else if (showSaved) {
                 Text(
-                    "Profile saved!",
+                    stringResource(R.string.edit_profile_profile_saved),
                     color = Safe,
-                    fontSize = 13.sp,
+                    fontSize = TextSize.Footnote,
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -206,18 +284,22 @@ fun EditProfileScreen(
                         .fillMaxWidth()
                         // Bottom clearance matches the floating tab bar's footprint
                         // (see MainScreen) -- this screen now renders behind it.
-                        .padding(bottom = 116.dp)
-                        .height(52.dp),
+                        .padding(bottom = LocalBottomBarClearance.current)
+                        .heightIn(min = 52.dp),
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = Indigo,
                         disabledContainerColor = ContactBadge,
-                        contentColor = White,
+                        contentColor = OnIndigo,
                         disabledContentColor = TextSecondary,
                     ),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text(if (isSaving) "Saving…" else "Save changes", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(
+                    stringResource(if (isSaving) R.string.edit_profile_saving else R.string.edit_profile_save_changes),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = TextSize.Body,
+                )
             }
         }
     }

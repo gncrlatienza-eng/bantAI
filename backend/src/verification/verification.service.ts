@@ -42,19 +42,7 @@ export class VerificationService {
       );
     }
 
-    const organization = await this.prisma.trustedOrganization.findFirst({
-      where: {
-        sender: normalized,
-        isActive: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
-      },
-      select: {
-        id: true,
-        name: true,
-        officialDomains: true,
-        evidenceType: true,
-      },
-    });
+    const organization = await this.findActiveTrustedOrganization(normalized);
     if (organization) {
       return this.assessment(
         sender,
@@ -228,6 +216,15 @@ export class VerificationService {
 
   // A user report is attributable evidence, never a global reputation change.
   async reportFraud(userId: string, sender: string) {
+    // Alphanumeric sender IDs ("GCash", "BDO") belong to brands and can be
+    // spoofed per message, so a sender-wide fraud flag would hit the real
+    // brand too. This is the last point the raw sender exists; everything
+    // stored after it is an HMAC fingerprint.
+    if (/[a-zA-Z]/.test(sender)) {
+      throw new BadRequestException(
+        'Only phone-number senders can be reported.',
+      );
+    }
     const normalized = fingerprintSender(sender);
     // Reports are deduplicated only for the same cache-lifetime window. Once
     // reputation evidence expires, a user may provide fresh corroboration.
@@ -280,14 +277,32 @@ export class VerificationService {
         `At least ${MINIMUM_CORROBORATING_REPORTS} independent pending reports are required.`,
       );
     }
+    await this.markSenderFraud(
+      selected.sender,
+      selected.reportWindow,
+      reviewerId,
+      reason,
+    );
+    return { reportId, status: 'fraud', reportCount };
+  }
+
+  private async markSenderFraud(
+    senderFingerprint: string,
+    reportWindow: string,
+    reviewerId: string,
+    reason: string,
+  ) {
+    // A verified organization is never flagged sender-wide; spoofed messages
+    // from it are handled per message, not by condemning the real sender.
+    if (await this.findActiveTrustedOrganization(senderFingerprint)) {
+      throw new BadRequestException(
+        'Sender is a verified organization and cannot be marked as fraud.',
+      );
+    }
     const expiresAt = new Date(Date.now() + FRAUD_TTL_MS);
     await this.prisma.$transaction([
       this.prisma.senderReport.updateMany({
-        where: {
-          sender: selected.sender,
-          reportWindow: selected.reportWindow,
-          status: 'Pending',
-        },
+        where: { sender: senderFingerprint, reportWindow, status: 'Pending' },
         data: {
           status: 'Validated',
           validatedAt: new Date(),
@@ -296,9 +311,9 @@ export class VerificationService {
         },
       }),
       this.prisma.senderVerificationCache.upsert({
-        where: { sender: selected.sender },
+        where: { sender: senderFingerprint },
         create: {
-          sender: selected.sender,
+          sender: senderFingerprint,
           status: 'fraud',
           source: 'corroborated-admin-review',
           expiresAt,
@@ -310,7 +325,22 @@ export class VerificationService {
         },
       }),
     ]);
-    return { reportId, status: 'fraud', reportCount };
+  }
+
+  private findActiveTrustedOrganization(senderFingerprint: string) {
+    return this.prisma.trustedOrganization.findFirst({
+      where: {
+        sender: senderFingerprint,
+        isActive: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+      },
+      select: {
+        id: true,
+        name: true,
+        officialDomains: true,
+        evidenceType: true,
+      },
+    });
   }
 
   // Normalizes phone numbers for consistent DB lookups.

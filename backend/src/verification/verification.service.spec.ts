@@ -75,6 +75,50 @@ describe('VerificationService', () => {
     expect(prisma.senderVerificationCache.upsert).not.toHaveBeenCalled();
   });
 
+  it('rejects reports about alphanumeric brand sender IDs', async () => {
+    await expect(service.reportFraud('u1', 'GCash')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.senderReport.create).not.toHaveBeenCalled();
+  });
+
+  describe('confirmFraud with corroborating reports', () => {
+    beforeEach(() => {
+      prisma.senderReport.findUnique.mockResolvedValue({
+        id: 'r1',
+        sender: 'fingerprint',
+        reportWindow: '1',
+        status: 'Pending',
+      });
+      prisma.senderReport.count.mockResolvedValue(3);
+    });
+
+    it('marks the sender as fraud', async () => {
+      prisma.trustedOrganization.findFirst.mockResolvedValue(null);
+      await expect(
+        service.confirmFraud('r1', 'admin', 'verified'),
+      ).resolves.toEqual({ reportId: 'r1', status: 'fraud', reportCount: 3 });
+      expect(prisma.senderVerificationCache.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { sender: 'fingerprint' },
+          create: expect.objectContaining({
+            status: 'fraud',
+            source: 'corroborated-admin-review',
+          }),
+        }),
+      );
+    });
+
+    it('refuses to mark an active trusted organization as fraud', async () => {
+      prisma.trustedOrganization.findFirst.mockResolvedValue({ id: 'org1' });
+      await expect(
+        service.confirmFraud('r1', 'admin', 'verified'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.senderVerificationCache.upsert).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
   it('returns a vetted organization separately from risk and never treats it as a fraud override', async () => {
     prisma.senderVerificationCache.findUnique.mockResolvedValue(null);
     prisma.trustedOrganization.findFirst.mockResolvedValue({

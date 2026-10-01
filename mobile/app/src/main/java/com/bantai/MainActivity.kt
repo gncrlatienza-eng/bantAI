@@ -1,14 +1,24 @@
 package com.bantai
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import com.bantai.navigation.NavGraph
+import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.theme.BantAITheme
+import com.bantai.ui.theme.TextScale
+import com.bantai.ui.theme.ThemeMode
+import com.bantai.ui.theme.isDark
+import com.bantai.util.IntentToken
 import com.bantai.util.NotificationHelper
 
 // smsto:/sms: are the schemes Android's own Contacts and Dialer apps use for
@@ -51,8 +61,31 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         NotificationHelper.createNotificationChannels(this)
         applyIntent(intent)
+        val themeModeFlow = this.container.userPreferences.themeMode
+        val textScaleFlow = this.container.userPreferences.textScale
         setContent {
-            BantAITheme {
+            // Not gated like the theme: default size is a fine first frame.
+            val storedTextScale by textScaleFlow.collectAsState(initial = "")
+            // Until the stored theme choice is read (one small DataStore read),
+            // show the launch screen -- the same logo frame as the launch window
+            // (res/drawable/launch_background.xml) -- rather than a blank screen.
+            val storedMode by themeModeFlow.collectAsState(initial = null)
+            val mode =
+                storedMode ?: run {
+                    LaunchScreen()
+                    return@setContent
+                }
+            val dark = ThemeMode.fromValue(mode).isDark()
+            // Status/navigation bar icons follow the app's theme, not the system's.
+            DisposableEffect(dark) {
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose {}
+            }
+            BantAITheme(
+                darkTheme = dark,
+                textScale = TextScale.fromValue(storedTextScale).factor,
+            ) {
                 NavGraph(
                     requestedTab = requestedTab.value,
                     requestedConversationSender = requestedConversationSender.value,
@@ -70,8 +103,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyIntent(intent: Intent) {
-        requestedTab.value = resolveTabIndex(intent)
-        requestedConversationSender.value = intent.getStringExtra(NotificationHelper.EXTRA_CONVERSATION_SENDER)
+        // Tab / conversation extras only count when they come from BantAI's own
+        // notifications (they carry IntentToken). This activity is open to other
+        // apps for "send SMS" links, and any app could otherwise add these
+        // extras to jump BantAI into a conversation of its choosing.
+        val trusted = IntentToken.isTrusted(this, intent.getStringExtra(IntentToken.EXTRA))
+        requestedTab.value = if (trusted) resolveTabIndex(intent) else null
+        requestedConversationSender.value =
+            if (trusted) intent.getStringExtra(NotificationHelper.EXTRA_CONVERSATION_SENDER) else null
         val compose = resolveComposeRequest(intent)
         requestedComposeRecipient.value = compose?.first
         requestedComposeBody.value = compose?.second.orEmpty()

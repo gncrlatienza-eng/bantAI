@@ -1,6 +1,7 @@
 package com.bantai.ui.screens.onboarding
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,26 +44,45 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.bantai.R
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.DarkIndigo
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 @Composable
 @Suppress("LongMethod", "MaxLineLength")
 fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
+    val context = LocalContext.current
     val permissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) {
             onNext()
         }
+
+    // Becoming the default SMS app on the previous screen usually grants these
+    // already; don't ask the user for something they've just given.
+    LaunchedEffect(Unit) {
+        val needed =
+            buildList {
+                add(Manifest.permission.READ_SMS)
+                add(Manifest.permission.RECEIVE_SMS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        if (needed.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) onNext()
+    }
 
     var visible by remember { mutableStateOf(false) }
     val slideAlpha by animateFloatAsState(
@@ -101,11 +122,11 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
             Icon(Icons.Filled.Sms, contentDescription = null, tint = Indigo, modifier = Modifier.size(28.dp))
         }
         Spacer(Modifier.height(16.dp))
-        Text("Read your SMS", fontWeight = FontWeight.Bold, fontSize = 24.sp, color = White)
+        Text(stringResource(R.string.onboarding_allow_access_read_your_sms), fontWeight = FontWeight.Bold, fontSize = TextSize.Title, color = White)
         Spacer(Modifier.height(8.dp))
         Text(
-            "BantAI reads incoming messages on your device to detect phishing. SMS content stays on your phone; only privacy-minimized threat metadata is synchronized after you sign in.",
-            fontSize = 13.sp,
+            stringResource(R.string.onboarding_allow_access_bantai_reads_incoming_messages_on),
+            fontSize = TextSize.Footnote,
             color = TextSecondary,
             lineHeight = 20.sp,
         )
@@ -114,18 +135,18 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PermissionCheckRow(
                 icon = Icons.Default.Lock,
-                title = "Read SMS messages",
-                subtitle = "To scan incoming texts for threats",
+                title = stringResource(R.string.onboarding_allow_access_read_sms_messages),
+                subtitle = stringResource(R.string.onboarding_allow_access_to_scan_incoming_texts_for),
             )
             PermissionCheckRow(
                 icon = Icons.Default.Notifications,
-                title = "Send notifications",
-                subtitle = "Alert you when a threat is detected",
+                title = stringResource(R.string.onboarding_allow_access_send_notifications),
+                subtitle = stringResource(R.string.onboarding_allow_access_alert_you_when_a_threat),
             )
             PermissionCheckRow(
                 icon = Icons.Filled.Shield,
-                title = "SMS content stays on your phone",
-                subtitle = "Classification happens on-device; only threat metadata is synced",
+                title = stringResource(R.string.onboarding_allow_access_sms_content_stays_on_your),
+                subtitle = stringResource(R.string.onboarding_allow_access_classification_happens_on_device_only),
             )
         }
 
@@ -143,18 +164,18 @@ fun OnboardingAllowAccessScreen(onNext: () -> Unit) {
                     }
                 permissionLauncher.launch(permissions.toTypedArray())
             },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
         ) {
-            Text("Allow SMS Access", color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(stringResource(R.string.onboarding_allow_access_allow_sms_access), color = OnIndigo, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
         }
         Spacer(Modifier.height(4.dp))
         TextButton(
             onClick = { onNext() },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Skip for now", color = TextSecondary, fontSize = 14.sp)
+            Text(stringResource(R.string.action_skip_for_now), color = TextSecondary, fontSize = TextSize.Subhead)
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -177,8 +198,8 @@ private fun PermissionCheckRow(
     ) {
         Icon(icon, contentDescription = null, tint = Indigo, modifier = Modifier.size(22.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
-            Text(subtitle, fontSize = 12.sp, color = TextSecondary)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead, color = White)
+            Text(subtitle, fontSize = TextSize.Caption, color = TextSecondary)
         }
         Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Safe, modifier = Modifier.size(20.dp))
     }

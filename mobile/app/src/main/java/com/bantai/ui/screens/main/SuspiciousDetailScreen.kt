@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,15 +37,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.theme.Black
@@ -52,7 +53,9 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,20 +93,28 @@ fun SuspiciousDetailScreen(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
                 sender,
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
             IconButton(
                 onClick = { showAISummary = true },
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
-                Icon(Icons.Default.Psychology, contentDescription = "AI Analysis", tint = Indigo)
+                Icon(
+                    Icons.Default.Psychology,
+                    contentDescription = stringResource(R.string.suspicious_detail_ai_analysis),
+                    tint = Indigo,
+                )
             }
         }
 
@@ -114,14 +125,19 @@ fun SuspiciousDetailScreen(
                     .background(Suspicious.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
                     .padding(horizontal = 10.dp, vertical = 4.dp),
         ) {
-            Text("Suspicious", color = Suspicious, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(
+                stringResource(R.string.verdict_suspicious),
+                color = SuspiciousText,
+                fontSize = TextSize.Caption,
+                fontWeight = FontWeight.Medium,
+            )
         }
 
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF2A1A00))
+                    .background(Suspicious.copy(alpha = 0.15f))
                     .clickable { navController.navigate(Screen.ThreatAnalysis.createRoute()) }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -129,9 +145,9 @@ fun SuspiciousDetailScreen(
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
             Text(
-                "Suspicious — Tap for threat details and actions",
-                color = Suspicious,
-                fontSize = 13.sp,
+                stringResource(R.string.suspicious_detail_suspicious_tap_for_threat_details),
+                color = SuspiciousText,
+                fontSize = TextSize.Footnote,
                 modifier = Modifier.weight(1f),
             )
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
@@ -149,14 +165,14 @@ fun SuspiciousDetailScreen(
             item { DateSeparator("May 7") }
             item {
                 ChatBubble(
-                    text = "Your BDO account statement for April is now available. Log in to view it.",
+                    text = stringResource(R.string.suspicious_detail_your_bdo_account_statement_for),
                     time = "8:00 AM",
                 )
             }
             item { DateSeparator("Today") }
             item {
                 ChatBubble(
-                    text = "Thank you for banking with BDO. Your balance inquiry was successful.",
+                    text = stringResource(R.string.suspicious_detail_thank_you_for_banking_with),
                     time = "8:30 AM",
                 )
             }
@@ -176,12 +192,16 @@ fun SuspiciousDetailScreen(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .heightIn(min = 44.dp)
                         .background(Surface, RoundedCornerShape(22.dp))
                         .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Text("Message", color = TextSecondary, fontSize = 14.sp)
+                Text(
+                    stringResource(R.string.message_detail_message),
+                    color = TextSecondary,
+                    fontSize = TextSize.Subhead,
+                )
             }
             Box(
                 modifier =
@@ -192,7 +212,7 @@ fun SuspiciousDetailScreen(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Send",
+                    contentDescription = stringResource(R.string.action_send),
                     tint = TextSecondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -204,7 +224,7 @@ fun SuspiciousDetailScreen(
 @Composable
 private fun DateSeparator(text: String) {
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Text(text, color = TextSecondary, fontSize = 12.sp)
+        Text(text, color = TextSecondary, fontSize = TextSize.Caption)
     }
 }
 
@@ -222,9 +242,9 @@ private fun ChatBubble(
                     RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
                 ).padding(12.dp),
     ) {
-        Text(text, color = White, fontSize = 14.sp)
+        Text(text, color = White, fontSize = TextSize.Subhead)
         Spacer(Modifier.height(4.dp))
-        Text(time, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
+        Text(time, color = TextSecondary, fontSize = TextSize.Caption2, modifier = Modifier.align(Alignment.End))
     }
 }
 
@@ -248,23 +268,32 @@ private fun FlaggedChatBubble(navController: NavController) {
                     append("bdo-secure-ph.net/transactions/confirm")
                 }
             },
-            fontSize = 14.sp,
+            fontSize = TextSize.Subhead,
         )
         Spacer(Modifier.height(8.dp))
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF2A0000), RoundedCornerShape(8.dp))
+                    .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                     .clickable { navController.navigate(Screen.UnsafeLink.route) }
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(Icons.Default.Shield, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))
-            Text("Flagged link — tap to see details", color = Danger, fontSize = 12.sp)
+            Text(
+                stringResource(R.string.suspicious_detail_flagged_link_tap_to_see),
+                color = Danger,
+                fontSize = TextSize.Caption,
+            )
         }
         Spacer(Modifier.height(4.dp))
-        Text("8:42 AM", color = TextSecondary, fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
+        Text(
+            stringResource(R.string.suspicious_detail_8_42_am),
+            color = TextSecondary,
+            fontSize = TextSize.Caption2,
+            modifier = Modifier.align(Alignment.End),
+        )
     }
 }

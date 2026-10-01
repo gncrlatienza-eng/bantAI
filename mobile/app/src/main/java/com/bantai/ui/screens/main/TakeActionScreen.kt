@@ -2,29 +2,34 @@ package com.bantai.ui.screens.main
 
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.ReportGmailerrorred
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,11 +38,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,74 +51,150 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.bantai.data.local.UserPreferences
-import com.bantai.data.remote.BlockedNumbersApi
+import com.bantai.R
+import com.bantai.container
+import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.model.Classification
+import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.ReportsApi
+import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
-import com.bantai.ui.theme.ContactBadge
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Safe
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
+import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.util.BlockHelper
-import kotlinx.coroutines.Dispatchers
+import com.bantai.util.DefaultSmsApp
+import com.bantai.util.SenderReplyKind
+import com.bantai.util.replyKindFor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-private val reportTypes = listOf("Smishing / Phishing", "Spam", "Wrong classification", "Other")
 private const val DISABLED_CARD_ALPHA = 0.4f
 
-// Maps a report-type selection to the backend's SubmitReportDto.reportedLabel
-// (Ham/Spam/Scam only, no free-text reason field exists). Only the two
-// unambiguous mappings are wired to the real POST /reports call; "Wrong
-// classification" and "Other" don't imply a specific corrected label, so
-// submitting one would just be a guess written into data that feeds AI
-// retraining — those two are rejected with an explanation at submit time
-// (see onConfirm below) until there's a real design for what they should report.
-private fun reportedLabelFor(reportTypeIndex: Int): String? =
-    when (reportTypeIndex) {
-        0 -> "Scam" // Smishing / Phishing
-        1 -> "Spam"
-        else -> null // Wrong classification / Other — ambiguous, not wired
-    }
+// Each option is a concrete correction for the backend's SubmitReportDto
+// (Ham/Spam/Scam) -- reports feed AI retraining, so every choice has to name
+// the label the message should have had, including "this is legit".
+private data class ReportOption(
+    @StringRes val title: Int,
+    val reportedLabel: String,
+)
+
+private val allReportOptions =
+    listOf(
+        ReportOption(R.string.take_action_option_scam, "Scam"),
+        ReportOption(R.string.take_action_option_spam, "Spam"),
+        ReportOption(R.string.take_action_option_ham, "Ham"),
+    )
+
+// The backend rejects a "correction" that matches the current verdict, so that
+// option is hidden; with no known label (e.g. an Unknown message) all show.
+private fun reportOptionsFor(label: String): List<ReportOption> = allReportOptions.filter { it.reportedLabel != label }
+
+private class NotDefaultSmsAppException : Exception("Set BantAI as your default SMS app to block numbers.")
+
+/** TakeAction `action` value for the one-tap "Report as scam" shortcut. */
+const val PRESELECT_REPORT_SCAM = "report_scam"
 
 private data class TakeActionRequest(
     val reportSelected: Boolean,
     val blockSelected: Boolean,
     val messageId: String,
+    val localMessageId: Long?,
     val sender: String,
     val reportedLabel: String?,
 )
 
+@Suppress("ReturnCount") // each early return is a distinct, user-facing failure
 private suspend fun submitReportIfSelected(
     context: Context,
     request: TakeActionRequest,
 ): Result<Unit> {
     if (!request.reportSelected) return Result.success(Unit)
-    if (request.reportedLabel == null || request.messageId.isBlank()) {
-        // Ambiguous report type ("Wrong classification"/"Other") or no message to
-        // attach the report to — nothing to submit, so say so instead of silently
-        // no-opping into a "submitted" confirmation screen.
-        return Result.failure(
-            Exception("This report type isn't available yet for this message — try Smishing/Phishing or Spam."),
-        )
+    if (request.reportedLabel == null) {
+        return Result.failure(Exception(context.getString(R.string.take_action_error_choose_label)))
     }
-    val token = UserPreferences(context).userData.first().authToken
-    if (token.isEmpty()) return Result.failure(Exception("Sign in to submit a report"))
-    return ReportsApi.submit(token, request.messageId, request.reportedLabel)
+    val token =
+        context.container.userPreferences.userData
+            .first()
+            .authToken
+    if (token.isEmpty()) return Result.failure(Exception(context.getString(R.string.take_action_error_sign_in)))
+    // A message the backend hasn't seen yet (never scanned, or never flagged) is
+    // registered on the spot rather than making Report unavailable for it.
+    val messageId =
+        request.messageId.ifBlank {
+            request.localMessageId?.let { SmsIngestPipeline.backendMessageIdFor(context, token, it) }.orEmpty()
+        }
+    if (messageId.isBlank()) {
+        // Say so instead of silently no-opping into a "submitted" confirmation screen.
+        return Result.failure(Exception(context.getString(R.string.take_action_error_offline)))
+    }
+    val submitted = ReportsApi.submit(token, messageId, request.reportedLabel)
+    if (submitted.isSuccess && request.reportedLabel == "Scam") fileSenderReport(token, request.sender)
+    // Filed now, or already filed before (the backend allows one per message):
+    // either way the alert belongs under Reported, where Report isn't offered.
+    val alreadyReported = (submitted.exceptionOrNull() as? ApiException)?.status == HTTP_CONFLICT
+    if (submitted.isSuccess || alreadyReported) {
+        context.container.alertStateStore.markReported(messageId, request.reportedLabel)
+    }
+    if (submitted.isSuccess) refileReported(context, request.localMessageId, request.reportedLabel)
+    return submitted
+}
+
+/**
+ * Moves the reported message to the chip the user chose, right away -- a report
+ * used to change nothing on the phone, so a scam reported from Messages stayed
+ * in Messages. Ham -> Messages, Spam -> Spam. Scam -> Unknown: a scam label
+ * hides a sender's whole thread from every chip (it's meant to live in Alerts),
+ * and a report doesn't create an alert, so the text would vanish. A message
+ * already filed as a scam (an alert) stays one.
+ */
+private suspend fun refileReported(
+    context: Context,
+    localMessageId: Long?,
+    reportedLabel: String,
+) {
+    if (localMessageId == null || localMessageId <= 0) return
+    val store = context.container.classificationStore
+    val current = store.snapshotFor(localMessageId)
+    val label =
+        when (reportedLabel) {
+            "Ham" -> Classification.SAFE
+            "Spam" -> Classification.SPAM
+            else -> if (current == Classification.SCAM) return else Classification.UNKNOWN
+        }
+    store.setClassification(localMessageId, label)
+}
+
+private const val HTTP_CONFLICT = 409
+
+// Corroborating evidence so several users reporting the same number can get it
+// confirmed as fraud for everyone. Only real phone numbers: brand sender IDs
+// ("BPI", "GCash") are routinely spoofed, so flagging the ID would flag every
+// genuine message from that brand. Best-effort -- the message report already
+// succeeded, and a repeat report of the same sender (409) is expected.
+private suspend fun fileSenderReport(
+    token: String,
+    sender: String,
+) {
+    if (replyKindFor(sender) != SenderReplyKind.PHONE_NUMBER) return
+    VerificationApi.reportSender(token, sender)
 }
 
 // Blocks at the device level (the part that actually stops the sender), then
@@ -128,21 +208,27 @@ private suspend fun blockIfSelected(
     request: TakeActionRequest,
 ): Result<Unit> {
     if (!request.blockSelected) return Result.success(Unit)
-    if (request.sender.isBlank()) return Result.failure(Exception("Can't block — no number for this message."))
-    // BlockHelper's calls are synchronous ContentResolver I/O (BlockedNumberContract),
-    // not suspend functions -- without Dispatchers.IO here they'd run straight on
-    // whatever dispatcher rememberCoroutineScope() gave the caller, which for a
-    // Compose scope is Main.
-    val blockedOk =
-        withContext(Dispatchers.IO) {
-            BlockHelper.blockNumberSystem(context, request.sender)
-            BlockHelper.isBlocked(context, request.sender)
-        }
-    if (!blockedOk) {
-        return Result.failure(Exception("Couldn't block this number"))
+    if (request.sender.isBlank()) {
+        return Result.failure(
+            Exception(context.getString(R.string.take_action_error_no_number)),
+        )
     }
-    val token = UserPreferences(context).userData.first().authToken
-    if (token.isNotEmpty()) BlockedNumbersApi.block(token, request.sender)
+    // Android only lets the default SMS (or phone) app write to its block list;
+    // any other app's insert is refused, which used to surface as a bare
+    // "Couldn't block this number" with no way forward.
+    if (!DefaultSmsApp.isDefault(context)) {
+        return Result.failure(NotDefaultSmsAppException())
+    }
+    // Same path as an auto-block, so the sender also lands in Blocked Numbers'
+    // local record (BlockedSendersStore) and Alerts sees it as blocked.
+    val token =
+        context.container.userPreferences.userData
+            .first()
+            .authToken
+    val outcome = BlockHelper.blockSender(context, token, request.sender)
+    if (!outcome.onDevice) {
+        return Result.failure(Exception(context.getString(R.string.take_action_error_block_failed)))
+    }
     return Result.success(Unit)
 }
 
@@ -159,32 +245,98 @@ private suspend fun performTakeAction(
 }
 
 /**
- * @param messageId backend `SmsMessage` UUID for the message being reported — required
- *   for a real submission. Blank when the caller doesn't have one (see NavGraph.kt), in
- *   which case attempting to Report is rejected with an explanatory toast rather than
- *   submitting a fabricated id or silently no-opping into a "submitted" confirmation.
+ * @param messageId backend `SmsMessage` UUID for the message being reported, when the
+ *   caller already has one (alerts, flagged banners).
+ * @param localMessageId device SMS row id; lets any message be reported by resolving or
+ *   registering its backend id at submit time. Report is only unavailable when neither
+ *   id exists.
+ * @param currentLabel the message's current verdict (Ham/Spam/Scam, blank if unsure),
+ *   used to hide the report option that would repeat it.
  * @param sender shown in the confirmation dialog, and required to actually Block (a
- *   blank sender rejects the block with an explanatory toast for the same reason).
+ *   blank sender rejects the block with an explanatory toast).
+ * @param preselect "report" or "block" to start with that option already chosen.
+ * @param canBlock false hides Block entirely -- for a trusted sender name (blocking
+ *   "BDO" would also block the real bank, since names are spoofable) or a sender
+ *   BantAI already blocked.
  */
 @Composable
-@Suppress("LongMethod")
+@Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 fun TakeActionScreen(
     navController: NavController,
     messageId: String = "",
     sender: String = "",
+    localMessageId: Long? = null,
+    currentLabel: String = "",
+    preselect: String = "",
+    canBlock: Boolean = true,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    // submitReportIfSelected always fails without a messageId -- disable the
-    // Report option entirely at this entry point instead of letting the user
-    // walk through the whole flow to a guaranteed rejection toast.
-    val canReport = messageId.isNotBlank()
-    var reportSelected by remember { mutableStateOf(false) }
-    var blockSelected by remember { mutableStateOf(false) }
-    var selectedReportType by remember { mutableIntStateOf(0) }
+    val canReport = messageId.isNotBlank() || localMessageId != null
+    val reportOptions = remember(currentLabel) { reportOptionsFor(currentLabel) }
+    // "report_scam" is the one-tap shortcut: Report with "Scam" already chosen,
+    // straight to the confirmation.
+    val quickScamReport = preselect == PRESELECT_REPORT_SCAM
+    var reportSelected by remember { mutableStateOf(canReport && (preselect == "report" || quickScamReport)) }
+    // Block needs the default SMS app role; asked for up front (below) rather
+    // than only discovered at Submit.
+    var blockSelected by remember {
+        mutableStateOf(canBlock && preselect == "block" && BlockHelper.isDefaultSmsApp(context))
+    }
+    var selectedReportType by remember {
+        mutableIntStateOf(
+            if (quickScamReport) reportOptions.indexOfFirst { it.reportedLabel == "Scam" }.coerceAtLeast(0) else 0,
+        )
+    }
     var notes by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
+    var showDefaultSmsPrompt by remember {
+        mutableStateOf(canBlock && preselect == "block" && !BlockHelper.isDefaultSmsApp(context))
+    }
+    val defaultSmsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (BlockHelper.isDefaultSmsApp(context)) blockSelected = true
+        }
+
+    LaunchedEffect(Unit) {
+        if (quickScamReport && reportSelected && reportOptions.any { it.reportedLabel == "Scam" }) showDialog = true
+    }
+
+    if (showDefaultSmsPrompt) {
+        AlertDialog(
+            onDismissRequest = { showDefaultSmsPrompt = false },
+            containerColor = SurfaceElevated,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(stringResource(R.string.default_sms_prompt_title), color = White, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(
+                    stringResource(R.string.default_sms_prompt_block),
+                    color = TextSecondary,
+                    fontSize = TextSize.Subhead,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDefaultSmsPrompt = false
+                    runCatching { defaultSmsLauncher.launch(BlockHelper.defaultSmsAppIntent(context)) }
+                }) {
+                    Text(
+                        stringResource(R.string.default_sms_prompt_confirm),
+                        color = Indigo,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDefaultSmsPrompt = false }) {
+                    Text(stringResource(R.string.action_not_now), color = TextSecondary)
+                }
+            },
+        )
+    }
 
     val dialogType =
         when {
@@ -206,7 +358,7 @@ fun TakeActionScreen(
             isSubmitting = isSubmitting,
             onDismiss = { showDialog = false },
             onConfirm = {
-                val reportedLabel = reportedLabelFor(selectedReportType)
+                val reportedLabel = reportOptions.getOrNull(selectedReportType)?.reportedLabel
                 isSubmitting = true
                 coroutineScope.launch {
                     val result =
@@ -216,6 +368,7 @@ fun TakeActionScreen(
                                 reportSelected = reportSelected,
                                 blockSelected = blockSelected,
                                 messageId = messageId,
+                                localMessageId = localMessageId,
                                 sender = sender,
                                 reportedLabel = reportedLabel,
                             ),
@@ -224,9 +377,17 @@ fun TakeActionScreen(
                     result
                         .onSuccess { proceedAfterConfirm() }
                         .onFailure { error ->
-                            Toast
-                                .makeText(context, error.message ?: "Something went wrong", Toast.LENGTH_LONG)
-                                .show()
+                            if (error is NotDefaultSmsAppException) {
+                                showDialog = false
+                                showDefaultSmsPrompt = true
+                            } else {
+                                Toast
+                                    .makeText(
+                                        context,
+                                        error.message ?: context.getString(R.string.error_generic),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                            }
                         }
                 }
             },
@@ -235,12 +396,20 @@ fun TakeActionScreen(
 
     TakeActionContent(
         canReport = canReport,
+        canBlock = canBlock,
+        reportOptions = reportOptions,
         reportSelected = reportSelected,
         blockSelected = blockSelected,
         selectedReportType = selectedReportType,
         notes = notes,
         onToggleReport = { reportSelected = !reportSelected },
-        onToggleBlock = { blockSelected = !blockSelected },
+        onToggleBlock = {
+            if (!blockSelected && !BlockHelper.isDefaultSmsApp(context)) {
+                showDefaultSmsPrompt = true
+            } else {
+                blockSelected = !blockSelected
+            }
+        },
         onSelectReportType = { selectedReportType = it },
         onNotesChange = { notes = it },
         onSubmit = { showDialog = true },
@@ -249,8 +418,11 @@ fun TakeActionScreen(
 }
 
 @Composable
+@Suppress("LongMethod", "LongParameterList") // one flat list of hoisted state + callbacks
 private fun TakeActionContent(
     canReport: Boolean,
+    canBlock: Boolean,
+    reportOptions: List<ReportOption>,
     reportSelected: Boolean,
     blockSelected: Boolean,
     selectedReportType: Int,
@@ -266,7 +438,12 @@ private fun TakeActionContent(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Black),
+                .background(Black)
+                // The notes box sits at the bottom of the form; without this the
+                // keyboard covered it (edge-to-edge means adjustResize no longer
+                // shrinks the window). The scroll area shrinks instead and the
+                // focused field is scrolled into view.
+                .imePadding(),
     ) {
         Box(
             modifier =
@@ -279,170 +456,206 @@ private fun TakeActionContent(
                 onClick = onBack,
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                "Take Action",
+                stringResource(if (canBlock) R.string.take_action_title else R.string.take_action_title_report),
                 color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
-        HorizontalDivider(color = Surface)
 
+        // iOS grouped-list layout: small caps section headers over rounded
+        // cards, a check circle for each choice, one primary button at the end.
         Column(
             modifier =
                 Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ActionToggleCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Report",
-                    description =
-                        if (canReport) {
-                            "Flag this message for administrator review"
-                        } else {
-                            "Not available for this message"
-                        },
-                    icon = Icons.Default.Flag,
-                    iconColor = Danger,
+            SectionHeader(stringResource(R.string.take_action_choose_an_action))
+            GroupCard {
+                ActionRow(
+                    icon = Icons.Outlined.ReportGmailerrorred,
+                    tint = Indigo,
+                    title = stringResource(R.string.message_detail_report_message),
+                    subtitle =
+                        stringResource(
+                            if (canReport) {
+                                R.string.take_action_report_subtitle
+                            } else {
+                                R.string.take_action_report_unavailable
+                            },
+                        ),
                     selected = reportSelected,
-                    selectedBg = Color(0xFF2A0A0A),
-                    selectedBorder = Danger,
-                    checkColor = Indigo,
                     enabled = canReport,
                     onClick = onToggleReport,
                 )
-                ActionToggleCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Block",
-                    description = "Stop receiving messages from this number",
-                    icon = Icons.Default.Block,
-                    iconColor = if (blockSelected) Safe else TextSecondary,
-                    selected = blockSelected,
-                    selectedBg = Color(0xFF0A2A0A),
-                    selectedBorder = Safe,
-                    checkColor = Safe,
-                    onClick = onToggleBlock,
-                )
+                if (canBlock) {
+                    RowDivider()
+                    ActionRow(
+                        icon = Icons.Outlined.Block,
+                        tint = Danger,
+                        title = stringResource(R.string.alert_block_sender),
+                        subtitle = stringResource(R.string.take_action_stop_messages_from_this_number),
+                        selected = blockSelected,
+                        onClick = onToggleBlock,
+                    )
+                }
             }
 
-            when {
-                reportSelected && blockSelected -> {
-                    ReportTypeSection(selectedReportType, onSelectReportType)
-                    NotesSection(notes, onNotesChange)
-                    BlockInfoRow()
-                    ActionButton(text = "Submit report & block number", enabled = true, onClick = onSubmit)
-                }
-                reportSelected -> {
-                    ReportTypeSection(selectedReportType, onSelectReportType)
-                    NotesSection(notes, onNotesChange)
-                    ActionButton(text = "Submit report", enabled = true, onClick = onSubmit)
-                }
-                blockSelected -> {
-                    BlockInfoRow()
-                    ActionButton(text = "Block number", enabled = true, onClick = onSubmit)
-                }
-                else -> {
-                    ActionButton(text = "Submit report", enabled = false) {}
-                }
+            if (reportSelected) {
+                SectionHeader(stringResource(R.string.take_action_what_is_this_message))
+                ReportTypeSection(reportOptions, selectedReportType, onSelectReportType)
+                SectionHeader(stringResource(R.string.take_action_notes_optional))
+                NotesSection(notes, onNotesChange)
+            }
+
+            if (blockSelected) {
+                Text(
+                    stringResource(R.string.take_action_this_number_will_be_added),
+                    color = TextSecondary,
+                    fontSize = TextSize.Footnote,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                )
             }
         }
+
+        val buttonText =
+            when {
+                reportSelected && blockSelected -> "Report & Block"
+                blockSelected -> "Block Sender"
+                else -> "Send Report"
+            }
+        ActionButton(
+            text = buttonText,
+            // Blocking is the destructive half, so it takes the red fill.
+            color = if (blockSelected) Danger else Indigo,
+            enabled = reportSelected || blockSelected,
+            onClick = onSubmit,
+        )
     }
 }
 
 @Composable
-private fun ActionToggleCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    description: String,
+private fun SectionHeader(text: String) {
+    Text(
+        text.uppercase(),
+        color = TextSecondary,
+        fontSize = TextSize.Caption,
+        letterSpacing = 0.4.sp,
+        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 6.dp),
+    )
+}
+
+@Composable
+private fun GroupCard(content: @Composable () -> Unit) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(SurfaceElevated),
+    ) { content() }
+}
+
+@Composable
+private fun RowDivider(startInset: Int = 60) {
+    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = startInset.dp))
+}
+
+@Composable
+private fun SelectionIndicator(selected: Boolean) {
+    Icon(
+        if (selected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+        contentDescription = stringResource(if (selected) R.string.cd_selected else R.string.cd_not_selected),
+        tint = if (selected) Indigo else TextTertiary,
+        modifier = Modifier.size(22.dp),
+    )
+}
+
+@Composable
+@Suppress("LongParameterList")
+private fun ActionRow(
     icon: ImageVector,
-    iconColor: Color,
+    tint: Color,
+    title: String,
+    subtitle: String,
     selected: Boolean,
-    selectedBg: Color,
-    selectedBorder: Color,
-    checkColor: Color,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    Box(
+    Row(
         modifier =
-            modifier
+            Modifier
+                .fillMaxWidth()
                 .alpha(if (enabled) 1f else DISABLED_CARD_ALPHA)
-                .background(if (selected) selectedBg else Surface, RoundedCornerShape(16.dp))
-                .border(
-                    if (selected) 2.dp else 1.dp,
-                    if (selected) selectedBorder else BorderColor,
-                    RoundedCornerShape(16.dp),
-                ).clickable(enabled = enabled, onClick = onClick)
-                .padding(16.dp),
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (selected) {
-            Icon(
-                Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = checkColor,
-                modifier =
-                    Modifier
-                        .size(16.dp)
-                        .align(Alignment.TopEnd),
-            )
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        // Small tinted tile around the glyph, like an iOS Settings row.
+        Box(
+            modifier =
+                Modifier
+                    .size(32.dp)
+                    .background(tint.copy(alpha = 0.14f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center,
         ) {
-            Spacer(Modifier.height(8.dp))
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
-            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Text(description, color = TextSecondary, fontSize = 11.sp, textAlign = TextAlign.Center)
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
         }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = White, fontSize = TextSize.Body)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Footnote)
+        }
+        SelectionIndicator(selected)
     }
 }
 
 @Composable
 private fun ReportTypeSection(
+    options: List<ReportOption>,
     selectedType: Int,
     onSelect: (Int) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("add details (optional)", color = TextSecondary, fontSize = 12.sp)
-        Text("Report type", color = TextSecondary, fontSize = 12.sp)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            reportTypes.forEachIndexed { index, type ->
-                val isSelected = selectedType == index
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isSelected) Color(0xFF16163A) else Surface,
-                                RoundedCornerShape(12.dp),
-                            ).clickable { onSelect(index) }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(
-                        selected = isSelected,
-                        onClick = { onSelect(index) },
-                        colors =
-                            RadioButtonDefaults.colors(
-                                selectedColor = Indigo,
-                                unselectedColor = TextSecondary,
-                            ),
+    GroupCard {
+        options.forEachIndexed { index, option ->
+            val isSelected = selectedType == index
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(index) }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(option.title),
+                    color = White,
+                    fontSize = TextSize.Body,
+                    modifier = Modifier.weight(1f),
+                )
+                // iOS picker style: a plain checkmark on the chosen row only.
+                if (isSelected) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = stringResource(R.string.take_action_selected),
+                        tint = Indigo,
+                        modifier = Modifier.size(20.dp),
                     )
-                    Text(type, color = White, fontSize = 14.sp)
                 }
             }
+            if (index != options.lastIndex) RowDivider(startInset = 16)
         }
     }
 }
@@ -454,53 +667,38 @@ private fun NotesSection(
     notes: String,
     onNotesChange: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Additional notes (optional)", color = TextSecondary, fontSize = 12.sp)
+    Column {
         OutlinedTextField(
             value = notes,
             onValueChange = { if (it.length <= NOTES_MAX_LENGTH) onNotesChange(it) },
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 80.dp),
-            placeholder = { Text("Scammer", color = TextSecondary) },
-            shape = RoundedCornerShape(12.dp),
+                    .heightIn(min = 96.dp),
+            placeholder = {
+                Text(
+                    stringResource(R.string.take_action_anything_that_helps_us_review),
+                    color = TextSecondary,
+                )
+            },
+            shape = RoundedCornerShape(14.dp),
             colors =
                 OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Indigo,
+                    focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Surface,
-                    unfocusedContainerColor = Surface,
+                    focusedContainerColor = SurfaceElevated,
+                    unfocusedContainerColor = SurfaceElevated,
+                    focusedTextColor = White,
+                    unfocusedTextColor = White,
                     cursorColor = Indigo,
                 ),
         )
         Text(
             "${notes.length}/$NOTES_MAX_LENGTH",
             color = TextSecondary,
-            fontSize = 11.sp,
-            modifier = Modifier.fillMaxWidth(),
+            fontSize = TextSize.Caption2,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 8.dp),
             textAlign = TextAlign.End,
-        )
-    }
-}
-
-@Composable
-private fun BlockInfoRow() {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF0A2A0A), RoundedCornerShape(12.dp))
-                .padding(12.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Safe, modifier = Modifier.size(18.dp))
-        Text(
-            "This number will be added to your blocked list and can no longer send you messages. You can unblock anytime in Settings.",
-            color = Safe,
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
         )
     }
 }
@@ -508,6 +706,7 @@ private fun BlockInfoRow() {
 @Composable
 private fun ActionButton(
     text: String,
+    color: Color,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
@@ -517,17 +716,19 @@ private fun ActionButton(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-        shape = RoundedCornerShape(12.dp),
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .heightIn(min = 50.dp),
+        shape = RoundedCornerShape(14.dp),
         colors =
             ButtonDefaults.buttonColors(
-                containerColor = Indigo,
-                disabledContainerColor = ContactBadge,
-                contentColor = White,
-                disabledContentColor = TextSecondary,
+                containerColor = color,
+                disabledContainerColor = color.copy(alpha = 0.3f),
+                contentColor = OnAccent,
+                disabledContentColor = OnAccent.copy(alpha = 0.7f),
             ),
     ) {
-        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
     }
 }
 
@@ -539,6 +740,7 @@ private data class DialogData(
 )
 
 @Composable
+@Suppress("LongMethod")
 private fun ConfirmationDialog(
     type: String,
     sender: String,
@@ -546,56 +748,61 @@ private fun ConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    val safeSender = sender.ifBlank { "This number" }
+    val safeSender = sender.ifBlank { stringResource(R.string.take_action_this_number) }
     val data =
         when (type) {
             "report_only" ->
                 DialogData(
-                    Icons.Default.Flag,
-                    "Submit this report?",
-                    "Your report will be sent to the PhishNet team to help improve threat detection for all users.",
-                    "Yes, report",
+                    Icons.Outlined.ReportGmailerrorred,
+                    stringResource(R.string.take_action_confirm_report_title),
+                    stringResource(R.string.take_action_confirm_report_body),
+                    stringResource(R.string.take_action_confirm_report_button),
                 )
             "block_only" ->
                 DialogData(
-                    Icons.Default.Block,
-                    "Block this number?",
-                    "$safeSender will be added to your blocked list and can no longer send you messages. " +
-                        "You can unblock it anytime in Settings.",
-                    "Yes, block",
+                    Icons.Outlined.Block,
+                    stringResource(R.string.take_action_confirm_block_title),
+                    stringResource(R.string.take_action_confirm_block_body, safeSender),
+                    stringResource(R.string.take_action_confirm_block_button),
                 )
             else ->
                 DialogData(
-                    Icons.Default.Flag,
-                    "Submit report & block?",
-                    "Your report will be sent to the PhishNet team and the number will be blocked from sending you messages.",
-                    "Yes, submit & block",
+                    Icons.Outlined.Block,
+                    stringResource(R.string.take_action_confirm_both_title),
+                    stringResource(R.string.take_action_confirm_both_body),
+                    stringResource(R.string.take_action_confirm_both_button),
                 )
         }
+    val accent = if (type == "report_only") Indigo else Danger
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Surface,
+        containerColor = SurfaceElevated,
         shape = RoundedCornerShape(20.dp),
-        icon = { Icon(data.icon, contentDescription = null, tint = Danger, modifier = Modifier.size(32.dp)) },
+        icon = { Icon(data.icon, contentDescription = null, tint = accent, modifier = Modifier.size(28.dp)) },
         title = {
-            Text(data.title, color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp, textAlign = TextAlign.Center)
+            Text(
+                data.title,
+                color = White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = TextSize.Headline,
+                textAlign = TextAlign.Center,
+            )
         },
         text = {
-            Text(data.body, color = TextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center)
+            Text(data.body, color = TextSecondary, fontSize = TextSize.Footnote, textAlign = TextAlign.Center)
         },
         confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !isSubmitting,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Danger),
-            ) {
-                Text(if (isSubmitting) "Submitting…" else data.confirmText, color = White)
+            TextButton(onClick = onConfirm, enabled = !isSubmitting) {
+                Text(
+                    if (isSubmitting) "Sending…" else data.confirmText,
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextSecondary)
+                Text(stringResource(R.string.action_cancel), color = TextSecondary)
             }
         },
     )

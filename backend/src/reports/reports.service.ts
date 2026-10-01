@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -24,13 +23,11 @@ export class ReportsService {
       throw new NotFoundException(`Message ${dto.messageId} not found`);
     }
 
+    // A report matching the current label is a confirmation ("yes, this
+    // is a scam") -- the mobile Alerts tab files every reviewed alert this
+    // way. Stored like a correction; the admin dashboard already separates
+    // the two (originalLabel !== reportedLabel = mismatch).
     const originalLabel = message.classification?.label ?? 'Ham';
-
-    if (originalLabel === dto.reportedLabel) {
-      throw new BadRequestException(
-        'Reported label is the same as the current classification.',
-      );
-    }
 
     // One report per user per message (enforced by DB unique constraint too)
     const existing = await this.prisma.userReport.findUnique({
@@ -95,6 +92,10 @@ export class ReportsService {
   }
 
   // Admin: accept the report — queues it for the next retraining snapshot.
+  // This is a retraining decision only. Marking a sender as fraud for every
+  // user is a separate, explicit staff action
+  // (POST /verification/sender/confirm-fraud), so labelling a message for
+  // training never changes a sender's reputation as a side effect.
   async validate(id: string, adminNote?: string) {
     try {
       return await this.prisma.userReport.update({

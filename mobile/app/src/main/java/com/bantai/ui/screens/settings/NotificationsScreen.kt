@@ -5,10 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
-import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,45 +15,37 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -65,30 +54,37 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.bantai.R
-import com.bantai.data.remote.SmsApi
-import com.bantai.ui.components.MessageRowSkeleton
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Safe
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.SettingsViewModel
 
+/**
+ * One page of notification toggles. Each switch maps to a real check in
+ * SmsIngestPipeline.applyServerClassification/applyOfflineCaution:
+ * smishing/suspicious off → a plain message notification instead of the
+ * high-priority alert; spam off → no notification (still filed to Spam).
+ * Sound/vibration per channel is left to the system settings row.
+ */
 @Composable
 fun NotificationsScreen(
     navController: NavController,
     viewModel: SettingsViewModel,
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
     val smishingAlerts by viewModel.smishingAlerts.collectAsState()
     val suspiciousAlerts by viewModel.suspiciousAlerts.collectAsState()
+    val spamAlerts by viewModel.spamAlerts.collectAsState()
     val autoBlockNotice by viewModel.autoBlockNotice.collectAsState()
-    val recentAlerts by viewModel.recentAlerts.collectAsState()
-    val alertsLoading by viewModel.alertsLoading.collectAsState()
+    val deliveryReports by viewModel.deliveryReports.collectAsState()
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
         Box(
@@ -102,338 +98,204 @@ fun NotificationsScreen(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                "Notifications",
+                stringResource(R.string.notifications_notifications),
                 color = White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = TextSize.Headline,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
         HorizontalDivider(color = Surface)
 
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Black),
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            // Bottom clearance matches the floating tab bar's footprint (see
+            // MainScreen) -- this screen renders behind that persistent bar.
+            contentPadding =
+                PaddingValues(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = LocalBottomBarClearance.current,
+                ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TabItem(
-                label = "Threat alerts",
-                icon = { Icon(Icons.Filled.Notifications, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                modifier = Modifier.weight(1f),
-            )
-            TabItem(
-                label = "Weekly digest",
-                icon = { Icon(Icons.Filled.BarChart, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                modifier = Modifier.weight(1f),
-            )
-        }
-        HorizontalDivider(color = BorderColor)
+            item { NotificationPermissionBanner() }
 
-        when (selectedTab) {
-            0 ->
-                ThreatAlertsTab(
-                    smishingAlerts = smishingAlerts,
-                    onSmishingAlertsChanged = { viewModel.toggleSmishingAlerts(it) },
-                    suspiciousAlerts = suspiciousAlerts,
-                    onSuspiciousAlertsChanged = { viewModel.toggleSuspiciousAlerts(it) },
-                    autoBlockNotice = autoBlockNotice,
-                    onAutoBlockNoticeChanged = { viewModel.toggleAutoBlockNotice(it) },
-                    recentAlerts = recentAlerts,
-                    alertsLoading = alertsLoading,
+            item { SectionLabel(stringResource(R.string.notifications_alert_types)) }
+
+            item {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp)),
+                ) {
+                    ToggleRow(
+                        title = stringResource(R.string.notifications_smishing_alerts),
+                        subtitle = stringResource(R.string.notifications_high_priority_alert_for_likely),
+                        checked = smishingAlerts,
+                        onCheckedChange = { viewModel.toggleSmishingAlerts(it) },
+                    )
+                    HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                    ToggleRow(
+                        title = stringResource(R.string.notifications_suspicious_alerts),
+                        subtitle = stringResource(R.string.notifications_alert_for_messages_worth_a),
+                        checked = suspiciousAlerts,
+                        onCheckedChange = { viewModel.toggleSuspiciousAlerts(it) },
+                    )
+                    HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                    ToggleRow(
+                        title = stringResource(R.string.notifications_spam_alerts),
+                        subtitle = stringResource(R.string.notifications_notify_when_a_promo_is),
+                        checked = spamAlerts,
+                        onCheckedChange = { viewModel.toggleSpamAlerts(it) },
+                    )
+                    HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                    ToggleRow(
+                        title = stringResource(R.string.notifications_auto_block_notice),
+                        subtitle = stringResource(R.string.notifications_when_a_number_is_blocked),
+                        checked = autoBlockNotice,
+                        onCheckedChange = { viewModel.toggleAutoBlockNotice(it) },
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    stringResource(R.string.notifications_turning_off_smishing_or_suspicious),
+                    color = TextSecondary,
+                    fontSize = TextSize.Caption,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
-            1 -> WeeklyDigestTab()
-        }
-    }
-}
-
-@Composable
-private fun TabItem(
-    label: String,
-    icon: @Composable () -> Unit,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val color = if (selected) Indigo else Color(0xFF666666)
-    Box(
-        modifier =
-            modifier
-                .clickable(onClick = onClick)
-                .drawBehind {
-                    if (selected) {
-                        drawLine(
-                            color = Indigo,
-                            start = Offset(0f, size.height),
-                            end = Offset(size.width, size.height),
-                            strokeWidth = 2.dp.toPx(),
-                        )
-                    }
-                }.padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            CompositionLocalProvider(LocalContentColor provides color) {
-                icon()
-            }
-            Text(
-                label,
-                color = color,
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ThreatAlertsTab(
-    smishingAlerts: Boolean,
-    onSmishingAlertsChanged: (Boolean) -> Unit,
-    suspiciousAlerts: Boolean,
-    onSuspiciousAlertsChanged: (Boolean) -> Unit,
-    autoBlockNotice: Boolean,
-    onAutoBlockNoticeChanged: (Boolean) -> Unit,
-    recentAlerts: List<SmsApi.AlertSummary>,
-    alertsLoading: Boolean,
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        // Bottom clearance matches the floating tab bar's footprint (see
-        // MainScreen) -- this screen now renders behind that persistent bar.
-        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            // The toggles below only control which BantAI alert types are sent — they
-            // can't make Android deliver a notification without the OS-level
-            // POST_NOTIFICATIONS permission. Surface that gap explicitly rather than
-            // letting a user believe alerts are "on" when the system will silently
-            // drop them (see NotificationHelper.canPostNotifications).
-            val context = LocalContext.current
-            val isGranted = {
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
-            }
-            var notificationsGranted by remember { mutableStateOf(isGranted()) }
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-                val observer =
-                    LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) notificationsGranted = isGranted()
-                    }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
 
-            if (!notificationsGranted) {
+            item { SectionLabel(stringResource(R.string.notifications_messages_section)) }
+
+            item {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp)),
+                ) {
+                    ToggleRow(
+                        title = stringResource(R.string.notifications_delivery_reports),
+                        subtitle = stringResource(R.string.notifications_delivery_reports_detail),
+                        checked = deliveryReports,
+                        onCheckedChange = { viewModel.toggleDeliveryReports(it) },
+                    )
+                }
+            }
+
+            item {
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp))
+                            .background(Surface, RoundedCornerShape(16.dp))
                             .clickable {
                                 val intent =
                                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                                         putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                                     }
-                                context.startActivity(intent)
-                            }.padding(12.dp),
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                runCatching { context.startActivity(intent) }
+                            }.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Filled.WarningAmber,
+                        Icons.Filled.Tune,
                         contentDescription = null,
-                        tint = Suspicious,
+                        tint = TextSecondary,
                         modifier = Modifier.size(18.dp),
                     )
+                    Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Notifications are off for BantAI",
+                            stringResource(R.string.notifications_sound_vibration),
                             color = White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = TextSize.Subhead,
                         )
                         Text(
-                            "Threat alerts below won't reach you until you turn on notifications " +
-                                "in system settings. Tap to fix this.",
+                            stringResource(R.string.notifications_managed_in_android_notification_settings),
                             color = TextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
+                            fontSize = TextSize.Caption,
                         )
                     }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForwardIos,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(14.dp),
+                    )
                 }
-            }
-        }
-
-        item {
-            Text(
-                "This is how BantAI notifies you when a smishing or suspicious message is detected. Tap a notification to expand it.",
-                color = TextSecondary,
-                fontSize = 13.sp,
-            )
-        }
-
-        item {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp))
-                        .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-            ) {
-                Text("Recent alerts", color = TextSecondary, fontSize = 12.sp)
-                Spacer(Modifier.height(8.dp))
-
-                when {
-                    alertsLoading ->
-                        Column {
-                            repeat(2) {
-                                MessageRowSkeleton(avatarSize = 32.dp, horizontalPadding = 0.dp, verticalPadding = 6.dp)
-                            }
-                        }
-                    recentAlerts.isEmpty() ->
-                        NotificationItem(
-                            title = "BantAI is protecting you",
-                            subtitle = "No threats detected yet. All messages are clear.",
-                            time = "",
-                            expanded = false,
-                        )
-                    else ->
-                        recentAlerts.take(3).forEachIndexed { index, alert ->
-                            if (index > 0) {
-                                HorizontalDivider(color = BorderColor, modifier = Modifier.padding(vertical = 8.dp))
-                            }
-                            val isBlocked = alert.status == "Blocked"
-                            val scoreText =
-                                alert.score
-                                    ?.let { " ${"%.0f".format(it * 100)}% confidence." }
-                                    ?: ""
-                            NotificationItem(
-                                title =
-                                    if (isBlocked) {
-                                        "⚠ Smishing detected — ${alert.sender}"
-                                    } else {
-                                        "⚡ Suspicious message — ${alert.sender}"
-                                    },
-                                subtitle =
-                                    if (isBlocked) {
-                                        "Auto-blocked.$scoreText"
-                                    } else {
-                                        "Review in BantAI.$scoreText"
-                                    },
-                                time = alertRelativeTime(alert.createdAt),
-                                expanded = index == 0 && isBlocked,
-                            )
-                        }
-                }
-            }
-        }
-
-        item {
-            SectionLabel("NOTIFICATION SETTINGS")
-        }
-
-        item {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(16.dp)),
-            ) {
-                ToggleRow(
-                    title = "Smishing alerts",
-                    subtitle = "Immediate notification",
-                    checked = smishingAlerts,
-                    onCheckedChange = onSmishingAlertsChanged,
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                ToggleRow(
-                    title = "Suspicious alerts",
-                    subtitle = "Immediate notification",
-                    checked = suspiciousAlerts,
-                    onCheckedChange = onSuspiciousAlertsChanged,
-                )
-                HorizontalDivider(color = BorderColor, thickness = 1.dp)
-                ToggleRow(
-                    title = "Auto-block notice",
-                    subtitle = "When a number is blocked",
-                    checked = autoBlockNotice,
-                    onCheckedChange = onAutoBlockNoticeChanged,
-                )
             }
         }
     }
 }
 
+// The toggles only choose which BantAI alerts are sent -- they can't make
+// Android deliver anything without the OS-level POST_NOTIFICATIONS
+// permission, so surface that gap instead of letting "on" look like it works
+// (see NotificationHelper.canPostNotifications).
 @Composable
-private fun NotificationItem(
-    title: String,
-    subtitle: String,
-    time: String,
-    expanded: Boolean,
-    dangerLink: String? = null,
-) {
+private fun NotificationPermissionBanner() {
+    val context = LocalContext.current
+    val isGranted = {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+    var notificationsGranted by remember { mutableStateOf(isGranted()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) notificationsGranted = isGranted()
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (notificationsGranted) return
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                .clickable {
+                    val intent =
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
+                    runCatching { context.startActivity(intent) }
+                }.padding(12.dp),
         verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(32.dp)
-                    .background(Indigo, RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(18.dp))
-        }
-        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Suspicious, modifier = Modifier.size(18.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("BantAI", color = TextSecondary, fontSize = 12.sp)
-                Text(time, color = TextSecondary, fontSize = 12.sp)
-            }
-            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(subtitle, color = TextSecondary, fontSize = 12.sp)
-            if (dangerLink != null) {
-                Spacer(Modifier.height(4.dp))
-                Text(dangerLink, color = Danger, fontSize = 11.sp)
-            }
-            if (expanded && dangerLink != null) {
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .background(Color(0xFF2A0A0A), RoundedCornerShape(100.dp))
-                                .border(1.dp, Danger, RoundedCornerShape(100.dp))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("View details", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    }
-                    Box(
-                        modifier =
-                            Modifier
-                                .background(BorderColor, RoundedCornerShape(100.dp))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("Dismiss", color = White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
+            Text(
+                stringResource(R.string.notifications_notifications_are_off_for_bantai),
+                color = White,
+                fontWeight = FontWeight.Bold,
+                fontSize = TextSize.Footnote,
+            )
+            Text(
+                stringResource(R.string.notifications_the_alerts_below_won_t),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+                lineHeight = 16.sp,
+            )
         }
     }
 }
@@ -449,19 +311,24 @@ private fun ToggleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                // The whole row is the switch: TalkBack reads the title with
+                // its on/off state as one item. The Switch below used to be a
+                // second, unlabelled stop ("switch, off").
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption)
         }
+        Spacer(Modifier.width(12.dp))
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors =
                 SwitchDefaults.colors(
-                    checkedThumbColor = White,
+                    checkedThumbColor = OnIndigo,
                     checkedTrackColor = Indigo,
                 ),
         )
@@ -469,219 +336,13 @@ private fun ToggleRow(
 }
 
 @Composable
-private fun WeeklyDigestTab() {
-    val context = LocalContext.current
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        // Bottom clearance matches the floating tab bar's footprint (see
-        // MainScreen) -- this screen now renders behind that persistent bar.
-        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Text(
-                "BantAI sends you a weekly summary of your protection stats. Here's a preview of what it looks like.",
-                color = TextSecondary,
-                fontSize = 13.sp,
-            )
-        }
-
-        item {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF1A1A2A), RoundedCornerShape(16.dp))
-                        .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text("Your weekly report", color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text("May 5 – May 11, 2025", color = TextSecondary, fontSize = 11.sp)
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    StatColumn("284", "Scanned", "this week", White)
-                    StatColumn("6", "Smishing", "detected", Danger)
-                    StatColumn("11", "Suspicious", "flagged", Suspicious)
-                    StatColumn("6", "Blocked", "auto-blocked", Safe)
-                }
-
-                Text("Threat breakdown", color = TextSecondary, fontSize = 12.sp)
-
-                // Segmented bar
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth(0.021f).height(8.dp).background(Danger))
-                    Box(modifier = Modifier.fillMaxWidth(0.040f).height(8.dp).background(Suspicious))
-                    Box(modifier = Modifier.weight(1f).height(8.dp).background(Safe))
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    LegendDot(Danger, "Smishing 2.1%")
-                    LegendDot(Suspicious, "Suspicious 3.9%")
-                    LegendDot(Safe, "Safe 94%")
-                }
-
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
-                            .padding(12.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Icon(Icons.Filled.Bolt, contentDescription = null, tint = Indigo, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "6 smishing messages were detected this week — 2 more than last week. Stay cautious of GCash-related texts.",
-                        color = White,
-                        fontSize = 13.sp,
-                    )
-                }
-            }
-        }
-
-        item { SectionLabel("HOW IT LOOKS ON YOUR PHONE") }
-
-        item {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Surface, RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .background(Indigo, RoundedCornerShape(6.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Image(painterResource(R.drawable.ic_bantai_logo), contentDescription = null, modifier = Modifier.size(14.dp))
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text("BantAI", color = TextSecondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Text("Sun 9:00 AM", color = TextSecondary, fontSize = 12.sp)
-                }
-                Text("BantAI Weekly Report — May 5–11", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(
-                    "284 messages scanned · 6 smishing · 11 suspicious · 6 auto-blocked. Tap to view your full report.",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                )
-            }
-        }
-
-        item {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF16163A), RoundedCornerShape(12.dp))
-                        .border(1.dp, Indigo, RoundedCornerShape(12.dp))
-                        .clickable {
-                            Toast
-                                .makeText(context, "Weekly reports aren't sent yet — coming in a future update.", Toast.LENGTH_LONG)
-                                .show()
-                        }.padding(14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Filled.BarChart, contentDescription = null, tint = Indigo, modifier = Modifier.size(18.dp))
-                    Text("Send sample weekly report", color = Indigo, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-            }
-        }
-
-        item {
-            Text(
-                "Pull down your notification shade to see it on your phone.",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatColumn(
-    value: String,
-    label: String,
-    sub: String,
-    valueColor: Color,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Text(label, color = TextSecondary, fontSize = 11.sp)
-        Text(sub, color = TextSecondary, fontSize = 10.sp)
-    }
-}
-
-@Composable
-private fun LegendDot(
-    color: Color,
-    label: String,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(4.dp)))
-        Text(label, color = TextSecondary, fontSize = 10.sp)
-    }
-}
-
-@Composable
 private fun SectionLabel(text: String) {
     Text(
         text,
-        color = Color(0xFF666666),
-        fontSize = 11.sp,
+        color = TextSecondary,
+        fontSize = TextSize.Caption2,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp,
-        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+        modifier = Modifier.padding(top = 4.dp, start = 4.dp),
     )
 }
-
-private fun alertRelativeTime(iso: String): String =
-    try {
-        val instant = java.time.Instant.parse(iso)
-        val diffMin =
-            (
-                java.time.Instant
-                    .now()
-                    .toEpochMilli() - instant.toEpochMilli()
-            ) / 60_000
-        when {
-            diffMin < 1 -> "now"
-            diffMin < 60 -> "${diffMin}m"
-            diffMin < 1440 -> "${diffMin / 60}h"
-            else ->
-                java.time.format.DateTimeFormatter
-                    .ofPattern("MMM d", java.util.Locale.US)
-                    .format(instant.atZone(java.time.ZoneId.systemDefault()))
-        }
-    } catch (_: Exception) {
-        ""
-    }

@@ -4,13 +4,15 @@ Run locally from the ``ai/`` directory:
 
     uvicorn service.main:app --reload --port 8001
 
-Interactive docs are served at ``/docs``.
+Interactive docs are served at ``/docs`` in local environments only
+(development, local, test); a production service exposes no schema.
 """
 
 from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
 
@@ -21,33 +23,16 @@ from fastapi import Depends, FastAPI
 from retraining.registry import ModelRegistry, ModelRegistryError
 from retraining.version_file import IntegrityResult, read_version, verify_version
 
-from .auth import require_api_key
+from .auth import enforce_inbound_auth_policy, is_local_environment, require_api_key
 from .campaign import CampaignMatcher
 from .campaign_space import CampaignSpace, labels_of, resolve_space
 from .centroid_source import load_centroids
 from .config import settings
+from .limits import WorkLimitMiddleware
+from .readiness import prepare_model_readiness
 from .routers import classify, health, retrain, summarize
 
 logger = logging.getLogger(__name__)
-
-
-def warm_up_model() -> None:
-    """Load the model and run one prediction before the service takes traffic.
-
-    The classifier loads lazily, so without this the first /classify after
-    every restart pays the full load: measured 12.2 s on 2026-09-21, against
-    the backend's 3.5 s timeout -- the first real SMS after a restart would
-    always fall back to the phone's keyword check. Non-fatal, like the other
-    startup steps: with no model installed the service still starts and
-    /classify keeps answering 503.
-    """
-    if not classify.classifier._has_weights():
-        logger.warning("No model installed; skipping warm-up. /classify will answer 503.")
-        return
-    try:
-        classify.classifier.classify_full("warm-up")
-    except Exception:  # noqa: BLE001 -- a failed warm-up must not stop the service
-        logger.exception("Model warm-up failed; the first /classify will retry the load.")
 
 
 def load_campaign_centroids(served_model_version: str | None, model_integrity: IntegrityResult) -> None:
@@ -134,6 +119,21 @@ def load_campaign_centroids(served_model_version: str | None, model_integrity: I
 
 def _load_campaign_space():
     """The campaign space file, or None when absent or unreadable (logged)."""
+    environment = settings.environment.strip().lower()
+    if environment in {"development", "production"}:
+        try:
+            model_root = Path(settings.model_dir).resolve(strict=True)
+            space_path = Path(settings.campaign_space_file).resolve(strict=True)
+        except OSError as exc:
+            logger.error("Could not resolve approved campaign space path: %s", exc)
+            return None
+        if not space_path.is_relative_to(model_root):
+            logger.error(
+                "Campaign space %s is outside the approved model bundle %s; campaign matching is disabled.",
+                space_path,
+                model_root,
+            )
+            return None
     try:
         return CampaignSpace.load(settings.campaign_space_file)
     except FileNotFoundError:
@@ -216,26 +216,48 @@ def check_served_version(served: str | None, integrity: IntegrityResult) -> None
 async def lifespan(_app: FastAPI):
     """Load campaign centroids and verify the served model version once,
     before the service accepts traffic."""
-    if not settings.service_api_key:
-        logger.warning(
-            "No inbound authentication: BANTAI_AI_SERVICE_API_KEY is unset, so "
-            "/classify, /summarize and /retrain accept any caller that can "
-            "reach this port. Fine on a laptop; set it before exposing this "
-            "service beyond the backend."
-        )
+    # Fatal: an unauthenticated inference API on the network is worse than no
+    # API. Development can opt out explicitly; unknown environments fail shut.
+    enforce_inbound_auth_policy()
     served = read_version(settings.model_dir)
     integrity = verify_version(settings.model_dir)
     check_served_version(served, integrity)
-    load_campaign_centroids(served, integrity)
-    warm_up_model()
+    ready = prepare_model_readiness(
+        classify.classifier,
+        settings.model_dir,
+        settings.model_approval_path,
+    )
+    if ready.ready:
+        load_campaign_centroids(served, integrity)
+    else:
+        # Do not leave an earlier in-process matcher active after a failed
+        # reload. Classification is already readiness-gated; this also keeps
+        # campaign state fail-closed if startup is exercised more than once.
+        classify.matcher = CampaignMatcher([])
     yield
 
+
+# The schema documents every gated route and its payload shape; only serve it
+# where the whole service is a trusted local tool.
+_SERVE_DOCS = is_local_environment()
 
 app = FastAPI(
     title="BantAI ML Service",
     version="0.1.0",
     description="SMS smishing classification pipeline (XLM-RoBERTa).",
     lifespan=lifespan,
+    docs_url="/docs" if _SERVE_DOCS else None,
+    redoc_url="/redoc" if _SERVE_DOCS else None,
+    openapi_url="/openapi.json" if _SERVE_DOCS else None,
+)
+
+# Body-size and concurrency ceilings for the expensive routes. Schema field
+# limits alone do not bound encoded or extra-body overhead (audit 2026-09-30,
+# finding 7).
+app.add_middleware(
+    WorkLimitMiddleware,
+    max_body_bytes=settings.max_request_body_bytes,
+    max_concurrent=settings.max_concurrent_operations,
 )
 
 # /health and / stay open: a health check that needs a secret is useless to
@@ -249,4 +271,4 @@ app.include_router(retrain.router, dependencies=[Depends(require_api_key)])
 
 @app.get("/", tags=["health"])
 def root() -> dict:
-    return {"service": "bantai-ml", "version": app.version, "docs": "/docs"}
+    return {"service": "bantai-ml", "version": app.version, "docs": app.docs_url}

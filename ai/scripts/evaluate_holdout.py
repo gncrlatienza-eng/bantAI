@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, ".")
 
 from preprocessing import preprocess  # noqa: E402
-from retraining.checksum import verify_against_manifest  # noqa: E402
+from retraining.checksum import bundle_digest, hash_bundle, verify_against_manifest  # noqa: E402
 from retraining.pipeline import _predict  # noqa: E402
 from retraining.version_file import read_version, verify_version  # noqa: E402
 from training.config import ID2LABEL, LABEL2ID  # noqa: E402
@@ -223,6 +223,9 @@ def main() -> int:
         "holdout_integrity": holdout_status,
         "checkpoint_integrity": integrity.status,
         "version_tag": read_version(args.model_dir),
+        # Binds this result to the exact files graded, in the form the
+        # backend's model registry and the serving host's /health compare.
+        "bundle_digest": bundle_digest(hash_bundle(args.model_dir)),
         "confusion_matrix": matrix,
         "per_class_metrics": metrics,
         "macro_f1": round(sum(metrics[label]["f1"] for label in LABELS) / len(LABELS), 4),

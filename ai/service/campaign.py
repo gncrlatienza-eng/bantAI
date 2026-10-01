@@ -315,7 +315,13 @@ class CampaignMatcher:
     def centroids(self) -> List[CampaignCentroid]:
         return list(self._centroids)
 
-    def match(self, embedding, text: Optional[str] = None, label: Optional[str] = None) -> MatchResult:
+    def match(
+        self,
+        embedding,
+        text: Optional[str] = None,
+        domains: Optional[List[str]] = None,
+        label: Optional[str] = None,
+    ) -> MatchResult:
         """Find the best-matching active campaign for one embedding.
 
         ``text`` is the raw message body. It is optional so every existing
@@ -327,6 +333,10 @@ class CampaignMatcher:
         ``label`` is the classifier's label for the message. It only matters
         with a campaign space that has thresholds for that label (item 19
         follow-up: Scam gets its own); otherwise it is ignored.
+
+        ``domains`` are hostnames extracted before masking (the backend's
+        masked text has none left to extract); they join any found in
+        ``text`` for the domain tier.
 
         With no active clusters yet (cold start), everything buffers -- which
         is correct: campaigns can only be discovered by the offline pass once
@@ -371,6 +381,8 @@ class CampaignMatcher:
         # ~240 of them) redid that work for an identical result every time.
         msg_shingles = shingles(text) if text is not None else None
         msg_domains = extract_domains(text) if text is not None else None
+        if msg_domains is not None and domains:
+            msg_domains = list(dict.fromkeys([*msg_domains, *(d.lower().removeprefix("www.") for d in domains)]))
 
         for centroid in self._centroids:
             sim = _cosine_similarity_with_norm(embedding, norm_embedding, centroid.centroid)

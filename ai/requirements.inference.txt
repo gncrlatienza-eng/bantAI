@@ -1,0 +1,12 @@
+# Exact runtime-only dependency set for the production inference image.
+# Training, notebooks, SHAP, test tooling, and data-frame dependencies stay out.
+fastapi==0.141.1
+uvicorn==0.53.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+transformers==5.17.0
+torch==2.14.0+cpu
+sentencepiece==0.2.2
+huggingface-hub==1.31.0
+numpy==2.5.3
+scikit-learn==1.9.1

@@ -58,8 +58,53 @@ For an AI-only check, use these local settings in `ai/.env`:
 BANTAI_AI_MODEL_DIR=models/xlm-roberta-smishing
 BANTAI_AI_CENTROID_SOURCE=none
 BANTAI_AI_VERSION_CHECK_ENABLED=false
-BANTAI_AI_ENVIRONMENT=development
+BANTAI_AI_ENVIRONMENT=local
+BANTAI_AI_ALLOW_UNAUTHENTICATED_DEV=true
 ```
+
+### Install the shared development release
+
+Treat a release ZIP and its Google Drive metadata as inputs, not as approval by
+themselves. Obtain the exact archive SHA-256 through a second trusted channel,
+then install it into a new ignored directory. The installer refuses to replace
+an existing directory or manifest and creates a hash-bound manifest with
+`development` scope:
+
+```powershell
+cd ai
+.\.venv\Scripts\python.exe scripts\install_development_model.py `
+  C:\path\to\bantai_model_v2026-09-21-colab-C.zip `
+  --archive-sha256 <exact-64-character-sha256> `
+  --version-tag <version-tag-from-the-release-record> `
+  --approval-reference <review-or-release-record-id> `
+  --campaign-space C:\path\to\campaign_space.json `
+  --destination models\development\2026-09-21-colab-C `
+  --approval models\approvals\2026-09-21-colab-C.development.json
+```
+
+Keep the approval manifest outside the destination. Point
+`BANTAI_AI_MODEL_DIR` at that destination,
+`BANTAI_AI_MODEL_APPROVAL_PATH` at the generated manifest, and
+`BANTAI_AI_CAMPAIGN_SPACE_FILE` at the installed
+`campaign_space.json`. The campaign space is copied into the bundle before its
+artifact hashes are written, so changing its transform or thresholds makes
+readiness fail. A development manifest cannot start a production service;
+production needs a separate reviewed production approval record.
+
+If the archive cannot be retrieved, the installer also accepts `--source-dir`
+and `--expected-version-file` instead of the archive arguments. It checks the
+four runtime files against an independently retrieved version record, copies
+that record and the optional campaign space, and records
+`verified_component_reconstruction` with `archive_status: not_verified`.
+This verifies the runtime components; it does not verify the ZIP or training
+data provenance. Shared development still requires a service key of at least
+32 characters and an external development approval manifest. Never use the
+local unauthenticated opt-out for a shared host.
+
+The historical holdout may verify regression behavior, but it has already been
+used during model selection and does not establish independent release quality.
+Record that limitation with any results rather than describing it as an unseen
+test set.
 
 From `ai/`, first verify the copied model without starting any network service:
 

@@ -19,6 +19,7 @@ from ..campaign import CampaignMatcher
 from ..classifier import ModelNotReadyError, classifier, route
 from ..explainer import explain
 from ..language import is_supported_language
+from ..readiness import require_model_ready
 from ..schemas import CampaignMatch, ClassifyRequest, ClassifyResponse
 
 router = APIRouter(tags=["classification"])
@@ -31,6 +32,7 @@ matcher = CampaignMatcher()
 
 @router.post("/classify", response_model=ClassifyResponse)
 def classify(req: ClassifyRequest) -> ClassifyResponse:
+    require_model_ready()
     try:
         result = classifier.classify_full(req.message)
     except ModelNotReadyError as exc:
@@ -46,10 +48,15 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     # class of false positive.
     campaign = None
     if matcher.centroids and result.label != "Ham":
-        # The raw body (not ``masked_text``) goes in: the matcher masks
-        # internally for its wording comparison, but ``shares_domain`` needs
-        # the link identity that masking is specifically designed to destroy.
-        match = matcher.match(result.embedding, req.message, label=result.label)
+        # The body goes in as received (the backend sends masked text): the
+        # matcher masks internally for its wording comparison. Link identity
+        # arrives separately as ``domains``, because masking destroys it.
+        match = matcher.match(
+            result.embedding,
+            req.message,
+            domains=req.domains,
+            label=result.label,
+        )
         campaign = CampaignMatch(**match.to_dict())
 
     # Keyword tagger only -- deliberately no model/tokenizer, so real SHAP never

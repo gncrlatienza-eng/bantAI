@@ -23,11 +23,18 @@ Two sources, in priority order:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import List, Optional
 
 from .campaign import CampaignCentroid
 from .lexical import LexicalProfile
+
+logger = logging.getLogger(__name__)
+
+#: Campaign profile contract version served by ``GET /campaigns/centroids``
+#: (backend ``CAMPAIGN_PROFILE_VERSION``).
+PROFILE_VERSION = 1
 
 #: Where cluster_campaigns.py writes its results.
 DEFAULT_CLUSTER_FILE = os.path.join("datasets", "processed", "campaign_clusters.json")
@@ -79,12 +86,11 @@ def load_from_backend(base_url: str, api_key: str = "", timeout: float = 5.0) ->
     ``BANTAI_AI_CAMPAIGNS_API_KEY`` used to look exactly like "no campaigns
     discovered yet" instead of like a misconfiguration.
 
-    ⚠️ The ``lexical`` field is read here but the backend does not store it
-    yet -- ``CampaignCluster`` has no such column (see
-    ``backend/database/prisma/schema.prisma``). Until that migration lands,
-    the backend path silently yields embedding-only campaigns while the file
-    path gets the hybrid tiers. Reading the field now means no second AI-side
-    change is needed once the column exists.
+    Each item follows the versioned profile contract (audit 2026-09-30,
+    finding 5): ``profileVersion`` plus ``lexical`` = {``shingles``,
+    ``domains``, ``member_count``}, where ``domains`` are the campaign's
+    Admin-reviewed ``urlDomains``. An unknown ``profileVersion`` keeps the
+    campaign on its embedding alone rather than guessing at a new shape.
     """
     import urllib.request
 
@@ -103,13 +109,22 @@ def load_from_backend(base_url: str, api_key: str = "", timeout: float = 5.0) ->
         centroid = cluster.get("centroid")
         if not centroid:
             continue
+        version = cluster.get("profileVersion")
+        lexical = cluster.get("lexical") if version == PROFILE_VERSION else None
+        if version is not None and version != PROFILE_VERSION:
+            logger.warning(
+                "Campaign %s uses profile version %r (expected %d); matching it on the embedding only.",
+                cluster.get("id"),
+                version,
+                PROFILE_VERSION,
+            )
         out.append(
             CampaignCentroid(
                 cluster_id=str(cluster["id"]),
                 centroid=centroid,
                 label=cluster.get("label"),
                 url_domains=list(cluster.get("urlDomains", [])),
-                lexical=LexicalProfile.from_dict(cluster.get("lexical")),
+                lexical=LexicalProfile.from_dict(lexical),
             )
         )
     return out

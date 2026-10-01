@@ -164,6 +164,9 @@ class RetrainJob:
     requested_at: str
     #: When :func:`complete` recorded the job as drained. ``None`` while queued.
     completed_at: Optional[str] = None
+    #: Backend dataset snapshot the run must train on. ``None`` only for rows
+    #: written before the field existed -- explicitly unversioned.
+    dataset_version: Optional[str] = None
 
 
 def _read_jobs(path: str) -> List[RetrainJob]:
@@ -194,13 +197,14 @@ def _append_job(path: str, job: RetrainJob) -> None:
         handle.write(json.dumps(asdict(job)) + "\n")
 
 
-def enqueue(path: str, trigger: str) -> RetrainJob:
+def enqueue(path: str, trigger: str, dataset_version: Optional[str] = None) -> RetrainJob:
     """Record a retrain request, or return the already-queued job for it.
 
-    Dedupe key is ``(trigger, status == "queued")`` rather than just
-    ``trigger``: once a human has drained a job (status no longer
+    Dedupe key is ``(trigger, dataset_version, status == "queued")`` rather
+    than just ``trigger``: once a human has drained a job (status no longer
     ``queued``), a fresh trigger of the same kind is a new, legitimate
-    request and should queue again.
+    request and should queue again, and the same trigger against a newer
+    frozen snapshot is a different request.
 
     The read-check-write sequence below runs under :class:`_FileLock` so two
     overlapping calls for the same trigger cannot both see "not queued yet"
@@ -215,7 +219,7 @@ def enqueue(path: str, trigger: str) -> RetrainJob:
         jobs = _read_jobs(path)
         queued = [j for j in jobs if j.status == QUEUED]
         for job in queued:
-            if job.trigger == trigger:
+            if job.trigger == trigger and job.dataset_version == dataset_version:
                 return job
         if len(queued) >= MAX_QUEUED_JOBS:
             raise QueueFullError(
@@ -227,6 +231,7 @@ def enqueue(path: str, trigger: str) -> RetrainJob:
             trigger=trigger,
             status=QUEUED,
             requested_at=datetime.now(timezone.utc).isoformat(),
+            dataset_version=dataset_version,
         )
         _append_job(path, job)
         return job
@@ -247,17 +252,19 @@ def complete(path: str, job_id: str) -> Optional[RetrainJob]:
     return None
 
 
-def complete_all_queued(path: str) -> List[RetrainJob]:
-    """Mark every queued job completed; returns the jobs that were drained.
+def complete_all_queued(path: str, dataset_version: Optional[str] = None) -> List[RetrainJob]:
+    """Mark queued jobs for ``dataset_version`` completed; returns them.
 
-    What a human draining the queue actually does: one retrain answers every
-    trigger outstanding at the time, because they all asked for the same thing.
+    One retrain answers every trigger outstanding for the snapshot it trained
+    on, because they all asked for the same thing. Jobs naming a different
+    snapshot stay queued: that run did not use their data. ``None`` drains
+    only legacy unversioned jobs.
     """
     with _FileLock(path):
         drained = []
         now = datetime.now(timezone.utc).isoformat()
         for job in _read_jobs(path):
-            if job.status == QUEUED:
+            if job.status == QUEUED and job.dataset_version == dataset_version:
                 done = replace(job, status=COMPLETED, completed_at=now)
                 _append_job(path, done)
                 drained.append(done)

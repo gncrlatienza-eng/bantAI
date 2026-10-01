@@ -34,7 +34,7 @@ router = APIRouter(tags=["retraining"])
 @router.post("/retrain", response_model=RetrainJobResponse, status_code=202)
 def retrain(req: RetrainRequest) -> RetrainJobResponse:
     try:
-        job = enqueue(settings.retrain_queue_path, req.trigger)
+        job = enqueue(settings.retrain_queue_path, req.trigger, req.dataset_version)
     except QueueFullError as exc:
         # 503, not 500: the request is valid and the caller should retry once
         # the backlog is drained. The cron re-fires hourly, so a refusal here

@@ -59,6 +59,9 @@ PG_DB = ["-U", "bantai", "-d", "bantai_db"]
 BACKEND_URL = "http://localhost:3000/api"
 AI_SERVICE_URL = "http://localhost:8001"
 
+#: A retrain request must name the frozen dataset snapshot it trains on.
+ROUND_TRIP_JOB = {"trigger": "validated_report_count", "dataset_version": "round-trip-check"}
+
 # Fixed ids so the script is idempotent: re-running cleans up its own prior
 # rows first rather than accumulating duplicates. Prefixed distinctly so
 # nobody mistakes these for real user data in a shared dev database.
@@ -234,7 +237,7 @@ def phase3_retrain_trigger() -> bool:
 
     ok = True
     try:
-        status, body = _post_json(f"{AI_SERVICE_URL}/retrain", {"trigger": "validated_report_count"})
+        status, body = _post_json(f"{AI_SERVICE_URL}/retrain", ROUND_TRIP_JOB)
     except urllib.error.URLError as exc:
         return check(False, f"AI service reachable at {AI_SERVICE_URL} ({exc})")
 
@@ -242,7 +245,7 @@ def phase3_retrain_trigger() -> bool:
     ok &= check(body.get("status") == "queued", f"job recorded as queued (got {body})")
     job_id = body.get("job_id")
 
-    status2, body2 = _post_json(f"{AI_SERVICE_URL}/retrain", {"trigger": "validated_report_count"})
+    status2, body2 = _post_json(f"{AI_SERVICE_URL}/retrain", ROUND_TRIP_JOB)
     ok &= check(body2.get("job_id") == job_id, "a repeat trigger dedupes to the same job, not a second row")
 
     jobs = _get_json(f"{AI_SERVICE_URL}/retrain/jobs").get("jobs", [])

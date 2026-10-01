@@ -80,6 +80,29 @@ PROFILE_MIN_DOCUMENT_FREQUENCY = 0.5
 MIN_PROFILE_SHINGLES = 4
 
 _TOKEN_RE = re.compile(r"[a-z0-9<>]+")
+
+#: The phone and the backend mask with square-bracket placeholders
+#: (SmsPrivacyMasker.kt / sms-privacy-masker.ts); profiles are built with
+#: ``mask_pii``'s angle-bracket ones. One vocabulary, or "[URL]" tokenizes to
+#: "url" and never matches a profile's "<url>" (audit 2026-09-30, finding 5).
+_BRACKET_PLACEHOLDERS = {
+    "[URL]": "<URL>",
+    "[EMAIL]": "<EMAIL>",
+    "[PHONE]": "<PHONE>",
+    "[AMOUNT]": "<AMOUNT>",
+    "[OTP]": "<OTP>",
+    # The server masks long digit runs the Python masker leaves alone; keep
+    # them one opaque token rather than a stray "number" word.
+    "[NUMBER]": "<NUMBER>",
+}
+_BRACKET_RE = re.compile("|".join(re.escape(k) for k in _BRACKET_PLACEHOLDERS))
+
+
+def normalize_placeholders(text: str) -> str:
+    """Rewrite server/phone ``[URL]``-style placeholders to ``<URL>`` form."""
+    return _BRACKET_RE.sub(lambda m: _BRACKET_PLACEHOLDERS[m.group(0)], text or "")
+
+
 _URL_RE = re.compile(r"(?:h(?:tt|xx)ps?://\S+|\bwww\.\S+)", re.I)
 
 
@@ -125,7 +148,7 @@ def shingles(text: str) -> Set[str]:
     alone would call any two messages about "account" and "verify" the same
     campaign regardless of arrangement.
     """
-    words = _TOKEN_RE.findall(mask_pii(text or "").lower())
+    words = _TOKEN_RE.findall(mask_pii(normalize_placeholders(text)).lower())
     if not words:
         return set()
     out: Set[str] = set(words)

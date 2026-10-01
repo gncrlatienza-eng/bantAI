@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from typing_extensions import Annotated
 
 # Model prediction classes (what the classifier is trained to output).
 Label = Literal["Ham", "Spam", "Scam"]
@@ -28,6 +29,17 @@ MAX_MESSAGE_CHARS = 4000
 #: split, not this service's to absorb (audit item 9).
 MAX_SUMMARIZE_MESSAGES = 200
 
+#: Hostnames the phone extracted before masking replaced links with [URL].
+#: Bounded like the backend's IngestSmsDto; bare hostnames only.
+MAX_MESSAGE_DOMAINS = 20
+Hostname = Annotated[
+    str,
+    StringConstraints(
+        max_length=253,
+        pattern=r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$",
+    ),
+]
+
 
 class ClassifyRequest(BaseModel):
     message: str = Field(
@@ -35,6 +47,13 @@ class ClassifyRequest(BaseModel):
         min_length=1,
         max_length=MAX_MESSAGE_CHARS,
         description=f"Raw SMS body to classify (max {MAX_MESSAGE_CHARS} characters)",
+    )
+    domains: List[Hostname] = Field(
+        default_factory=list,
+        max_length=MAX_MESSAGE_DOMAINS,
+        description="Lowercase hostnames from the original message. The backend "
+        "sends masked text, so these are the only link identity the campaign "
+        "matcher's domain tier can use (audit 2026-09-30, finding 5).",
     )
 
 
@@ -138,6 +157,11 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok"] = "ok"
     model_ready: bool = Field(..., description="Whether a fine-tuned model is loaded")
+    campaign_centroids_loaded: int = Field(
+        ...,
+        ge=0,
+        description="Number of active campaign centroids loaded into the in-memory matcher",
+    )
     version_tag: Optional[str] = Field(
         None,
         description="versionTag of the checkpoint this service is actually serving "
@@ -145,6 +169,26 @@ class HealthResponse(BaseModel):
         "first promotion writes one -- true of every checkpoint deployed before "
         "WBS 4.4.3, including the one currently live.",
     )
+    bundle_digest: Optional[str] = Field(
+        None,
+        description="SHA-256 bundle digest of the approved files verified at startup "
+        "(retraining.checksum.bundle_digest). The backend confirms a deployment only "
+        "when this matches the approved registry row. Null until readiness verifies.",
+    )
+
+
+class ReadyResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    status: Literal["ready", "not_ready"]
+    model_ready: bool
+    reason: str
+    version_tag: Optional[str] = None
+    artifact_integrity: str
+    model_loaded: bool
+    test_inference_passed: bool
+    checked_artifacts: int = Field(..., ge=0)
+    bundle_digest: Optional[str] = None
 
 
 # --- Retraining round trip (Sprint 4, WBS 4.4.3) ---------------------------- #
@@ -164,6 +208,11 @@ RetrainTrigger = str
 #: cannot collapse, so an unbounded string is an unbounded file (audit item 10).
 MAX_TRIGGER_CHARS = 200
 
+#: Backend DatasetSnapshot.versionTag shape (``dataset-20260930...`` or an
+#: Admin-chosen tag): short, and safe to echo into logs and file rows.
+MAX_DATASET_VERSION_CHARS = 128
+DATASET_VERSION_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+
 
 class RetrainRequest(BaseModel):
     trigger: RetrainTrigger = Field(
@@ -172,11 +221,25 @@ class RetrainRequest(BaseModel):
         max_length=MAX_TRIGGER_CHARS,
         description="Why the backend fired this request",
     )
+    # Required (audit 2026-09-30, finding 6): a queued job that cannot name
+    # the frozen snapshot it should train on cannot be reproduced offline.
+    dataset_version: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_DATASET_VERSION_CHARS,
+        pattern=DATASET_VERSION_PATTERN,
+        description="Backend dataset snapshot tag the offline run must train on",
+    )
 
 
 class RetrainJobResponse(BaseModel):
     job_id: str = Field(..., description="Opaque id for this queued request")
     trigger: RetrainTrigger
+    dataset_version: Optional[str] = Field(
+        None,
+        description="Frozen dataset snapshot tag to train on. Null only for jobs "
+        "queued before the field existed; those are unversioned and not reproducible.",
+    )
     status: Literal["queued", "completed"] = "queued"
     requested_at: str = Field(..., description="ISO-8601 UTC timestamp the request was recorded")
     completed_at: Optional[str] = Field(

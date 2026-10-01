@@ -13,7 +13,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from typing import Optional, Tuple
+from pathlib import Path
+from typing import Dict, Mapping, Optional, Tuple
 
 #: 4 MiB chunks. Large enough that the read-call overhead is negligible,
 #: small enough not to notice on a machine with modest RAM.
@@ -65,3 +66,40 @@ def verify_against_manifest(
             actual,
         )
     return "ok", f"{data_path} matches {manifest_path}", actual
+
+
+#: Excluded from :func:`bundle_digest`: it is written after the artifacts and
+#: records their digests, so it cannot be part of what it describes. Literal
+#: rather than imported from ``version_file`` to avoid a circular import.
+_VERSION_FILENAME = "version.json"
+
+
+def hash_bundle(model_dir: str) -> Dict[str, str]:
+    """SHA-256 of every regular file under ``model_dir``, by POSIX relative path.
+
+    The same file set the service's readiness gate verifies against the
+    external approval manifest (``service/readiness.py:_model_files``), so a
+    digest registered from a candidate directory and one reported by the
+    serving host describe the same bytes.
+    """
+    root = Path(model_dir)
+    return {
+        path.relative_to(root).as_posix(): sha256_file(str(path))
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and not path.is_symlink()
+    }
+
+
+def bundle_digest(artifacts: Mapping[str, str]) -> str:
+    """Canonical digest of a model bundle (audit 2026-09-30, finding 2).
+
+    SHA-256 over ``path\tsha256\n`` lines in code-point order, excluding
+    ``version.json``. Mirrors ``backend/src/models/model-evidence.ts``
+    ``bundleDigest``: the backend derives it from a candidate's registered
+    artifacts, the service reports it from the files it verified at startup,
+    and deployment confirmation compares the two.
+    """
+    lines = "".join(
+        f"{name}\t{digest.lower()}\n" for name, digest in sorted(artifacts.items()) if name != _VERSION_FILENAME
+    )
+    return hashlib.sha256(lines.encode("utf-8")).hexdigest()

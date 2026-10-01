@@ -68,24 +68,58 @@ def _is_shared_platform(host: str) -> bool:
     return any(host == d or host.endswith(f".{d}") for d in _SHARED_PLATFORMS)
 
 
-def build_payloads(data: dict, send_category: bool = False) -> List[dict]:
-    """One POST /campaigns body per cluster. No ``lexical`` key: the backend
-    has no column for it and rejects unknown fields (forbidNonWhitelisted)."""
-    return [
+#: Mirrors the backend's CampaignLexicalProfileDto: v1, at most 500 lowercase
+#: unigram/bigram shingles of <= 64 chars, and never a 4+ digit run.
+PROFILE_VERSION = 1
+_MAX_PROFILE_SHINGLES = 500
+_SHINGLE_RE = re.compile(r"^[a-z0-9<>]+(?: [a-z0-9<>]+)?$")
+_LONG_DIGITS_RE = re.compile(r"\d{4}")
+
+
+def lexical_payload(cluster: dict) -> Optional[dict]:
+    """The cluster's wording profile in the backend's v1 contract, or None.
+
+    Domains are deliberately not sent: the backend serves the reviewed
+    ``urlDomains`` as the domain signal. Shingles that would fail the
+    backend's privacy checks are dropped here rather than failing the sync.
+    """
+    lexical = cluster.get("lexical")
+    if not isinstance(lexical, dict) or not isinstance(lexical.get("shingles"), list):
+        return None
+    shingles = sorted(
         {
-            # The readable name the app shows (cluster_campaigns.py, UAT
-            # 2026-09-28). The AI service no longer needs the @space tag from
-            # the backend: it identifies the space from the centroid itself.
+            s
+            for s in lexical["shingles"]
+            if isinstance(s, str) and len(s) <= 64 and _SHINGLE_RE.match(s) and not _LONG_DIGITS_RE.search(s)
+        }
+    )[:_MAX_PROFILE_SHINGLES]
+    return {
+        "version": PROFILE_VERSION,
+        "shingles": shingles,
+        "memberCount": int(lexical.get("member_count") or 0),
+    }
+
+
+def build_payloads(data: dict, send_category: bool = False) -> List[dict]:
+    """Build backend campaign payloads with names, categories, and wording."""
+    payloads = []
+    for c in data.get("clusters", []):
+        if not c.get("centroid"):
+            continue
+        body = {
+            # This is the readable label shown in the app. The campaign space
+            # is resolved from the centroid metadata, not encoded in the name.
             "label": c.get("name") or f"cluster-{c['cluster_id']}",
             "centroid": c["centroid"],
             "urlDomains": suppression_domains(c),
-            # Kept as an argument for callers/tests that build legacy payloads;
-            # the CLI now always enables it because the backend persists it.
-            **({"category": c.get("category")} if send_category and c.get("category") else {}),
         }
-        for c in data.get("clusters", [])
-        if c.get("centroid")
-    ]
+        if send_category and c.get("category"):
+            body["category"] = c["category"]
+        lexical = lexical_payload(c)
+        if lexical is not None:
+            body["lexical"] = lexical
+        payloads.append(body)
+    return payloads
 
 
 def make_request(base_url: str, api_key: str, max_retries: int = 10) -> Request:

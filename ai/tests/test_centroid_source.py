@@ -175,3 +175,45 @@ def test_load_centroids_threads_the_key_through(monkeypatch):
     load_centroids(source="backend", backend_url="http://x/api", backend_api_key="k")
 
     assert sent[0].get_header("X-api-key") == "k"
+
+
+# --- versioned profile contract (audit 2026-09-30, finding 5) ----------------
+def test_backend_profile_enables_the_domain_and_hybrid_tiers(monkeypatch):
+    import urllib.request
+
+    payload = [
+        {
+            "id": "c1",
+            "centroid": [1.0, 0.0],
+            "urlDomains": ["gcash-promo.xyz"],
+            "profileVersion": 1,
+            "lexical": {
+                "shingles": ["claim", "claim now", "gcash", "won", "won <amount>"],
+                "domains": ["gcash-promo.xyz"],
+                "member_count": 4,
+            },
+        }
+    ]
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=5.0: _FakeResponse(payload))
+
+    [campaign] = load_from_backend("http://x/api")
+    assert campaign.lexical is not None
+    assert campaign.lexical.domains == {"gcash-promo.xyz"}
+    assert "won <amount>" in campaign.lexical.shingles
+
+
+def test_an_unknown_profile_version_is_not_guessed_at(monkeypatch):
+    import urllib.request
+
+    payload = [
+        {
+            "id": "c2",
+            "centroid": [1.0, 0.0],
+            "profileVersion": 2,
+            "lexical": {"shingles": ["a", "b", "c", "d"], "domains": ["x.ph"]},
+        }
+    ]
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=5.0: _FakeResponse(payload))
+
+    [campaign] = load_from_backend("http://x/api")
+    assert campaign.lexical is None

@@ -26,41 +26,11 @@ import {
   getAllReports,
   type UserReportItem,
 } from '../../services/reportsService';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
+import { csvBlob, saveBlob } from '../../utils/download';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
-}
-
-function csvCell(value: unknown): string {
-  const text =
-    value == null
-      ? ''
-      : typeof value === 'object'
-        ? JSON.stringify(value)
-        : typeof value === 'string'
-          ? value
-          : typeof value === 'number' ||
-              typeof value === 'boolean' ||
-              typeof value === 'bigint'
-            ? value.toString()
-            : '';
-  return `"${text.replaceAll('"', '""')}"`;
-}
-
-function downloadCsv(filename: string, headers: string[], rows: unknown[][]) {
-  const csv = [headers, ...rows]
-    .map((row) => row.map(csvCell).join(','))
-    .join('\n');
-  const url = URL.createObjectURL(
-    new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-  );
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 interface Bundle {
@@ -72,11 +42,30 @@ interface Bundle {
 export function ExportPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const navGroups = useAdminNavGroups();
 
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Visible result of the last export (manual QA 2026-10-01, F4).
+  const [notice, setNotice] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+
+  function exportCsv(filename: string, headers: string[], rows: unknown[][]) {
+    try {
+      saveBlob(csvBlob(headers, rows), filename);
+      setNotice({
+        ok: true,
+        text: `Saved ${filename} (${rows.length.toLocaleString()} ${rows.length === 1 ? 'row' : 'rows'}). If no file appeared, check your browser's downloads list or download settings.`,
+      });
+    } catch (e) {
+      setNotice({
+        ok: false,
+        text: `Could not create ${filename}: ${errorText(e)}`,
+      });
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,24 +92,12 @@ export function ExportPage() {
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={location.pathname}
       onNavigate={(p) => void navigate(p)}
       topbarContext={<span>Administration &middot; Export</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/admin-login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
@@ -168,7 +145,7 @@ export function ExportPage() {
             <Button
               variant="primary"
               onClick={() =>
-                downloadCsv(
+                exportCsv(
                   'bantai-reports.csv',
                   [
                     'id',
@@ -192,7 +169,7 @@ export function ExportPage() {
             <Button
               variant="secondary"
               onClick={() =>
-                downloadCsv(
+                exportCsv(
                   'bantai-models.csv',
                   ['id', 'versionTag', 'f1Score', 'accuracy', 'isActive'],
                   bundle.models.map((item) => [
@@ -210,7 +187,7 @@ export function ExportPage() {
             <Button
               variant="secondary"
               onClick={() =>
-                downloadCsv(
+                exportCsv(
                   'bantai-campaigns.csv',
                   ['id', 'label', 'isActive', 'messageCount', 'domains'],
                   bundle.campaigns.map((item) => [
@@ -228,14 +205,30 @@ export function ExportPage() {
           </div>
 
           <p
+            role="status"
+            aria-live="polite"
             style={{
-              margin: '20px 0 0',
+              margin: '16px 0 0',
+              minHeight: '1.4em',
+              color: notice
+                ? notice.ok
+                  ? 'var(--status-verified)'
+                  : 'var(--status-critical)'
+                : undefined,
+            }}
+          >
+            {notice?.text}
+          </p>
+
+          <p
+            style={{
+              margin: '12px 0 0',
               color: 'var(--text-secondary)',
               fontSize: '0.85rem',
             }}
           >
-            CSVs are generated in the browser from the current live records.
-            Files download immediately with no server round-trip.
+            CSVs are generated in the browser from the records loaded on this
+            page. Reload the page to export the latest records.
           </p>
         </>
       ) : null}

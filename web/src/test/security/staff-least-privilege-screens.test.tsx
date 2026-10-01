@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getFilteredAdminSidebarGroups } from '../../pages/admin/adminNav';
-import { fetchApi, setStoredToken } from '../../api/apiClient';
+import { fetchApi } from '../../api/apiClient';
 
 describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => {
   const originalFetch = globalThis.fetch;
@@ -22,7 +22,7 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
 
       const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
       expect(itemLabels).toContain('Overview');
-      expect(itemLabels).toContain('Tips');
+      expect(itemLabels).not.toContain('Tips');
       expect(itemLabels).toContain('Settings');
 
       // Must NOT contain restricted screens
@@ -35,7 +35,7 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
     it('filters sidebar items strictly for Analyst role (campaigns:read, models:read, reports:read)', () => {
       const analystPermissions = [
         'overview:read',
-        'campaigns:read',
+        'campaigns:manage',
         'models:read',
         'reports:read',
       ];
@@ -59,7 +59,7 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
 
       const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
       expect(itemLabels).toContain('Overview');
-      expect(itemLabels).toContain('Export');
+      expect(itemLabels).not.toContain('Export');
 
       // Must NOT contain model, system, tips, or campaigns
       expect(itemLabels).not.toContain('Model');
@@ -69,7 +69,11 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
     });
 
     it('filters sidebar items strictly for Operations role (system:read, campaigns:read)', () => {
-      const opsPermissions = ['overview:read', 'system:read', 'campaigns:read'];
+      const opsPermissions = [
+        'overview:read',
+        'system:read',
+        'campaigns:manage',
+      ];
       const groups = getFilteredAdminSidebarGroups(opsPermissions);
 
       const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
@@ -97,10 +101,10 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
     });
   });
 
-  describe('Backend Authoritative Enforcement Against UI Permission Tampering', () => {
-    it('proves that tampering with frontend permissions to reveal a hidden button cannot execute unpermitted API actions', async () => {
+  describe('Mock forbidden response transport', () => {
+    it('surfaces a simulated backend refusal without treating client state as authority', async () => {
       // Support staff member tampers with frontend state in browser console
-      setStoredToken('support_staff_jwt_token');
+      localStorage.setItem('bantai_token', 'support_staff_jwt_token');
 
       // Attempting to trigger model retraining (which requires models:write / ADMIN)
       globalThis.fetch = vi.fn().mockResolvedValue({

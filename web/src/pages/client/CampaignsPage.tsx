@@ -8,70 +8,24 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import type { NavGroupDef } from '../../components/appshell/AppShell';
-import {
-  Button,
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavMessagesIcon,
-  NavAnalyticsIcon,
-  NavReportsIcon,
-  NavSystemIcon,
-} from '../../components/primitives';
+import { Button } from '../../components/primitives';
 import { CampaignsList } from '../../features/campaigns/CampaignsList';
 import { logout } from '../../services/authService';
-
-const SIDEBAR_GROUPS: NavGroupDef[] = [
-  {
-    label: 'Threat Intelligence',
-    items: [
-      {
-        label: 'Overview',
-        path: '/client/overview',
-        icon: <NavOverviewIcon />,
-      },
-      {
-        label: 'Messages',
-        path: '/client/messages',
-        icon: <NavMessagesIcon />,
-      },
-      {
-        label: 'Campaigns',
-        path: '/client/campaigns',
-        icon: <NavCampaignsIcon />,
-      },
-      {
-        label: 'Analytics',
-        path: '/client/analytics',
-        icon: <NavAnalyticsIcon />,
-      },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { label: 'Help', path: '/client/help', icon: <NavReportsIcon /> },
-      {
-        label: 'Account settings',
-        path: '/client/settings',
-        icon: <NavSystemIcon />,
-      },
-    ],
-  },
-];
+import { useClientSidebarGroups } from './clientNav';
 
 export function CampaignsPage() {
+  const sidebarGroups = useClientSidebarGroups();
   const navigate = useNavigate();
   const location = useLocation();
   return (
     <AppShell
       role="client"
-      groups={SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI"
+      groups={sidebarGroups}
+      brandInitial="S"
+      brandLabel="BantAI Shield"
       currentPath={location.pathname}
       onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Threat Intelligence &middot; Campaigns</span>}
+      topbarContext={<span>Shield &middot; Campaigns</span>}
       topbarUtility={
         <>
           <Button
@@ -87,17 +41,19 @@ export function CampaignsPage() {
         </>
       }
       footer={
-        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+        <span style={{ fontSize: '0.85rem' }}>
+          Shield intelligence subscription
+        </span>
       }
     >
       <PageHeader
         title="Campaigns"
-        description="Monitor related smishing activity and campaign evolution across your subscribers."
+        description="Browse published smishing campaign intelligence, indicators, and status changes."
       />
       <CampaignsList
         role="client"
         onCampaignClick={(c) =>
-          void navigate(`/client/campaigns/${encodeURIComponent(c.id)}`)
+          void navigate(`/shield/campaigns/${encodeURIComponent(c.id)}`)
         }
       />
     </AppShell>

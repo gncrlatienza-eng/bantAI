@@ -2,26 +2,21 @@ import { fetchApi } from '../api/apiClient';
 
 export interface UserReportItem {
   id: string;
-  userId: string;
-  messageId: string;
+  userId?: string;
+  messageId?: string;
   originalLabel: string;
   reportedLabel: string;
-  status: string;
+  status: 'Pending' | 'Validated' | 'Rejected';
   adminNote?: string | null;
   validatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: {
     id: string;
-    phone: string;
-    firstName?: string | null;
-    lastName?: string | null;
   };
   message?: {
     id: string;
-    sender: string;
     body: string;
-    receivedAt: string;
   };
 }
 

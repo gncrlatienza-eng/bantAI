@@ -1,360 +1,212 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import type { AccessRequestTier } from '../../services/authService';
+import { TickIcon } from './accessSteps';
+import signalsArt from '../../assets/request-access/signals.webp';
+import optionsArt from '../../assets/request-access/access-options.webp';
+import gateArt from '../../assets/request-access/access-gate.webp';
 
-/*
- * Presentational pieces of the Request Licensing page.
- *
- * These read as a licensing catalog — cards, comparison, workflow, founding
- * pilot, license terms — with no promotional gloss. Everything mounts inside
- * the AuthLayout so the visual system (cream, plum, warm ink, editorial
- * network SVG) stays consistent with Sign In.
- *
- * The parent orchestrator owns state; these components take the selected
- * tier / handlers as props and stay stateless.
- */
-
-type PickTier = (tier: AccessRequestTier) => void;
-
-export function LicensingIntro() {
+type PickShield = (options?: { pilot?: boolean }) => void;
+function SectionArt({ src, className }: { src: string; className: string }) {
   return (
-    <header className="licensing__intro">
-      <p className="licensing__eyebrow">Licensing</p>
-      <h1 className="licensing__title">
-        Request access to BantAI’s Philippine smishing intelligence.
-      </h1>
-      <p className="licensing__lede">
-        Specialized Tagalog, English, and Taglish SMS threat intelligence —
-        masked datasets, campaign relationships, and campaign evolution.
-        Requests are manually reviewed. No payment is taken at this stage.
-      </p>
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className={`ra-art ${className}`}
+      width={1672}
+      height={941}
+      decoding="async"
+    />
+  );
+}
+export function Hero() {
+  return (
+    <header className="ra-hero">
+      <SectionArt src={signalsArt} className="ra-art--hero" />
+      <div className="ra-hero__content">
+        <p className="ra-eyebrow">Shield subscription</p>
+        <h1 className="ra-hero__title">
+          Understand Philippine smishing campaigns.
+        </h1>
+        <p className="ra-hero__lede">
+          Shield provides published campaign intelligence for security, fraud,
+          and risk teams.
+        </p>
+        <a href="#shield-access" className="ra-button ra-button--primary">
+          Request Shield access
+        </a>
+        <p className="ra-note">No payment is required to submit a request.</p>
+      </div>
     </header>
   );
 }
-
-interface CardsProps {
-  onPick: PickTier;
-}
-
-export function LicensingCards({ onPick }: CardsProps) {
+export function ChooseAccess({ onPick }: { onPick: PickShield }) {
   return (
-    <section className="licensing__cards" aria-label="License options">
-      <TierCard
-        tier="research"
-        eyebrow="Research"
-        descriptor="For academic and non-commercial research"
-        annual="₱24,900"
-        monthly="₱2,490 / month"
-        highlights={[
-          'Masked dataset access',
-          'Historical dataset',
-          'Campaign intelligence',
-          'CSV / JSON export',
-          'Research-only license',
-        ]}
-        cta="Request Research Access"
-        onPick={onPick}
-      />
-      <TierCard
-        tier="organization"
-        eyebrow="Organization"
-        descriptor="For commercial internal use"
-        annual="₱299,000"
-        monthly="₱29,900 / month"
-        highlights={[
-          'Everything in Research',
-          'Highest available freshness',
-          'Multiple users',
-          'Full bulk access',
-          'Commercial internal use',
-        ]}
-        cta="Request Organization Access"
-        onPick={onPick}
-      />
+    <section
+      id="shield-access"
+      className="ra-section ra-choose"
+      aria-labelledby="ra-choose-title"
+    >
+      <SectionArt src={optionsArt} className="ra-art--choose" />
+      <h2 id="ra-choose-title" className="ra-section-title">
+        Shield access
+      </h2>
+      <div className="ra-cards">
+        <article className="ra-card">
+          <h3 className="ra-card__name">Shield Subscription</h3>
+          <p className="ra-card__purpose">
+            Published campaign intelligence for approved operational use.
+          </p>
+          <p className="ra-card__price">
+            Subscription pricing<span> is confirmed during approval</span>
+          </p>
+          <ul className="ra-card__list">
+            <li>
+              <TickIcon />
+              Published campaign intelligence
+            </li>
+            <li>
+              <TickIcon />
+              Approved indicators and campaign evolution
+            </li>
+            <li>
+              <TickIcon />
+              Scoped campaign exports
+            </li>
+            <li>
+              <TickIcon />
+              Read-only API access when enabled
+            </li>
+          </ul>
+          <button
+            type="button"
+            className="ra-button ra-button--primary ra-card__cta"
+            onClick={() => onPick()}
+          >
+            Request Shield access
+          </button>
+        </article>
+        <details className="ra-pilot">
+          <summary>
+            Interested in founding-pilot consideration?{' '}
+            <span className="ra-pilot__more">Learn more</span>
+          </summary>
+          <p>
+            Eligible organizations may be considered for pilot access in
+            exchange for implementation feedback.
+          </p>
+          <button
+            type="button"
+            className="ra-link-button"
+            onClick={() => onPick({ pilot: true })}
+          >
+            Request with pilot consideration →
+          </button>
+        </details>
+      </div>
     </section>
   );
 }
-
-interface TierCardProps {
-  tier: AccessRequestTier;
-  eyebrow: string;
-  descriptor: string;
-  annual: string;
-  monthly: string;
-  highlights: string[];
-  cta: string;
-  onPick: PickTier;
-}
-
-function TierCard({
-  tier,
-  eyebrow,
-  descriptor,
-  annual,
-  monthly,
-  highlights,
-  cta,
-  onPick,
-}: TierCardProps) {
+export function WhatYouGet() {
   return (
-    <article className="licensing-card">
-      <header className="licensing-card__head">
-        <p className="licensing-card__eyebrow">{eyebrow}</p>
-        <p className="licensing-card__descriptor">{descriptor}</p>
-      </header>
-
-      <div className="licensing-card__price">
-        <span className="licensing-card__price-annual">
-          {annual}
-          <span className="licensing-card__price-period"> / year</span>
-        </span>
-        <span className="licensing-card__price-monthly">{monthly}</span>
-      </div>
-
-      <ul className="licensing-card__list">
-        {highlights.map((item) => (
-          <li key={item}>
-            <CheckMark />
-            <span>{item}</span>
-          </li>
-        ))}
+    <section className="ra-section" aria-labelledby="ra-get-title">
+      <h2 id="ra-get-title" className="ra-section-title">
+        What Shield includes
+      </h2>
+      <ul className="ra-trio">
+        <li>
+          <strong>Campaign intelligence</strong>
+          <span>Track published smishing campaigns and changes over time.</span>
+        </li>
+        <li>
+          <strong>Approved indicators</strong>
+          <span>Use reviewed domain and infrastructure indicators.</span>
+        </li>
+        <li>
+          <strong>Scoped access</strong>
+          <span>
+            Export only the campaign intelligence authorized for Shield.
+          </span>
+        </li>
       </ul>
-
-      <button
-        type="button"
-        className="licensing-card__cta"
-        onClick={() => onPick(tier)}
-      >
-        {cta}
-      </button>
-      <p className="licensing-card__helper">
-        No payment is taken at this stage.
-      </p>
-    </article>
-  );
-}
-
-function CheckMark() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className="licensing-card__check"
-      aria-hidden
-      focusable="false"
-    >
-      <path
-        d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/* ————— Comparison ————— */
-
-interface Row {
-  label: string;
-  research: string;
-  organization: string;
-}
-
-const COMPARISON: Row[] = [
-  {
-    label: 'License',
-    research: 'Non-commercial research',
-    organization: 'Commercial internal use',
-  },
-  { label: 'Masked dataset', research: 'Included', organization: 'Included' },
-  {
-    label: 'Historical dataset',
-    research: 'Included',
-    organization: 'Included',
-  },
-  {
-    label: 'Campaign intelligence',
-    research: 'Included',
-    organization: 'Included',
-  },
-  {
-    label: 'CSV / JSON export',
-    research: 'Included',
-    organization: 'Included',
-  },
-  {
-    label: 'Freshness',
-    research: 'Standard updates',
-    organization: 'Highest available',
-  },
-  {
-    label: 'Bulk download',
-    research: 'Reasonable research limits',
-    organization: 'Full',
-  },
-  { label: 'Multiple users', research: 'Limited', organization: 'Included' },
-  {
-    label: 'Commercial use',
-    research: 'Not permitted',
-    organization: 'Included',
-  },
-  {
-    label: 'API access',
-    research: 'Not included',
-    organization: 'Included when released',
-  },
-  {
-    label: 'Redistribution',
-    research: 'Not permitted',
-    organization: 'Not permitted, unless separately licensed',
-  },
-];
-
-export function LicensingComparison() {
-  return (
-    <section
-      className="licensing__compare"
-      aria-labelledby="licensing-compare-title"
-    >
-      <header className="licensing__compare-head">
-        <p className="licensing__section-eyebrow">Compare full access</p>
-        <h2 id="licensing-compare-title" className="licensing__section-title">
-          What each license actually includes.
-        </h2>
-      </header>
-
-      <div className="licensing__compare-scroll">
-        <table className="licensing-table">
-          <thead>
-            <tr>
-              <th scope="col" className="licensing-table__row-head">
-                &nbsp;
-              </th>
-              <th scope="col">Research</th>
-              <th scope="col">Organization</th>
-            </tr>
-          </thead>
-          <tbody>
-            {COMPARISON.map((row) => (
-              <tr key={row.label}>
-                <th scope="row" className="licensing-table__row-head">
-                  {row.label}
-                </th>
-                <td>{row.research}</td>
-                <td>{row.organization}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </section>
   );
 }
-
-/* ————— Workflow ————— */
-
-export function LicensingWorkflow() {
-  const steps = [
-    { n: '01', label: 'Request', body: 'Submit the short access form.' },
-    {
-      n: '02',
-      label: 'Review',
-      body: 'Manual review of use case and license fit.',
-    },
-    {
-      n: '03',
-      label: 'Approval & Payment',
-      body: 'Proposal, invoice, and secure payment via Stripe.',
-    },
-    {
-      n: '04',
-      label: 'Access',
-      body: 'License activated after payment is confirmed.',
-    },
-  ];
+export function ControlledAccess() {
   return (
-    <section
-      className="licensing__workflow"
-      aria-labelledby="licensing-workflow-title"
-    >
-      <header className="licensing__compare-head">
-        <p className="licensing__section-eyebrow">Access workflow</p>
-        <h2 id="licensing-workflow-title" className="licensing__section-title">
-          From request to activated license.
-        </h2>
-      </header>
-      <ol className="licensing-steps">
-        {steps.map((s) => (
-          <li key={s.n} className="licensing-step">
-            <span className="licensing-step__n">{s.n}</span>
-            <span className="licensing-step__label">{s.label}</span>
-            <span className="licensing-step__body">{s.body}</span>
+    <section className="ra-section" aria-labelledby="ra-trust-title">
+      <h2 id="ra-trust-title" className="ra-section-title">
+        Built for controlled access
+      </h2>
+      <ul className="ra-trio">
+        <li>
+          <strong>No raw SMS</strong>
+          <span>
+            Shield does not provide message bodies, sender data, or recipient
+            information.
+          </span>
+        </li>
+        <li>
+          <strong>Human review</strong>
+          <span>
+            Every subscription request is reviewed before access is granted.
+          </span>
+        </li>
+        <li>
+          <strong>Account-scoped</strong>
+          <span>
+            Use and API activity are limited to your subscribed account.
+          </span>
+        </li>
+      </ul>
+    </section>
+  );
+}
+export function HowAccessWorks() {
+  return (
+    <section className="ra-section" aria-labelledby="ra-how-title">
+      <h2 id="ra-how-title" className="ra-section-title">
+        How access works
+      </h2>
+      <ol className="ra-flow-row">
+        {['Request', 'Review', 'Accept terms', 'Access'].map((step, index) => (
+          <li key={step}>
+            <span className="ra-flow-row__n" aria-hidden>
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            {step}
           </li>
         ))}
       </ol>
+      <p className="ra-note">
+        Approved applicants accept the terms and complete payment before Shield
+        activates.
+      </p>
     </section>
   );
 }
-
-/* ————— Founding pilot ————— */
-
-export function LicensingPilot() {
+export function FinalCta({ onPick }: { onPick: PickShield }) {
   return (
-    <aside className="licensing__pilot" aria-label="Founding pilot">
-      <p className="licensing__section-eyebrow">Founding pilot</p>
-      <p className="licensing__pilot-body">
-        A limited number of founding-pilot organizations receive first-year
-        pricing between ₱149,000 and ₱199,000 in exchange for feedback,
-        integration testing, and case-study permission. Mention pilot interest
-        in the intended-use field.
-      </p>
-    </aside>
-  );
-}
-
-/* ————— License & data-use ————— */
-
-export function LicensingTerms() {
-  return (
-    <section
-      className="licensing__terms"
-      aria-labelledby="licensing-terms-title"
-    >
-      <header className="licensing__compare-head">
-        <p className="licensing__section-eyebrow">License &amp; data use</p>
-        <h2 id="licensing-terms-title" className="licensing__section-title">
-          What you receive, and what stays with BantAI.
-        </h2>
-      </header>
-      <ul className="licensing__terms-list">
-        <li>
-          You receive a license to <strong>use</strong> the intelligence for the
-          scope defined by your tier. You do not receive ownership of the
-          dataset.
-        </li>
-        <li>
-          Redistribution and resale of the intelligence are prohibited unless
-          separately licensed.
-        </li>
-        <li>
-          Attempts to re-identify individuals from masked data are prohibited.
-        </li>
-        <li>
-          All data is masked and aggregated in line with Philippine Republic Act
-          No. 10173 (Data Privacy Act of 2012) principles.
-        </li>
-      </ul>
-      <p className="licensing__terms-links">
-        <Link to="/legal?tab=privacy">Privacy Policy (v1.0)</Link>
-        <span aria-hidden>·</span>
-        <Link to="/legal?tab=terms">Terms of Service (v1.0)</Link>
-        <span aria-hidden>·</span>
-        <Link to="/legal?tab=license">License Agreement (v1.0)</Link>
-        <span aria-hidden>·</span>
-        <Link to="/legal?tab=redress">DPO / Redress</Link>
-      </p>
+    <section className="ra-section ra-final" aria-labelledby="ra-final-title">
+      <SectionArt src={gateArt} className="ra-art--final" />
+      <div className="ra-final__content">
+        <div className="ra-final__head">
+          <h2 id="ra-final-title" className="ra-final__title">
+            Ready to request Shield access?
+          </h2>
+          <p className="ra-note">
+            Create your account, then submit one Shield subscription request.
+          </p>
+        </div>
+        <div className="ra-final__actions">
+          <button
+            type="button"
+            className="ra-button ra-button--primary"
+            onClick={() => onPick()}
+          >
+            Request Shield access
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

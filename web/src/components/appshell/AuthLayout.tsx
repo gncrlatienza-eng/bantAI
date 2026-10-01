@@ -1,187 +1,133 @@
 /*
  * AuthLayout — one calm, product-focused sign-in surface.
  *
- * Desktop: two-column grid. The left panel stays mostly atmospheric — a
- * quiet inline-SVG network illustration in plum with tiny slate accents,
- * matching the landing page's editorial vector language. The auth card
- * sits on the right at ~68% horizontal, slightly above vertical center.
+ * Desktop: two-column grid (~54 / 46). The left column carries a short
+ * heading plus the campaign-map illustration (a transparent WebP asset,
+ * src/assets/auth/campaign-map.webp); the auth card
+ * sits right-weighted in the second column. Both are vertically centred.
  *
- * Tablet: the illustration recedes and the card moves closer to centre.
- * Mobile: single column, full-width form, normal page padding.
+ * Tablet: two columns while there is room, with a smaller diagram.
+ * Mobile: single column — decor hidden, form fills the width.
  *
- * The layout is purposely NOT the old centered card — this file replaces
- * the AuthShell for the primary sign-in surface. The AuthShell is still
- * available for post-login flows (2FA) where a focused single card fits.
+ * The AuthShell is still available for post-login flows (2FA) where a
+ * focused single card fits.
  */
 
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ShieldLogo } from '../common/ShieldLogo';
+import campaignMap from '../../assets/auth/campaign-map.webp';
 import './authlayout.css';
 
-type DecorVariant = 'network' | 'paused';
+type DecorVariant = 'network' | 'paused' | 'none';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
   /*
-   * 'network' (default) — active cluster for the primary sign-in surface.
+   * 'network' (default) — campaign-intelligence diagram with a short intro,
+   *                       used on the primary sign-in surface.
    * 'paused'            — quieter, dashed-outline cluster with an open
-   *                       central node, used on the request-access page so
-   *                       it reads as a sibling composition rather than a
-   *                       clone of Sign In.
+   *                       central node, used on the checkout status pages.
+   * 'none'              — no decor column; children get the full container
+   *                       width. Used by the request-access page, which lays
+   *                       out its own sticky access diagram.
    */
   decor?: DecorVariant;
 }
 
 export function AuthLayout({ children, decor = 'network' }: AuthLayoutProps) {
   return (
-    <div className="bantai-auth-layout" data-theme="mineral">
+    <div
+      className={`bantai-auth-layout bantai-auth-layout--${decor}`}
+      data-theme="mineral"
+    >
       <header className="bantai-auth-layout__header">
-        <Link
-          to="/"
-          className="bantai-auth-layout__brand"
-          aria-label="BantAI home"
-        >
-          <span className="bantai-auth-layout__brand-mark" aria-hidden>
-            <BrandMark />
-          </span>
-          <span className="bantai-auth-layout__brand-word">BantAI</span>
-        </Link>
-        <Link to="/" className="bantai-auth-layout__utility">
-          Back to website
-        </Link>
+        <div className="bantai-auth-layout__container bantai-auth-layout__header-inner">
+          <Link
+            to="/"
+            className="bantai-auth-layout__brand"
+            aria-label="BantAI home"
+          >
+            <span className="bantai-auth-layout__brand-mark" aria-hidden>
+              <ShieldLogo size={28} tone="brand" />
+            </span>
+            <span className="bantai-auth-layout__brand-word">BantAI</span>
+          </Link>
+          {/* Shares the page container with the card, so on desktop its
+              right edge lines up with the card's right edge. */}
+          <nav aria-label="Site">
+            <Link to="/" className="bantai-auth-layout__back">
+              <ChevronLeftIcon />
+              Back to site
+            </Link>
+          </nav>
+        </div>
       </header>
 
       <main className="bantai-auth-layout__main">
-        <div className="bantai-auth-layout__decor" aria-hidden>
-          {decor === 'paused' ? <DecorPaused /> : <DecorNetwork />}
-        </div>
+        <div className="bantai-auth-layout__container bantai-auth-layout__grid">
+          {decor === 'none' ? null : decor === 'paused' ? (
+            <div className="bantai-auth-layout__decor" aria-hidden>
+              <DecorPaused />
+            </div>
+          ) : (
+            <section
+              className="bantai-auth-layout__intro"
+              aria-labelledby="bantai-auth-intro-title"
+            >
+              <h2
+                id="bantai-auth-intro-title"
+                className="bantai-auth-layout__intro-title"
+              >
+                Philippine smishing intelligence
+              </h2>
+              <div className="bantai-auth-layout__art" aria-hidden>
+                <img
+                  src={campaignMap}
+                  alt=""
+                  width={1477}
+                  height={736}
+                  className="bantai-auth-art-img"
+                  decoding="async"
+                />
+              </div>
+            </section>
+          )}
 
-        <div className="bantai-auth-layout__slot">{children}</div>
+          <div className="bantai-auth-layout__slot">{children}</div>
+        </div>
       </main>
 
       <footer className="bantai-auth-layout__footer">
-        <span className="bantai-auth-layout__copy">
-          © {new Date().getFullYear()} BantAI threat intelligence research
-        </span>
-        <nav aria-label="Auth utility" className="bantai-auth-layout__utils">
-          <Link to="/legal?tab=privacy">Privacy (v1.0)</Link>
-          <Link to="/legal?tab=terms">Terms (v1.0)</Link>
-          <Link to="/legal?tab=license">Licensing</Link>
-          <Link to="/legal?tab=redress">DPO / Redress</Link>
-        </nav>
+        <div className="bantai-auth-layout__container bantai-auth-layout__footer-inner">
+          <span className="bantai-auth-layout__copy">
+            © {new Date().getFullYear()} BantAI thesis project
+          </span>
+          <nav aria-label="Auth utility" className="bantai-auth-layout__utils">
+            <a href="/#about">Privacy</a>
+            <a href="/#about">Security</a>
+            <a href="/#how-it-works">Help</a>
+          </nav>
+        </div>
       </footer>
     </div>
   );
 }
 
-/*
- * BrandMark — small plum wordmark dot. Mirrors the portal sidebar mark
- * so the auth page feels like part of the same product surface, not a
- * separate marketing tile.
- */
-function BrandMark() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" role="presentation">
-      <circle cx="12" cy="12" r="10" fill="var(--brand-primary)" />
-      <circle cx="12" cy="12" r="3" fill="var(--surface-canvas)" />
-    </svg>
-  );
-}
-
-/*
- * DecorNetwork — sparse editorial network illustration. Twelve nodes
- * arranged in a loose asymmetric cluster, connected by thin dashed and
- * solid lines. Plum-dominant, with two small muted slate accents to hint
- * at "intelligence / connection" without leaning futuristic. Plenty of
- * negative space; nothing here should compete with the auth card.
- *
- * Rendered inline for the same reasons the landing SVGs are: sharp at
- * any resolution, colours bound to the cream/plum token system, no
- * raster asset to ship. viewBox is deliberately taller than wide so the
- * composition reads as a quiet column beside the form.
- */
-function DecorNetwork() {
+function ChevronLeftIcon() {
   return (
     <svg
-      viewBox="0 0 520 720"
-      className="bantai-auth-decor-svg"
-      preserveAspectRatio="xMidYMid slice"
-      role="presentation"
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
     >
-      {/* Faint boundary ring — matches CampaignIntelligence cluster boundary */}
-      <circle
-        cx="270"
-        cy="360"
-        r="240"
-        fill="none"
-        stroke="var(--plum-14)"
-        strokeDasharray="2 8"
-      />
-      <circle
-        cx="270"
-        cy="360"
-        r="170"
-        fill="none"
-        stroke="var(--plum-08)"
-        strokeDasharray="2 8"
-      />
-
-      {/* Connecting paths — a mix of dashed edges (like the landing cluster)
-          and thin solid curves to break the monotony of straight lines. */}
-      <g
-        stroke="var(--plum-35)"
-        strokeWidth="1"
-        fill="none"
-        strokeLinecap="round"
-      >
-        <line x1="270" y1="360" x2="100" y2="200" strokeDasharray="3 6" />
-        <line x1="270" y1="360" x2="420" y2="180" />
-        <line x1="270" y1="360" x2="450" y2="360" strokeDasharray="3 6" />
-        <line x1="270" y1="360" x2="410" y2="540" />
-        <line x1="270" y1="360" x2="130" y2="560" strokeDasharray="3 6" />
-        <line x1="270" y1="360" x2="80" y2="380" />
-        <path d="M100 200 C 180 150, 340 130, 420 180" />
-        <path d="M420 180 C 470 260, 470 320, 450 360" strokeDasharray="3 6" />
-        <path d="M130 560 C 220 620, 340 620, 410 540" />
-      </g>
-
-      {/* Outer variant nodes — small hollow rings, occasional filled dot */}
-      <g fill="var(--surface-canvas)" stroke="var(--plum-60)" strokeWidth="1">
-        <circle cx="100" cy="200" r="6" />
-        <circle cx="420" cy="180" r="6" />
-        <circle cx="450" cy="360" r="6" />
-        <circle cx="410" cy="540" r="6" />
-        <circle cx="130" cy="560" r="6" />
-        <circle cx="80" cy="380" r="6" />
-      </g>
-      {/* Interior dots for a handful of the nodes */}
-      <g fill="var(--brand-primary)">
-        <circle cx="100" cy="200" r="2.2" />
-        <circle cx="450" cy="360" r="2.2" />
-        <circle cx="130" cy="560" r="2.2" />
-      </g>
-
-      {/* Muted slate accents — two tiny secondary dots. Restrained blue,
-          only present so the composition has one non-plum note. */}
-      <circle cx="420" cy="180" r="2.4" fill="var(--auth-accent-slate)" />
-      <circle cx="410" cy="540" r="2.4" fill="var(--auth-accent-slate)" />
-
-      {/* Tiny satellite marks in the negative space — feel of a graph
-          without turning the page into a hero visual */}
-      <g fill="var(--plum-35)">
-        <rect x="200" y="120" width="3" height="3" />
-        <rect x="360" y="440" width="3" height="3" />
-        <rect x="180" y="480" width="3" height="3" />
-      </g>
-
-      {/* Central node — a soft plum halo behind a small solid mark. Sits
-          on the boundary between hero and background: never a focal point
-          on its own, but anchors the whole composition. */}
-      <g>
-        <circle cx="270" cy="360" r="26" fill="var(--plum-08)" />
-        <circle cx="270" cy="360" r="14" fill="var(--plum-14)" />
-        <circle cx="270" cy="360" r="6" fill="var(--brand-primary)" />
-      </g>
+      <path d="M10 3.5 5.5 8l4.5 4.5" />
     </svg>
   );
 }

@@ -1,4 +1,4 @@
-import { fetchApi, clearStoredToken } from '../api/apiClient';
+import { clearLegacyStoredToken, fetchApi } from '../api/apiClient';
 
 export interface RequestOtpResponse {
   message: string;
@@ -7,208 +7,103 @@ export interface RequestOtpResponse {
 
 export interface VerifyOtpResponse {
   message: string;
-  access_token?: string;
+  access_token: string;
 }
 
-export type LicenseTier = 'Research' | 'Organization';
-export type WorkspaceMembership = 'Owner' | 'Member';
-export type AccountStatus = 'Active' | 'Pending Confirmation' | 'Under Review';
+export interface CheckoutReconciliationResponse {
+  status: 'active' | 'pending';
+  message?: string;
+}
 
-export type StaffRole =
-  'SUPERADMIN' | 'SUPPORT' | 'ANALYST' | 'OPERATIONS' | 'PRIVACY';
+/**
+ * In non-production test mode the server may verify a completed Checkout
+ * Session directly when a local Stripe webhook is unavailable. This endpoint
+ * still validates the session server-side; a success URL is never proof of
+ * payment on its own.
+ */
+export async function reconcileTestCheckout(
+  checkoutSessionId: string,
+): Promise<CheckoutReconciliationResponse> {
+  return fetchApi<CheckoutReconciliationResponse>(
+    '/payments/test/reconcile-checkout',
+    {
+      method: 'POST',
+      body: JSON.stringify({ checkoutSessionId }),
+    },
+  );
+}
 
 export interface CurrentUser {
   id: string;
+  /* Null for email-only portal accounts. */
   phone: string | null;
   email?: string | null;
   company?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   role: 'ADMIN' | 'USER';
-  staffRole?: StaffRole | null;
+  /** Present for staff sessions; server authorization remains authoritative. */
+  staffRole?: string | null;
+  /** A display hint for staff screens, never a substitute for backend guards. */
   permissions?: string[];
-  // Workspace & Tenancy Metadata
-  workspaceName?: string | null;
-  licenseTier?: LicenseTier | null;
-  membership?: WorkspaceMembership | null;
-  status?: AccountStatus | null;
 }
 
-export interface CustomerMetadata {
-  workspace: string;
-  license: LicenseTier;
-  membership: WorkspaceMembership;
-  status: AccountStatus;
+/*
+ * Account-first registration. Step 1 sends a code only when no account uses
+ * the email yet; an existing account returns a conflict so the UI can direct
+ * the user to sign in. Step 2 proves the email, sets the password, and starts
+ * a session (HttpOnly cookie).
+ */
+export async function requestSignUpOtp(
+  email: string,
+): Promise<RequestOtpResponse> {
+  return fetchApi<RequestOtpResponse>(
+    '/auth/portal/sign-up/request-email-otp',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    },
+  );
 }
 
-export function getCustomerMetadata(
-  user: CurrentUser | null,
-): CustomerMetadata {
-  if (!user) {
-    return {
-      workspace: 'Workspace',
-      license: 'Research',
-      membership: 'Member',
-      status: 'Active',
-    };
-  }
-
-  const workspace =
-    user.company?.trim() || user.workspaceName || 'Primary Workspace';
-  const license: LicenseTier =
-    user.licenseTier || (user.company ? 'Organization' : 'Research');
-  const membership: WorkspaceMembership =
-    user.membership || (user.role === 'ADMIN' ? 'Owner' : 'Member');
-  const status: AccountStatus = user.status || 'Active';
-
-  return { workspace, license, membership, status };
+export async function verifySignUp(
+  email: string,
+  otp: string,
+  password: string,
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>('/auth/portal/sign-up/verify', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp, password }),
+  });
 }
 
-export interface UserEntitlements {
-  canViewThreatIntel: boolean;
-  canTriageAlerts: boolean;
-  canExportData: boolean;
-  canManageWorkspace: boolean;
-  licenseTier: LicenseTier;
-}
-
-export function getUserEntitlements(
-  user: CurrentUser | null,
-): UserEntitlements {
-  const { license, membership } = getCustomerMetadata(user);
-  const isOrg = license === 'Organization';
-  const isOwner = membership === 'Owner';
-
-  return {
-    canViewThreatIntel: true,
-    canTriageAlerts: true,
-    canExportData: isOrg,
-    canManageWorkspace: isOrg && isOwner,
-    licenseTier: license,
-  };
-}
-
-export async function login(
+/*
+ * Unified portal email-OTP sign-in. There is intentionally only one endpoint
+ * pair for the web — the backend decides admin vs client from the user
+ * record, and a license is not required to sign in.
+ *
+ * Unknown and ineligible addresses get the same generic response. After
+ * verifying, the web reads GET /account/state to learn where to go.
+ */
+export async function requestPortalEmailOtp(
   email: string,
   password: string,
-): Promise<VerifyOtpResponse> {
-  const result = await fetchApi<VerifyOtpResponse>('/auth/login', {
+): Promise<RequestOtpResponse> {
+  return fetchApi<RequestOtpResponse>('/auth/portal/request-email-otp', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  return result;
 }
 
-export async function requestClientEmailOtp(
-  email: string,
-): Promise<RequestOtpResponse> {
-  return fetchApi<RequestOtpResponse>('/auth/client/request-email-otp', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
-  });
-}
-
-export async function verifyClientEmailOtp(
+export async function verifyPortalEmailOtp(
   email: string,
   otp: string,
-): Promise<CurrentUser> {
-  clearStoredToken();
-  await fetchApi<{ message: string }>('/auth/client/verify-email-otp', {
+): Promise<VerifyOtpResponse> {
+  // The session arrives as an HttpOnly cookie; the body carries no token.
+  return fetchApi<VerifyOtpResponse>('/auth/portal/verify-email-otp', {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
-  const user = await getCurrentUser();
-  if (user.role !== 'USER') {
-    logout();
-    throw new Error('This account cannot access the client portal.');
-  }
-  return user;
-}
-
-export async function requestClientClaimEmailOtp(
-  email: string,
-  checkoutSessionId: string,
-): Promise<RequestOtpResponse> {
-  return fetchApi<RequestOtpResponse>('/auth/client/claim/request-email-otp', {
-    method: 'POST',
-    body: JSON.stringify({ email, checkoutSessionId }),
-  });
-}
-
-export async function verifyClientClaimEmailOtp(
-  email: string,
-  checkoutSessionId: string,
-  otp: string,
-): Promise<CurrentUser> {
-  clearStoredToken();
-  await fetchApi<{ message: string }>('/auth/client/claim/verify-email-otp', {
-    method: 'POST',
-    body: JSON.stringify({ email, checkoutSessionId, otp }),
-  });
-  return getCurrentUser();
-}
-
-export interface StaffAuthResponse {
-  message: string;
-  requiresMfa?: boolean;
-  access_token?: string;
-  email?: string;
-}
-
-export const staffMfaConfig = {
-  requestStaffMfa: async (email: string): Promise<RequestOtpResponse> => {
-    return fetchApi<RequestOtpResponse>('/auth/admin/request-email-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  },
-};
-
-export async function requestStaffMfa(
-  email: string,
-): Promise<RequestOtpResponse> {
-  return staffMfaConfig.requestStaffMfa(email);
-}
-
-export async function adminAuthenticateStaff(
-  email: string,
-): Promise<{ user?: CurrentUser; email: string; requiresMfa: boolean }> {
-  clearStoredToken();
-  await staffMfaConfig.requestStaffMfa(email);
-  return { email, requiresMfa: true };
-}
-
-export async function adminVerifyMfa(
-  emailOrIdentifier: string,
-  mfaCode: string,
-): Promise<{ user: CurrentUser }> {
-  clearStoredToken();
-  await fetchApi<{ message: string }>('/auth/admin/verify-email-otp', {
-    method: 'POST',
-    body: JSON.stringify({ email: emailOrIdentifier, otp: mfaCode }),
-  });
-
-  const user = await getCurrentUser();
-  if (user.role !== 'ADMIN') {
-    logout();
-    throw new Error(
-      'Access denied: This account does not have staff or administrator privileges.',
-    );
-  }
-
-  return { user };
-}
-
-export async function registerPortal(
-  email: string,
-  password: string,
-  company?: string,
-): Promise<VerifyOtpResponse> {
-  const result = await fetchApi<VerifyOtpResponse>('/auth/portal/register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, company }),
-  });
-  return result;
 }
 
 export async function requestOtp(phone: string): Promise<RequestOtpResponse> {
@@ -222,11 +117,12 @@ export async function verifyOtp(
   phone: string,
   code: string,
 ): Promise<VerifyOtpResponse> {
-  const result = await fetchApi<VerifyOtpResponse>('/auth/verify-otp', {
+  // Mobile phone-OTP route. Its bearer token belongs to the Android app and
+  // is never stored or reused by the web portal.
+  return fetchApi<VerifyOtpResponse>('/auth/verify-otp', {
     method: 'POST',
     body: JSON.stringify({ phone, otp: code }),
   });
-  return result;
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
@@ -234,87 +130,80 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 }
 
 export function logout() {
-  clearStoredToken();
-  localStorage.removeItem('bantai_session');
+  // Ask the backend to invalidate the HttpOnly session cookie. If it fails
+  // (network drop mid-logout) we still clear local state so the UI never
+  // shows a signed-in shell to an intended-signed-out user.
   void fetchApi('/auth/logout', { method: 'POST' }).catch(() => undefined);
+  clearLegacyStoredToken();
+  localStorage.removeItem('bantai_session');
+  // Every sign-out path (topbars, account layout) drops the cached account
+  // lifecycle state at once, so /login never bounces back into the app.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('bantai:signed-out'));
+  }
 }
 
 /*
  * Access-request licensing tiers. The names match the backend contract we
- * expect: two licenses (research, organization), reviewed manually before
+ * expect: one Shield subscription, reviewed manually before
  * anything downstream (proposal, invoice, Stripe checkout) is offered.
  */
-export type AccessRequestTier = 'research' | 'organization';
+export type AccessRequestTier = 'shield';
 
+export type OrganizationDataAccess = 'EXPORTS' | 'API' | 'EXPORTS_AND_API';
+
+export interface OrganizationDetails {
+  website: string;
+  deployment: string;
+  dataAccess: OrganizationDataAccess;
+  contactPerson?: string;
+}
+
+/* Mirrors backend CreateAccessRequestDto — only what review needs. */
 export interface AccessRequestPayload {
   tier: AccessRequestTier;
   fullName: string;
   email: string;
   organization: string;
+  applicantRole: string;
+  /* How BantAI intelligence will be used. */
   intendedUse: string;
+  /* The operational problem the subscriber needs intelligence to address. */
   reason: string;
-}
-
-export interface AccessRequestResponse {
-  id: string;
-  tier: AccessRequestTier;
-  status: 'received' | 'under_review';
-  submittedAt: string;
-}
-
-/*
- * Submits a licensing access request. There is intentionally no simulated
- * success path: if the backend endpoint is not deployed yet, fetchApi throws
- * and the UI shows a real error.
- */
-export async function submitAccessRequest(
-  payload: AccessRequestPayload,
-): Promise<AccessRequestResponse> {
-  return fetchApi<AccessRequestResponse>('/access-requests', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  expectedUsers: number;
+  organizationDetails?: OrganizationDetails;
+  accuracyConfirmed: true;
+  productUpdatesOptIn?: boolean;
+  pilotInterest?: boolean;
 }
 
 export type BillingPeriod = 'MONTHLY' | 'ANNUAL';
 
-export interface ApprovedAccessRequest {
-  id: string;
-  tier: AccessRequestTier;
-  status: string;
-  fullName: string;
-  email: string;
-  organization: string;
-  billingPeriod: BillingPeriod | null;
-  approvedAt: string | null;
-  activatedAt: string | null;
+/* Approved license scope, rendered verbatim on the agreement step. The
+   backend (license-terms.ts) is the source of truth. */
+export interface LicenseScope {
+  name: string;
+  purpose: string;
+  dataset: string;
+  users: string;
+  exports: string;
+  api: string;
+  redistribution: string;
+  reidentification: string;
+  term: string;
 }
 
-/*
- * Fetches the approved-request summary keyed by the emailed approval token.
- * Used on the confirmation-before-Stripe page. Access is not granted here;
- * this is just enough context to render the "Continue to secure payment"
- * screen.
- */
-export async function getAccessRequestByToken(
-  token: string,
-): Promise<ApprovedAccessRequest> {
-  const params = new URLSearchParams({ token }).toString();
-  return fetchApi<ApprovedAccessRequest>(`/access-requests/by-token?${params}`);
+/* The recurring amount checkout will charge, resolved by the backend from the
+   same source Stripe checkout uses. Rendered before the terms are accepted. */
+export interface PriceLine {
+  amountMinor: number;
+  currency: string;
+  interval: 'month' | 'year';
+  display: string;
 }
 
-/*
- * Asks the backend to create a Stripe Checkout Session for the selected
- * billing period. Returns the hosted checkout URL, which the caller
- * navigates to. Access is *not* granted by reaching Stripe's success URL —
- * the backend's Stripe webhook is the only signal that activates a license.
- */
-export async function createCheckoutSession(
-  token: string,
-  billingPeriod: BillingPeriod,
-): Promise<{ url: string }> {
-  return fetchApi<{ url: string }>('/payments/checkout-session', {
-    method: 'POST',
-    body: JSON.stringify({ token, billingPeriod }),
-  });
+export interface LicensePricing {
+  confirmed: boolean;
+  annual: PriceLine | null;
+  monthly: PriceLine | null;
 }

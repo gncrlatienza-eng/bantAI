@@ -1,14 +1,10 @@
 /*
  * Shared Campaign Detail. Phase F step 4.
  *
- * Rendered by both client (/client/campaigns/:id) and admin (/admin/campaigns/:id).
- * Absorbs the legacy Timeline drill-down: the header + message table shows the
- * campaign's activity in one place instead of a separate route.
+ * Rendered by Admin. Shield has a separate intelligence-only detail page.
  *
- * Note: GET /campaigns/:id scopes messages to the requesting JWT user
- * (see CampaignsService.findOne in the backend). Admins therefore see only
- * their own view of a cluster's messages, not every user's — this is stated
- * in the messages panel description so admin viewers are not confused.
+ * The backend returns up to 25 stored masked campaign records through an
+ * audited Admin path. Original SMS bodies remain on users' phones.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -28,6 +24,7 @@ import {
   type StatusKind,
 } from '../../components/primitives';
 import {
+  archiveCampaign,
   deactivateCampaign,
   getCampaignById,
   type CampaignDetail as CampaignDetailData,
@@ -104,15 +101,22 @@ function toMessageRow(m: CampaignMessageSummary): MessageRow {
 interface CampaignDetailProps {
   role: 'client' | 'admin';
   campaignId: string;
+  onArchived?: () => void;
 }
 
-export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
+export function CampaignDetail({
+  role,
+  campaignId,
+  onArchived,
+}: CampaignDetailProps) {
   const [data, setData] = useState<CampaignDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -152,6 +156,22 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
     }
   }
 
+  async function confirmArchive() {
+    if (!data) return;
+    setArchiving(true);
+    setActionError(null);
+    try {
+      await archiveCampaign(data.id);
+      setArchiveOpen(false);
+      await load();
+      onArchived?.();
+    } catch (e) {
+      setActionError(errorText(e));
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   if (loading) return <LoadingState label="Loading campaign" />;
 
   if (error) {
@@ -171,7 +191,8 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
   if (!data) return null;
 
   const statusKind: StatusKind = data.isActive ? 'threat' : 'unknown';
-  const canDeactivate = role === 'admin' && data.isActive;
+  const canDeactivate = role === 'admin' && data.isActive && !data.archivedAt;
+  const canArchive = role === 'admin' && !data.archivedAt;
 
   const messageColumns: Column<MessageRow>[] = [
     {
@@ -233,7 +254,13 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
             </h1>
             <StatusBadge
               kind={statusKind}
-              label={data.isActive ? 'Active' : 'Inactive'}
+              label={
+                data.archivedAt
+                  ? 'Archived'
+                  : data.isActive
+                    ? 'Active'
+                    : 'Inactive'
+              }
             />
           </div>
           <p
@@ -247,11 +274,21 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
             {data.id}
           </p>
         </div>
-        {canDeactivate && (
-          <Button variant="destructive" onClick={() => setDeactivateOpen(true)}>
-            Deactivate
-          </Button>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canDeactivate && (
+            <Button
+              variant="destructive"
+              onClick={() => setDeactivateOpen(true)}
+            >
+              Deactivate
+            </Button>
+          )}
+          {canArchive && (
+            <Button variant="ghost" onClick={() => setArchiveOpen(true)}>
+              Archive
+            </Button>
+          )}
+        </div>
       </div>
 
       {actionError && (
@@ -274,7 +311,11 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
       <MetricRow columns={4}>
         <Metric
           label="Messages in cluster"
-          value={data.messageCount.toLocaleString()}
+          value={
+            data.countVerified === false
+              ? 'Needs review'
+              : data.messageCount.toLocaleString()
+          }
         />
         <Metric label="Linked domains" value={data.urlDomains.length} />
         <Metric label="First seen" value={formatDate(data.createdAt)} />
@@ -309,8 +350,8 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
             fontSize: '0.85rem',
           }}
         >
-          Showing your view of this cluster. Up to 25 most recent messages you
-          own are returned by the backend.
+          Up to 25 recent stored masked records are returned by the audited
+          Admin campaign endpoint. Original SMS text is not retained here.
         </p>
         <DataTable<MessageRow>
           ariaLabel="Messages in this campaign"
@@ -319,8 +360,8 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
           columns={messageColumns}
           emptyState={
             <EmptyState
-              title="No messages in your view"
-              description="You have not received any messages that fall under this cluster."
+              title="No stored campaign records"
+              description="No masked records are currently linked to this campaign."
             />
           }
         />
@@ -356,6 +397,37 @@ export function CampaignDetail({ role, campaignId }: CampaignDetailProps) {
           <strong>{data.label || 'this campaign'}</strong>. Existing messages
           already assigned to it stay linked. This does not delete the cluster
           record.
+        </p>
+      </Dialog>
+
+      <Dialog
+        open={archiveOpen}
+        title="Archive campaign?"
+        onClose={() => {
+          if (!archiving) setArchiveOpen(false);
+        }}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setArchiveOpen(false)}
+              disabled={archiving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive-confirm"
+              onClick={() => void confirmArchive()}
+              disabled={archiving}
+            >
+              {archiving ? 'Archiving…' : 'Archive campaign'}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>
+          Archiving stops matching and withdraws Shield publication. Admin can
+          still inspect the record and its audit history.
         </p>
       </Dialog>
     </>

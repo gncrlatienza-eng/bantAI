@@ -3,28 +3,29 @@
  *
  * Wraps the shared CampaignDetail feature in the admin AppShell. Admins get
  * the deactivate action in the detail header via the shared component's
- * role prop. The visible messages are still scoped to the admin's own JWT
- * user (see CampaignsService.findOne on the backend).
+ * role prop. Admin review shows stored masked campaign records through an
+ * audited backend path. Original SMS text remains on the user's phone.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import { Button } from '../../components/primitives';
 import { CampaignDetail } from '../../features/campaigns/CampaignDetail';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { CampaignIntelligenceEditor } from './CampaignIntelligenceEditor';
+import { CampaignReconciliationPanel } from './CampaignReconciliationPanel';
 
 export function CampaignDetailPage() {
   const navigate = useNavigate();
   const params = useParams<{ id: string }>();
   const campaignId = params.id ?? '';
-  const navGroups = useAdminNavGroups();
+  const [archiveVersion, setArchiveVersion] = useState(0);
 
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={'/admin/campaigns'}
@@ -50,20 +51,6 @@ export function CampaignDetailPage() {
           &middot; Detail
         </span>
       }
-      topbarUtility={
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              logout();
-              void navigate('/admin-login');
-            }}
-          >
-            Sign out
-          </Button>
-        </>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
@@ -80,7 +67,22 @@ export function CampaignDetailPage() {
         }
       />
       {campaignId ? (
-        <CampaignDetail role="admin" campaignId={campaignId} />
+        <>
+          <CampaignDetail
+            key={archiveVersion}
+            role="admin"
+            campaignId={campaignId}
+            onArchived={() => setArchiveVersion((version) => version + 1)}
+          />
+          <CampaignIntelligenceEditor
+            key={archiveVersion}
+            campaignId={campaignId}
+          />
+          <CampaignReconciliationPanel
+            campaignId={campaignId}
+            onChanged={() => setArchiveVersion((version) => version + 1)}
+          />
+        </>
       ) : (
         <p style={{ color: 'var(--text-secondary)' }}>
           No campaign id in URL. Return to the campaigns list.

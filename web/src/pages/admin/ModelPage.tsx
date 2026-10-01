@@ -12,13 +12,11 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
+  ConfidenceMeter,
   DataTable,
   EmptyState,
   ErrorState,
-  InfoBadge,
   LoadingState,
-  Metric,
-  MetricRow,
   StatusBadge,
   Tabs,
   type Column,
@@ -26,24 +24,19 @@ import {
   type TabDef,
 } from '../../components/primitives';
 import {
-  getActiveModel,
-  getAllModels,
-  type ModelVersionItem,
-} from '../../services/modelsService';
-import {
-  getRetrainingStatus,
-  triggerRetraining,
-  type RetrainingStatus,
-} from '../../services/retrainingService';
-import {
   getAllReports,
   rejectReport,
   validateReport,
   type UserReportItem,
 } from '../../services/reportsService';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
-import { useStaffPermission } from '../../components/common/StaffPermissionGate';
+import {
+  getAdminClassificationHistory,
+  type AdminClassificationItem,
+} from '../../services/smsService';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { DatasetTab } from './model/DatasetTab';
+import { DriftTab } from './model/DriftTab';
+import { ModelLifecycleTab } from './model/ModelLifecycleTab';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -56,6 +49,18 @@ function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+  });
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -81,256 +86,6 @@ const TABS: TabDef[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Overview tab                                                      */
-/* ------------------------------------------------------------------ */
-
-function ModelOverviewTab() {
-  const [models, setModels] = useState<ModelVersionItem[]>([]);
-  const [active, setActive] = useState<ModelVersionItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [all, act] = await Promise.all([
-        getAllModels(),
-        getActiveModel().catch(() => null),
-      ]);
-      setModels(all);
-      setActive(act);
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (loading) return <LoadingState label="Loading model versions" />;
-  if (error) {
-    return (
-      <ErrorState
-        title="Model registry unavailable"
-        description={error}
-        action={
-          <Button variant="secondary" onClick={() => void load()}>
-            Retry
-          </Button>
-        }
-      />
-    );
-  }
-
-  const columns: Column<ModelVersionItem>[] = [
-    {
-      key: 'versionTag',
-      header: 'Version',
-      render: (r) => (
-        <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-          {r.versionTag}
-        </span>
-      ),
-    },
-    {
-      key: 'f1Score',
-      header: 'Macro-F1',
-      render: (r) => r.f1Score.toFixed(3),
-      align: 'right',
-      width: '14%',
-    },
-    {
-      key: 'accuracy',
-      header: 'Accuracy',
-      render: (r) => (r.accuracy != null ? r.accuracy.toFixed(3) : '—'),
-      align: 'right',
-      width: '14%',
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (r) =>
-        r.isActive ? (
-          <StatusBadge kind="verified" label="Active" />
-        ) : r.isRollback ? (
-          <StatusBadge kind="suspicious" label="Rollback" />
-        ) : (
-          <StatusBadge kind="unknown" label="Retired" />
-        ),
-      width: '15%',
-    },
-    {
-      key: 'promotedAt',
-      header: 'Promoted',
-      render: (r) => formatDate(r.promotedAt),
-      width: '15%',
-      align: 'right',
-    },
-  ];
-
-  return (
-    <>
-      <MetricRow columns={3}>
-        <Metric
-          label="Active version"
-          value={active?.versionTag ?? 'None promoted'}
-        />
-        <Metric
-          label="Active macro-F1"
-          value={active ? active.f1Score.toFixed(3) : '—'}
-        />
-        <Metric label="Versions tracked" value={models.length} />
-      </MetricRow>
-
-      <section style={{ marginTop: 24 }}>
-        <h2 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>
-          Version history
-        </h2>
-        <DataTable<ModelVersionItem>
-          ariaLabel="Model versions"
-          rowKey={(r) => r.id}
-          rows={models}
-          columns={columns}
-          emptyState={
-            <EmptyState
-              title="No model versions"
-              description="No versions have been promoted to the registry yet."
-            />
-          }
-        />
-      </section>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Concept drift tab                                                 */
-/* ------------------------------------------------------------------ */
-
-function ConceptDriftTab() {
-  const canRetrain = useStaffPermission('retraining:trigger');
-  const [data, setData] = useState<RetrainingStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [triggering, setTriggering] = useState(false);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await getRetrainingStatus());
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function handleTrigger() {
-    setTriggering(true);
-    setActionMessage(null);
-    try {
-      const result = await triggerRetraining();
-      setActionMessage(
-        result.triggered
-          ? `Retraining triggered: ${result.reason}`
-          : `Retraining not triggered: ${result.reason}`,
-      );
-      await load();
-    } catch (e) {
-      setActionMessage(errorText(e));
-    } finally {
-      setTriggering(false);
-    }
-  }
-
-  if (loading) return <LoadingState label="Loading retraining status" />;
-  if (error) {
-    return (
-      <ErrorState
-        title="Retraining status unavailable"
-        description={error}
-        action={
-          <Button variant="secondary" onClick={() => void load()}>
-            Retry
-          </Button>
-        }
-      />
-    );
-  }
-  if (!data) return null;
-
-  return (
-    <>
-      <MetricRow columns={4}>
-        <Metric label="Trigger active" value={data.triggered ? 'Yes' : 'No'} />
-        <Metric
-          label="Validated reports"
-          value={data.validatedCount.toLocaleString()}
-        />
-        <Metric
-          label="Current macro-F1"
-          value={data.currentF1 != null ? data.currentF1.toFixed(3) : '—'}
-        />
-        <Metric
-          label="Page-Hinkley drift"
-          value={data.drift ? 'Detected' : 'None'}
-        />
-      </MetricRow>
-
-      <section style={{ marginTop: 24 }}>
-        <p
-          style={{
-            margin: '0 0 12px',
-            color: 'var(--text-secondary)',
-            fontSize: '0.9rem',
-          }}
-        >
-          Reason from the last evaluation:{' '}
-          <strong style={{ color: 'var(--text-primary)' }}>
-            {data.reason || 'No reason returned'}
-          </strong>
-        </p>
-        {canRetrain ? (
-          <Button
-            variant="primary"
-            onClick={() => void handleTrigger()}
-            disabled={triggering}
-          >
-            {triggering ? 'Evaluating…' : 'Evaluate and trigger retraining'}
-          </Button>
-        ) : (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            Retraining trigger requires Operations permission.
-          </p>
-        )}
-        {actionMessage && (
-          <p
-            aria-live="polite"
-            style={{
-              margin: '12px 0 0',
-              color: 'var(--text-secondary)',
-              fontSize: '0.9rem',
-            }}
-          >
-            {actionMessage}
-          </p>
-        )}
-      </section>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  FP / FN reviews tab                                               */
 /*  Shows admin reports where reportedLabel differs from original.    */
 /* ------------------------------------------------------------------ */
@@ -347,13 +102,10 @@ interface ReportRow {
 }
 
 function toReportRow(r: UserReportItem): ReportRow {
-  const submitter = r.user
-    ? [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') ||
-      r.user.phone
-    : 'Unknown reporter';
+  const submitter = r.user?.id ?? 'Account record unavailable';
   return {
     id: r.id,
-    messageId: r.messageId,
+    messageId: r.message?.id ?? r.messageId ?? 'Unavailable',
     originalLabel: r.originalLabel,
     reportedLabel: r.reportedLabel,
     status: r.status,
@@ -464,7 +216,7 @@ function FpFnTab() {
       header: '',
       align: 'right',
       render: (r) =>
-        r.status === 'PENDING' ? (
+        r.status === 'Pending' ? (
           <span style={{ display: 'inline-flex', gap: 6 }}>
             <Button
               size="sm"
@@ -528,27 +280,152 @@ function FpFnTab() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Placeholder tabs (backend endpoints not yet implemented)          */
+/*  Classification log tab                                            */
 /* ------------------------------------------------------------------ */
 
-function NotConnectedTab({
-  title,
-  description,
-  hint,
-}: {
-  title: string;
-  description: string;
-  hint: string;
-}) {
+function ClassificationLogTab() {
+  const [rows, setRows] = useState<AdminClassificationItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const page = await getAdminClassificationHistory({ label: 'all' });
+      setRows(page.items);
+      setNextCursor(page.nextCursor);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const page = await getAdminClassificationHistory({
+        label: 'all',
+        cursor: nextCursor,
+      });
+      setRows((current) => [...current, ...page.items]);
+      setNextCursor(page.nextCursor);
+    } catch (requestError) {
+      setLoadMoreError(errorText(requestError));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (error && !loading) {
+    return (
+      <ErrorState
+        title="Classification log unavailable"
+        description={error}
+        action={
+          <Button variant="secondary" onClick={() => void load()}>
+            Retry
+          </Button>
+        }
+      />
+    );
+  }
+
+  const columns: Column<AdminClassificationItem>[] = [
+    {
+      key: 'receivedAt',
+      header: 'Received',
+      render: (r) => formatDateTime(r.receivedAt),
+      width: '20%',
+    },
+    {
+      key: 'label',
+      header: 'Classification',
+      render: (r) => (
+        <StatusBadge kind={labelToStatusKind(r.label)} label={r.label} />
+      ),
+      width: '17%',
+    },
+    {
+      key: 'score',
+      header: 'Confidence',
+      render: (r) => <ConfidenceMeter value={r.score} compact />,
+      align: 'right',
+      width: '20%',
+    },
+    {
+      key: 'bucket',
+      header: 'Risk bucket',
+      render: (r) => r.bucket ?? '—',
+      width: '14%',
+    },
+    {
+      key: 'alertStatus',
+      header: 'Alert',
+      render: (r) => r.alertStatus ?? '—',
+      width: '12%',
+    },
+    {
+      key: 'messageId',
+      header: 'Record ID',
+      render: (r) => (
+        <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+          {r.messageId}
+        </span>
+      ),
+      truncate: true,
+    },
+  ];
+
   return (
-    <EmptyState
-      title={title}
-      description={description}
-      action={<InfoBadge>{hint}</InfoBadge>}
-    />
+    <>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+        Browse classifications synced from phones, including older inbox
+        messages after they are scanned. A “blocked” risk bucket does not mean
+        the sender was blocked.
+      </p>
+      <DataTable<AdminClassificationItem>
+        ariaLabel="Classification history"
+        rowKey={(r) => r.id}
+        rows={rows}
+        columns={columns}
+        loading={loading}
+        emptyState={
+          <EmptyState
+            title="No classifications yet"
+            description="Synced SMS classifications will appear here after a signed-in phone scans and syncs its inbox."
+          />
+        }
+      />
+      {loadMoreError && <p role="alert">{loadMoreError}</p>}
+      {nextCursor && (
+        <Button
+          variant="secondary"
+          onClick={() => void loadMore()}
+          disabled={loadingMore || loading}
+          style={{ marginTop: 16 }}
+        >
+          {loadingMore
+            ? 'Loading older classifications…'
+            : 'Load older classifications'}
+        </Button>
+      )}
+    </>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Placeholder tabs (backend endpoints not yet implemented)          */
 /* ------------------------------------------------------------------ */
 /*  Page shell                                                        */
 /* ------------------------------------------------------------------ */
@@ -557,7 +434,6 @@ export function ModelPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navGroups = useAdminNavGroups();
 
   const activeTab = useMemo(() => {
     const t = searchParams.get('tab') ?? 'overview';
@@ -574,7 +450,7 @@ export function ModelPage() {
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={
@@ -588,23 +464,11 @@ export function ModelPage() {
       }
       onNavigate={(p) => void navigate(p)}
       topbarContext={<span>Intelligence &middot; Model</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/admin-login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
         title="Model"
-        description="Registry, drift signal, dataset state, classification log, and false-positive/negative review — the model surface consolidated into one page."
+        description="Candidate review and deployment, drift investigations, the curated training dataset, the classification log, and false-positive/negative review."
       />
       <Tabs
         tabs={TABS}
@@ -613,22 +477,10 @@ export function ModelPage() {
         label="Model sections"
       >
         <div style={{ paddingTop: 20 }}>
-          {activeTab === 'overview' && <ModelOverviewTab />}
-          {activeTab === 'drift' && <ConceptDriftTab />}
-          {activeTab === 'dataset' && (
-            <NotConnectedTab
-              title="Dataset management not connected"
-              description="Admin dataset labeling, split ratios, and version snapshots require an authenticated endpoint that has not shipped yet."
-              hint="Requires POST /admin/datasets on the backend"
-            />
-          )}
-          {activeTab === 'classification' && (
-            <NotConnectedTab
-              title="Classification log not connected"
-              description="Per-message classification decisions with model version and score history require an authenticated endpoint."
-              hint="Requires GET /admin/classifications on the backend"
-            />
-          )}
+          {activeTab === 'overview' && <ModelLifecycleTab />}
+          {activeTab === 'drift' && <DriftTab />}
+          {activeTab === 'dataset' && <DatasetTab />}
+          {activeTab === 'classification' && <ClassificationLogTab />}
           {activeTab === 'fpfn' && <FpFnTab />}
         </div>
       </Tabs>

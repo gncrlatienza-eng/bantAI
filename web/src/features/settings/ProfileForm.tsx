@@ -2,8 +2,9 @@
  * Shared profile form used by client and admin settings pages.
  *
  * Loads the current user, edits firstName/lastName/email in place, and
- * calls updateMyProfile. Read-only rows for phone and role (backend does not
- * expose write endpoints for those on this route).
+ * calls updateMyProfile. Read-only rows for role and, when one is on record,
+ * phone (backend does not expose write endpoints for those on this route).
+ * Portal accounts are email-only, so most have no phone.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -14,22 +15,14 @@ import {
   LoadingState,
   StatusBadge,
 } from '../../components/primitives';
-import {
-  getCurrentUser,
-  getCustomerMetadata,
-  type CurrentUser,
-} from '../../services/authService';
+import { getCurrentUser, type CurrentUser } from '../../services/authService';
 import { updateMyProfile } from '../../services/usersService';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
 }
 
-interface ProfileFormProps {
-  role?: 'client' | 'admin';
-}
-
-export function ProfileForm({ role = 'client' }: ProfileFormProps) {
+export function ProfileForm() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -94,8 +87,6 @@ export function ProfileForm({ role = 'client' }: ProfileFormProps) {
   }
   if (!user) return null;
 
-  const metadata = getCustomerMetadata(user);
-
   return (
     <form
       onSubmit={(e) => void handleSave(e)}
@@ -103,65 +94,33 @@ export function ProfileForm({ role = 'client' }: ProfileFormProps) {
     >
       <div
         style={{
-          padding: '14px 16px',
+          padding: '12px 14px',
           background: 'var(--surface-raised)',
           border: '1px solid var(--border-default)',
           borderRadius: 8,
           display: 'grid',
           gridTemplateColumns: 'max-content 1fr',
-          gap: '10px 20px',
+          gap: '8px 16px',
           fontSize: '0.9rem',
-          alignItems: 'center',
         }}
       >
-        {role === 'client' ? (
+        {/* Portal accounts sign in by email and never collect a phone; the
+            row only appears for an account that has one on record. */}
+        {user.phone && (
           <>
-            <span style={{ color: 'var(--text-secondary)' }}>Workspace</span>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-              {metadata.workspace}
-            </span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>License</span>
-            <span>
-              <StatusBadge
-                kind="verified"
-                label={`${metadata.license} License`}
-              />
-            </span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Membership</span>
-            <span>
-              <StatusBadge kind="unknown" label={metadata.membership} />
-            </span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Status</span>
-            <span>
-              <StatusBadge kind="verified" label={metadata.status} />
-            </span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Phone</span>
-            <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-              {user.phone}
-            </span>
-          </>
-        ) : (
-          <>
-            <span style={{ color: 'var(--text-secondary)' }}>Staff Role</span>
-            <span>
-              <StatusBadge kind="suspicious" label="System Administrator" />
-            </span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Status</span>
-            <span>
-              <StatusBadge kind="verified" label="Active" />
-            </span>
-
             <span style={{ color: 'var(--text-secondary)' }}>Phone</span>
             <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
               {user.phone}
             </span>
           </>
         )}
+        <span style={{ color: 'var(--text-secondary)' }}>Role</span>
+        <span>
+          <StatusBadge
+            kind={user.role === 'ADMIN' ? 'suspicious' : 'unknown'}
+            label={user.role}
+          />
+        </span>
       </div>
 
       <Input

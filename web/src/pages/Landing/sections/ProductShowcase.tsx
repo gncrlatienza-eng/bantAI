@@ -266,7 +266,7 @@ function AndroidMock() {
         94%
       </text>
       <text x="40" y="220" fontSize="11" fill="var(--text-secondary)">
-        Model v0.4.2 · macro-F1 0.887
+        Campaign intelligence · reviewed indicators
       </text>
 
       {/* Message quote — with sender chip + timestamp header */}
@@ -796,7 +796,7 @@ function PortalMock() {
         <MetricBlock label="Detected" value="148" delta="+12" x={0} />
         <MetricBlock label="First seen" value="Sep 4" x={168} />
         <MetricBlock label="Last seen" value="Sep 20" x={336} />
-        <MetricBlock label="Model conf." value="0.94" x={504} />
+        <MetricBlock label="Risk level" value="High" x={504} />
       </g>
 
       {/* Toolbar — real filter chips + button-styled export */}

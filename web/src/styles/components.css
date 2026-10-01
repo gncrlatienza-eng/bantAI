@@ -235,20 +235,48 @@ textarea.form-input {
   resize: vertical;
 }
 
+.form-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.form-help-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.form-input-wrap--password .form-input {
+  padding-right: 52px;
+}
+
 .toggle-password-btn {
   position: absolute;
-  right: 12px;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.8125rem;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 0;
+  border-radius: 6px;
 }
 
 .toggle-password-btn:hover {
   color: var(--text-primary);
+}
+
+.toggle-password-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -4px;
 }
 
 .error-text {

@@ -1,40 +1,141 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-/*
- * All admin and client pages live under pages/admin/ and pages/client/ on
- * the mineral AppShell. The legacy megafiles have been removed.
- */
-import { OverviewPage as AdminOverviewPage } from '../pages/admin/OverviewPage';
-import { CampaignsPage as AdminCampaignsPage } from '../pages/admin/CampaignsPage';
-import { CampaignDetailPage as AdminCampaignDetailPage } from '../pages/admin/CampaignDetailPage';
-import { ModelPage as AdminModelPage } from '../pages/admin/ModelPage';
-import { SystemPage as AdminSystemPage } from '../pages/admin/SystemPage';
-import { ReportsPage as AdminReportsPage } from '../pages/admin/ReportsPage';
-import { UsersPage as AdminUsersPage } from '../pages/admin/UsersPage';
-import { SettingsPage as AdminSettingsPage } from '../pages/admin/SettingsPage';
-import { ExportPage as AdminExportPage } from '../pages/admin/ExportPage';
-import { TipsPage as AdminTipsPage } from '../pages/admin/TipsPage';
-
-import { OverviewPage as ClientOverviewPage } from '../pages/client/OverviewPage';
-import { CampaignsPage as ClientCampaignsPage } from '../pages/client/CampaignsPage';
-import { CampaignDetailPage as ClientCampaignDetailPage } from '../pages/client/CampaignDetailPage';
-import { MessagesPage as ClientMessagesPage } from '../pages/client/MessagesPage';
-import { AnalyticsPage as ClientAnalyticsPage } from '../pages/client/AnalyticsPage';
-import { SettingsPage as ClientSettingsPage } from '../pages/client/SettingsPage';
-import { HelpPage as ClientHelpPage } from '../pages/client/HelpPage';
-import { ExportPage as ClientExportPage } from '../pages/client/ExportPage';
-
+import { LoadingState } from '../components/primitives/LoadingState';
 import { LandingPage, RequestAccessPage } from '../pages/public';
-import { CheckoutConfirmationPage } from '../pages/RequestAccess/CheckoutConfirmationPage';
-import {
-  CheckoutCancelledPage,
-  CheckoutPendingPage,
-} from '../pages/RequestAccess/CheckoutPendingPage';
-import { LegalDisclosuresPage } from '../pages/Legal/LegalDisclosuresPage';
-import { ClientLoginPage, AdminLoginPage } from '../pages/Login';
-import { TwoFactorPage } from '../pages/TwoFactor';
-import { ProtectedRoute } from './ProtectedRoute';
+import { SignUpPage } from '../pages/account/SignUpPage';
+import { LoginPage } from '../pages/Login';
+import type { RouteGroup } from '../services/accountService';
+import { LifecycleRoute, SetupGate, SignedOutOnly } from './LifecycleRoute';
+
+/*
+ * Signed-in pages load as separate chunks: a visitor to the landing or
+ * sign-in page no longer downloads every admin and Shield screen (the single
+ * bundle was ~615 kB). Public pages stay in the main bundle for first paint.
+ * Every lazy page is rendered through lifecycle(), which supplies the
+ * Suspense boundary.
+ */
+function lazyPage<M>(
+  load: () => Promise<M>,
+  pick: (module: M) => React.ComponentType<any>,
+) {
+  return React.lazy(() => load().then((module) => ({ default: pick(module) })));
+}
+
+const AdminOverviewPage = lazyPage(
+  () => import('../pages/admin/OverviewPage'),
+  (m) => m.OverviewPage,
+);
+const AdminCampaignsPage = lazyPage(
+  () => import('../pages/admin/CampaignsPage'),
+  (m) => m.CampaignsPage,
+);
+const AdminCampaignDetailPage = lazyPage(
+  () => import('../pages/admin/CampaignDetailPage'),
+  (m) => m.CampaignDetailPage,
+);
+const AdminModelPage = lazyPage(
+  () => import('../pages/admin/ModelPage'),
+  (m) => m.ModelPage,
+);
+const AdminSystemPage = lazyPage(
+  () => import('../pages/admin/SystemPage'),
+  (m) => m.SystemPage,
+);
+const AdminReportsPage = lazyPage(
+  () => import('../pages/admin/ReportsPage'),
+  (m) => m.ReportsPage,
+);
+const AdminUsersPage = lazyPage(
+  () => import('../pages/admin/UsersPage'),
+  (m) => m.UsersPage,
+);
+const AdminSettingsPage = lazyPage(
+  () => import('../pages/admin/SettingsPage'),
+  (m) => m.SettingsPage,
+);
+const AdminExportPage = lazyPage(
+  () => import('../pages/admin/ExportPage'),
+  (m) => m.ExportPage,
+);
+const AdminTipsPage = lazyPage(
+  () => import('../pages/admin/TipsPage'),
+  (m) => m.TipsPage,
+);
+const AdminMobileSyncPage = lazyPage(
+  () => import('../pages/admin/MobileSyncPage'),
+  (m) => m.MobileSyncPage,
+);
+const AdminAccessRequestsPage = lazyPage(
+  () => import('../pages/admin/AccessRequestsPage'),
+  (m) => m.AccessRequestsPage,
+);
+const AdminApiKeysPage = lazyPage(
+  () => import('../pages/admin/ApiKeysPage'),
+  (m) => m.ApiKeysPage,
+);
+const AdminAuditPage = lazyPage(
+  () => import('../pages/admin/AuditPage'),
+  (m) => m.AuditPage,
+);
+
+const ClientOverviewPage = lazyPage(
+  () => import('../pages/client/OverviewPage'),
+  (m) => m.OverviewPage,
+);
+const ClientCampaignsPage = lazyPage(
+  () => import('../pages/client/CampaignsPage'),
+  (m) => m.CampaignsPage,
+);
+const ClientCampaignDetailPage = lazyPage(
+  () => import('../pages/client/CampaignDetailPage'),
+  (m) => m.CampaignDetailPage,
+);
+const ClientSettingsPage = lazyPage(
+  () => import('../pages/client/SettingsPage'),
+  (m) => m.SettingsPage,
+);
+const ClientHelpPage = lazyPage(
+  () => import('../pages/client/HelpPage'),
+  (m) => m.HelpPage,
+);
+const ClientExportPage = lazyPage(
+  () => import('../pages/client/ExportPage'),
+  (m) => m.ExportPage,
+);
+const ClientApiPage = lazyPage(
+  () => import('../pages/client/ApiPage'),
+  (m) => m.ApiPage,
+);
+
+const AccountPage = lazyPage(
+  () => import('../pages/account/AccountPage'),
+  (m) => m.AccountPage,
+);
+const ActivationPage = lazyPage(
+  () => import('../pages/account/ActivationPage'),
+  (m) => m.ActivationPage,
+);
+const ApplicationPage = lazyPage(
+  () => import('../pages/account/ApplicationPage'),
+  (m) => m.ApplicationPage,
+);
+const ExpiredPage = lazyPage(
+  () => import('../pages/account/ExpiredPage'),
+  (m) => m.ExpiredPage,
+);
+const RequestPage = lazyPage(
+  () => import('../pages/account/RequestPage'),
+  (m) => m.RequestPage,
+);
+const SetupPage = lazyPage(
+  () => import('../pages/account/SetupPage'),
+  (m) => m.SetupPage,
+);
+const StatusPage = lazyPage(
+  () => import('../pages/account/StatusPage'),
+  (m) => m.StatusPage,
+);
 
 /* Dev-only token surface. Never registered in production builds. */
 const TokensPage = import.meta.env.DEV
@@ -51,107 +152,204 @@ const PrimitivesPage = import.meta.env.DEV
   ? React.lazy(() => import('../pages/_primitives/PrimitivesPage'))
   : null;
 
+/*
+ * Every signed-in route declares its lifecycle route group. LifecycleRoute
+ * redirects any state that may not reach the group to that state's single
+ * allowed destination (server-resolved; deny by default).
+ */
+function lifecycle(group: RouteGroup, page: React.ReactNode) {
+  return (
+    <LifecycleRoute group={group}>
+      <React.Suspense fallback={<LoadingState label="Loading page" />}>
+        {page}
+      </React.Suspense>
+    </LifecycleRoute>
+  );
+}
+
 function clientPage(page: React.ReactNode) {
-  return <ProtectedRoute role="client">{page}</ProtectedRoute>;
+  return lifecycle('workspace', page);
 }
 
 function adminPage(page: React.ReactNode) {
-  return <ProtectedRoute role="admin">{page}</ProtectedRoute>;
+  return lifecycle('admin', page);
 }
 
 export function AppRoutes() {
   return (
     <Routes>
       {/* Public — single scrollable landing page. Legacy paths redirect. */}
-      <Route path="/" element={<LandingPage />} />
+      <Route
+        path="/"
+        element={
+          <SetupGate>
+            <LandingPage />
+          </SetupGate>
+        }
+      />
       <Route
         path="/how-it-works"
         element={<Navigate to="/#how-it-works" replace />}
       />
       <Route path="/about" element={<Navigate to="/#about" replace />} />
       <Route path="/research" element={<Navigate to="/" replace />} />
-      <Route path="/request-access" element={<RequestAccessPage />} />
-      {/* Approved applicants land here from the emailed link. */}
+      {/* Public plan selection. Choosing a plan starts account-first
+          registration; signed-in visitors go to their current state. */}
+      <Route
+        path="/request-access"
+        element={
+          <SignedOutOnly>
+            <RequestAccessPage />
+          </SignedOutOnly>
+        }
+      />
+      {/* Retired anonymous checkout/claim pages (account-first lifecycle):
+          activation now happens while signed in. Old links still resolve. */}
       <Route
         path="/request-access/checkout"
-        element={<CheckoutConfirmationPage />}
+        element={<Navigate to="/activation" replace />}
       />
-      {/* Stripe success_url and cancel_url land here — neither grants access. */}
-      <Route path="/request-access/pending" element={<CheckoutPendingPage />} />
+      <Route
+        path="/request-access/pending"
+        element={<Navigate to="/activation" replace />}
+      />
       <Route
         path="/request-access/cancelled"
-        element={<CheckoutCancelledPage />}
+        element={<Navigate to="/activation" replace />}
+      />
+      <Route
+        path="/request-access/setup"
+        element={<Navigate to="/signup" replace />}
       />
 
-      {/* Commerce & Legal Disclosures */}
-      <Route path="/legal" element={<LegalDisclosuresPage />} />
+      {/* One sign-in page for everyone; one account-first registration. */}
       <Route
-        path="/terms"
-        element={<Navigate to="/legal?tab=terms" replace />}
+        path="/login"
+        element={
+          <SignedOutOnly>
+            <LoginPage />
+          </SignedOutOnly>
+        }
       />
       <Route
-        path="/privacy"
-        element={<Navigate to="/legal?tab=privacy" replace />}
+        path="/signup"
+        element={
+          <SignedOutOnly>
+            <SignUpPage />
+          </SignedOutOnly>
+        }
       />
-      <Route
-        path="/license-terms"
-        element={<Navigate to="/legal?tab=license" replace />}
-      />
-      <Route path="/disclosures" element={<Navigate to="/legal" replace />} />
-
-      {/* Auth Pages — Separated login flows */}
-      <Route path="/login" element={<ClientLoginPage />} />
-      <Route path="/admin-login" element={<AdminLoginPage />} />
-      <Route
-        path="/register"
-        element={<Navigate to="/request-access" replace />}
-      />
+      <Route path="/admin-login" element={<Navigate to="/login" replace />} />
+      <Route path="/register" element={<Navigate to="/signup" replace />} />
       <Route
         path="/forgot-password"
         element={<Navigate to="/login" replace />}
       />
-      <Route path="/2fa" element={<TwoFactorPage />} />
+
+      {/* Signed-in account lifecycle (docs/backend/ACCESS_LIFECYCLE_AUDIT_2026-09-29.md). */}
+      <Route path="/setup" element={lifecycle('setup', <SetupPage />)} />
+      <Route
+        path="/access/request"
+        element={lifecycle('request', <RequestPage />)}
+      />
+      <Route
+        path="/application"
+        element={lifecycle('application', <ApplicationPage />)}
+      />
+      <Route
+        path="/activation"
+        element={lifecycle('activation', <ActivationPage />)}
+      />
+      <Route
+        path="/access/expired"
+        element={lifecycle('expired', <ExpiredPage />)}
+      />
+      <Route
+        path="/access/status"
+        element={lifecycle('status', <StatusPage />)}
+      />
+      <Route path="/account" element={lifecycle('account', <AccountPage />)} />
+
+      {/* Legacy phone-OTP page. Portal sessions are email + cookie only; the
+          phone route issues the Android app's bearer token, which the web
+          never stores or sends. */}
+      <Route path="/2fa" element={<Navigate to="/login" replace />} />
 
       {/* Account Pages */}
-      <Route
-        path="/profile"
-        element={<Navigate to="/client/settings" replace />}
-      />
-      <Route
-        path="/settings"
-        element={<Navigate to="/client/settings" replace />}
-      />
+      <Route path="/profile" element={<Navigate to="/account" replace />} />
+      <Route path="/settings" element={<Navigate to="/account" replace />} />
 
-      {/* Client Portal Routes */}
+      {/* Shield portal. These client-named components remain only as a source
+          folder during the migration; the public information architecture is
+          Shield and contains approved campaign intelligence only. */}
       <Route
-        path="/client/overview"
+        path="/shield"
+        element={<Navigate to="/shield/overview" replace />}
+      />
+      <Route
+        path="/shield/overview"
         element={clientPage(<ClientOverviewPage />)}
       />
       <Route
-        path="/client/messages"
-        element={clientPage(<ClientMessagesPage />)}
-      />
-      <Route
-        path="/client/campaigns"
+        path="/shield/campaigns"
         element={clientPage(<ClientCampaignsPage />)}
       />
       <Route
-        path="/client/campaigns/:id"
+        path="/shield/campaigns/:id"
         element={clientPage(<ClientCampaignDetailPage />)}
       />
+      <Route path="/shield/api" element={clientPage(<ClientApiPage />)} />
+      <Route
+        path="/shield/exports"
+        element={clientPage(<ClientExportPage />)}
+      />
+      <Route
+        path="/shield/notifications"
+        element={clientPage(<ClientSettingsPage notifications />)}
+      />
+      <Route
+        path="/shield/documentation"
+        element={clientPage(<ClientHelpPage />)}
+      />
+
+      {/* Legacy client URLs are retained as safe redirects while server-side
+          authorization migrates. No retired data surface remains mounted. */}
+      <Route
+        path="/client/overview"
+        element={<Navigate to="/shield/overview" replace />}
+      />
+      <Route
+        path="/client/messages"
+        element={<Navigate to="/shield/overview" replace />}
+      />
+      <Route
+        path="/client/campaigns"
+        element={<Navigate to="/shield/campaigns" replace />}
+      />
+      <Route
+        path="/client/campaigns/:id"
+        element={<Navigate to="/shield/campaigns" replace />}
+      />
+      {/* Analytics is admin-only on the backend. Old links go to Overview. */}
       <Route
         path="/client/analytics"
-        element={clientPage(<ClientAnalyticsPage />)}
+        element={<Navigate to="/shield/overview" replace />}
       />
-      <Route path="/client/export" element={clientPage(<ClientExportPage />)} />
-      <Route path="/client/help" element={clientPage(<ClientHelpPage />)} />
+      <Route
+        path="/client/export"
+        element={<Navigate to="/shield/exports" replace />}
+      />
+      <Route
+        path="/client/help"
+        element={<Navigate to="/shield/documentation" replace />}
+      />
       <Route
         path="/client/settings"
-        element={clientPage(<ClientSettingsPage />)}
+        element={<Navigate to="/account" replace />}
       />
       <Route
         path="/client/notifications"
-        element={clientPage(<ClientSettingsPage notifications />)}
+        element={<Navigate to="/shield/notifications" replace />}
       />
 
       {/* Admin Portal Routes */}
@@ -160,6 +358,10 @@ export function AppRoutes() {
         element={adminPage(<AdminOverviewPage />)}
       />
       <Route path="/admin/reports" element={adminPage(<AdminReportsPage />)} />
+      <Route
+        path="/admin/mobile-sync"
+        element={adminPage(<AdminMobileSyncPage />)}
+      />
       <Route path="/admin/model" element={adminPage(<AdminModelPage />)} />
       {/* Model sub-routes now live as tabs on /admin/model. Deep links redirect. */}
       <Route
@@ -193,6 +395,15 @@ export function AppRoutes() {
         element={<Navigate to="/admin/campaigns" replace />}
       />
       <Route path="/admin/users" element={adminPage(<AdminUsersPage />)} />
+      <Route
+        path="/admin/shield-api"
+        element={adminPage(<AdminApiKeysPage />)}
+      />
+      <Route path="/admin/audit" element={adminPage(<AdminAuditPage />)} />
+      <Route
+        path="/admin/access-requests"
+        element={adminPage(<AdminAccessRequestsPage />)}
+      />
       <Route path="/admin/export" element={adminPage(<AdminExportPage />)} />
       <Route path="/admin/system" element={adminPage(<AdminSystemPage />)} />
       {/* System sub-routes now live as tabs on /admin/system. Deep links redirect. */}

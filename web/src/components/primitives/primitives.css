@@ -345,7 +345,20 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  /* Scrolls sideways when the tabs don't fit (phones). overflow-y must be set
+     explicitly: with only overflow-x, the browser makes the other axis
+     scrollable too, and the selected tab's underline then produced a second,
+     vertical scrollbar inside the tab strip. The scrollbar itself is hidden:
+     it drew a grey bar beside the selected tab's underline. A clipped last
+     tab shows there is more; swipe, Shift+wheel and arrow keys still work,
+     and Tabs.tsx scrolls the selected tab into view. */
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.bantai-p-tabs__list::-webkit-scrollbar {
+  display: none;
 }
 
 .bantai-p-tabs__tab {
@@ -382,7 +395,9 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1px;
+  /* Inside the tab, not on the strip's border: anything below the strip's
+     edge is clipped now that it scrolls. */
+  bottom: 0;
   height: 2px;
   background: var(--brand-primary);
 }
@@ -556,6 +571,9 @@
   color: var(--text-primary);
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  /* Long values (version tags like v2026-09-21-colab-C) wrap inside their own
+     column instead of running into the next metric. */
+  overflow-wrap: break-word;
 }
 
 .bantai-p-metric__meta {
@@ -567,6 +585,19 @@
 .bantai-p-metric-row {
   display: grid;
   gap: 24px;
+  grid-template-columns: repeat(var(--metric-columns, 4), minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .bantai-p-metric-row {
+    gap: 16px;
+    /* Two per row on a 390px phone (326px of content inside the shell). */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  }
+
+  .bantai-p-metric__value {
+    font-size: 1.35rem;
+  }
 }
 
 /* ---------- DataTable ---------- */

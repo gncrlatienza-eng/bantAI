@@ -1,5 +1,12 @@
 import React from 'react';
+import {
+  getCurrentUser,
+  logout,
+  type CurrentUser,
+} from '../../services/authService';
+import { ROUTES } from '../../constants/routes';
 import { MenuIcon, CloseIcon } from '../primitives/icons';
+import { AccountMenu } from './AccountMenu';
 import './appshell.css';
 
 export type Role = 'client' | 'admin';
@@ -9,6 +16,7 @@ export interface NavItemDef {
   path: string;
   icon: React.ReactNode;
   roles?: Role[];
+  permissions?: string[];
 }
 
 export interface NavGroupDef {
@@ -30,16 +38,28 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-function itemVisible(item: NavItemDef, role: Role): boolean {
-  if (!item.roles || item.roles.length === 0) return true;
-  return item.roles.includes(role);
+function itemVisible(
+  item: NavItemDef,
+  role: Role,
+  permissions: string[],
+): boolean {
+  if (item.roles?.length && !item.roles.includes(role)) return false;
+  if (role !== 'admin' || !item.permissions?.length) return true;
+  return (
+    permissions.includes('*') ||
+    item.permissions.some((p) => permissions.includes(p))
+  );
 }
 
-function groupVisible(group: NavGroupDef, role: Role): boolean {
+function groupVisible(
+  group: NavGroupDef,
+  role: Role,
+  permissions: string[],
+): boolean {
   if (group.roles && group.roles.length > 0 && !group.roles.includes(role)) {
     return false;
   }
-  return group.items.some((i) => itemVisible(i, role));
+  return group.items.some((i) => itemVisible(i, role, permissions));
 }
 
 export function AppShell({
@@ -55,6 +75,22 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [user, setUser] = React.useState<CurrentUser | null>(null);
+  const permissions = user?.permissions ?? [];
+  React.useEffect(() => {
+    if (role !== 'admin') return;
+    let cancelled = false;
+    void getCurrentUser()
+      .then((current) => {
+        if (!cancelled) setUser(current);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
 
   const closeDrawer = React.useCallback(() => setDrawerOpen(false), []);
 
@@ -82,12 +118,12 @@ export function AppShell({
         </div>
         <nav className="bantai-sidebar__nav" aria-label="Sections">
           {groups
-            .filter((g) => groupVisible(g, role))
+            .filter((g) => groupVisible(g, role, permissions))
             .map((group) => (
               <div key={group.label}>
                 <p className="bantai-sidebar__group-label">{group.label}</p>
                 {group.items
-                  .filter((i) => itemVisible(i, role))
+                  .filter((i) => itemVisible(i, role, permissions))
                   .map((item) => {
                     const isActive =
                       currentPath === item.path ||
@@ -131,7 +167,20 @@ export function AppShell({
           {drawerOpen ? <CloseIcon /> : <MenuIcon />}
         </button>
         <div className="bantai-topbar__context">{topbarContext}</div>
-        <div className="bantai-topbar__utility">{topbarUtility}</div>
+        <div className="bantai-topbar__utility">
+          {topbarUtility}
+          {role === 'admin' && (
+            <AccountMenu
+              user={user}
+              settingsPath={ROUTES.ADMIN.SETTINGS}
+              onNavigate={onNavigate}
+              onSignOut={() => {
+                logout();
+                onNavigate(ROUTES.LOGIN);
+              }}
+            />
+          )}
+        </div>
       </header>
 
       <div className="bantai-shell__scrim" aria-hidden onClick={closeDrawer} />

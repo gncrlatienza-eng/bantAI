@@ -28,7 +28,11 @@ export function Metric({ label, value, meta }: MetricProps) {
 
 /*
  * MetricRow is a thin grid wrapper for aligning KPIs in a row. Uses tokens
- * for the gap; the caller sets template via inline style or CSS class.
+ * for the gap. `columns` is the wide-screen count; on narrow screens the row
+ * reflows (see .bantai-p-metric-row in primitives.css). It is passed as a CSS
+ * variable rather than an inline grid template because an inline template
+ * can't be overridden by a media query, which squeezed four metrics into
+ * ~70px each at phone width.
  */
 interface MetricRowProps {
   columns?: number;
@@ -39,7 +43,7 @@ export function MetricRow({ columns = 4, children }: MetricRowProps) {
   return (
     <div
       className="bantai-p-metric-row"
-      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      style={{ '--metric-columns': columns } as React.CSSProperties}
     >
       {children}
     </div>

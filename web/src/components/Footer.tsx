@@ -11,7 +11,6 @@ export function Footer() {
         <nav className="site-footer-nav">
           <Link to="/how-it-works">How It Works</Link>
           <Link to="/about">About</Link>
-          <Link to="/research">Research</Link>
           <Link to="/request-access">Licensing</Link>
         </nav>
         <small className="site-footer-copy">

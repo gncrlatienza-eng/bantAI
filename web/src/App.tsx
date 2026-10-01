@@ -1,10 +1,13 @@
 import { AppRoutes } from './routes/AppRoutes';
+import { AccountStateProvider } from './context/AccountStateContext';
 import { UserAvatarProvider } from './context/UserAvatarContext';
 
 export default function App() {
   return (
-    <UserAvatarProvider>
-      <AppRoutes />
-    </UserAvatarProvider>
+    <AccountStateProvider>
+      <UserAvatarProvider>
+        <AppRoutes />
+      </UserAvatarProvider>
+    </AccountStateProvider>
   );
 }

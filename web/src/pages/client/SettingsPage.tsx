@@ -5,31 +5,32 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import { Button, EmptyState, InfoBadge } from '../../components/primitives';
+import { Button } from '../../components/primitives';
 import { ProfileForm } from '../../features/settings/ProfileForm';
+import { NotificationCenter } from '../../features/notifications/NotificationCenter';
 import { logout } from '../../services/authService';
-import { CLIENT_SIDEBAR_GROUPS } from './clientNav';
+import { useClientSidebarGroups } from './clientNav';
 
 interface SettingsPageProps {
   notifications?: boolean;
 }
 
 export function SettingsPage({ notifications = false }: SettingsPageProps) {
+  const sidebarGroups = useClientSidebarGroups();
   const navigate = useNavigate();
   const location = useLocation();
 
   return (
     <AppShell
       role="client"
-      groups={CLIENT_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI"
+      groups={sidebarGroups}
+      brandInitial="S"
+      brandLabel="BantAI Shield"
       currentPath={location.pathname}
       onNavigate={(p) => void navigate(p)}
       topbarContext={
         <span>
-          Operations &middot;{' '}
-          {notifications ? 'Notifications' : 'Account settings'}
+          Shield &middot; {notifications ? 'Notifications' : 'Account settings'}
         </span>
       }
       topbarUtility={
@@ -45,28 +46,20 @@ export function SettingsPage({ notifications = false }: SettingsPageProps) {
         </Button>
       }
       footer={
-        <span style={{ fontSize: '0.85rem' }}>Authenticated account</span>
+        <span style={{ fontSize: '0.85rem' }}>
+          Shield intelligence subscription
+        </span>
       }
     >
       <PageHeader
-        title={notifications ? 'Notifications' : 'Workspace settings'}
+        title={notifications ? 'Notifications' : 'Account settings'}
         description={
           notifications
-            ? 'Notification preferences will live here once the backend endpoint is available.'
-            : 'Manage your workspace profile. Workspace name, membership role, license tier, and account status are shown below.'
+            ? 'Your notices about published campaigns, your subscription and access, and API keys and usage.'
+            : 'Manage your Shield account profile. Account, subscription, billing, and security actions remain server-controlled.'
         }
       />
-      {notifications ? (
-        <EmptyState
-          title="Notification preferences not connected"
-          description="Choose which alerts reach you via mobile push, email, or in-app once the backend endpoint ships."
-          action={
-            <InfoBadge>Requires GET/PUT /users/me/notifications</InfoBadge>
-          }
-        />
-      ) : (
-        <ProfileForm role="client" />
-      )}
+      {notifications ? <NotificationCenter area="shield" /> : <ProfileForm />}
     </AppShell>
   );
 }

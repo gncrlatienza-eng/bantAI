@@ -102,7 +102,7 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
         return;
       }
       void navigate(
-        role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW,
+        role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.SHIELD.OVERVIEW,
       );
     } catch (verificationError) {
       logout();

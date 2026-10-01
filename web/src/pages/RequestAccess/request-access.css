@@ -1,0 +1,1086 @@
+/*
+ * Request access — controlled-access licensing page.
+ *
+ * Centered single column (hero → choose → understand → trust → request).
+ * Decorative art sits behind sections at the edges and is blended into the
+ * canvas (multiply + soft edge fades) so it never reads as a boxed image.
+ * Tone: quiet, cream/plum, restrained. Price is present, never the hero.
+ */
+
+.ra-page {
+  display: flex;
+  flex-direction: column;
+  gap: 88px;
+  padding-bottom: 32px;
+}
+
+@media (max-width: 640px) {
+  .ra-page {
+    gap: 64px;
+  }
+}
+
+.ra-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ————— Type ————— */
+
+.ra-eyebrow,
+.ra-section-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+
+.ra-section-eyebrow {
+  color: var(--text-secondary);
+}
+
+.ra-title {
+  margin: 0;
+  font-size: clamp(1.7rem, 2.8vw, 2.3rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  max-width: 22ch;
+}
+
+.ra-title:focus {
+  outline: none;
+}
+
+.ra-title--step {
+  font-size: 1.5rem;
+}
+
+.ra-lede {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 58ch;
+}
+
+.ra-section-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+
+.ra-body {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+.ra-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ra-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 16%, transparent);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.ra-chip:hover {
+  background: var(--plum-08);
+  border-color: var(--plum-35);
+}
+
+.ra-chip:focus-visible,
+.ra-button:focus-visible,
+.ra-back:focus-visible,
+.ra-link-button:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* ————— Buttons ————— */
+
+.ra-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.ra-button--primary {
+  background: var(--brand-primary);
+  color: var(--text-on-brand);
+}
+
+.ra-button--primary:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--brand-primary) 88%,
+    var(--palette-warm-ink)
+  );
+}
+
+.ra-button--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ra-button--primary[aria-busy='true'] {
+  opacity: 0.88;
+  cursor: progress;
+}
+
+.ra-button--ghost {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--brand-primary);
+  border-color: var(--plum-35);
+}
+
+.ra-button--ghost:hover {
+  background: var(--plum-08);
+}
+
+.ra-back,
+.ra-link-button {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ra-back:hover,
+.ra-link-button:hover {
+  color: var(--brand-primary);
+}
+
+.ra-link-button {
+  color: var(--brand-primary);
+  font-weight: 500;
+}
+
+/* ————— Comparison ————— */
+
+.ra-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 12%, transparent);
+  background: var(--surface-raised);
+}
+
+.ra-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 440px;
+}
+
+.ra-table th,
+.ra-table td {
+  padding: 10px 14px;
+  text-align: left;
+  /* One hairline per row; override the global table borders. */
+  border-bottom: 0;
+  border-top: 1px solid
+    color-mix(in srgb, var(--palette-warm-ink) 8%, transparent);
+}
+
+.ra-table thead th,
+.ra-table thead td {
+  border-top: 0;
+  background: var(--surface-raised);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+
+/* Reset the global dark `th` treatment (components.css) for this table. */
+.ra-table tbody th {
+  background: transparent;
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+.ra-table td {
+  color: var(--text-secondary);
+}
+
+.ra-table td[data-bool] svg {
+  color: var(--brand-primary);
+}
+
+.ra-table td[data-bool] svg path[d^='M4 8h8'] {
+  color: var(--text-muted);
+}
+
+/* ————— Workflow / status tracker ————— */
+
+.ra-tracker {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.ra-tracker__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.ra-tracker__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--plum-35);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+}
+
+.ra-tracker__step[data-state='done'] .ra-tracker__marker {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--text-on-brand);
+}
+
+.ra-tracker__step[data-state='current'] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ra-tracker__step[data-state='current'] .ra-tracker__marker {
+  border: 2px solid var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.ra-tracker__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Detailed variant: vertical list with descriptions */
+.ra-tracker--detailed {
+  flex-direction: column;
+  gap: 0;
+}
+
+.ra-tracker--detailed .ra-tracker__step {
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid
+    color-mix(in srgb, var(--palette-warm-ink) 10%, transparent);
+}
+
+.ra-tracker--detailed .ra-tracker__label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ra-tracker__who {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+
+.ra-tracker__body {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ————— Request flow ————— */
+
+.ra-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 560px;
+  padding-top: 8px;
+}
+
+.ra-flow__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ra-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--plum-14);
+  overflow: hidden;
+}
+
+.ra-progress span {
+  display: block;
+  height: 100%;
+  background: var(--brand-primary);
+  transition: width 250ms ease;
+}
+
+.ra-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Cream field treatment, matching the sign-in card. */
+.ra-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.ra-form .form-label-row {
+  margin-bottom: 6px;
+}
+
+.ra-form .form-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.ra-form .form-input {
+  height: auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 16%, transparent);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.ra-form textarea.form-input {
+  min-height: 84px;
+  line-height: 1.5;
+}
+
+.ra-form .form-input:hover {
+  border-color: color-mix(in srgb, var(--palette-warm-ink) 26%, transparent);
+}
+
+.ra-form .form-input:focus,
+.ra-form .form-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--brand-primary) 72%, transparent);
+  box-shadow: none;
+}
+
+.ra-form .form-input.error {
+  border-color: color-mix(in srgb, var(--status-threat) 60%, transparent);
+}
+
+.ra-form .error-text {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--status-threat);
+}
+
+.ra-form .form-help-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ra-radios {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.ra-radios legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.ra-radios__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ra-radio,
+.ra-check {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.ra-radio {
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 16%, transparent);
+  background: var(--surface-raised);
+}
+
+.ra-radio:has(input:checked) {
+  border-color: var(--brand-primary);
+  background: var(--plum-08);
+}
+
+.ra-radio input,
+.ra-check input {
+  accent-color: var(--brand-primary);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.ra-check input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+}
+
+.ra-radio input:focus-visible,
+.ra-check input:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.ra-review {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 12%, transparent);
+  background: var(--surface-raised);
+}
+
+.ra-review__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.ra-review__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ra-review__rows,
+.ra-summary {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.ra-review__rows div,
+.ra-summary div {
+  display: grid;
+  grid-template-columns: 8em minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ra-review__rows dt,
+.ra-summary dt {
+  color: var(--text-secondary);
+}
+
+.ra-review__rows dd,
+.ra-summary dd {
+  margin: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.ra-summary__ref {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.ra-consents {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+/* ————— Sections ————— */
+
+.ra-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  scroll-margin-top: 24px;
+  text-align: center;
+}
+
+.ra-section > :not(.ra-art) {
+  position: relative;
+  z-index: 1;
+}
+
+.ra-section-title {
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+}
+
+/* ————— Decorative art ————— */
+
+/* Full-bleed, behind content, blended into the cream canvas: multiply
+   turns the art's near-white ground into the page colour, and the mask
+   fades every edge so no rectangle is ever visible. */
+.ra-art {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  width: 100vw;
+  max-width: 1600px;
+  height: auto;
+  transform: translateX(-50%);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  user-select: none;
+  /* Two linear fades intersected: every edge reaches full transparency. */
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent, #000 18%, #000 78%, transparent),
+    linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, transparent, #000 18%, #000 78%, transparent),
+    linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-composite: intersect;
+}
+
+/* Hero art: signals flow in from the left edge; the text stays clear. */
+.ra-art--hero {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+}
+
+/* Options art: Research left, Organization right — frames the two cards. */
+.ra-art--choose {
+  top: 40px;
+  opacity: 0.85;
+}
+
+/* Gate art: the access "gate" sits behind the final call to action. */
+.ra-art--final {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.75;
+}
+
+@media (max-width: 900px) {
+  .ra-art--choose {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .ra-art--hero,
+  .ra-art--final {
+    width: 180vw;
+    opacity: 0.45;
+  }
+
+  /* On phones the hero copy spans the full width, so the signal art would
+     sit behind the text — keep it barely there. */
+  .ra-art--hero {
+    opacity: 0.22;
+  }
+}
+
+/* ————— Hero ————— */
+
+.ra-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(620px, calc(100svh - 120px));
+  padding: 32px 0 16px;
+}
+
+.ra-hero__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  max-width: 640px;
+  text-align: center;
+}
+
+.ra-hero__title {
+  margin: 0;
+  font-size: clamp(2rem, 4.4vw, 3.1rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  max-width: 16ch;
+}
+
+.ra-hero__lede {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 48ch;
+}
+
+.ra-hero__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ra-chip {
+  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
+}
+
+/* ————— Choose your access ————— */
+
+.ra-choose {
+  padding-top: 8px;
+}
+
+.ra-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 340px));
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .ra-cards {
+    grid-template-columns: minmax(0, 420px);
+  }
+}
+
+.ra-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  border-radius: 14px;
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 12%, transparent);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--palette-warm-ink) 5%, transparent),
+    0 8px 24px color-mix(in srgb, var(--palette-warm-ink) 5%, transparent);
+  text-align: left;
+  scroll-margin-top: 24px;
+}
+
+.ra-card:target {
+  border-color: var(--plum-60);
+}
+
+.ra-card__name {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+
+.ra-card__purpose {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.ra-card__price {
+  margin: 4px 0 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 4px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ra-card__price > span:first-child {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.ra-card__annual {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.ra-card__list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.ra-card__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.ra-card__list svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--brand-primary);
+}
+
+.ra-card__cta {
+  margin-top: auto;
+  width: 100%;
+}
+
+/* Founding pilot — one quiet line under the Organization card (column 2
+   on desktop; under both stacked cards on mobile). */
+.ra-pilot {
+  grid-column: 2;
+  padding-inline: 4px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+@media (max-width: 760px) {
+  .ra-pilot {
+    grid-column: 1;
+  }
+}
+
+.ra-pilot summary {
+  cursor: pointer;
+  list-style: none;
+  border-radius: 4px;
+}
+
+.ra-pilot summary::-webkit-details-marker {
+  display: none;
+}
+
+.ra-pilot__more {
+  color: var(--brand-primary);
+  font-weight: 500;
+}
+
+.ra-pilot__more::after {
+  content: ' \2192';
+}
+
+.ra-pilot[open] .ra-pilot__more::after {
+  content: ' \2191';
+}
+
+.ra-pilot p {
+  margin: 8px 0 4px;
+  line-height: 1.5;
+}
+
+.ra-pilot summary:focus-visible,
+.ra-disclosure summary:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* ————— Disclosures (compare, terms) ————— */
+
+.ra-disclosure {
+  width: 100%;
+  max-width: 720px;
+  text-align: left;
+}
+
+.ra-disclosure summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--brand-primary);
+  font-size: 0.92rem;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.ra-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.ra-disclosure summary::after {
+  content: '\2193';
+  transition: transform 150ms ease;
+}
+
+.ra-disclosure[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.ra-disclosure summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ra-disclosure[open] > :not(summary) {
+  margin-top: 12px;
+}
+
+.ra-terms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 28px;
+  padding: 20px 22px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--palette-warm-ink) 12%, transparent);
+}
+
+@media (max-width: 640px) {
+  .ra-terms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ra-terms__head {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ra-terms ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ————— What you get / controlled access ————— */
+
+.ra-trio {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  width: 100%;
+  max-width: 900px;
+}
+
+@media (max-width: 720px) {
+  .ra-trio {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    max-width: 420px;
+  }
+}
+
+.ra-trio li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--plum-35) 70%, transparent);
+  text-align: left;
+}
+
+.ra-trio strong {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ra-trio span {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ————— How access works ————— */
+
+.ra-flow-row {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.ra-flow-row li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.ra-flow-row li:not(:last-child)::after {
+  content: '\2192';
+  margin-left: 8px;
+  color: var(--text-muted);
+}
+
+.ra-flow-row li:last-child {
+  padding-inline: 14px;
+  border-radius: 999px;
+  border: 1px solid var(--plum-35);
+  background: var(--surface-raised);
+  color: var(--brand-primary);
+}
+
+.ra-flow-row__n {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* ————— Final CTA ————— */
+
+.ra-final {
+  min-height: 460px;
+  justify-content: center;
+}
+
+/* Title block above, actions below; the gap in between is where the art's
+   centre — the access gate — shows through, uncovered. */
+.ra-final__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(120px, 14vw, 190px);
+}
+
+.ra-final__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ra-final__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.ra-final__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ————— Request flow (start / form / submitted) ————— */
+
+.ra-flow {
+  margin-inline: auto;
+  width: 100%;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ra-progress span,
+  .ra-chip,
+  .ra-button,
+  .ra-disclosure summary::after {
+    transition: none;
+  }
+}

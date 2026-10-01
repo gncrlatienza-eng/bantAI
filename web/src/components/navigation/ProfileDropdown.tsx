@@ -6,7 +6,6 @@ import { useUserAvatar } from '../../context/UserAvatarContext';
 import { UserAvatar } from '../common/UserAvatar';
 import {
   getCurrentUser,
-  getCustomerMetadata,
   logout,
   type CurrentUser,
 } from '../../services/authService';
@@ -37,30 +36,23 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   };
 
   const isClient = role === 'client';
-  const customerMeta = getCustomerMetadata(user);
-
   const userName = user
     ? [user.firstName, user.lastName].filter(Boolean).join(' ') ||
       user.email ||
       user.phone ||
-      'Current user'
+      'Account'
     : 'Loading account…';
-  const userTitle = isClient
-    ? `${customerMeta.membership} · ${customerMeta.workspace}`
-    : 'System administrator';
-  const userOrg = isClient
-    ? customerMeta.workspace
-    : user?.email || user?.phone || 'Staff Account';
+  const userTitle =
+    user?.role === 'ADMIN' ? 'System administrator' : 'Account holder';
+  const userOrg = user?.email || user?.phone || 'Account';
   const userEmail = user?.email || user?.phone || 'current account';
   const initials = user
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() ||
-      user.phone?.slice(-2) ||
-      user.email?.slice(0, 2).toUpperCase() ||
-      'BA'
+      (user.email?.[0] ?? user.phone?.slice(-2) ?? '—').toUpperCase()
     : '—';
 
   const settingsRoute = isClient
-    ? ROUTES.CLIENT.SETTINGS
+    ? ROUTES.SHIELD.ACCOUNT
     : ROUTES.ADMIN.SETTINGS;
 
   return (
@@ -81,7 +73,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           transition: 'background 0.2s ease',
         }}
         className="dropdown-item-header"
-        title="View Profile & Workspace Settings"
+        title="View Profile & Contact Settings"
       >
         <div
           style={{
@@ -137,9 +129,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         >
           <span>{userOrg}</span>
           <span style={{ color: 'var(--accent-light)', fontWeight: 600 }}>
-            {isClient
-              ? `${customerMeta.license.toUpperCase()} LICENSE`
-              : 'STAFF'}
+            {role.toUpperCase()}
           </span>
         </div>
       </div>

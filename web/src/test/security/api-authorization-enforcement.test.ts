@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fetchApi, getStoredToken, setStoredToken } from '../../api/apiClient';
+import { fetchApi } from '../../api/apiClient';
 import {
   inviteWorkspaceMember,
   removeWorkspaceMember,
   transferWorkspaceOwnership,
 } from '../../services/workspaceService';
 
-describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)', () => {
+describe('Cookie transport error handling (mock responses, not server authorization proof)', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -19,9 +19,9 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
     globalThis.fetch = originalFetch;
   });
 
-  it('proves that manipulating localStorage with a fake token cannot produce a successful privileged API request', async () => {
+  it('propagates a simulated refusal when manipulating localStorage with a fake token cannot produce a successful privileged API request', async () => {
     // Attacker modifies localStorage in browser DevTools to inject an unauthorized token
-    setStoredToken('manipulated_forged_admin_token_xyz');
+    localStorage.setItem('bantai_token', 'manipulated_forged_admin_token_xyz');
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -37,13 +37,16 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
       'Invalid or expired authentication token.',
     );
 
-    // Verify token was cleared upon 401 response
-    expect(getStoredToken()).toBeNull();
+    const init = vi.mocked(globalThis.fetch).mock.calls[0][1];
+    expect(init?.credentials).toBe('include');
+    expect(new Headers(init?.headers).has('Authorization')).toBe(false);
+    // Verify the legacy token was cleared upon 401 response
+    expect(localStorage.getItem('bantai_token')).toBeNull();
   });
 
-  it('proves that a customer token cannot execute staff/admin privileged API operations', async () => {
+  it('propagates a simulated refusal when a customer token cannot execute staff/admin privileged API operations', async () => {
     // Client user has valid client token
-    setStoredToken('valid_client_jwt_token');
+    localStorage.setItem('bantai_token', 'valid_client_jwt_token');
 
     // Backend returns 403 Forbidden for staff-only endpoint
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -62,8 +65,8 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
     );
   });
 
-  it('proves that customer workspace invitation API rejects platform/staff role assignments', async () => {
-    setStoredToken('valid_client_lead_token');
+  it('propagates a simulated refusal when customer workspace invitation API rejects platform/staff role assignments', async () => {
+    localStorage.setItem('bantai_token', 'valid_client_lead_token');
 
     globalThis.fetch = vi.fn().mockImplementation((_url, init) => {
       const body = JSON.parse(init.body as string);
@@ -97,8 +100,8 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
     ).rejects.toThrow(/Customers cannot assign platform or staff permissions/);
   });
 
-  it('proves that unauthorized member removal or ownership transfer receives backend rejection', async () => {
-    setStoredToken('standard_member_token');
+  it('propagates a simulated refusal when unauthorized member removal or ownership transfer receives backend rejection', async () => {
+    localStorage.setItem('bantai_token', 'standard_member_token');
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -120,8 +123,8 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
     );
   });
 
-  it('proves that session expiry automatically purges client authentication token', async () => {
-    setStoredToken('expired_session_token');
+  it('propagates a simulated refusal when session expiry automatically purges client authentication token', async () => {
+    localStorage.setItem('bantai_token', 'expired_session_token');
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -138,6 +141,6 @@ describe('Frontend Security: API Authorization Enforcement (W9 Core Condition)',
     );
 
     // Authentication token must be cleared to prevent stale or unauthorized requests
-    expect(getStoredToken()).toBeNull();
+    expect(localStorage.getItem('bantai_token')).toBeNull();
   });
 });

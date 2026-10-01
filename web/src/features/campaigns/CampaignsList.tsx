@@ -1,7 +1,7 @@
 /*
  * Shared Campaigns list.
  *
- * Rendered by both client (/client/campaigns) and admin (/admin/campaigns).
+ * Rendered by Shield and Admin with different scopes.
  * Consumers pass their own onCampaignClick handler and admin-only actions
  * (deactivate). Everything else - fetch, filter, search, sort, table - is
  * identical across both surfaces so we do not maintain two copies.
@@ -26,6 +26,7 @@ import {
 import {
   deactivateCampaign,
   getActiveCampaigns,
+  getArchivedCampaigns,
   getInactiveCampaigns,
   type CampaignCluster,
 } from '../../services/campaignsService';
@@ -46,7 +47,9 @@ interface CampaignRow {
   label: string;
   severity: StatusKind;
   isActive: boolean;
+  archivedAt: string | null;
   messageCount: number;
+  countVerified: boolean;
   domainCount: number;
   createdAt: string;
   updatedAt: string;
@@ -59,7 +62,9 @@ function toRow(c: CampaignCluster): CampaignRow {
     label: c.label || 'Unlabeled campaign',
     severity: computeStatus(),
     isActive: c.isActive,
+    archivedAt: c.archivedAt ?? null,
     messageCount: c.messageCount,
+    countVerified: c.countVerified !== false,
     domainCount: c.urlDomains.length,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt ?? c.createdAt,
@@ -77,7 +82,7 @@ function formatDate(iso: string): string {
   });
 }
 
-type StatusFilter = 'all' | 'active' | 'inactive';
+type StatusFilter = 'all' | 'active' | 'inactive' | 'archived';
 interface CampaignsListProps {
   role: 'client' | 'admin';
   onCampaignClick?: (campaign: CampaignCluster) => void;
@@ -87,12 +92,15 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
   const canManageCampaigns = useStaffPermission('campaigns:manage');
   const [active, setActive] = useState<CampaignCluster[]>([]);
   const [inactive, setInactive] = useState<CampaignCluster[]>([]);
+  const [archived, setArchived] = useState<CampaignCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
-  const [sortKey, setSortKey] = useState<string>('messageCount');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    role === 'admin' ? 'all' : 'active',
+  );
+  const [sortKey, setSortKey] = useState<string>('updatedAt');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -100,18 +108,20 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
     setLoading(true);
     setError(null);
     try {
-      const [act, inact] = await Promise.all([
-        getActiveCampaigns(),
-        getInactiveCampaigns(),
-      ]);
+      const act = await getActiveCampaigns();
+      const [inact, archivedCampaigns] =
+        role === 'admin'
+          ? await Promise.all([getInactiveCampaigns(), getArchivedCampaigns()])
+          : [[], []];
       setActive(act);
       setInactive(inact);
+      setArchived(archivedCampaigns);
     } catch (e) {
       setError(errorText(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     void load();
@@ -123,7 +133,9 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
         ? active
         : statusFilter === 'inactive'
           ? inactive
-          : [...active, ...inactive];
+          : statusFilter === 'archived'
+            ? archived
+            : [...active, ...inactive, ...archived];
 
     let mapped = source.map(toRow);
 
@@ -133,7 +145,10 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
         (r) =>
           r.label.toLowerCase().includes(needle) ||
           r.id.toLowerCase().includes(needle) ||
-          r.original.urlDomains.some((d) => d.toLowerCase().includes(needle)),
+          (role === 'admin' &&
+            r.original.urlDomains.some((d) =>
+              d.toLowerCase().includes(needle),
+            )),
       );
     }
 
@@ -162,7 +177,16 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
     });
 
     return mapped;
-  }, [active, inactive, statusFilter, search, sortKey, sortDir]);
+  }, [
+    active,
+    inactive,
+    archived,
+    statusFilter,
+    search,
+    sortKey,
+    sortDir,
+    role,
+  ]);
 
   async function handleDeactivate(row: CampaignRow) {
     setActionError(null);
@@ -187,28 +211,43 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
       render: (r) => (
         <StatusBadge
           kind={r.severity}
-          label={r.isActive ? 'Active' : 'Inactive'}
+          label={r.archivedAt ? 'Archived' : r.isActive ? 'Active' : 'Inactive'}
         />
       ),
       sortable: true,
       width: '15%',
     },
-    {
-      key: 'messageCount',
-      header: 'Messages',
-      render: (r) => r.messageCount.toLocaleString(),
-      align: 'right',
-      sortable: true,
-      width: '11%',
-    },
-    {
-      key: 'domainCount',
-      header: 'Domains',
-      render: (r) => r.domainCount.toLocaleString(),
-      align: 'right',
-      sortable: true,
-      width: '10%',
-    },
+    ...(role === 'admin'
+      ? [
+          {
+            key: 'messageCount',
+            header: 'Messages',
+            render: (r: CampaignRow) =>
+              r.countVerified
+                ? r.messageCount.toLocaleString()
+                : 'Needs review',
+            align: 'right' as const,
+            sortable: true,
+            width: '11%',
+          },
+          {
+            key: 'domainCount',
+            header: 'Domains',
+            render: (r: CampaignRow) => r.domainCount.toLocaleString(),
+            align: 'right' as const,
+            sortable: true,
+            width: '10%',
+          },
+        ]
+      : [
+          {
+            key: 'createdAt',
+            header: 'First observed',
+            render: (r: CampaignRow) => formatDate(r.createdAt),
+            sortable: true,
+            width: '18%',
+          },
+        ]),
     {
       key: 'updatedAt',
       header: 'Updated',
@@ -225,7 +264,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
             align: 'right' as const,
             width: '10%',
             render: (r: CampaignRow) =>
-              r.isActive ? (
+              r.isActive && !r.archivedAt ? (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -272,21 +311,28 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onClear={() => setSearch('')}
-            placeholder="Search campaign label, id, or domain"
+            placeholder={
+              role === 'admin'
+                ? 'Search campaign label, id, or domain'
+                : 'Search campaign name or ID'
+            }
           />
         </div>
-        <div style={{ minWidth: 180 }}>
-          <Select
-            label="Status"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            options={[
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-              { value: 'all', label: 'All' },
-            ]}
-          />
-        </div>
+        {role === 'admin' && (
+          <div style={{ minWidth: 180 }}>
+            <Select
+              label="Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'archived', label: 'Archived' },
+                { value: 'all', label: 'All' },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       {actionError && (

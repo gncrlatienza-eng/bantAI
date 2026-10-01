@@ -11,9 +11,9 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
+  DataTable,
   EmptyState,
   ErrorState,
-  InfoBadge,
   LoadingState,
   Metric,
   MetricRow,
@@ -21,6 +21,7 @@ import {
   Tabs,
   type StatusKind,
   type TabDef,
+  type Column,
 } from '../../components/primitives';
 import {
   getHealthStatus,
@@ -28,8 +29,14 @@ import {
   type HealthStatus,
   type ReadinessStatus,
 } from '../../services/healthService';
-import { logout } from '../../services/authService';
-import { useAdminNavGroups } from './adminNav';
+import {
+  getAdminApiLogs,
+  getAdminDbStorage,
+  type ApiLogEntry,
+  type ApiLogResponse,
+  type DbStorageResponse,
+} from '../../services/adminSystemService';
+import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -120,7 +127,10 @@ function ServerHealthTab() {
           label="Database"
           value={
             <StatusBadge
-              kind={statusToKind(data.readiness.database)}
+              kind={databaseStatusToKind(
+                data.readiness.database,
+                data.readiness.status,
+              )}
               label={data.readiness.database}
             />
           }
@@ -158,21 +168,209 @@ function ServerHealthTab() {
 /*  Placeholder tab renderer                                          */
 /* ------------------------------------------------------------------ */
 
-function NotConnectedTab({
-  title,
-  description,
-  hint,
-}: {
-  title: string;
-  description: string;
-  hint: string;
-}) {
+function databaseStatusToKind(database: string, readiness: string): StatusKind {
+  if (
+    readiness.toLowerCase() === 'ok' &&
+    ['reachable', 'ready', 'ok'].includes(database.toLowerCase())
+  )
+    return 'verified';
+  return statusToKind(database);
+}
+
+function formatBytes(value: string): string {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return 'Unavailable';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit++;
+  }
+  return `${size >= 10 || unit === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`;
+}
+
+function ApiLogsTab() {
+  const [data, setData] = useState<ApiLogResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await getAdminApiLogs());
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const columns: Column<ApiLogEntry>[] = [
+    {
+      key: 'timestamp',
+      header: 'Timestamp',
+      render: (entry) => new Date(entry.timestamp).toLocaleString(),
+      width: '22%',
+    },
+    {
+      key: 'method',
+      header: 'Method',
+      render: (entry) => entry.method,
+      width: '10%',
+    },
+    {
+      key: 'path',
+      header: 'Path',
+      render: (entry) => entry.path,
+      truncate: true,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (entry) => (
+        <StatusBadge
+          kind={
+            entry.status >= 500
+              ? 'threat'
+              : entry.status >= 400
+                ? 'suspicious'
+                : 'verified'
+          }
+          label={String(entry.status)}
+        />
+      ),
+      width: '12%',
+    },
+    {
+      key: 'latencyMs',
+      header: 'Latency',
+      render: (entry) => `${entry.latencyMs} ms`,
+      align: 'right',
+      width: '12%',
+    },
+  ];
+  if (loading) return <LoadingState label="Loading recent API activity" />;
+  if (error)
+    return (
+      <ErrorState
+        title="API activity unavailable"
+        description={error}
+        action={
+          <Button variant="secondary" onClick={() => void load()}>
+            Retry
+          </Button>
+        }
+      />
+    );
+  if (!data) return null;
   return (
-    <EmptyState
-      title={title}
-      description={description}
-      action={<InfoBadge>{hint}</InfoBadge>}
-    />
+    <>
+      <MetricRow columns={2}>
+        <Metric
+          label="Entries retained"
+          value={data.entries.length.toLocaleString()}
+          meta={data.retention}
+        />
+        <Metric
+          label="Privacy protection"
+          value="Redacted"
+          meta={data.redaction}
+        />
+      </MetricRow>
+      <div style={{ marginTop: 20 }}>
+        <DataTable
+          ariaLabel="Recent API activity"
+          rowKey={(entry) => `${entry.timestamp}-${entry.method}-${entry.path}`}
+          rows={data.entries}
+          columns={columns}
+          emptyState={
+            <EmptyState
+              title="No recent API activity"
+              description="This in-memory view begins collecting after the backend starts. Request bodies, identities, IP addresses, and query strings are not retained."
+            />
+          }
+        />
+      </div>
+    </>
+  );
+}
+
+function DbStorageTab() {
+  const [data, setData] = useState<DbStorageResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await getAdminDbStorage());
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  if (loading) return <LoadingState label="Measuring database storage" />;
+  if (error)
+    return (
+      <ErrorState
+        title="Database storage unavailable"
+        description={error}
+        action={
+          <Button variant="secondary" onClick={() => void load()}>
+            Retry
+          </Button>
+        }
+      />
+    );
+  if (!data) return null;
+  const rows: Array<{ table: string; count: number }> = (
+    Object.entries(data.rows) as Array<[string, number]>
+  ).map(([table, count]) => ({
+    table,
+    count,
+  }));
+  const columns: Column<{ table: string; count: number }>[] = [
+    {
+      key: 'table',
+      header: 'Table',
+      render: (row) =>
+        row.table
+          .replace(/([A-Z])/g, ' $1')
+          .replace(/^./, (letter) => letter.toUpperCase()),
+    },
+    {
+      key: 'count',
+      header: 'Rows',
+      render: (row) => row.count.toLocaleString(),
+      align: 'right',
+      width: '30%',
+    },
+  ];
+  return (
+    <>
+      <MetricRow columns={2}>
+        <Metric label="Database size" value={formatBytes(data.databaseBytes)} />
+        <Metric
+          label="Measured"
+          value={new Date(data.measuredAt).toLocaleString()}
+        />
+      </MetricRow>
+      <div style={{ marginTop: 20 }}>
+        <DataTable
+          ariaLabel="Database row counts"
+          rowKey={(row) => row.table}
+          rows={rows}
+          columns={columns}
+        />
+      </div>
+    </>
   );
 }
 
@@ -184,7 +382,6 @@ export function SystemPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navGroups = useAdminNavGroups();
 
   const activeTab = useMemo(() => {
     const t = searchParams.get('tab') ?? 'server';
@@ -201,7 +398,7 @@ export function SystemPage() {
   return (
     <AppShell
       role="admin"
-      groups={navGroups}
+      groups={ADMIN_SIDEBAR_GROUPS}
       brandInitial="B"
       brandLabel="BantAI Admin"
       currentPath={
@@ -214,18 +411,6 @@ export function SystemPage() {
       }
       onNavigate={(p) => void navigate(p)}
       topbarContext={<span>Administration &middot; System</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/admin-login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
       footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
     >
       <PageHeader
@@ -240,20 +425,8 @@ export function SystemPage() {
       >
         <div style={{ paddingTop: 20 }}>
           {activeTab === 'server' && <ServerHealthTab />}
-          {activeTab === 'api-logs' && (
-            <NotConnectedTab
-              title="API request log not connected"
-              description="A per-request audit log with method, path, status, and latency requires an authenticated endpoint that has not shipped yet."
-              hint="Requires GET /admin/api-logs on the backend"
-            />
-          )}
-          {activeTab === 'db-storage' && (
-            <NotConnectedTab
-              title="Database storage stats not connected"
-              description="Row counts per table and on-disk size require an authenticated endpoint that has not shipped yet."
-              hint="Requires GET /admin/db-storage on the backend"
-            />
-          )}
+          {activeTab === 'api-logs' && <ApiLogsTab />}
+          {activeTab === 'db-storage' && <DbStorageTab />}
         </div>
       </Tabs>
     </AppShell>

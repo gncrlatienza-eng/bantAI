@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.navigation.Screen
 import com.bantai.ui.components.ListSkeleton
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.*
@@ -188,7 +189,13 @@ fun BlockedNumbersScreen(
                     }
                 }
                 items(blockedNumbers, key = { it.id }) { entry ->
-                    BlockedRow(entry = entry, onUnblock = { numberToUnblock = entry })
+                    BlockedRow(
+                        entry = entry,
+                        // A blocked sender's thread is hidden from Messages; this is
+                        // where its old conversation is still reachable.
+                        onOpen = { navController.navigate(Screen.Detail.createRoute(entry.number)) },
+                        onUnblock = { numberToUnblock = entry },
+                    )
                     HorizontalDivider(
                         color = Hairline,
                         thickness = 0.5.dp,
@@ -203,12 +210,14 @@ fun BlockedNumbersScreen(
 @Composable
 private fun BlockedRow(
     entry: BlockHelper.BlockedEntry,
+    onOpen: () -> Unit,
     onUnblock: () -> Unit,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clickable(onClick = onOpen)
                 .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -221,15 +230,17 @@ private fun BlockedRow(
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                entry.number,
+                entry.name ?: entry.number,
                 color = White,
                 fontWeight = FontWeight.Medium,
                 fontSize = TextSize.Body,
             )
-            Text(
+            val status =
                 stringResource(
                     if (entry.onDevice) R.string.blocked_numbers_on_device else R.string.blocked_numbers_server_only,
-                ),
+                )
+            Text(
+                if (entry.name != null) "${entry.number} · $status" else status,
                 color = TextSecondary,
                 fontSize = TextSize.Footnote,
             )
@@ -237,7 +248,7 @@ private fun BlockedRow(
         IconButton(onClick = onUnblock) {
             Icon(
                 Icons.Default.Close,
-                contentDescription = stringResource(R.string.blocked_numbers_unblock_cd, entry.number),
+                contentDescription = stringResource(R.string.blocked_numbers_unblock_cd, entry.name ?: entry.number),
                 tint = TextSecondary,
             )
         }

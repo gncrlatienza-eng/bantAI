@@ -55,7 +55,8 @@ interface MmsAddressDao {
 
 @Dao
 interface PendingMmsDao {
-    @Query("SELECT * FROM pending_mms")
+    /** Rows still waiting on a download; completed ones only stay for dedupe. */
+    @Query("SELECT * FROM pending_mms WHERE state != 'completed'")
     fun all(): List<PendingMmsEntity>
 
     @Query("SELECT * FROM pending_mms WHERE id = :id")
@@ -81,6 +82,9 @@ interface PendingMmsDao {
 
     @Query("DELETE FROM pending_mms WHERE id IN (:ids)")
     fun delete(ids: List<Long>)
+
+    @Query("DELETE FROM pending_mms WHERE state = 'completed' AND received_at < :cutoff")
+    fun pruneCompleted(cutoff: Long)
 }
 
 @Dao

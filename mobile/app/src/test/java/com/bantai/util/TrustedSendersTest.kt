@@ -32,4 +32,13 @@ class TrustedSendersTest {
         assertFalse(TrustedSenders.isTrusted("ACMEBANK", registryStatus = "known_contact"))
         assertFalse(TrustedSenders.isTrusted("ACMEBANK"))
     }
+
+    @Test
+    fun `trusted senders and saved contacts are never auto-blocked, strangers can be`() {
+        assertTrue(TrustedSenders.neverAutoBlock("GCash"))
+        assertTrue(TrustedSenders.neverAutoBlock("ACMEBANK", registryStatus = "verified_organization"))
+        assertTrue(TrustedSenders.neverAutoBlock("+639171234567", registryStatus = "known_contact"))
+        assertFalse(TrustedSenders.neverAutoBlock("+639171234567", registryStatus = "unknown"))
+        assertFalse(TrustedSenders.neverAutoBlock("+639171234567"))
+    }
 }

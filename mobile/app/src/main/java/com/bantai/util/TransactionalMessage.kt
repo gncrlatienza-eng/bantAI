@@ -14,7 +14,11 @@ import com.bantai.data.model.Classification
  * verdict is never touched, so phishing that imitates a receipt still alerts.
  *
  * Deliberately conservative: a message must carry a clear transactional
- * signal and no sales call-to-action. Anything unsure stays in Spam.
+ * signal, no sales call-to-action, and no link off an official domain.
+ * Anything unsure stays in Spam. The link rule matters because SAFE shows
+ * links clickable (SmsLinkSafety): "You have received P5,000.00. Ref no.
+ * 88213. Verify to withdraw: http://gcash-claim.top" reads as a receipt but is
+ * a phishing lure, and the model may call it Spam rather than Scam.
  */
 object TransactionalMessage {
     private val SIGNALS =
@@ -46,7 +50,7 @@ object TransactionalMessage {
 
     fun isTransactional(body: String): Boolean {
         val hasSignal = SIGNALS.any { it.containsMatchIn(body) }
-        return hasSignal && !SALES_PITCH.containsMatchIn(body)
+        return hasSignal && !SALES_PITCH.containsMatchIn(body) && !SmsRiskSignals.hasUnofficialLink(body)
     }
 
     /** A stored "spam" label that is really a receipt/confirmation reads as "safe"; every other label is unchanged. */

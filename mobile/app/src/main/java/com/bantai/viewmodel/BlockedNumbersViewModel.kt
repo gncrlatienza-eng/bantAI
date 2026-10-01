@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
 import com.bantai.util.BlockHelper
+import com.bantai.util.ContactNames
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,11 @@ class BlockedNumbersViewModel(
                         // Negative ids can't collide with BlockedNumberContract's row ids.
                         BlockHelper.BlockedEntry(id = -(index + 1L), number = sender, onDevice = false)
                     }
-            _blockedNumbers.value = onDevice + serverOnly
+            // Contact names, so "gio" isn't just an unfamiliar 09765548004 in the list.
+            _blockedNumbers.value =
+                (onDevice + serverOnly).map { entry ->
+                    entry.copy(name = runCatching { ContactNames.lookup(context, entry.number) }.getOrNull())
+                }
             _isLoading.value = false
         }
     }

@@ -46,7 +46,7 @@ private val RETRYABLE_CLIENT_STATUSES = setOf(HTTP_UNAUTHORIZED, HTTP_REQUEST_TI
 // action=ALERT with label="Scam" and a high score, not as action=BLOCKED --
 // this constant lets the mobile side recognise that case on the same terms
 // the backend uses, instead of silently downgrading it to a Spam-level alert.
-private const val SCAM_HIGH_CONFIDENCE_THRESHOLD = 0.90
+internal const val SCAM_HIGH_CONFIDENCE_THRESHOLD = 0.90
 
 /** Which alert channel (if any) a routed classification should notify through. */
 internal enum class AlertKind {
@@ -93,8 +93,14 @@ internal fun routeServerClassification(result: SmsApi.IngestResult): Classificat
             when {
                 result.label == "Scam" && result.score >= SCAM_HIGH_CONFIDENCE_THRESHOLD ->
                     ClassificationRoute(Classification.SCAM, AlertKind.SMISHING)
-                result.label == "Scam" -> ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS)
-                else -> ClassificationRoute(Classification.SPAM, AlertKind.SPAM)
+                // Spam no longer creates an Alert, so an ALERT without a Scam
+                // label means the sender is confirmed fraud (sms.service.ts
+                // effectiveAction). It goes to review: filing it as Spam gave it
+                // the low-priority notification (none at all with spam
+                // notifications off), and TransactionalMessage could then pass a
+                // fake receipt as a normal message. Not SCAM: confirmed fraud
+                // never blocks silently.
+                else -> ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS)
             }
         // The backend now returns INBOX for everything that isn't smishing (Spam
         // no longer creates an Alert row), so the label/bucket decide the chip.
@@ -298,14 +304,17 @@ object SmsIngestPipeline {
         persistCampaignMatch(context, message.id, result)
         val route = routeServerClassification(result)
         // Same rule as a live SMS (handledAsScam), minus the notification: a
-        // confirmed scam already sitting in the inbox blocks its sender too.
-        // Scanned scams used to be listed as "blocked" in Alerts while their
-        // sender was never blocked anywhere.
-        if (route.classification == Classification.SCAM &&
-            !result.suppressed &&
-            !TrustedSenders.isTrusted(message.sender, result.senderStatus)
-        ) {
-            if (userUnblocked(context, message.sender)) return ScanOutcome.Classified(Classification.UNKNOWN)
+        // confirmed scam already sitting in the inbox blocks its sender too,
+        // while a trusted (built-in or registry-verified), saved-contact or
+        // user-unblocked sender's scam verdict is kept as UNKNOWN for review. Returning SCAM
+        // for those used to hide a registry org's thread: resolve() only
+        // corrects built-in names on read.
+        if (route.classification == Classification.SCAM && !result.suppressed) {
+            if (TrustedSenders.neverAutoBlock(message.sender, result.senderStatus) ||
+                userUnblocked(context, message.sender)
+            ) {
+                return ScanOutcome.Classified(Classification.UNKNOWN)
+            }
             autoBlockSender(context, token, message.sender)
         }
         return ScanOutcome.Classified(route.classification)
@@ -389,8 +398,8 @@ object SmsIngestPipeline {
 
     /**
      * A confirmed scam blocks its sender automatically and stays in Alerts as a
-     * learning record. A trusted sender (telco, or registry organisation) is
-     * never auto-blocked: its message is kept as "needs review", notified like
+     * learning record. A trusted sender (telco, or registry organisation) or a
+     * saved contact is never auto-blocked: its message is kept as "needs review", notified like
      * any smishing alert, and the user decides whether to block or report.
      * Returns true when this fully handled the message.
      */
@@ -402,7 +411,9 @@ object SmsIngestPipeline {
         route: ClassificationRoute,
     ): Boolean {
         if (route.classification != Classification.SCAM || result.suppressed) return false
-        if (TrustedSenders.isTrusted(target.sender, result.senderStatus) || userUnblocked(context, target.sender)) {
+        if (TrustedSenders.neverAutoBlock(target.sender, result.senderStatus) ||
+            userUnblocked(context, target.sender)
+        ) {
             persistClassification(context, target.messageId, Classification.UNKNOWN)
             notifyHighRiskOrFallback(context, target, { it.smishingAlerts }) {
                 NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)

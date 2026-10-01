@@ -17,6 +17,7 @@ import com.bantai.data.model.ConversationView
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
+import com.bantai.util.BlockHelper
 import com.bantai.util.ContactNames
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +74,12 @@ class MessagesViewModel(
     private val draftsStore = application.container.draftsStore
     private val classificationStore = application.container.classificationStore
     private val backendMessageIdStore = application.container.backendMessageIdStore
+    private val blockedSendersStore = application.container.blockedSendersStore
+
+    // Senders the user blocked (BantAI's record plus Android's own block list),
+    // as normalizeSenderKey keys. Their threads leave Messages/Spam/Review and
+    // are reached from Blocked Numbers instead; unblocking brings them back.
+    @Volatile private var blockedKeys: Set<String> = emptySet()
 
     private val allMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
 
@@ -238,6 +245,15 @@ class MessagesViewModel(
         // spam text stayed under Unread and never reached Spam.
         viewModelScope.launch {
             classificationStore.classifications.collect { stored -> applyStoredClassifications(stored) }
+        }
+        // Every block/unblock BantAI makes goes through BlockedSendersStore, so
+        // this re-filters the moment the user blocks someone from a thread.
+        viewModelScope.launch(Dispatchers.IO) {
+            blockedSendersStore.state.collect { state ->
+                val onDevice = BlockHelper.getBlockedNumbers(application).map { it.number }
+                blockedKeys = (state.blocked + onDevice).map(::normalizeSenderKey).toSet()
+                filterMessages(_searchQuery.value)
+            }
         }
         // DataStore's Flow already emits on every write, so this stays live without
         // needing a ContentObserver-style poke — a saved/cleared draft shows up
@@ -477,11 +493,11 @@ class MessagesViewModel(
     // the sender to have a regular Messages conversation already, which hid
     // exactly the threads people start from Compose with someone new.
     private fun sentForMessagesTab(
-        scamSenders: Set<String>,
+        hiddenSenders: Set<String>,
         query: String,
     ): List<SmsMessage> =
         (sentMessages.value + OutgoingSms.unsaved(sentMessages.value)).filter { sent ->
-            normalizeSenderKey(sent.sender) !in scamSenders &&
+            normalizeSenderKey(sent.sender) !in hiddenSenders &&
                 (query.isEmpty() || sent.sender.contains(query, true) || sent.body.contains(query, true))
         }
 
@@ -515,7 +531,9 @@ class MessagesViewModel(
                 .filter { it.classification == Classification.SCAM }
                 .map { normalizeSenderKey(it.sender) }
                 .toSet()
-        val inbox = filtered.filterNot { normalizeSenderKey(it.sender) in scamSenders }
+        // Blocked senders are hidden the same way (see blockedKeys).
+        val hiddenSenders = scamSenders + blockedKeys
+        val inbox = filtered.filterNot { normalizeSenderKey(it.sender) in hiddenSenders }
 
         val spam = inbox.filter { it.classification == Classification.SPAM }
         _suspiciousMessages.value = spam
@@ -532,7 +550,7 @@ class MessagesViewModel(
         // it from a chip shows only that chip's messages (ConversationView).
         val legitimate = inbox.filter { ConversationView.MESSAGES.includes(it) }
         val conversations =
-            (legitimate + sentForMessagesTab(scamSenders, query)).sortedByDescending { it.timestamp }
+            (legitimate + sentForMessagesTab(hiddenSenders, query)).sortedByDescending { it.timestamp }
         val deletedFiltered =
             if (query.isEmpty()) {
                 recentlyDeleted.value

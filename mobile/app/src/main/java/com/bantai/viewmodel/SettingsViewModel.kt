@@ -307,7 +307,7 @@ class SettingsViewModel(
             getApplication<Application>().container.campaignMatchStore.clear()
             getApplication<Application>().container.alertStateStore.clearAll()
             OutgoingSms.clearAll(getApplication())
-            getApplication<Application>().container.blockedSendersStore.clearAll()
+            getApplication<Application>().container.blockedSendersStore.clearBlocked()
             onComplete()
         }
     }

@@ -61,9 +61,13 @@ class SmsIngestPipelineRoutingTest {
     }
 
     @Test
-    fun `a spam alert is treated as spam`() {
-        val route = routeServerClassification(ingestResult(SmsApi.Action.ALERT, "Spam", 0.7))
-        assertEquals(ClassificationRoute(Classification.SPAM, AlertKind.SPAM), route)
+    fun `a non-scam alert (confirmed-fraud sender) goes to review, not spam`() {
+        // Spam no longer creates an Alert; a Spam/Ham ALERT means the sender is
+        // confirmed fraud, which must reach the user even with spam notifications off.
+        for (label in listOf("Spam", "Ham")) {
+            val route = routeServerClassification(ingestResult(SmsApi.Action.ALERT, label, 0.7))
+            assertEquals(ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS), route)
+        }
     }
 
     @Test

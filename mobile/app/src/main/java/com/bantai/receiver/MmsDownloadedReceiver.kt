@@ -8,6 +8,7 @@ import android.util.Log
 import com.bantai.container
 import com.bantai.data.MMS_ID_OFFSET
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.db.PendingMmsEntity
 import com.bantai.data.model.groupKey
 import com.bantai.mms.MmsDownloader
 import com.bantai.mms.MmsFileProvider
@@ -49,7 +50,9 @@ class MmsDownloadedReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             val downloader = context.container.mmsDownloader
             try {
-                val row = downloader.get(pendingId) ?: return@launch
+                // Already saved: a late or repeated result must not save and notify it again.
+                val row =
+                    downloader.get(pendingId)?.takeIf { it.state != PendingMmsEntity.COMPLETED } ?: return@launch
                 val conf =
                     if (succeeded) {
                         MmsFileProvider

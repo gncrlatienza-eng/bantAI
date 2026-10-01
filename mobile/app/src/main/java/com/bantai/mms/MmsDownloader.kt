@@ -29,6 +29,10 @@ private const val STALE_DOWNLOAD_MS = 5 * 60 * 1000L
 // acknowledgement and are removed.
 private const val STALE_FILE_MS = 60 * 60 * 1000L
 
+// How long a downloaded MMS's row is kept to turn away repeated notifications.
+// Carriers delete an MMS within days, so a repeat after this can't download anyway.
+private const val COMPLETED_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
+
 /**
  * Fetches incoming MMS from the carrier. The carrier's WAP push only announces
  * an MMS (who, how big, where); the message itself has to be downloaded over
@@ -71,7 +75,7 @@ class MmsDownloader(
 
     /** "Tap to download": tries a failed download again. */
     fun retry(pendingId: Long) {
-        val row = dao.get(pendingId) ?: return
+        val row = dao.get(pendingId)?.takeIf { it.state != PendingMmsEntity.COMPLETED } ?: return
         if (effectiveState(row, System.currentTimeMillis()) == MmsDownloadState.EXPIRED) {
             dao.setState(pendingId, PendingMmsEntity.EXPIRED)
             notifyChanged()
@@ -90,9 +94,14 @@ class MmsDownloader(
         notifyChanged()
     }
 
-    /** The MMS is saved to the phone's message store; the placeholder goes. */
+    /**
+     * The MMS is saved to the phone's message store; the placeholder goes. The
+     * row is kept as completed, not deleted, so its unique content location
+     * still turns away a repeated carrier notification (see PendingMmsEntity).
+     */
     fun complete(pendingId: Long) {
-        dao.delete(listOf(pendingId))
+        dao.setState(pendingId, PendingMmsEntity.COMPLETED)
+        dao.pruneCompleted(System.currentTimeMillis() - COMPLETED_RETENTION_MS)
         notifyChanged()
     }
 

@@ -120,4 +120,15 @@ object TrustedSenders {
         sender: String,
         registryStatus: String? = null,
     ): Boolean = isBuiltIn(sender) || registryStatus == "verified_organization"
+
+    /**
+     * A scam verdict on this sender goes to review instead of auto-blocking:
+     * trusted senders, plus the user's saved contacts. A contact is not
+     * "trusted" (no badge; being known isn't evidence a text is safe), but one
+     * overconfident model call shouldn't block them and hide the conversation.
+     */
+    fun neverAutoBlock(
+        sender: String,
+        registryStatus: String? = null,
+    ): Boolean = isTrusted(sender, registryStatus) || registryStatus == "known_contact"
 }

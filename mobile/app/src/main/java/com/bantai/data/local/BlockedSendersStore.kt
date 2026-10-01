@@ -64,8 +64,14 @@ class BlockedSendersStore(
         }
     }
 
-    /** Sign-out: the next account on this device starts fresh. */
-    suspend fun clearAll() {
-        context.blockedSendersDataStore.edit { it.clear() }
+    /**
+     * Sign-out: the next account starts with an empty Blocked Numbers list,
+     * but [BlockedSenders.userUnblocked] is kept. Unblocking is a decision
+     * about this phone's block list, which sign-out doesn't touch either;
+     * clearing it let the Alerts catch-up (AlertBlocking) re-block those
+     * senders on the next sign-in.
+     */
+    suspend fun clearBlocked() {
+        context.blockedSendersDataStore.edit { it.remove(Keys.BLOCKED) }
     }
 }

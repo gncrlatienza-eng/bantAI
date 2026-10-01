@@ -57,9 +57,12 @@ data class ReplyQuoteEntity(
 /**
  * An incoming MMS the carrier announced but that isn't downloaded yet (see
  * MmsDownloader). The message itself only exists on the carrier's server until
- * then, so this is what the "Tap to download" bubble is drawn from. Removed once
- * the MMS is saved to the phone's message store. [contentLocation] is unique so
- * a notification the carrier sends twice is only downloaded once.
+ * then, so this is what the "Tap to download" bubble is drawn from. Once the
+ * MMS is saved to the phone's message store the row is kept as [COMPLETED]
+ * (hidden, pruned after a while) rather than deleted: [contentLocation] is
+ * unique, and that is the only thing stopping a notification the carrier sends
+ * again after the download (acknowledge() is best effort) from downloading,
+ * saving and notifying the same MMS twice.
  */
 @Entity(tableName = "pending_mms", indices = [Index("content_location", unique = true)])
 data class PendingMmsEntity(
@@ -81,6 +84,7 @@ data class PendingMmsEntity(
         const val DOWNLOADING = "downloading"
         const val FAILED = "failed"
         const val EXPIRED = "expired"
+        const val COMPLETED = "completed"
     }
 }
 

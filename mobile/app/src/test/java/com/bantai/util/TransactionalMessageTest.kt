@@ -32,6 +32,24 @@ class TransactionalMessageTest {
     }
 
     @Test
+    fun `a receipt-looking message with an unofficial link stays spam`() {
+        listOf(
+            "You have received P5,000.00. Ref no. 88213. Verify to withdraw: http://gcash-claim.top",
+            "Your cash-in of P1,000 was successful. Details: https://203.0.113.7/r",
+            "You paid P145.00. Ref No. 12345. View receipt at gcash-receipt.xyz",
+        ).forEach {
+            assertFalse(it, TransactionalMessage.isTransactional(it))
+            assertEquals(it, Classification.SPAM, TransactionalMessage.correct(Classification.SPAM, it))
+        }
+    }
+
+    @Test
+    fun `a receipt linking to an official domain is still transactional`() {
+        val receipt = "You paid P145.00 via GCash. Ref No. 12345. Help: https://www.gcash.com/help"
+        assertTrue(TransactionalMessage.isTransactional(receipt))
+    }
+
+    @Test
     fun `a transactional phrase with a sales pitch stays spam`() {
         val pitch = "You have successfully won a raffle entry! Claim now at the link."
         assertFalse(TransactionalMessage.isTransactional(pitch))

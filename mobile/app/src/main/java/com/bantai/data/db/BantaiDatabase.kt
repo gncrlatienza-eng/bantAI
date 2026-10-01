@@ -53,10 +53,13 @@ abstract class BantaiDatabase : RoomDatabase() {
                 .databaseBuilder(appContext, BantaiDatabase::class.java, DB_NAME)
                 .addCallback(
                     object : Callback() {
-                        // Runs once, when the database file is first created -- i.e. on the
-                        // first launch of a build that has it. Pulls in what the older
-                        // JSON-file/DataStore stores held so an upgrade loses nothing.
-                        override fun onCreate(db: SupportSQLiteDatabase) {
+                        // Pulls in what the older JSON-file/DataStore stores held so an
+                        // upgrade loses nothing. onOpen rather than onCreate: onCreate runs
+                        // inside Room's create transaction, so the legacy file was renamed
+                        // before the rows committed, and a crash then lost them for good.
+                        // Here each import commits first and only then retires its source;
+                        // once both are gone this is just a file/key check.
+                        override fun onOpen(db: SupportSQLiteDatabase) {
                             runCatching { LegacyStoreImport.run(appContext, db) }
                                 .onFailure { Log.e(TAG, "Importing the old local stores failed", it) }
                         }

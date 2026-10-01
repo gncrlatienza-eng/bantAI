@@ -171,10 +171,12 @@ object BlockHelper {
      * @param onDevice false for a sender only BantAI's server blocks (it was
      *   blocked while BantAI wasn't the default SMS app), so the phone itself
      *   still lets its texts through.
+     * @param name the saved contact's name, when the number is one.
      */
     data class BlockedEntry(
         val id: Long,
         val number: String,
         val onDevice: Boolean = true,
+        val name: String? = null,
     )
 }

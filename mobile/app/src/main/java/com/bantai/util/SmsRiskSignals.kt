@@ -149,6 +149,17 @@ object SmsRiskSignals {
 
     private val HOST_REGEX = Regex("(?:https?://)?((?:[a-z0-9][a-z0-9-]*\\.)+[a-z]{2,})")
 
+    // Any explicit link's host, whatever its TLD (IP addresses included), which
+    // HOST_REGEX + KNOWN_TLDS would let through.
+    private val SCHEME_HOST_REGEX = Regex("https?://([^/\\s?#:]+)")
+
+    /** The body links somewhere other than an official domain (see OFFICIAL_DOMAINS). */
+    fun hasUnofficialLink(body: String): Boolean {
+        val text = body.lowercase()
+        val hosts = linkHosts(text) + SCHEME_HOST_REGEX.findAll(text).map { it.groupValues[1].trimEnd('.') }
+        return hosts.any { !isOfficial(it) }
+    }
+
     @Suppress("ReturnCount") // early returns for the cheap checks before the link scan
     fun looksSuspicious(body: String): Boolean {
         val text = body.lowercase()

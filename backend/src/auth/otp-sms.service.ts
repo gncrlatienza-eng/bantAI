@@ -27,7 +27,7 @@ export class OtpSmsService {
           apikey: apiKey,
           number: phone,
           message: `Your BantAI verification code is: ${otp}. Valid for 5 minutes. Do not share this code.`,
-          sendername: 'BANTAI',
+          sendername: process.env.SEMAPHORE_SENDER_NAME?.trim() || 'BANTAIPH',
         }),
         signal: AbortSignal.timeout(10_000),
       });

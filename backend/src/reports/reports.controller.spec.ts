@@ -36,26 +36,37 @@ describe('ReportsController', () => {
 
   it('findAll delegates to service', async () => {
     mockService.findAll.mockResolvedValue([{ id: 'r1' }]);
-    const result = await controller.findAll();
+    const result = await controller.findAll({ user: { userId: 'admin-1' } });
     expect(result).toEqual([{ id: 'r1' }]);
+    expect(mockService.findAll).toHaveBeenCalledWith('admin-1');
   });
 
   it('findPending delegates to service', async () => {
     mockService.findPending.mockResolvedValue([]);
-    await controller.findPending();
-    expect(mockService.findPending).toHaveBeenCalled();
+    await controller.findPending({ user: { userId: 'admin-1' } });
+    expect(mockService.findPending).toHaveBeenCalledWith('admin-1');
   });
 
   it('validate passes id and adminNote to service', async () => {
     mockService.validate.mockResolvedValue({ id: 'r1', status: 'Validated' });
-    const result = await controller.validate('r1', { adminNote: 'OK' });
-    expect(mockService.validate).toHaveBeenCalledWith('r1', 'OK');
+    const result = await controller.validate(
+      { user: { userId: 'admin-1' } },
+      'r1',
+      { adminNote: 'OK' },
+    );
+    expect(mockService.validate).toHaveBeenCalledWith('r1', 'admin-1', 'OK');
     expect(result).toEqual({ id: 'r1', status: 'Validated' });
   });
 
   it('reject passes id and adminNote to service', async () => {
     mockService.reject.mockResolvedValue({ id: 'r1', status: 'Rejected' });
-    await controller.reject('r1', { adminNote: 'wrong report' });
-    expect(mockService.reject).toHaveBeenCalledWith('r1', 'wrong report');
+    await controller.reject({ user: { userId: 'admin-1' } }, 'r1', {
+      adminNote: 'wrong report',
+    });
+    expect(mockService.reject).toHaveBeenCalledWith(
+      'r1',
+      'admin-1',
+      'wrong report',
+    );
   });
 });

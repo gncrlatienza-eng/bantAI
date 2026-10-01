@@ -22,7 +22,18 @@ export class PortalOrganizationsCustomerService {
       include: {
         organization: {
           include: {
-            licensedAccessRequest: true,
+            licenses: {
+              where: {
+                status: 'ACTIVE',
+                shieldReviewDecision: 'APPROVED',
+                shieldApprovedAt: { not: null },
+                validFrom: { lte: new Date() },
+                OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+              },
+              include: { accessRequest: true },
+              orderBy: { validFrom: 'desc' },
+              take: 1,
+            },
             members: {
               include: {
                 user: {
@@ -52,15 +63,36 @@ export class PortalOrganizationsCustomerService {
       );
     }
 
-    return membership;
+    const license = membership.organization.licenses[0];
+    if (!license) {
+      throw new ForbiddenException(
+        'An active approved Shield license is required.',
+      );
+    }
+    return {
+      ...membership,
+      organization: {
+        ...membership.organization,
+        licensedAccessRequest: {
+          ...license.accessRequest,
+          tier: license.tier,
+          status: license.status,
+          billingPeriod: license.billingPeriod,
+          activatedAt: license.validFrom,
+          expiresAt: license.validUntil,
+          stripeCustomerId: license.stripeCustomerId,
+          stripeSubscriptionId: license.stripeSubscriptionId,
+        },
+      },
+    };
   }
 
   async getMyWorkspace(userId: string) {
     const membership = await this.getCallerMembership(userId);
     const org = membership.organization;
     const isOwner = org.ownerId === userId;
-    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
-    const seatLimit = tier === 'RESEARCH' ? 1 : 10;
+    const tier = org.licensedAccessRequest.tier;
+    const seatLimit = 10;
     const seatsUsed = org.members.length;
 
     return {
@@ -125,8 +157,7 @@ export class PortalOrganizationsCustomerService {
     }
 
     // Check seat limits
-    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
-    const seatLimit = tier === 'RESEARCH' ? 1 : 10;
+    const seatLimit = 10;
     if (org.members.length + org.invitations.length >= seatLimit) {
       throw new BadRequestException(
         `Seat limit of ${seatLimit} reached. Upgrade your license to invite more members.`,
@@ -307,8 +338,8 @@ export class PortalOrganizationsCustomerService {
   async getMyLicense(userId: string) {
     const membership = await this.getCallerMembership(userId);
     const org = membership.organization;
-    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
-    const seatLimit = tier === 'RESEARCH' ? 1 : 10;
+    const tier = org.licensedAccessRequest.tier;
+    const seatLimit = 10;
     const seatsUsed = org.members.length;
 
     return {
@@ -333,7 +364,6 @@ export class PortalOrganizationsCustomerService {
       );
     }
 
-    const tier = org.licensedAccessRequest?.tier ?? 'ORGANIZATION';
     const period = org.licensedAccessRequest?.billingPeriod ?? 'ANNUAL';
     const status = org.licensedAccessRequest?.status ?? 'ACTIVE';
 
@@ -346,6 +376,7 @@ export class PortalOrganizationsCustomerService {
       pdfUrl?: string;
     }> = [];
 
+    let billingAvailable = false;
     const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
     if (stripeKey && org.licensedAccessRequest?.stripeCustomerId) {
       try {
@@ -362,36 +393,17 @@ export class PortalOrganizationsCustomerService {
             ? inv.amount_paid / 100
             : (inv.total || 0) / 100,
           currency: (inv.currency || 'php').toUpperCase(),
-          status: (inv.status || 'paid').toUpperCase(),
+          status: (inv.status || 'unknown').toUpperCase(),
           pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url || undefined,
         }));
+        billingAvailable = true;
       } catch {
-        // Fall back to subscription record if Stripe call is unavailable
+        // A subscription record is not evidence of a paid invoice.
       }
     }
 
-    if (
-      invoices.length === 0 &&
-      org.licensedAccessRequest?.stripeSubscriptionId
-    ) {
-      invoices = [
-        {
-          id: `sub_${org.licensedAccessRequest.stripeSubscriptionId.slice(-8)}`,
-          date: org.licensedAccessRequest.activatedAt ?? org.createdAt,
-          amount:
-            tier === 'ORGANIZATION'
-              ? period === 'ANNUAL'
-                ? 120000
-                : 12000
-              : 0,
-          currency: 'PHP',
-          status: 'PAID',
-        },
-      ];
-    }
-
     return {
-      currentPlan: `${tier === 'ORGANIZATION' ? 'Organization Enterprise' : 'Academic Research'} (${period})`,
+      currentPlan: `Shield (${period})`,
       status,
       billingPeriod: period,
       nextBillingDate: org.licensedAccessRequest?.expiresAt ?? null,
@@ -399,6 +411,7 @@ export class PortalOrganizationsCustomerService {
         ? 'Configured'
         : null,
       invoices,
+      billingAvailable,
     };
   }
 }

@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
@@ -6,6 +12,7 @@ import { fingerprintSender } from '../auth/phone';
 import { VerificationService } from '../verification/verification.service';
 import { AiService } from '../ai/ai.service';
 import { IngestSmsDto } from './dto/ingest-sms.dto';
+import { maskSmsBody } from './sms-privacy-masker';
 
 // Shortened URL services whose domains trigger caution regardless of content.
 const SHORTENED_URL_HOSTS = new Set<string>([
@@ -23,8 +30,59 @@ const SHORTENED_URL_HOSTS = new Set<string>([
   'bl.ink',
 ]);
 
+const HOSTNAME =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+const ADMIN_CLASSIFICATION_SELECT = {
+  id: true,
+  messageId: true,
+  label: true,
+  score: true,
+  bucket: true,
+  createdAt: true,
+  message: {
+    select: {
+      receivedAt: true,
+      alerts: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { status: true },
+      },
+    },
+  },
+} as const satisfies Prisma.ClassificationSelect;
+
+type AdminClassificationRecord = Prisma.ClassificationGetPayload<{
+  select: typeof ADMIN_CLASSIFICATION_SELECT;
+}>;
+
+function toAdminClassification({
+  message,
+  ...classification
+}: AdminClassificationRecord) {
+  return {
+    ...classification,
+    receivedAt: message.receivedAt,
+    alertStatus: message.alerts[0]?.status ?? null,
+  };
+}
+
+function normalizeDomains(domains: string[] | undefined): string[] {
+  const out = new Set<string>();
+  for (const raw of domains ?? []) {
+    const host = raw
+      .trim()
+      .toLowerCase()
+      .replace(/^www\./, '');
+    if (HOSTNAME.test(host)) out.add(host);
+  }
+  return [...out];
+}
+
 @Injectable()
 export class SmsService {
+  private readonly logger = new Logger(SmsService.name);
+
   constructor(
     private prisma: PrismaService,
     private campaignsService: CampaignsService,
@@ -37,21 +95,43 @@ export class SmsService {
     // and raw SMS bodies stay on the device.
     const normalizedSender = fingerprintSender(dto.sender);
 
-    // Step 1 — check if sender is blocked; suppress before doing any work
+    // A blocked sender still needs a durable classification for historical
+    // backfill and the admin log. Suppression affects alerts on the phone,
+    // not whether the message can be audited.
     const blocked = await this.prisma.blockedNumber.findUnique({
       where: { userId_sender: { userId, sender: normalizedSender } },
     });
-    if (blocked) {
-      return { suppressed: true, reason: 'blocked_sender' };
+
+    // `maskedBody` is a client claim. Re-mask it before the AI call and before
+    // anything is stored, so an older or modified client cannot persist the
+    // original SMS. A compliant client's text passes through unchanged.
+    const maskedBody = maskSmsBody(dto.maskedBody);
+    if (!maskedBody) {
+      throw new BadRequestException('maskedBody is empty after masking.');
+    }
+    if (maskedBody !== dto.maskedBody.normalize('NFKC').trim()) {
+      this.logger.warn(
+        'SMS ingest payload changed under server masking; stored the re-masked text.',
+      );
     }
 
-    const modelResult = await this.aiService.classifyMasked(dto.maskedBody);
+    // Hostnames the phone extracted before masking. Anything that is not a
+    // bare hostname (a full URL with a path, an address) is dropped here so
+    // it can reach neither the AI service nor campaign lookups.
+    const domains = normalizeDomains(dto.domains);
+    const modelResult = await this.aiService.classifyMasked(
+      maskedBody,
+      domains,
+    );
     const classificationSource = modelResult ? 'model' : 'device_fallback';
     const label = modelResult?.label ?? dto.label ?? 'Ham';
     const score = modelResult?.score ?? dto.score ?? 0;
     const bucket = modelResult?.bucket ?? dto.bucket;
-    const candidateAction = bucket
-      ? this.routeFromBucket(bucket)
+    // A device fallback may preserve its bucket for audit/display purposes,
+    // but routing it from that untrusted metadata can hide a Scam/Spam when
+    // the device sends `unknown`. Route fallback classifications by label.
+    const candidateAction = modelResult
+      ? this.routeFromBucket(modelResult.bucket)
       : this.routeFromLabel(label, score);
     // A device can submit arbitrary telemetry. A missing/unavailable model may
     // still create an alert, but never lets client-provided metadata block a
@@ -73,22 +153,27 @@ export class SmsService {
     const effectiveAction =
       confirmedFraud || action === 'blocked' ? 'alert' : action;
 
-    // Step 5 — auto-block: if high-confidence smishing, add sender to blocked list.
-    // Gated on the routing decision, not the raw score: `score` is the winning
-    // class's confidence, so a confidently-Ham message (Ham at 0.94) would
-    // otherwise block a legitimate sender.
-    const domains = (dto.domains ?? []).map((domain) => domain.toLowerCase());
+    // A high-risk model bucket creates an alert, never an automatic block.
+    // Only the user's explicit blocked-number action can block the sender.
     // The AI's own campaign match (embedding / hybrid / domain tiers) comes
     // first; a shared blasted domain is the fallback when the model had no
     // match or was unavailable.
-    const aiClusterId = modelResult?.campaign?.clusterId;
-    const cluster =
-      (aiClusterId
-        ? await this.campaignsService.findActiveById(aiClusterId)
-        : null) ??
-      (domains.length
+    const modelCampaign =
+      modelResult?.campaign?.matched && modelResult.campaign.clusterId
+        ? await this.campaignsService.findActiveById(
+            modelResult.campaign.clusterId,
+          )
+        : null;
+    const domainCampaign =
+      !modelCampaign && domains.length
         ? await this.campaignsService.findByDomains(domains)
-        : null);
+        : null;
+    const cluster = modelCampaign ?? domainCampaign;
+    const campaignMatchSource = modelCampaign
+      ? 'model'
+      : domainCampaign
+        ? 'domain_fallback'
+        : null;
 
     // Link suppression: for flagged messages or unknown senders, mark
     // shortener/known-campaign domains so the mobile UI can strip or warn on
@@ -111,42 +196,152 @@ export class SmsService {
     // Create the message, derived metadata, classification, alert, and campaign
     // reference as one transaction. `sourceId` provides idempotency. Blocking
     // happens only through the user's explicit blocked-number action.
-    let result: { id: string; duplicate: boolean };
+    let result: {
+      id: string;
+      duplicate: boolean;
+      campaignId: string | null;
+      campaignMatchSource: string | null;
+    };
     try {
       result = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.smsMessage.findUnique({
           where: { userId_sourceId: { userId, sourceId: dto.sourceId } },
-          select: { id: true, clusterId: true },
+          select: {
+            id: true,
+            trusted: true,
+            clusterId: true,
+            campaignMatchSource: true,
+            classification: { select: { id: true } },
+            alerts: { select: { id: true, status: true } },
+          },
         });
         if (existing) {
+          // Historical backfill can arrive while AI is unavailable. A later
+          // retry must replace device telemetry with the server decision;
+          // otherwise an old locally missed scam stays Ham forever.
+          if (!existing.trusted && modelResult) {
+            // Compare-and-set prevents concurrent retries from promoting or
+            // creating alerts for the same fallback twice.
+            const promoted = await tx.smsMessage.updateMany({
+              where: { id: existing.id, trusted: false },
+              data: { trusted: true },
+            });
+            if (promoted.count === 1) {
+              // The authoritative classification happened now, so a
+              // recovered threat appears at the top of the admin timeline.
+              const classification = existing.classification
+                ? await tx.classification.update({
+                    where: { id: existing.classification.id },
+                    data: { label, score, bucket, createdAt: new Date() },
+                  })
+                : await tx.classification.create({
+                    data: { messageId: existing.id, label, score, bucket },
+                  });
+              if (modelResult.indicators?.length) {
+                await tx.explainableIndicator.upsert({
+                  where: { classificationId: classification.id },
+                  create: {
+                    classificationId: classification.id,
+                    indicators: modelResult.indicators,
+                  },
+                  update: { indicators: modelResult.indicators },
+                });
+              }
+              if (
+                !blocked &&
+                effectiveAction === 'alert' &&
+                !existing.alerts.length
+              ) {
+                await tx.alert.create({
+                  data: { messageId: existing.id, status: 'Pending' },
+                });
+              }
+              if (
+                effectiveAction !== 'alert' &&
+                existing.alerts.some((alert) => alert.status === 'Pending')
+              ) {
+                await tx.alert.deleteMany({
+                  where: { messageId: existing.id, status: 'Pending' },
+                });
+              }
+            }
+          } else if (!existing.trusted && !existing.classification) {
+            // Repair a legacy message row that predates classification
+            // persistence, even if this retry still uses device fallback.
+            await tx.classification.create({
+              data: { messageId: existing.id, label, score, bucket },
+            });
+            if (
+              !blocked &&
+              effectiveAction === 'alert' &&
+              !existing.alerts.length
+            ) {
+              await tx.alert.create({
+                data: { messageId: existing.id, status: 'Pending' },
+              });
+            }
+          }
           // A re-send links a message stored before its campaign existed
           // (e.g. ingested before a campaign sync). Only this user's own row
           // changes; global campaign counts are not touched.
           if (!existing.clusterId && cluster) {
-            await tx.smsMessage.update({
-              where: { id: existing.id },
-              data: { clusterId: cluster.id },
-            });
+            const linkedId = await this.lockActiveCampaign(tx, cluster.id);
+            if (linkedId) {
+              await tx.smsMessage.update({
+                where: { id: existing.id },
+                data: { clusterId: linkedId, campaignMatchSource },
+              });
+              return {
+                id: existing.id,
+                duplicate: true,
+                campaignId: linkedId,
+                campaignMatchSource,
+              };
+            }
           }
-          return { id: existing.id, duplicate: true };
+          return {
+            id: existing.id,
+            duplicate: true,
+            campaignId: existing.clusterId,
+            campaignMatchSource: existing.campaignMatchSource,
+          };
         }
+
+        const campaignId = cluster
+          ? await this.lockActiveCampaign(tx, cluster.id)
+          : null;
+        const persistedMatchSource = campaignId ? campaignMatchSource : null;
 
         const message = await tx.smsMessage.create({
           data: {
             userId,
             sender: normalizedSender,
-            body: dto.maskedBody.normalize('NFKC'),
+            body: maskedBody,
             sourceId: dto.sourceId,
-            trusted: false,
+            // Trusted-sample rule (audit 2026-09-30, finding 4): a message
+            // is trusted when its stored classification was computed by the
+            // backend's AI service. Device-fallback labels and scores are
+            // client telemetry and never feed drift detection or metrics.
+            trusted: modelResult !== null,
             receivedAt: new Date(dto.receivedAt),
-            clusterId: cluster?.id,
+            clusterId: campaignId,
+            campaignMatchSource: persistedMatchSource,
           },
         });
+        // Only a server-model match may advance global campaign counts.
+        // Domain telemetry submitted by a device can help link its own record,
+        // but remains non-authoritative for global intelligence.
+        if (modelCampaign && campaignId === modelCampaign.id) {
+          await tx.campaignCluster.update({
+            where: { id: modelCampaign.id },
+            data: { messageCount: { increment: 1 } },
+          });
+        }
         await tx.messageFeature.create({
           data: {
             messageId: message.id,
-            normalizedBody: dto.maskedBody.normalize('NFKC'),
-            maskedBody: dto.maskedBody,
+            normalizedBody: maskedBody,
+            maskedBody,
             suppressedLinks,
           },
         });
@@ -163,7 +358,7 @@ export class SmsService {
         }
         // Client telemetry may link to an existing campaign for the owner's
         // local metadata view, but it cannot change global campaign counts.
-        if (effectiveAction === 'alert') {
+        if (!blocked && effectiveAction === 'alert') {
           await tx.alert.create({
             data: {
               messageId: message.id,
@@ -171,7 +366,12 @@ export class SmsService {
             },
           });
         }
-        return { id: message.id, duplicate: false };
+        return {
+          id: message.id,
+          duplicate: false,
+          campaignId,
+          campaignMatchSource: persistedMatchSource,
+        };
       });
     } catch (error) {
       // A concurrent retry can win between the lookup and insert. The unique
@@ -179,13 +379,20 @@ export class SmsService {
       if ((error as { code?: string }).code !== 'P2002') throw error;
       const existing = await this.prisma.smsMessage.findUnique({
         where: { userId_sourceId: { userId, sourceId: dto.sourceId } },
-        select: { id: true },
+        select: { id: true, clusterId: true, campaignMatchSource: true },
       });
       if (!existing) throw error;
-      result = { id: existing.id, duplicate: true };
+      result = {
+        id: existing.id,
+        duplicate: true,
+        campaignId: existing.clusterId,
+        campaignMatchSource: existing.campaignMatchSource,
+      };
     }
 
     return {
+      suppressed: Boolean(blocked),
+      ...(blocked ? { reason: 'blocked_sender' } : {}),
       messageId: result.id,
       classification: { label, score, bucket },
       classificationSource,
@@ -194,12 +401,47 @@ export class SmsService {
       senderVerification,
       suppressedLinks,
       // Lets the phone group its own messages by campaign and category
-      // without a second request per message.
-      campaign: cluster
-        ? { id: cluster.id, label: cluster.label, category: cluster.category }
-        : null,
+      // without a second request per message. Describes the campaign that was
+      // actually stored (result.campaignId), which for a duplicate can be an
+      // earlier link rather than this request's match.
+      campaign: await this.storedCampaign(result.campaignId, cluster),
+      campaignId: result.campaignId,
+      campaignMatchSource: result.campaignMatchSource,
       duplicate: result.duplicate,
     };
+  }
+
+  // The outside lookup is only a candidate. A row lock makes archival and
+  // merge wait until this write finishes, or makes the write see the inactive
+  // campaign and leave the message unassigned.
+  private async lockActiveCampaign(
+    tx: Prisma.TransactionClient,
+    clusterId: string,
+  ): Promise<string | null> {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "CampaignCluster"
+      WHERE id = ${clusterId} AND "isActive" = true AND "archivedAt" IS NULL
+      FOR SHARE
+    `;
+    return rows[0]?.id ?? null;
+  }
+
+  private async storedCampaign(
+    campaignId: string | null,
+    candidate: {
+      id: string;
+      label: string | null;
+      category: string | null;
+    } | null,
+  ) {
+    if (!campaignId) return null;
+    const campaign =
+      candidate?.id === campaignId
+        ? candidate
+        : await this.campaignsService.findActiveById(campaignId);
+    return campaign
+      ? { id: campaign.id, label: campaign.label, category: campaign.category }
+      : null;
   }
 
   async getAlerts(userId: string) {
@@ -240,6 +482,105 @@ export class SmsService {
         },
       },
     });
+  }
+
+  // Admin model-log view. Deliberately omit message body, sender, user, and
+  // report data: the registry only needs aggregate-safe classification facts.
+  async getAdminClassifications() {
+    const classifications = await this.prisma.classification.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: ADMIN_CLASSIFICATION_SELECT,
+    });
+
+    return classifications.map(toAdminClassification);
+  }
+
+  // Cursor pagination keeps historical detections reachable after a phone
+  // backfills its inbox. The old log endpoint remains for existing clients.
+  async getAdminClassificationHistory(options: {
+    label?: string;
+    cursor?: string;
+    limit?: number;
+  }) {
+    const label = options.label ?? 'threats';
+    if (!['all', 'threats', 'Ham', 'Spam', 'Scam'].includes(label)) {
+      throw new BadRequestException('Invalid classification filter.');
+    }
+    const limit = options.limit ?? 50;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new BadRequestException('Limit must be between 1 and 100.');
+    }
+    if (options.cursor && !/^[0-9a-f-]{36}$/i.test(options.cursor)) {
+      throw new BadRequestException('Invalid classification cursor.');
+    }
+    const where: Prisma.ClassificationWhereInput =
+      label === 'all'
+        ? {}
+        : label === 'threats'
+          ? { label: { in: ['Scam', 'Spam'] } }
+          : { label };
+    const classifications = await this.prisma.classification.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
+      select: ADMIN_CLASSIFICATION_SELECT,
+    });
+    const page = classifications.slice(0, limit);
+    return {
+      items: page.map(toAdminClassification),
+      nextCursor:
+        classifications.length > limit ? page[page.length - 1].id : null,
+    };
+  }
+
+  // Admin mobile-sync overview. Counts are intentionally aggregate-only and
+  // the recent rows reuse the privacy-minimized classification contract above.
+  // A "synced account" is a user with at least one stored SmsMessage; the
+  // schema does not persist a stable device identifier, so this must not be
+  // presented as a physical-device count.
+  async getAdminMobileSync() {
+    const [
+      totalMessages,
+      syncedUsers,
+      labelCounts,
+      latestClassification,
+      recent,
+    ] = await Promise.all([
+      this.prisma.smsMessage.count(),
+      this.prisma.smsMessage.findMany({
+        distinct: ['userId'],
+        select: { userId: true },
+      }),
+      this.prisma.classification.groupBy({
+        by: ['label'],
+        _count: { _all: true },
+      }),
+      this.prisma.classification.findFirst({
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+      this.getAdminClassifications(),
+    ]);
+
+    const counts = Object.fromEntries(
+      labelCounts.map((item) => [item.label, item._count._all]),
+    );
+
+    return {
+      totalMessages,
+      syncedAccounts: syncedUsers.length,
+      classifiedMessages: labelCounts.reduce(
+        (total, item) => total + item._count._all,
+        0,
+      ),
+      scamCount: counts.Scam ?? 0,
+      spamCount: counts.Spam ?? 0,
+      hamCount: counts.Ham ?? 0,
+      latestSyncAt: latestClassification?.createdAt ?? null,
+      recent,
+    };
   }
 
   async getIndicators(userId: string, messageId: string) {

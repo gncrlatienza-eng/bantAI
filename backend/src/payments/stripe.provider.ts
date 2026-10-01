@@ -17,6 +17,23 @@ export const stripeClientProvider: Provider = {
         'STRIPE_SECRET_KEY is required — refusing to boot the payments module without it.',
       );
     }
+    const configuredMode =
+      process.env.STRIPE_CHECKOUT_MODE?.trim().toLowerCase();
+    const mode =
+      configuredMode ||
+      (process.env.NODE_ENV === 'production' ? 'live' : 'test');
+    if (!['test', 'live'].includes(mode)) {
+      throw new Error('STRIPE_CHECKOUT_MODE must be either test or live.');
+    }
+    if (mode === 'test' && !key.startsWith('sk_test_')) {
+      throw new Error('Stripe test checkout requires an sk_test_ secret key.');
+    }
+    if (mode === 'live' && !key.startsWith('sk_live_')) {
+      throw new Error('Stripe live checkout requires an sk_live_ secret key.');
+    }
+    if (process.env.NODE_ENV === 'production' && mode !== 'live') {
+      throw new Error('Stripe test checkout is disabled in production.');
+    }
     return new Stripe(key, {
       // Pin the API version so a Stripe-side release cannot silently change
       // webhook payload shape or checkout-session behavior on us.

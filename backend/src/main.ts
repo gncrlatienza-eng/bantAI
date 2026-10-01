@@ -5,50 +5,7 @@ import helmet from 'helmet';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { ADMIN_SESSION_COOKIE, CLIENT_SESSION_COOKIE } from './auth/constants';
-
-function assertRequiredConfiguration() {
-  const mobileOtpDelivery = (
-    process.env.MOBILE_OTP_DELIVERY ?? 'sms'
-  ).toLowerCase();
-  if (!['sms', 'email'].includes(mobileOtpDelivery)) {
-    throw new Error('MOBILE_OTP_DELIVERY must be either sms or email.');
-  }
-  const required = [
-    'DATABASE_URL',
-    'JWT_SECRET',
-    'OTP_HASH_SECRET',
-    'SENDER_HASH_SECRET',
-    // The backend must authenticate to the AI service outside local
-    // development. Leaving this unset silently turns every AI response into
-    // a non-authoritative fallback after the service rejects the request.
-    'AI_SERVICE_API_KEY',
-    'AI_CAMPAIGNS_API_KEY',
-    'AI_MODELS_API_KEY',
-    'AI_INDICATORS_API_KEY',
-  ];
-  if (mobileOtpDelivery === 'email') {
-    required.push(
-      'EMAIL_OTP_HASH_SECRET',
-      'GMAIL_SMTP_USER',
-      'GMAIL_SMTP_APP_PASSWORD',
-    );
-  } else {
-    required.push('SEMAPHORE_API_KEY');
-  }
-  if (process.env.NODE_ENV === 'production') {
-    required.push(
-      'EMAIL_OTP_HASH_SECRET',
-      'GMAIL_SMTP_USER',
-      'GMAIL_SMTP_APP_PASSWORD',
-      'CLIENT_JWT_SECRET',
-      'ADMIN_JWT_SECRET',
-    );
-  }
-  const missing = required.filter((name) => !process.env[name]?.trim());
-  if (missing.length) {
-    throw new Error(`Missing required configuration: ${missing.join(', ')}`);
-  }
-}
+import { assertRequiredConfiguration } from './required-configuration';
 
 function getAllowedOrigins(): string[] {
   const configured = process.env.CORS_ORIGINS;

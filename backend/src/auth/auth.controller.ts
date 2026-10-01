@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { PortalAccount } from '../access-control/portal-route.decorator';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
@@ -21,8 +22,10 @@ import { PortalRegisterDto } from './dto/portal-register.dto';
 import {
   RequestClaimEmailOtpDto,
   RequestEmailOtpDto,
+  RequestPortalEmailOtpDto,
   VerifyClaimEmailOtpDto,
   VerifyEmailOtpDto,
+  VerifySignUpDto,
 } from './dto/email-otp.dto';
 import {
   ADMIN_SESSION_COOKIE,
@@ -67,11 +70,59 @@ export class AuthController {
     return { message: result.message };
   }
 
+  /*
+   * Account-first web registration: prove the email, then set a password.
+   * The new account starts at mandatory setup with no license or workspace.
+   */
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('portal/sign-up/request-email-otp')
+  requestSignUpOtp(@Body() dto: RequestEmailOtpDto) {
+    return this.authService.requestSignUpOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.CREATED)
+  @Post('portal/sign-up/verify')
+  async verifySignUp(
+    @Body() dto: VerifySignUpDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.verifySignUp(dto);
+    this.setSessionCookie(response, result.access_token, AuthAudience.CLIENT);
+    return { message: result.message };
+  }
+
   @Throttle({ global: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.ACCEPTED)
   @Post('client/request-email-otp')
   requestClientEmailOtp(@Body() dto: RequestEmailOtpDto) {
     return this.authService.requestClientEmailOtp(dto);
+  }
+
+  /*
+   * Unified portal sign-in — the web calls only this pair. The service picks
+   * the correct audience (ADMIN vs CLIENT) from the user record so we never
+   * expose an admin-specific endpoint publicly. The response is generic and
+   * identical for eligible, ineligible, and unknown addresses.
+   */
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('portal/request-email-otp')
+  requestPortalEmailOtp(@Body() dto: RequestPortalEmailOtpDto) {
+    return this.authService.requestPortalEmailOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('portal/verify-email-otp')
+  async verifyPortalEmailOtp(
+    @Body() dto: VerifyEmailOtpDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.verifyPortalEmailOtp(dto);
+    this.setSessionCookie(response, result.access_token, result.audience);
+    return { message: result.message };
   }
 
   @Throttle({ global: { ttl: 60_000, limit: 10 } })
@@ -161,6 +212,7 @@ export class AuthController {
   // Authenticated — skip the global throttle, JWT already identifies the user
   @SkipThrottle()
   @UseGuards(JwtAuthGuard)
+  @PortalAccount()
   @Get('me')
   me(@Request() req: { user: { userId: string } }) {
     return this.authService.getMe(req.user.userId);

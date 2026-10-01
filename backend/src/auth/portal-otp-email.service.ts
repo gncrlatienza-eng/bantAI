@@ -47,11 +47,13 @@ export class PortalOtpEmailService {
     const context =
       purpose === 'ADMIN_SIGN_IN'
         ? 'BantAI staff sign-in'
-        : purpose === 'CLIENT_CLAIM'
-          ? 'BantAI client account activation'
-          : purpose === 'MOBILE_SIGN_IN'
-            ? 'BantAI mobile sign-in'
-            : 'BantAI client sign-in';
+        : purpose === 'CLIENT_SIGN_UP'
+          ? 'BantAI account registration'
+          : purpose === 'CLIENT_CLAIM'
+            ? 'BantAI client account activation'
+            : purpose === 'MOBILE_SIGN_IN'
+              ? 'BantAI mobile sign-in'
+              : 'BantAI client sign-in';
 
     try {
       await this.transporter.sendMail({

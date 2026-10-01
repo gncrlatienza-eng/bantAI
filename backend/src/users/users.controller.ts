@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { PortalAccount } from '../access-control/portal-route.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import { UsersService } from './users.service';
@@ -19,6 +20,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @UseGuards(JwtAuthGuard)
+  @PortalAccount()
   @Put('me')
   updateMe(
     @Request() req: { user: { userId: string } },
@@ -27,6 +29,8 @@ export class UsersController {
     return this.usersService.updateMe(req.user.userId, dto);
   }
 
+  // Not @PortalAccount: deleting a portal identity would destroy the
+  // application/license history it anchors. Mobile accounts are unaffected.
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('me')

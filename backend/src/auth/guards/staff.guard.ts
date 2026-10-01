@@ -10,6 +10,7 @@ import {
   resolveStaffPermissions,
   type StaffRole,
 } from '../constants/staff-permissions';
+import { AuthAudience } from '../constants';
 
 @Injectable()
 export class StaffGuard implements CanActivate {
@@ -24,13 +25,20 @@ export class StaffGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<{
       user?: {
         role?: string;
+        webRole?: string | null;
+        audience?: AuthAudience;
         staffRole?: StaffRole | null;
         permissions?: string[];
       };
     }>();
 
     const user = req.user;
-    if (!user || user.role !== 'ADMIN') {
+    if (
+      !user ||
+      user.role !== 'ADMIN' ||
+      user.webRole !== 'ADMIN' ||
+      user.audience !== AuthAudience.ADMIN
+    ) {
       throw new ForbiddenException('Administrator access is required.');
     }
 

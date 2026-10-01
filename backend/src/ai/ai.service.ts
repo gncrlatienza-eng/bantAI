@@ -24,8 +24,16 @@ export interface ClassifyResult {
   bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
   indicators: { tag: string; weight: number }[];
   explanationMethod: 'shap' | 'keyword-fallback';
-  /** The campaign the AI matched this message to, or null when nothing cleared a tier. */
-  campaign: { clusterId: string; matchReason: string | null } | null;
+  campaign: CampaignMatchResult | null;
+}
+
+export interface CampaignMatchResult {
+  clusterId: string | null;
+  similarity: number;
+  matched: boolean;
+  shouldBuffer: boolean;
+  lexicalSimilarity: number;
+  matchReason: 'domain' | 'hybrid' | 'embedding' | null;
 }
 
 interface AiClassifyResponse {
@@ -34,11 +42,66 @@ interface AiClassifyResponse {
   bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
   indicators?: { tag?: unknown; weight?: unknown }[];
   explanation_method?: unknown;
-  campaign?: {
-    cluster_id?: unknown;
-    matched?: unknown;
-    match_reason?: unknown;
-  } | null;
+  campaign?: unknown;
+}
+
+const CAMPAIGN_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function validatedCampaign(value: unknown): CampaignMatchResult | null {
+  if (value == null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const campaign = value as Record<string, unknown>;
+  const clusterId = campaign.cluster_id;
+  const similarity = campaign.similarity;
+  const matched = campaign.matched;
+  const shouldBuffer = campaign.should_buffer;
+  const lexicalSimilarity = campaign.lexical_similarity;
+  const matchReason = campaign.match_reason;
+
+  if (
+    !(
+      clusterId === null ||
+      (typeof clusterId === 'string' && CAMPAIGN_ID_PATTERN.test(clusterId))
+    ) ||
+    typeof similarity !== 'number' ||
+    !Number.isFinite(similarity) ||
+    similarity < -1 ||
+    similarity > 1 ||
+    typeof matched !== 'boolean' ||
+    typeof shouldBuffer !== 'boolean' ||
+    typeof lexicalSimilarity !== 'number' ||
+    !Number.isFinite(lexicalSimilarity) ||
+    lexicalSimilarity < 0 ||
+    lexicalSimilarity > 1 ||
+    !(
+      matchReason === null ||
+      matchReason === 'domain' ||
+      matchReason === 'hybrid' ||
+      matchReason === 'embedding'
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    (matched &&
+      (clusterId === null || matchReason === null || shouldBuffer !== false)) ||
+    (!matched &&
+      (clusterId !== null || matchReason !== null || shouldBuffer !== true))
+  ) {
+    return null;
+  }
+
+  return {
+    clusterId,
+    similarity,
+    matched,
+    shouldBuffer,
+    lexicalSimilarity,
+    matchReason,
+  };
 }
 
 @Injectable()
@@ -66,12 +129,18 @@ export class AiService {
    * deliberately non-fatal to ingestion: the caller may show an inbox caution,
    * but must never turn a client fallback into an automatic block.
    */
-  async classifyMasked(message: string): Promise<ClassifyResult | null> {
+  async classifyMasked(
+    message: string,
+    domains: string[] = [],
+  ): Promise<ClassifyResult | null> {
     try {
       const res = await fetch(`${this.baseUrl}/classify`, {
         method: 'POST',
         headers: this.authHeaders(),
-        body: JSON.stringify({ message }),
+        // Masking replaces every link with [URL], so the hostnames the phone
+        // extracted travel separately; they drive the matcher's domain tier
+        // (audit 2026-09-30, finding 5). Hostnames only, never full URLs.
+        body: JSON.stringify({ message, domains }),
         signal: AbortSignal.timeout(3500),
       });
       if (!res.ok) {
@@ -102,24 +171,12 @@ export class AiService {
       );
       const explanationMethod =
         data.explanation_method === 'shap' ? 'shap' : 'keyword-fallback';
-      // Only a positive match is kept. cluster_id is the backend's own
-      // CampaignCluster id (the AI service loads centroids from
-      // GET /campaigns/centroids), so the caller can look it up directly.
-      const match = data.campaign;
-      const campaign =
-        match &&
-        match.matched === true &&
-        typeof match.cluster_id === 'string' &&
-        match.cluster_id.length > 0 &&
-        match.cluster_id.length <= 64
-          ? {
-              clusterId: match.cluster_id,
-              matchReason:
-                typeof match.match_reason === 'string'
-                  ? match.match_reason
-                  : null,
-            }
-          : null;
+      const campaign = validatedCampaign(data.campaign);
+      if (data.campaign != null && campaign === null) {
+        this.logger.warn(
+          'AI service /classify returned invalid campaign metadata; ignoring campaign match',
+        );
+      }
       return {
         label: data.label,
         score: data.score,

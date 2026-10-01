@@ -389,9 +389,9 @@ def test_classify_passes_the_label_to_the_matcher(monkeypatch):
     seen = {}
 
     class Spy(CampaignMatcher):
-        def match(self, embedding, text=None, label=None):
-            seen["label"] = label
-            return super().match(embedding, text, label=label)
+        def match(self, embedding, text=None, domains=None, label=None):
+            seen.update(label=label, domains=domains)
+            return super().match(embedding, text, domains=domains, label=label)
 
     result = ClassificationResult(
         label="Scam",
@@ -402,5 +402,38 @@ def test_classify_passes_the_label_to_the_matcher(monkeypatch):
     )
     monkeypatch.setattr(routers.classify.classifier, "classify_full", lambda _t: result)
     monkeypatch.setattr(routers.classify, "matcher", Spy([CampaignCentroid("c1", [1.0, 0.0])]))
-    TestClient(app).post("/classify", json={"message": "hello"})
+    monkeypatch.setattr(routers.classify, "require_model_ready", lambda: None)
+    response = TestClient(app).post("/classify", json={"message": "hello"})
+    assert response.status_code == 200
     assert seen["label"] == "Scam"
+
+
+def test_shared_development_refuses_campaign_space_outside_approved_bundle(tmp_path, monkeypatch):
+    from service import main as service_main
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    external = tmp_path / "external-space.json"
+    replace(_space(), model_version="v-test").with_thresholds(0.9, None, None).save(str(external))
+    monkeypatch.setattr(service_main.settings, "environment", "development")
+    monkeypatch.setattr(service_main.settings, "model_dir", str(model_dir))
+    monkeypatch.setattr(service_main.settings, "campaign_space_file", str(external))
+
+    assert service_main._load_campaign_space() is None
+
+
+def test_shared_development_loads_campaign_space_inside_approved_bundle(tmp_path, monkeypatch):
+    from service import main as service_main
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    bundled = model_dir / "campaign_space.json"
+    expected = replace(_space(), model_version="v-test").with_thresholds(0.9, None, None)
+    expected.save(str(bundled))
+    monkeypatch.setattr(service_main.settings, "environment", "development")
+    monkeypatch.setattr(service_main.settings, "model_dir", str(model_dir))
+    monkeypatch.setattr(service_main.settings, "campaign_space_file", str(bundled))
+
+    loaded = service_main._load_campaign_space()
+    assert loaded is not None
+    assert loaded.space_id == expected.space_id

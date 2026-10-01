@@ -68,7 +68,12 @@ from retraining.pipeline import (  # noqa: E402
     DEFAULT_RUNS_ROOT,
     run_retraining,
 )
-from retraining.registry import ModelRegistry, ModelRegistryError  # noqa: E402
+from retraining.registry import (  # noqa: E402
+    EvidenceError,
+    ModelRegistry,
+    ModelRegistryError,
+    candidate_provenance,
+)
 from retraining.reports import FileReportSource, NullReportSource, ReportSourceError  # noqa: E402
 from service.retrain_queue import (  # noqa: E402
     DEFAULT_QUEUE_PATH,
@@ -182,6 +187,17 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Reservoir + training seed (default: %(default)s). Fixing this is "
             "what makes a snapshot regenerable and two runs comparable."
+        ),
+    )
+    parser.add_argument(
+        "--dataset-version",
+        default=None,
+        metavar="TAG",
+        help=(
+            "Backend dataset snapshot tag this run trains on (the dataset_version "
+            "a queued retrain job names; export it with the Admin dataset download "
+            "and pass the file via --reports-dir). Recorded as the candidate's "
+            "provenance, and --complete-queue then drains only jobs for this tag."
         ),
     )
     parser.add_argument(
@@ -303,7 +319,18 @@ def _reconcile_queue(args, run) -> None:
     if run.dry_run:
         return
 
-    queued = [j for j in list_jobs(args.queue_path) if j.status == QUEUED]
+    outstanding = [j for j in list_jobs(args.queue_path) if j.status == QUEUED]
+    # A run answers only the jobs whose frozen snapshot it trained on
+    # (audit 2026-09-30, finding 6); the rest stay queued for their own run.
+    queued = [j for j in outstanding if j.dataset_version == args.dataset_version]
+    other = [j for j in outstanding if j.dataset_version != args.dataset_version]
+    if other:
+        tags = sorted({j.dataset_version or "(unversioned)" for j in other})
+        print(
+            f"\n{len(other)} queued retrain job(s) name a different dataset snapshot "
+            f"({', '.join(tags)}) and were left queued. Train on that export with "
+            "--dataset-version to answer them."
+        )
     if not queued:
         return
 
@@ -315,7 +342,7 @@ def _reconcile_queue(args, run) -> None:
         )
         return
 
-    drained = complete_all_queued(args.queue_path)
+    drained = complete_all_queued(args.queue_path, args.dataset_version)
     print(f"\nMarked {len(drained)} queued retrain job(s) completed in {args.queue_path}.")
 
 
@@ -339,6 +366,14 @@ def _register_candidate(args, run) -> int:
         return 2
 
     try:
+        # Artifact and training-data identity travel with the record now; the
+        # gate's validation split is not an independent holdout, so approval
+        # still needs scripts/register_candidate.py with a holdout report.
+        provenance = candidate_provenance(
+            run.candidate_dir,
+            args.dataset_version or f"run-snapshot:{os.path.basename(run.run_dir)}",
+            run.manifest.dataset_sha256,
+        )
         model_id = registry.register(
             version_tag=run.version_tag,
             f1_score=run.decision.candidate_macro_f1,
@@ -347,8 +382,14 @@ def _register_candidate(args, run) -> int:
                 f"({run.decision.n_fixes} fixes vs {run.decision.n_regressions} regressions, "
                 f"p={run.decision.p_value:.6f})"
             ),
+            evaluation={"source": "promotion_gate_validation_split"},
+            provenance=provenance,
         )
         print(f"\nRegistered {run.version_tag} as ModelVersion {model_id} (inactive).")
+        print(
+            "Approval needs independent holdout evidence: run scripts/evaluate_holdout.py "
+            f"--model-dir {run.candidate_dir}, then scripts/register_candidate.py with that report."
+        )
 
         if args.activate:
             if not run.decision.promote:
@@ -377,10 +418,38 @@ def _register_candidate(args, run) -> int:
                     "  3. Re-run scripts/embed_dataset.py and scripts/cluster_campaigns.py"
                 )
                 return 1
-    except ModelRegistryError as exc:
+    except (ModelRegistryError, EvidenceError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
+
+
+def _check_dataset_version(args):
+    """Confirm --reports-dir holds the frozen snapshot --dataset-version names.
+
+    The backend's JSONL export stamps every row with ``dataset_version``; a
+    run claiming a snapshot must train on that export and nothing else, or
+    the recorded provenance would describe data the model never saw.
+    Returns an error message, or ``None``.
+    """
+    if not args.dataset_version:
+        return None
+    if not args.reports_dir:
+        return "--dataset-version needs --reports-dir pointing at that snapshot's JSONL export."
+    source = FileReportSource(args.reports_dir)
+    stamped = 0
+    for path in source._files():
+        for row in source._read_file(path):
+            tag = row.get("dataset_version")
+            if tag is None:
+                return f"{os.path.basename(path)} has rows without dataset_version; use the snapshot export only."
+            if tag != args.dataset_version:
+                name = os.path.basename(path)
+                return f"{name} holds snapshot {tag!r}, not --dataset-version {args.dataset_version!r}."
+            stamped += 1
+    if not stamped:
+        return f"--reports-dir holds no rows for snapshot {args.dataset_version!r}."
+    return None
 
 
 def _export_reports(source, path: str) -> int:
@@ -421,6 +490,11 @@ def main(argv=None) -> int:
     source, error = _build_report_source(args)
     if error:
         print(f"error: {error}", file=sys.stderr)
+        return 2
+
+    dataset_error = _check_dataset_version(args)
+    if dataset_error:
+        print(f"error: {dataset_error}", file=sys.stderr)
         return 2
 
     # Checked before any work starts, same reasoning as the report source

@@ -236,8 +236,8 @@ class _Run:
         self.dry_run = dry_run
 
 
-def _args(queue_path, complete_queue):
-    return SimpleNamespace(queue_path=queue_path, complete_queue=complete_queue)
+def _args(queue_path, complete_queue, dataset_version=None):
+    return SimpleNamespace(queue_path=queue_path, complete_queue=complete_queue, dataset_version=dataset_version)
 
 
 def test_complete_queue_drains_after_a_real_run(tmp_path, capsys):
@@ -278,3 +278,38 @@ def test_a_real_run_without_the_flag_says_the_queue_is_still_waiting(tmp_path, c
 def test_nothing_is_printed_when_the_queue_is_empty(tmp_path, capsys):
     retrain._reconcile_queue(_args(str(tmp_path / "queue.jsonl"), complete_queue=False), _Run(dry_run=False))
     assert capsys.readouterr().out == ""
+
+
+# --- frozen dataset identity (audit 2026-09-30, finding 6) -------------------
+def test_a_versioned_run_drains_only_its_own_snapshot(tmp_path, capsys):
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop", "dataset-a")
+    enqueue(path, "page_hinkley", "dataset-b")
+    enqueue(path, "legacy")
+
+    retrain._reconcile_queue(_args(path, complete_queue=True, dataset_version="dataset-a"), _Run(dry_run=False))
+
+    left = {j.trigger for j in list_jobs(path) if j.status == QUEUED}
+    assert left == {"page_hinkley", "legacy"}
+    out = capsys.readouterr().out
+    assert "Marked 1 queued retrain job(s) completed" in out
+    assert "dataset-b" in out and "(unversioned)" in out
+
+
+def _check_args(reports_dir, dataset_version):
+    return SimpleNamespace(reports_dir=reports_dir, dataset_version=dataset_version)
+
+
+def test_dataset_version_requires_the_matching_snapshot_export(tmp_path):
+    export = tmp_path / "reports"
+    export.mkdir()
+    row = '{"text": "[URL]", "label": "Scam", "dataset_version": "dataset-a"}\n'
+    (export / "dataset-a.jsonl").write_text(row, encoding="utf-8")
+
+    assert retrain._check_dataset_version(_check_args(str(export), "dataset-a")) is None
+    assert "not --dataset-version" in retrain._check_dataset_version(_check_args(str(export), "dataset-b"))
+    assert "needs --reports-dir" in retrain._check_dataset_version(_check_args(None, "dataset-a"))
+    assert retrain._check_dataset_version(_check_args(None, None)) is None
+
+    (export / "extra.csv").write_text("text,label\nhi,Ham\n", encoding="utf-8")
+    assert "without dataset_version" in retrain._check_dataset_version(_check_args(str(export), "dataset-a"))

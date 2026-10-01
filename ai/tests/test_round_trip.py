@@ -40,6 +40,7 @@ from retraining.reports import FileReportSource
 from retraining.version_file import read_version, verify_version, write_version
 from service import retrain_queue
 from service.main import app
+from service.readiness import ReadinessReport, readiness
 from service.routers import retrain as retrain_router
 
 # Not entered as `with TestClient(app) as client`, matching test_service.py --
@@ -83,7 +84,7 @@ def queue_path(tmp_path, monkeypatch):
 
 
 def test_retrain_endpoint_accepts_and_queues(queue_path):
-    resp = client.post("/retrain", json={"trigger": "validated_report_count"})
+    resp = client.post("/retrain", json={"trigger": "validated_report_count", "dataset_version": "dataset-a"})
     assert resp.status_code == 202
     body = resp.json()
     assert body["status"] == "queued"
@@ -94,8 +95,8 @@ def test_retrain_endpoint_accepts_and_queues(queue_path):
 def test_repeated_trigger_dedupes_to_the_same_job(queue_path):
     """The backend's hourly cron re-fires every hour until a model is
     promoted. Without dedupe the queue grows one row per hour, forever."""
-    first = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
-    second = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
+    first = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    second = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
     assert first["job_id"] == second["job_id"]
 
     jobs = client.get("/retrain/jobs").json()["jobs"]
@@ -103,26 +104,26 @@ def test_repeated_trigger_dedupes_to_the_same_job(queue_path):
 
 
 def test_different_triggers_queue_separately(queue_path):
-    a = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
-    b = client.post("/retrain", json={"trigger": "page_hinkley_drift"}).json()
+    a = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    b = client.post("/retrain", json={"trigger": "page_hinkley_drift", "dataset_version": "dataset-a"}).json()
     assert a["job_id"] != b["job_id"]
 
 
 def test_jobs_endpoint_lists_what_was_queued(queue_path):
     assert client.get("/retrain/jobs").json()["jobs"] == []
-    client.post("/retrain", json={"trigger": "validated_report_count"})
+    client.post("/retrain", json={"trigger": "validated_report_count", "dataset_version": "dataset-a"})
     jobs = client.get("/retrain/jobs").json()["jobs"]
     assert [j["trigger"] for j in jobs] == ["validated_report_count"]
 
 
 def test_empty_trigger_is_rejected(queue_path):
-    resp = client.post("/retrain", json={"trigger": ""})
+    resp = client.post("/retrain", json={"trigger": "", "dataset_version": "dataset-a"})
     assert resp.status_code == 422
 
 
 def test_completing_a_job_over_http_frees_the_trigger(queue_path):
     """The drain a caller on a different host than the queue file uses."""
-    first = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
+    first = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
 
     done = client.post(f"/retrain/jobs/{first['job_id']}/complete")
     assert done.status_code == 200
@@ -131,7 +132,7 @@ def test_completing_a_job_over_http_frees_the_trigger(queue_path):
 
     # The trigger can schedule real work again, instead of being handed the
     # stale job forever.
-    second = client.post("/retrain", json={"trigger": "f1_degradation"}).json()
+    second = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
     assert second["job_id"] != first["job_id"]
 
 
@@ -143,9 +144,9 @@ def test_a_full_queue_is_refused_rather_than_grown(queue_path):
     """503, not 500: the trigger condition is still true next hour, so a
     refusal costs nothing -- an unbounded file would cost every later read."""
     for i in range(retrain_queue.MAX_QUEUED_JOBS):
-        client.post("/retrain", json={"trigger": f"trigger-{i}"})
+        client.post("/retrain", json={"trigger": f"trigger-{i}", "dataset_version": "dataset-a"})
 
-    resp = client.post("/retrain", json={"trigger": "one-too-many"})
+    resp = client.post("/retrain", json={"trigger": "one-too-many", "dataset_version": "dataset-a"})
     assert resp.status_code == 503
     assert "queued" in resp.json()["detail"]
 
@@ -258,20 +259,25 @@ def test_read_version_is_none_for_a_pre_wbs_4_4_3_checkpoint(tmp_path):
     assert read_version(str(tmp_path)) is None
 
 
-def test_health_endpoint_reports_the_served_version(tmp_path, monkeypatch):
-    from service.routers import health as health_router
-
+def test_health_endpoint_reports_the_served_version(tmp_path):
     write_version(str(tmp_path), "v2026-08-17T04-15-33Z")
-    monkeypatch.setattr(health_router.settings, "model_dir", str(tmp_path))
+    readiness.publish(
+        ReadinessReport(
+            True,
+            "ready",
+            version_tag="v2026-08-17T04-15-33Z",
+            artifact_integrity="verified",
+            model_loaded=True,
+            test_inference_passed=True,
+        )
+    )
 
     resp = client.get("/health")
     assert resp.json()["version_tag"] == "v2026-08-17T04-15-33Z"
 
 
-def test_health_endpoint_is_null_before_any_version_is_recorded(tmp_path, monkeypatch):
-    from service.routers import health as health_router
-
-    monkeypatch.setattr(health_router.settings, "model_dir", str(tmp_path))
+def test_health_endpoint_is_null_before_any_version_is_recorded():
+    readiness.publish(ReadinessReport(False, "model_version_unverifiable"))
     resp = client.get("/health")
     assert resp.json()["version_tag"] is None
 
@@ -330,12 +336,18 @@ def test_the_whole_round_trip_with_everything_stubbed(monkeypatch, tmp_path):
     with pytest.raises(ModelRegistryError, match="administrator promotion"):
         registry.activate(model_id)
 
-    # 4. Deploy -- "point the live model at candidate_dir" is the one manual
-    #    step left (see scripts/retrain.py's printed instructions); what
-    #    changes automatically is what /health reports once that happens.
-    from service.routers import health as health_router
-
-    monkeypatch.setattr(health_router.settings, "model_dir", str(candidate_dir))
+    # 4. Deploy -- after the external manifest is verified and the startup
+    #    probe succeeds, readiness publishes the exact version being served.
+    readiness.publish(
+        ReadinessReport(
+            True,
+            "ready",
+            version_tag=version_tag,
+            artifact_integrity="verified",
+            model_loaded=True,
+            test_inference_passed=True,
+        )
+    )
     resp = client.get("/health")
     assert resp.json()["version_tag"] == version_tag
 
@@ -413,3 +425,53 @@ def test_unverifiable_is_not_ok(tmp_path):
     result = verify_version(str(tmp_path))
     assert result.status == "unverifiable"
     assert not bool(result)
+
+
+# --- frozen dataset identity (audit 2026-09-30, finding 6) -------------------
+def test_a_retrain_request_without_a_dataset_version_is_rejected(queue_path):
+    """An accepted job must name the snapshot an offline run can reproduce."""
+    assert client.post("/retrain", json={"trigger": "f1_degradation"}).status_code == 422
+    assert client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "../etc"}).status_code == 422
+
+
+def test_the_dataset_version_survives_queue_storage_and_status(queue_path):
+    job = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-20260930"}).json()
+    assert job["dataset_version"] == "dataset-20260930"
+
+    listed = client.get("/retrain/jobs").json()["jobs"]
+    assert listed[0]["dataset_version"] == "dataset-20260930"
+    # Persisted, not just echoed: a fresh read of the file still has it.
+    assert retrain_queue.list_jobs(queue_path)[0].dataset_version == "dataset-20260930"
+
+    done = client.post(f"/retrain/jobs/{job['job_id']}/complete").json()
+    assert done["dataset_version"] == "dataset-20260930"
+
+
+def test_the_same_trigger_on_a_newer_snapshot_is_a_new_job(queue_path):
+    a = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    b = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-b"}).json()
+    assert a["job_id"] != b["job_id"]
+
+
+def test_draining_only_completes_jobs_for_the_snapshot_trained_on(tmp_path):
+    path = str(tmp_path / "queue.jsonl")
+    legacy = retrain_queue.enqueue(path, "f1_degradation")
+    a = retrain_queue.enqueue(path, "f1_degradation", "dataset-a")
+    b = retrain_queue.enqueue(path, "page_hinkley_drift", "dataset-b")
+
+    drained = retrain_queue.complete_all_queued(path, "dataset-a")
+
+    assert [j.job_id for j in drained] == [a.job_id]
+    status = {j.job_id: j.status for j in retrain_queue.list_jobs(path)}
+    assert status[legacy.job_id] == retrain_queue.QUEUED
+    assert status[b.job_id] == retrain_queue.QUEUED
+
+
+def test_rows_written_before_the_field_existed_read_as_unversioned(tmp_path):
+    path = tmp_path / "queue.jsonl"
+    path.write_text(
+        '{"job_id": "old", "trigger": "f1_drop", "status": "queued", "requested_at": "2026-09-01T00:00:00+00:00"}\n',
+        encoding="utf-8",
+    )
+    [job] = retrain_queue.list_jobs(str(path))
+    assert job.dataset_version is None

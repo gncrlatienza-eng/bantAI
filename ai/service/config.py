@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # + tokenizer). Populated by ai/training/train.py in Sprint 2; until then
     # the service reports the model as not ready.
     model_dir: str = "models/xlm-roberta-smishing"
+    # External, operator-controlled approval manifest. It must not live inside
+    # the model directory: a candidate bundle must never be able to approve
+    # itself. Empty keeps the service alive but deliberately unready.
+    model_approval_path: str = ""
     max_length: int = 128
 
     # Confidence-threshold routing (Sprint 2). The model predicts Ham/Spam/Scam
@@ -78,7 +82,9 @@ class Settings(BaseSettings):
     # raw-space centroids ignore it and use ``campaign_threshold`` above.
     # Tracked in git -- it holds a mean vector and k directions, no message
     # text. See service/campaign_space.py.
-    campaign_space_file: str = "models/campaign_space.json"
+    # Shared development and production require this file to live inside the
+    # approved model bundle so its hash is covered by the approval manifest.
+    campaign_space_file: str = "models/xlm-roberta-smishing/campaign_space.json"
 
     # Shared secret callers must present as ``x-api-key`` on /classify,
     # /summarize and /retrain. Empty (the default) leaves the service open,

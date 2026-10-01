@@ -22,7 +22,7 @@ AI_ROOT = Path(__file__).resolve().parents[1]
 if str(AI_ROOT) not in sys.path:
     sys.path.insert(0, str(AI_ROOT))
 
-from service.classifier import SmishingClassifier  # noqa: E402 -- path bootstrap above
+from service.classifier import SmishingClassifier, route  # noqa: E402 -- path bootstrap above
 from service.config import settings  # noqa: E402 -- path bootstrap above
 from service.model_bundle import inspect_model_bundle  # noqa: E402 -- path bootstrap above
 
@@ -54,7 +54,8 @@ def main() -> int:
 
     classifier = SmishingClassifier(model_dir=str(report.model_dir))
     result = classifier.classify_full("Local bantAI smoke check: visit https://example.invalid/ref/123")
-    print(f"model_load=ok label={result.label} bucket={result.bucket} score={result.scores[result.label]:.4f}")
+    bucket = route(result.scores)
+    print(f"model_load=ok label={result.label} bucket={bucket} score={result.scores[result.label]:.4f}")
     return 0
 
 

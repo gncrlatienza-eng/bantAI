@@ -56,9 +56,32 @@ def test_scam_cluster_drops_malformed_hostnames_and_duplicates():
 
 # --- payload shape -------------------------------------------------------
 def test_payload_has_only_fields_the_backend_accepts():
-    """The backend rejects unknown fields, and has no column for ``lexical``."""
+    """The backend rejects unknown fields; lexical follows its v1 contract."""
     (payload,) = sync_mod.build_payloads({"clusters": [cluster(7, 10, 0, ["evil.xyz"])]})
-    assert payload == {"label": "cluster-7", "centroid": [0.1, 0.2], "urlDomains": ["evil.xyz"]}
+    assert payload == {
+        "label": "cluster-7",
+        "centroid": [0.1, 0.2],
+        "urlDomains": ["evil.xyz"],
+        # No domains: the backend serves the reviewed urlDomains instead.
+        "lexical": {"version": 1, "shingles": ["x"], "memberCount": 0},
+    }
+
+
+def test_profile_shingles_that_would_fail_the_backend_checks_are_dropped():
+    c = cluster(8, 10, 0, [])
+    c["lexical"] = {
+        "shingles": ["click <url>", "acct 12345678", "http://evil.xyz", "a b c", "Upper", "x" * 65, "claim"],
+        "member_count": 9,
+    }
+    (payload,) = sync_mod.build_payloads({"clusters": [c]})
+    assert payload["lexical"] == {"version": 1, "shingles": ["claim", "click <url>"], "memberCount": 9}
+
+
+def test_a_cluster_without_a_profile_sends_none():
+    c = cluster(9, 10, 0, [])
+    del c["lexical"]
+    (payload,) = sync_mod.build_payloads({"clusters": [c]})
+    assert "lexical" not in payload
 
 
 def test_category_is_included_when_backend_category_sync_is_enabled():

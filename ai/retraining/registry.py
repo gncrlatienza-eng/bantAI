@@ -30,9 +30,17 @@ all of ``/models``, rather than a second copy of this plumbing over there.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
+
+from .checksum import bundle_digest, hash_bundle
+from .version_file import read_version
+
+#: The classifier's classes, in the order the backend's evidence check reads.
+EVIDENCE_CLASSES = ("Ham", "Spam", "Scam")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class ModelRegistryError(RuntimeError):
@@ -89,6 +97,8 @@ class ModelRegistry:
         f1_score: float,
         accuracy: Optional[float] = None,
         notes: Optional[str] = None,
+        evaluation: Optional[Dict[str, Any]] = None,
+        provenance: Optional[Dict[str, Any]] = None,
     ) -> str:
         """``POST /models``. Registers the candidate **inactive**; returns its id.
 
@@ -98,12 +108,21 @@ class ModelRegistry:
         this side owns the format. ``pipeline.py`` uses ``v<run-stamp>``,
         e.g. ``v2026-08-17T04-15-33Z``, so a version tag always points back to
         the run directory it came from.
+
+        ``evaluation``/``provenance`` carry the evidence an Admin approval
+        requires (see :func:`candidate_evidence`). Re-registering a candidate
+        still under review with the *same* artifacts refreshes that evidence;
+        different artifacts under the same tag are refused with 409.
         """
-        payload = {"versionTag": version_tag, "f1Score": f1_score}
+        payload: Dict[str, Any] = {"versionTag": version_tag, "f1Score": f1_score}
         if accuracy is not None:
             payload["accuracy"] = accuracy
         if notes is not None:
             payload["notes"] = notes
+        if evaluation is not None:
+            payload["evaluation"] = evaluation
+        if provenance is not None:
+            payload["provenance"] = provenance
         result = self._call("/internal/models", "POST", payload)
         model_id = (result or {}).get("id")
         if not model_id:
@@ -127,3 +146,72 @@ class ModelRegistry:
         this service is actually serving (``models/<dir>/version.json``).
         """
         return self._call("/internal/models/active", "GET")
+
+
+class EvidenceError(ValueError):
+    """A holdout report or dataset identity cannot back a registration."""
+
+
+def candidate_provenance(model_dir: str, dataset_version: str, dataset_digest: str) -> Dict[str, Any]:
+    """Artifact and training-data identity for a candidate directory.
+
+    ``artifacts`` hashes every file in ``model_dir`` -- the same set the
+    serving host verifies against its approval manifest -- so the backend's
+    derived bundle digest can later be compared with what ``/health`` reports.
+    """
+    if not dataset_version.strip():
+        raise EvidenceError("a dataset version (the frozen training snapshot) is required")
+    if not _SHA256_RE.fullmatch(dataset_digest.lower()):
+        raise EvidenceError("the dataset digest must be a SHA-256 hex digest")
+    return {
+        "artifacts": hash_bundle(model_dir),
+        "datasetVersion": dataset_version.strip(),
+        "datasetDigest": dataset_digest.lower(),
+    }
+
+
+def holdout_evaluation(report: Dict[str, Any], model_dir: str, artifacts: Dict[str, str]) -> Dict[str, Any]:
+    """Convert a ``scripts/evaluate_holdout.py`` report into registry evidence.
+
+    Refuses a report that graded a different checkpoint, drifted inputs, or
+    lacks per-class results: an attributable number or none at all.
+    """
+    version_tag = read_version(model_dir)
+    if report.get("version_tag") != version_tag:
+        raise EvidenceError(f"the holdout report graded {report.get('version_tag')!r}, not {version_tag!r}")
+    if report.get("bundle_digest") and report["bundle_digest"] != bundle_digest(artifacts):
+        raise EvidenceError("the holdout report graded different model files than this directory holds")
+    if report.get("holdout_integrity") != "ok" or report.get("checkpoint_integrity") != "ok":
+        raise EvidenceError(
+            "the holdout report was produced with unverified or drifted inputs "
+            f"(holdout={report.get('holdout_integrity')}, checkpoint={report.get('checkpoint_integrity')})"
+        )
+    per_class = report.get("per_class_metrics") or {}
+    missing = [label for label in EVIDENCE_CLASSES if label not in per_class]
+    if missing or not report.get("holdout_sha256") or not report.get("n_total"):
+        raise EvidenceError(f"the holdout report is incomplete (missing: {missing or 'holdout identity'})")
+    return {
+        "source": "independent_holdout",
+        "versionTag": version_tag,
+        "macroF1": report["macro_f1"],
+        "holdout": {"sha256": report["holdout_sha256"], "rows": report["n_total"]},
+        "perClass": {
+            label: {key: per_class[label][key] for key in ("support", "precision", "recall", "f1")}
+            for label in EVIDENCE_CLASSES
+        },
+        "evaluatedAt": report.get("evaluated_at"),
+    }
+
+
+def candidate_evidence(
+    model_dir: str,
+    holdout_report_path: str,
+    dataset_version: str,
+    dataset_digest: str,
+) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
+    """``(f1_score, evaluation, provenance)`` for :meth:`ModelRegistry.register`."""
+    with open(holdout_report_path, encoding="utf-8") as handle:
+        report = json.load(handle)
+    provenance = candidate_provenance(model_dir, dataset_version, dataset_digest)
+    evaluation = holdout_evaluation(report, model_dir, provenance["artifacts"])
+    return float(evaluation["macroF1"]), evaluation, provenance

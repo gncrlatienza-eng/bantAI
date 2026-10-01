@@ -56,7 +56,21 @@ object SmsPrivacyMasker {
     // decimal part (".00") behind as unmasked plain text. Caught by
     // SmsPrivacyMaskerTest while adding this file's other tests.
     private val money = Regex("(?:₱|PHP\\s?)\\d+(?:[,.]\\d+)*", RegexOption.IGNORE_CASE)
-    private val otp = Regex("(?i)\\b(otp|code|pin)(\\D{0,$OTP_KEYWORD_GAP})\\d{4,8}\\b")
+
+    // Plain "P" amounts ("P5,000", "P 250.00") -- the most common way Filipinos
+    // write pesos, and the only form the pattern above missed. Needs a digit
+    // right after, and no letter or digit on either side, so words and codes
+    // like "P2P" or "MP3" are left alone.
+    private val pesoP = Regex("(?<![A-Za-z0-9])P\\s?\\d[\\d,]*(?:\\.\\d+)?(?![A-Za-z0-9])")
+
+    // Keyword-marked codes. "MPIN", "passcode" and "security number" used to slip
+    // through: a 4-digit e-wallet MPIN is too short for the generic digit-run
+    // mask below, so "Your MPIN is 4821" reached the server unmasked.
+    private val otp =
+        Regex(
+            "(?i)\\b(otp|code|pin|mpin|passcode|password|tac|security\\s+(?:code|number)|verification\\s+number)" +
+                "(\\D{0,$OTP_KEYWORD_GAP})\\d{4,8}\\b",
+        )
 
     // Catch-all for anything left that reads as an identifying number --
     // landlines, bank/e-wallet account numbers, card numbers, reference
@@ -80,6 +94,7 @@ object SmsPrivacyMasker {
             .replace(bareDomain, "[URL]")
             .replace(phone, "[PHONE]")
             .replace(money, "[AMOUNT]")
+            .replace(pesoP, "[AMOUNT]")
             .replace(otp) { match -> "${match.groupValues[1]}${match.groupValues[2]}[OTP]" }
             .replace(genericDigitRun, "[NUMBER]")
             .replace(Regex("\\s+"), " ")

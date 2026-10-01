@@ -1,5 +1,7 @@
 package com.bantai.util
 
+import com.bantai.data.model.Classification
+
 /**
  * Recognises receipts, confirmations and one-time codes, so they are never
  * filed as spam.
@@ -49,7 +51,12 @@ object TransactionalMessage {
 
     /** A stored "spam" label that is really a receipt/confirmation reads as "safe"; every other label is unchanged. */
     fun correct(
-        classification: String,
+        classification: Classification,
         body: String,
-    ): String = if (classification == "spam" && isTransactional(body)) "safe" else classification
+    ): Classification =
+        if (classification == Classification.SPAM && isTransactional(body)) {
+            Classification.SAFE
+        } else {
+            classification
+        }
 }

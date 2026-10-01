@@ -11,10 +11,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import com.bantai.MainActivity
 import com.bantai.R
+import com.bantai.data.model.isGroupKey
+import com.bantai.data.model.normalizeSenderKey
+import com.bantai.receiver.NotificationActionReceiver
 
+@Suppress("TooManyFunctions") // one builder per notification kind
 object NotificationHelper {
     private const val TAG = "NotificationHelper"
 
@@ -45,6 +51,28 @@ object NotificationHelper {
 
     /** Derives a stable-ish notification id from a sender, same formula used across the app. */
     fun notifIdFor(sender: String): Int = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+
+    /**
+     * One notification per conversation: a new text replaces the previous one
+     * instead of stacking another, and it can be cleared when the thread is read.
+     */
+    fun conversationNotifId(sender: String): Int = ("msg:" + normalizeSenderKey(sender)).hashCode() and Int.MAX_VALUE
+
+    /** One "not sent" notification per conversation, so a late success can take it back. */
+    fun failedSendNotifIdFor(sender: String): Int = ("fail:" + normalizeSenderKey(sender)).hashCode() and Int.MAX_VALUE
+
+    fun cancel(
+        context: Context,
+        notifId: Int,
+    ) {
+        runCatching { NotificationManagerCompat.from(context).cancel(notifId) }
+    }
+
+    /** Clears a conversation's message notification (it was read, in the app or from the shade). */
+    fun cancelConversation(
+        context: Context,
+        sender: String,
+    ) = cancel(context, conversationNotifId(sender))
 
     // On API 33+, POST_NOTIFICATIONS is a runtime permission NotificationManager.notify()
     // silently no-ops without — there's no exception to catch, so this must be checked
@@ -138,6 +166,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
             PendingIntent.getActivity(
@@ -170,6 +199,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
             PendingIntent.getActivity(
@@ -210,6 +240,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
             PendingIntent.getActivity(
@@ -245,6 +276,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_MESSAGES)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
             PendingIntent.getActivity(
@@ -274,19 +306,32 @@ object NotificationHelper {
         context: Context,
         sender: String,
         body: String,
-        notifId: Int,
+        @Suppress("UNUSED_PARAMETER") notifId: Int,
+        // The thread this belongs to: a group's key for a group MMS, else [sender].
+        conversationKey: String = sender,
     ) {
-        val safe = sanitizeSender(sender)
-        val preview = body.replace(Regex("\\s+"), " ").trim().take(120)
+        // Already looking at this conversation: it's marked read there, and a
+        // notification on top of it was just noise.
+        if (ActiveConversation.isOpen(conversationKey)) return
+        val id = conversationNotifId(conversationKey)
+        val senderName = ContactNames.lookup(context, sender) ?: sanitizeSender(sender)
+        val inGroup = isGroupKey(conversationKey)
+        // In a group the title is the group and the text says who wrote it.
+        val title = if (inGroup) ContactNames.lookup(context, conversationKey) ?: senderName else senderName
+        val text = body.replace(Regex("\\s+"), " ").trim().take(120)
+        val preview = if (inGroup) "$senderName: $text" else text
+        // Opens this conversation, not just the Messages list.
         val intent =
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_MESSAGES)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
+                putExtra(EXTRA_CONVERSATION_SENDER, conversationKey)
             }
         val pendingIntent =
             PendingIntent.getActivity(
                 context,
-                notifId,
+                id,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -302,26 +347,84 @@ object NotificationHelper {
                 .Builder(context, MESSAGE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(BRAND_INDIGO)
-                .setContentTitle(safe)
+                .setContentTitle(title)
                 .setContentText("New message")
                 .build()
 
-        val notification =
+        val builder =
             NotificationCompat
                 .Builder(context, MESSAGE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(BRAND_INDIGO)
-                .setContentTitle(safe)
+                .setContentTitle(title)
                 .setContentText(preview)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setPublicVersion(publicVersion)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
-                .build()
+                .addAction(markReadAction(context, conversationKey, id))
+        // Only a real number can be texted back; "GCash" and friends have no reply
+        // path, and a group reply has to go out as MMS from the thread.
+        if (!inGroup && isValidSmsRecipient(sender)) builder.addAction(replyAction(context, sender, id))
 
-        notifySafely(context, notifId, notification)
+        notifySafely(context, id, builder.build())
+    }
+
+    private fun markReadAction(
+        context: Context,
+        sender: String,
+        requestCode: Int,
+    ): NotificationCompat.Action {
+        val intent =
+            Intent(context, NotificationActionReceiver::class.java)
+                .setAction(NotificationActionReceiver.ACTION_MARK_READ)
+                .putExtra(NotificationActionReceiver.EXTRA_SENDER, sender)
+        val pending =
+            PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        return NotificationCompat.Action
+            .Builder(0, "Mark as read", pending)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
+            .setShowsUserInterface(false)
+            .build()
+    }
+
+    private fun replyAction(
+        context: Context,
+        sender: String,
+        requestCode: Int,
+    ): NotificationCompat.Action {
+        val intent =
+            Intent(context, NotificationActionReceiver::class.java)
+                .setAction(NotificationActionReceiver.ACTION_REPLY)
+                .putExtra(NotificationActionReceiver.EXTRA_SENDER, sender)
+        // Mutable: the system writes the typed reply into this intent. The
+        // intent is explicit (our own receiver), so it can't be redirected.
+        val flags =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+        val pending = PendingIntent.getBroadcast(context, requestCode + 1, intent, flags)
+        val remoteInput =
+            RemoteInput
+                .Builder(NotificationActionReceiver.KEY_REPLY_TEXT)
+                .setLabel("Reply")
+                .build()
+        return NotificationCompat.Action
+            .Builder(0, "Reply", pending)
+            .addRemoteInput(remoteInput)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+            .setShowsUserInterface(false)
+            .build()
     }
 
     /**
@@ -343,6 +446,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_MESSAGES)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
                 putExtra(EXTRA_CONVERSATION_SENDER, sender)
             }
         val pendingIntent =
@@ -380,6 +484,48 @@ object NotificationHelper {
                 .build()
 
         notifySafely(context, notifId, notification)
+    }
+
+    /**
+     * An MMS couldn't be downloaded (usually no mobile data). The message is
+     * still on the carrier's server; opening the thread shows a "Tap to
+     * download" bubble that retries (see MmsDownloader).
+     */
+    fun sendMmsDownloadFailedNotification(
+        context: Context,
+        sender: String,
+    ) {
+        val from = ContactNames.lookup(context, sender) ?: sanitizeSender(sender)
+        val id = ("mmsfail:" + normalizeSenderKey(sender)).hashCode() and Int.MAX_VALUE
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra(EXTRA_NAVIGATE_TO, TARGET_MESSAGES)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
+                putExtra(EXTRA_CONVERSATION_SENDER, sender)
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                id,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val text = "Couldn't download a picture message. Check mobile data, then tap to try again."
+        val notification =
+            NotificationCompat
+                .Builder(context, MESSAGE_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle(from)
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+        notifySafely(context, id, notification)
     }
 
     // Strip any character that is not a digit, letter, +, -, or space

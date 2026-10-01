@@ -5,9 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
+import com.bantai.container
 import com.bantai.data.SmsIngestPipeline
-import com.bantai.data.SmsRepository
-import com.bantai.data.local.UserPreferences
+import com.bantai.util.DefaultSmsApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private const val TAG = "SmsReceiver"
+
+// SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, and the older name some OEMs still use.
+private const val EXTRA_SUBSCRIPTION_INDEX = "android.telephony.extra.SUBSCRIPTION_INDEX"
+private const val EXTRA_SUBSCRIPTION_LEGACY = "subscription"
 
 class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(
@@ -27,10 +31,9 @@ class SmsReceiver : BroadcastReceiver() {
 
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         if (messages.isNullOrEmpty()) return
-        val repository = SmsRepository(context)
 
         // Only the default SMS app may write to the SMS ContentProvider (Android 4.4+).
-        val isDefaultSmsApp = Telephony.Sms.getDefaultSmsPackage(context) == context.packageName
+        val isDefaultSmsApp = DefaultSmsApp.isDefault(context)
 
         // Group multipart SMS by normalised sender address so parts from the same
         // sender are always assembled into one message regardless of address format.
@@ -46,6 +49,8 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val receivedAt = System.currentTimeMillis()
+        // Which SIM it came in on, so replies go out on the same one.
+        val subId = intent.getIntExtra(EXTRA_SUBSCRIPTION_INDEX, intent.getIntExtra(EXTRA_SUBSCRIPTION_LEGACY, -1))
 
         // Classification needs the network, which onReceive cannot wait on
         // inline. goAsync() keeps the receiver alive for the request; the system
@@ -65,20 +70,28 @@ class SmsReceiver : BroadcastReceiver() {
                     for ((sender, bodyBuilder) in grouped) {
                         val sentAt = sentAtBySender.getValue(sender)
                         val id =
-                            SmsIngestPipeline.storeMessage(context, sender, bodyBuilder.toString(), receivedAt, sentAt)
+                            SmsIngestPipeline.storeMessage(
+                                context,
+                                sender,
+                                bodyBuilder.toString(),
+                                receivedAt,
+                                sentAt,
+                                subId,
+                            )
                         if (id != null) insertedIds[sender] = id
                     }
                 }
 
                 val token =
                     runCatching {
-                        UserPreferences(context).userData.first().authToken
+                        context.container.userPreferences.userData
+                            .first()
+                            .authToken
                     }.getOrDefault("")
 
                 for ((sender, bodyBuilder) in grouped) {
                     SmsIngestPipeline.classifyAndNotify(
                         context = context,
-                        repository = repository,
                         token = token,
                         sender = sender,
                         body = bodyBuilder.toString(),

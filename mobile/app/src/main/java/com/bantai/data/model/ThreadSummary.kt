@@ -27,8 +27,16 @@ private val TOKEN = Regex("[\\p{L}]{2,}")
 // Footers repeated on every promo -- central by frequency, but never the point.
 private val BOILERPLATE =
     listOf(
-        "per dti", "fair trade permit", "stop receiving", "unsubscribe", "opt out", "opt-out", "t&c",
-        "terms and conditions", "text stop", "to stop",
+        "per dti",
+        "fair trade permit",
+        "stop receiving",
+        "unsubscribe",
+        "opt out",
+        "opt-out",
+        "t&c",
+        "terms and conditions",
+        "text stop",
+        "to stop",
     )
 
 private class Candidate(
@@ -54,6 +62,7 @@ private class Candidate(
  * @param messagesOldestFirst thread messages in chronological order.
  * @return null when there are fewer than two distinct sentences to choose between.
  */
+@Suppress("LoopWithTooManyJumpStatements") // skip-and-stop rules read clearest as continue/break
 fun summarizeThread(
     messagesOldestFirst: List<SmsMessage>,
     maxSentences: Int = DEFAULT_THREAD_SUMMARY_SENTENCES,
@@ -68,14 +77,19 @@ fun summarizeThread(
     val similarity =
         Array(n) { a ->
             DoubleArray(n) { b ->
-                if (a == b) 0.0 else vectors[a].entries.sumOf { (w, x) -> x * (vectors[b][w] ?: 0.0) } / (norms[a] * norms[b])
+                if (a == b) {
+                    0.0
+                } else {
+                    vectors[a].entries.sumOf { (w, x) -> x * (vectors[b][w] ?: 0.0) } / (norms[a] * norms[b])
+                }
             }
         }
 
     val newest = candidates.maxOf { it.position }.coerceAtLeast(1)
     val rawScores =
         candidates.mapIndexed { a, candidate ->
-            val centrality = (0 until n).sumOf { b -> similarity[a][b] * candidates[b].support } + ln(1.0 + candidate.support)
+            val centrality =
+                (0 until n).sumOf { b -> similarity[a][b] * candidates[b].support } + ln(1.0 + candidate.support)
             centrality * (RECENCY_FLOOR + (1 - RECENCY_FLOOR) * candidate.position / newest)
         }
     val top = rawScores.max().takeIf { it > 0 } ?: 1.0
@@ -97,6 +111,7 @@ fun summarizeThread(
         .takeIf { it.isNotBlank() }
 }
 
+@Suppress("LoopWithTooManyJumpStatements") // skip-and-stop rules read clearest as continue/break
 private fun mergedCandidates(messagesOldestFirst: List<SmsMessage>): List<Candidate> {
     val candidates = mutableListOf<Candidate>()
     var position = 0

@@ -1,5 +1,6 @@
 package com.bantai.util
 
+import com.bantai.data.model.Classification
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -39,9 +40,10 @@ class TransactionalMessageTest {
     @Test
     fun `only a spam label is ever corrected`() {
         val receipt = "You paid P145.00 via Gcash. Ref No. 123"
-        assertEquals("safe", TransactionalMessage.correct("spam", receipt))
-        assertEquals("blocked", TransactionalMessage.correct("blocked", receipt))
-        assertEquals("unknown", TransactionalMessage.correct("unknown", receipt))
-        assertEquals("spam", TransactionalMessage.correct("spam", "Get 5GB for P59! Register now."))
+        assertEquals(Classification.SAFE, TransactionalMessage.correct(Classification.SPAM, receipt))
+        assertEquals(Classification.SCAM, TransactionalMessage.correct(Classification.SCAM, receipt))
+        assertEquals(Classification.UNKNOWN, TransactionalMessage.correct(Classification.UNKNOWN, receipt))
+        val promo = "Get 5GB for P59! Register now."
+        assertEquals(Classification.SPAM, TransactionalMessage.correct(Classification.SPAM, promo))
     }
 }

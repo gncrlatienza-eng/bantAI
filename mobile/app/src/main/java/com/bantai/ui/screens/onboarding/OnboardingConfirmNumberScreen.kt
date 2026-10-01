@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -12,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,9 +22,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.OnboardingHeader
 import com.bantai.ui.components.PillTextField
@@ -29,14 +34,18 @@ import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.components.SectionLabel
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.viewmodel.OnboardingViewModel
 
+@Suppress("LongMethod") // one screen, sign-in and sign-up wording
 @Composable
 fun OnboardingConfirmNumberScreen(
     navController: NavController,
     viewModel: OnboardingViewModel,
+    signIn: Boolean = false,
+    onCreateAccount: (() -> Unit)? = null,
 ) {
     var emailAddress by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
@@ -48,28 +57,40 @@ fun OnboardingConfirmNumberScreen(
                 .background(Black)
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(40.dp))
 
+        // Signing in isn't a setup step, so no "Step 2 of 5".
         OnboardingHeader(
-            eyebrow = "Step 2 of 4",
-            title = "Enter your email",
-            subtitle = "We'll send your temporary mobile sign-in code through Gmail while SMS approval is pending.",
+            eyebrow = if (signIn) null else stringResource(R.string.onboarding_confirm_number_step_2_of_5),
+            title =
+                stringResource(
+                    if (signIn) R.string.sign_in_title else R.string.onboarding_confirm_number_enter_your_email,
+                ),
+            subtitle =
+                stringResource(
+                    if (signIn) R.string.sign_in_subtitle else R.string.onboarding_confirm_number_we_ll_email_you_a,
+                ),
         )
         Spacer(Modifier.height(32.dp))
 
-        SectionLabel("Email address")
+        SectionLabel(stringResource(R.string.onboarding_confirm_number_email_address))
         Spacer(Modifier.height(8.dp))
         PillTextField(
             value = emailAddress,
             onValueChange = { emailAddress = it },
-            placeholder = "you@gmail.com",
+            placeholder = stringResource(R.string.onboarding_confirm_number_you_gmail_com),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
         Spacer(Modifier.height(8.dp))
-        Text("Use an inbox you can open now.", fontSize = TextSize.Caption, color = TextSecondary)
+        Text(
+            stringResource(R.string.onboarding_confirm_number_use_an_inbox_you_can),
+            fontSize = TextSize.Caption,
+            color = TextSecondary,
+        )
 
         if (state.errorMessage != null) {
             Spacer(Modifier.height(12.dp))
@@ -79,7 +100,7 @@ fun OnboardingConfirmNumberScreen(
         Spacer(Modifier.weight(1f))
 
         PrimaryButton(
-            text = "Send verification code",
+            text = stringResource(R.string.onboarding_confirm_number_send_verification_code),
             onClick = {
                 viewModel.requestVerificationCode(emailAddress) {
                     navController.navigate(Screen.OnboardingEnterCode.route)
@@ -88,6 +109,11 @@ fun OnboardingConfirmNumberScreen(
             enabled = !state.isLoading && emailAddress.isNotBlank(),
             isLoading = state.isLoading,
         )
+        if (onCreateAccount != null) {
+            TextButton(onClick = onCreateAccount, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.sign_in_create_account), color = Indigo, fontSize = TextSize.Subhead)
+            }
+        }
         Spacer(Modifier.height(24.dp))
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.theme.Black
@@ -50,6 +53,7 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -89,7 +93,11 @@ fun SuspiciousDetailScreen(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
                 sender,
@@ -102,7 +110,11 @@ fun SuspiciousDetailScreen(
                 onClick = { showAISummary = true },
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
-                Icon(Icons.Default.Psychology, contentDescription = "AI Analysis", tint = Indigo)
+                Icon(
+                    Icons.Default.Psychology,
+                    contentDescription = stringResource(R.string.suspicious_detail_ai_analysis),
+                    tint = Indigo,
+                )
             }
         }
 
@@ -113,7 +125,12 @@ fun SuspiciousDetailScreen(
                     .background(Suspicious.copy(alpha = 0.2f), RoundedCornerShape(100.dp))
                     .padding(horizontal = 10.dp, vertical = 4.dp),
         ) {
-            Text("Suspicious", color = Suspicious, fontSize = TextSize.Caption, fontWeight = FontWeight.Medium)
+            Text(
+                stringResource(R.string.verdict_suspicious),
+                color = SuspiciousText,
+                fontSize = TextSize.Caption,
+                fontWeight = FontWeight.Medium,
+            )
         }
 
         Row(
@@ -128,8 +145,8 @@ fun SuspiciousDetailScreen(
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = Suspicious, modifier = Modifier.size(20.dp))
             Text(
-                "Suspicious — Tap for threat details and actions",
-                color = Suspicious,
+                stringResource(R.string.suspicious_detail_suspicious_tap_for_threat_details),
+                color = SuspiciousText,
                 fontSize = TextSize.Footnote,
                 modifier = Modifier.weight(1f),
             )
@@ -148,14 +165,14 @@ fun SuspiciousDetailScreen(
             item { DateSeparator("May 7") }
             item {
                 ChatBubble(
-                    text = "Your BDO account statement for April is now available. Log in to view it.",
+                    text = stringResource(R.string.suspicious_detail_your_bdo_account_statement_for),
                     time = "8:00 AM",
                 )
             }
             item { DateSeparator("Today") }
             item {
                 ChatBubble(
-                    text = "Thank you for banking with BDO. Your balance inquiry was successful.",
+                    text = stringResource(R.string.suspicious_detail_thank_you_for_banking_with),
                     time = "8:30 AM",
                 )
             }
@@ -175,12 +192,16 @@ fun SuspiciousDetailScreen(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .heightIn(min = 44.dp)
                         .background(Surface, RoundedCornerShape(22.dp))
                         .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Text("Message", color = TextSecondary, fontSize = TextSize.Subhead)
+                Text(
+                    stringResource(R.string.message_detail_message),
+                    color = TextSecondary,
+                    fontSize = TextSize.Subhead,
+                )
             }
             Box(
                 modifier =
@@ -191,7 +212,7 @@ fun SuspiciousDetailScreen(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Send",
+                    contentDescription = stringResource(R.string.action_send),
                     tint = TextSecondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -261,9 +282,18 @@ private fun FlaggedChatBubble(navController: NavController) {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(Icons.Default.Shield, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))
-            Text("Flagged link — tap to see details", color = Danger, fontSize = TextSize.Caption)
+            Text(
+                stringResource(R.string.suspicious_detail_flagged_link_tap_to_see),
+                color = Danger,
+                fontSize = TextSize.Caption,
+            )
         }
         Spacer(Modifier.height(4.dp))
-        Text("8:42 AM", color = TextSecondary, fontSize = TextSize.Caption2, modifier = Modifier.align(Alignment.End))
+        Text(
+            stringResource(R.string.suspicious_detail_8_42_am),
+            color = TextSecondary,
+            fontSize = TextSize.Caption2,
+            modifier = Modifier.align(Alignment.End),
+        )
     }
 }

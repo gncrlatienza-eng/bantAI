@@ -269,6 +269,17 @@ describe('SmsService', () => {
     );
   });
 
+  it("includes only the requesting user's own report on each alert", async () => {
+    prisma.alert.findMany.mockResolvedValue([]);
+    await service.getAlerts('u1');
+    const args = prisma.alert.findMany.mock.calls[0][0];
+    expect(args.select.message.select.reports).toEqual({
+      where: { userId: 'u1' },
+      select: { reportedLabel: true, status: true, createdAt: true },
+      take: 1,
+    });
+  });
+
   it('never auto-blocks based only on device fallback metadata', async () => {
     await expect(service.ingest('u1', dto)).resolves.toMatchObject({
       action: 'alert',

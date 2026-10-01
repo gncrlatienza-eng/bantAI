@@ -21,6 +21,23 @@ class SmsConversationsTest {
     }
 
     @Test
+    fun `local, international and bare PH mobile numbers are one person`() {
+        val key = normalizeSenderKey("+639171234567")
+        assertEquals(key, normalizeSenderKey("09171234567"))
+        assertEquals(key, normalizeSenderKey("639171234567"))
+        assertEquals(key, normalizeSenderKey("0917 123 4567"))
+        // Sender IDs and short codes are left alone.
+        assertEquals("GCash", normalizeSenderKey("GCash"))
+        assertEquals("8080", normalizeSenderKey("8080"))
+    }
+
+    @Test
+    fun `addressVariants covers every PH spelling the SMS database may hold`() {
+        val variants = addressVariants("09171234567")
+        assertTrue(variants.containsAll(listOf("09171234567", "+639171234567", "639171234567")))
+    }
+
+    @Test
     fun `groupedBySenderLatest keeps one row per normalized sender`() {
         // "0917-123-4567" and "0917 123 4567" differ only by the punctuation
         // normalizeSenderKey strips (spaces/hyphens/parens) -- they group as

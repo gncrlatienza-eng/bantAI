@@ -36,14 +36,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.data.remote.CampaignsApi
 import com.bantai.ui.components.DetailSkeleton
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.GlassStroke
@@ -95,19 +98,23 @@ fun CampaignDetailScreen(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBackIos,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.action_back),
                 tint = Indigo,
                 modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(2.dp))
-            Text("Campaigns", color = Indigo, fontSize = TextSize.Body)
+            Text(stringResource(R.string.campaign_detail_campaigns), color = Indigo, fontSize = TextSize.Body)
         }
 
         when {
             isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(errorMessage ?: "Could not load this campaign", color = Danger, fontSize = TextSize.Subhead)
+                    Text(
+                        errorMessage ?: stringResource(R.string.campaign_detail_load_failed),
+                        color = Danger,
+                        fontSize = TextSize.Subhead,
+                    )
                 }
             campaign != null -> CampaignDetailContent(campaign!!)
         }
@@ -123,7 +130,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
         modifier = Modifier.fillMaxSize(),
         // Bottom clearance matches the floating tab bar's footprint (see
         // MainScreen) -- this screen now renders behind that persistent bar.
-        contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 116.dp),
+        contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = LocalBottomBarClearance.current),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         // Header card
@@ -162,7 +169,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        campaign.label ?: "Unlabeled campaign",
+                        campaign.label ?: stringResource(R.string.campaign_detail_unlabeled),
                         color = White,
                         fontWeight = FontWeight.Bold,
                         fontSize = TextSize.Body,
@@ -180,7 +187,11 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                         .size(6.dp)
                                         .background(Safe, CircleShape),
                             )
-                            Text("Active · Since ${formatShortDate(campaign.createdAt)}", color = Safe, fontSize = TextSize.Caption)
+                            Text(
+                                stringResource(R.string.campaign_detail_active_since, formatShortDate(campaign.createdAt)),
+                                color = Safe,
+                                fontSize = TextSize.Caption,
+                            )
                         }
                     } else {
                         Box(
@@ -190,7 +201,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                     .background(Hairline, RoundedCornerShape(100.dp))
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                         ) {
-                            Text("Inactive", color = TextTertiary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.campaign_detail_inactive), color = TextSecondary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -207,13 +218,13 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                     StatCard(
                         icon = Icons.AutoMirrored.Filled.Message,
                         value = campaign.messageCount.toString(),
-                        label = "Messages",
+                        label = stringResource(R.string.messages_title),
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
                         icon = Icons.Default.Link,
                         value = campaign.urlDomains.size.toString(),
-                        label = "Domains",
+                        label = stringResource(R.string.campaign_detail_domains),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -224,13 +235,13 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                     StatCard(
                         icon = Icons.Default.People,
                         value = "Private",
-                        label = "Senders (recent)",
+                        label = stringResource(R.string.campaign_detail_senders_recent),
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
                         icon = Icons.Default.Block,
                         value = blockedCount.toString(),
-                        label = "Blocked (recent)",
+                        label = stringResource(R.string.campaign_detail_blocked_recent),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -240,9 +251,9 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
         // Known domains -- one grouped card of divided rows instead of a
         // separate little card per domain.
         item {
-            SectionLabel("KNOWN DOMAINS")
+            SectionLabel(stringResource(R.string.campaign_detail_known_domains))
             if (campaign.urlDomains.isEmpty()) {
-                EmptySectionRow("No known domains yet")
+                EmptySectionRow(stringResource(R.string.campaign_detail_no_domains))
             } else {
                 Column(
                     modifier =
@@ -270,7 +281,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
         // This advice is derived from the campaign evidence currently returned
         // by the backend, not a generic warning shown for every cluster.
         item {
-            SectionLabel("CAMPAIGN-SPECIFIC ADVICE")
+            SectionLabel(stringResource(R.string.campaign_detail_campaign_specific_advice))
             Column(
                 modifier =
                     Modifier
@@ -280,16 +291,16 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 campaignAdvice(campaign).forEach { advice ->
-                    Text("• $advice", color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 19.sp)
+                    Text("• ${stringResource(advice)}", color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 19.sp)
                 }
             }
         }
 
         // Recent messages
         item {
-            SectionLabel("RECENT MESSAGES")
+            SectionLabel(stringResource(R.string.campaign_detail_recent_messages))
             if (campaign.messages.isEmpty()) {
-                EmptySectionRow("No messages recorded for this campaign yet")
+                EmptySectionRow(stringResource(R.string.campaign_detail_no_messages))
             } else {
                 val recentMessages = campaign.messages.take(10)
                 Column(
@@ -308,7 +319,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("Private device record", color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Footnote)
+                                Text(stringResource(R.string.campaign_detail_private_device_record), color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Footnote)
                                 Text(
                                     message.label ?: message.bucket ?: "Unclassified",
                                     color = if (message.bucket == "blocked") Danger else TextSecondary,
@@ -316,7 +327,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                                 )
                             }
                             Text(
-                                "Message content remains on your device.",
+                                stringResource(R.string.campaign_detail_message_content_remains_on_your),
                                 color = TextSecondary,
                                 fontSize = TextSize.Caption,
                                 maxLines = 2,
@@ -334,23 +345,24 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
 }
 
 @Suppress("MaxLineLength")
-private fun campaignAdvice(campaign: CampaignsApi.CampaignDetail): List<String> {
+// String resource ids, resolved where they're shown.
+private fun campaignAdvice(campaign: CampaignsApi.CampaignDetail): List<Int> {
     val evidence = (listOfNotNull(campaign.label) + campaign.urlDomains).joinToString(" ").lowercase()
-    val advice = mutableListOf<String>()
+    val advice = mutableListOf<Int>()
 
     if (campaign.urlDomains.isNotEmpty()) {
-        advice += "Do not open links from this campaign. Use the provider's official app or type its known address yourself."
+        advice += R.string.campaign_advice_links
     }
     if (listOf("gcash", "maya", "bank", "bdo", "bpi", "wallet", "otp", "pin").any { it in evidence }) {
-        advice += "Never share an OTP, PIN, password, or recovery code. Contact the financial provider only through its verified channel."
+        advice += R.string.campaign_advice_otp
     }
     if (listOf("job", "loan", "prize", "winner", "reward", "cash").any { it in evidence }) {
-        advice += "Do not pay a fee or send money to claim a prize, loan, job, or reward. Verify the offer independently first."
+        advice += R.string.campaign_advice_fees
     }
     if (advice.isEmpty()) {
-        advice += "Do not reply or share personal information. Keep the message as evidence and report it if it asks for urgent action."
+        advice += R.string.campaign_advice_generic
     }
-    advice += "Blocking is recommended if you did not initiate this conversation."
+    advice += R.string.campaign_advice_block
     return advice.distinct()
 }
 
@@ -358,7 +370,7 @@ private fun campaignAdvice(campaign: CampaignsApi.CampaignDetail): List<String> 
 private fun SectionLabel(text: String) {
     Text(
         text,
-        color = TextTertiary,
+        color = TextSecondary,
         fontSize = TextSize.Caption,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.6.sp,

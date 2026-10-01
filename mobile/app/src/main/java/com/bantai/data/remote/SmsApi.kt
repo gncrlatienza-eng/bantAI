@@ -50,6 +50,23 @@ object SmsApi {
         val score: Double?,
         val bucket: String?,
         val clusterId: String?,
+        /**
+         * Set on the phone, not by the backend: whether this alert's sender is
+         * actually blocked (Android's block list or BantAI's own record, see
+         * BlockHelper.isSenderBlocked). A scam verdict alone doesn't mean that.
+         */
+        val senderBlocked: Boolean = false,
+        /** The user's own report on this message, if they filed one. */
+        val report: AlertReport? = null,
+    )
+
+    /**
+     * A user's report on an alert: what they said it is (Scam/Spam/Ham) and
+     * where BantAI's review of it stands (Pending, Validated, Rejected).
+     */
+    data class AlertReport(
+        val reportedLabel: String,
+        val status: String,
     )
 
     data class IndicatorTag(
@@ -132,6 +149,10 @@ object SmsApi {
             score = classification?.takeIf { it.has("score") }?.optDouble("score"),
             bucket = classification?.optNullableString("bucket"),
             clusterId = message.optNullableString("clusterId"),
+            report =
+                message.optJSONArray("reports")?.optJSONObject(0)?.let {
+                    AlertReport(reportedLabel = it.optString("reportedLabel"), status = it.optString("status"))
+                },
         )
     }
     // optNullableString moved to JsonExtensions.kt -- CampaignsApi needed the

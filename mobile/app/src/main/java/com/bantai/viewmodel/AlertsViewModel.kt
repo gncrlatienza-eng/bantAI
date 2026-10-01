@@ -6,13 +6,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
-import com.bantai.data.SmsRepository
+import com.bantai.container
+import com.bantai.data.AlertBlocking
 import com.bantai.data.local.AlertState
-import com.bantai.data.local.AlertStateStore
-import com.bantai.data.local.UserPreferences
-import com.bantai.data.model.AlertFilter
+import com.bantai.data.localAlertsOnly
+import com.bantai.data.model.AlertTab
+import com.bantai.data.model.unseenAlerts
+import com.bantai.data.model.withLocalReports
 import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.toUserMessage
+import com.bantai.util.BlockHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,11 +41,10 @@ private const val TAG = "AlertsViewModel"
 class AlertsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
-    private val smsRepository = SmsRepository(application)
+    private val userPreferences = application.container.userPreferences
+    private val smsRepository = application.container.smsRepository
 
     private val _alerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
-    val alerts: StateFlow<List<SmsApi.AlertSummary>> = _alerts.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -51,32 +54,57 @@ class AlertsViewModel(
 
     private var loadJob: Job? = null
 
-    private val alertStateStore = AlertStateStore(application)
+    private val alertStateStore = application.container.alertStateStore
     val alertState: StateFlow<AlertState> =
         alertStateStore.state.stateIn(viewModelScope, SharingStarted.Eagerly, AlertState())
 
-    private val _filter = MutableStateFlow(AlertFilter.ALL)
-    val filter: StateFlow<AlertFilter> = _filter.asStateFlow()
+    /** The alerts, with reports just filed from this phone already applied. */
+    val alerts: StateFlow<List<SmsApi.AlertSummary>> =
+        combine(_alerts, alertState) { alerts, state -> withLocalReports(alerts, state.reported) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val _tab = MutableStateFlow(AlertTab.TO_REVIEW)
+    val tab: StateFlow<AlertTab> = _tab.asStateFlow()
 
     /** Alerts the user hasn't opened yet -- drives the Alerts tab's count. */
     val unseenCount: StateFlow<Int> =
         combine(_alerts, alertState) { alerts, state ->
-            if (!state.initialized) 0 else alerts.count { it.messageId !in state.seen }
+            unseenAlerts(alerts, state.initialized, state.seen).size
         }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
-    fun setFilter(filter: AlertFilter) {
-        _filter.value = filter
+    fun setTab(tab: AlertTab) {
+        _tab.value = tab
     }
 
     fun markSeen(alert: SmsApi.AlertSummary) {
         viewModelScope.launch { alertStateStore.markSeen(alert.messageId) }
     }
 
-    fun setReviewed(
+    /** "Mark all read": clears every new dot and the tab count without opening each alert. */
+    fun markAllSeen() {
+        val ids = _alerts.value.map { it.messageId }
+        viewModelScope.launch { alertStateStore.markSeen(ids) }
+    }
+
+    /**
+     * Unblocks [alert]'s sender from the Blocked page. Its alerts move to To
+     * review straight away (the next poll agrees: BlockedSendersStore now
+     * records the sender as user-unblocked, so catch-up won't re-block it).
+     * [onDone] gets false when only the phone half worked -- the backend may
+     * still be filtering this sender.
+     */
+    fun unblockSender(
         alert: SmsApi.AlertSummary,
-        reviewed: Boolean,
+        onDone: (synced: Boolean) -> Unit,
     ) {
-        viewModelScope.launch { alertStateStore.setReviewed(alert.messageId, reviewed) }
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val synced = BlockHelper.unblockSender(getApplication(), token, alert.sender)
+            _alerts.update { alerts ->
+                alerts.map { if (it.sender == alert.sender) it.copy(senderBlocked = false) else it }
+            }
+            onDone(synced)
+        }
     }
 
     init {
@@ -135,7 +163,8 @@ class AlertsViewModel(
                         // Only alerts whose SMS is on this phone: others (another
                         // device on the same account, deleted SMS) can't be shown
                         // or acted on here.
-                        val local = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(smishing) }
+                        val resolved = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(smishing) }
+                        val local = AlertBlocking.withBlockStatus(getApplication(), token, resolved, catchUp = true)
                         alertStateStore.initializeIfNeeded(local.map { it.messageId })
                         _alerts.value = local
                         _errorMessage.value = null

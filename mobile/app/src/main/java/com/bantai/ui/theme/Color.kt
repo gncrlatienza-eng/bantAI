@@ -14,12 +14,16 @@ val AvatarRed = Color(0xFFFF4444)
 val AvatarPink = Color(0xFFE91E8C)
 val AvatarGreen = Color(0xFF4CAF50)
 val AvatarPurple = Color(0xFF9C27B0)
+val AvatarOrange = Color(0xFFFF9500)
+val AvatarIndigo = Color(0xFF5B4FE8)
+val AvatarCoral = Color(0xFFFF6B35)
 
 // iOS systemGray -- identical in light and dark.
 val SystemGray = Color(0xFF8E8E93)
 
-// Text/icons drawn on top of an accent fill (a filled button, an outgoing
-// bubble, an avatar) -- stays white in both themes, unlike [White] below.
+// Text/icons drawn on a colored fill that isn't the accent (a red or green
+// button, a swipe action, an avatar) -- stays white in both themes, unlike
+// [White] below. On the accent itself use [OnIndigo], which follows it.
 val OnAccent = Color(0xFFFFFFFF)
 
 /**
@@ -51,9 +55,20 @@ data class BantAIColors(
     val textSecondary: Color,
     val textTertiary: Color,
     val indigo: Color,
+    // Text/icons on an [indigo] fill (outgoing bubbles, selected chips, primary
+    // buttons). White for the purple accent, black for the white one.
+    val onIndigo: Color,
+    // Chat bubbles: neutral greys, no brand color (iMessage-like calm). Sent
+    // and received differ in lightness so they stay easy to tell apart.
+    val bubbleSent: Color,
+    val bubbleReceived: Color,
     val danger: Color,
     val safe: Color,
     val suspicious: Color,
+    // [suspicious] used as *text*: systemOrange on the light page is below
+    // readable contrast (~2:1), so light mode gets a darker orange for words.
+    // Icons and tinted fills keep [suspicious].
+    val suspiciousText: Color,
     val iosBlue: Color,
     val darkIndigo: Color,
     val protectionSurface: Color,
@@ -78,9 +93,14 @@ val DarkColors =
         textSecondary = Color(0x99EBEBF5),
         textTertiary = Color(0x4DEBEBF5),
         indigo = Color(0xFF6E63F0),
+        onIndigo = Color(0xFFFFFFFF),
+        // systemGray4 / secondarySystemGroupedBackground
+        bubbleSent = Color(0xFF3A3A3C),
+        bubbleReceived = Color(0xFF1C1C1E),
         danger = Color(0xFFFF453A),
         safe = Color(0xFF30D158),
         suspicious = Color(0xFFFF9F0A),
+        suspiciousText = Color(0xFFFF9F0A),
         iosBlue = Color(0xFF0A84FF),
         darkIndigo = Color(0xFF1A1A2E),
         protectionSurface = Color(0xFF0D1F0D),
@@ -106,9 +126,14 @@ val LightColors =
         textSecondary = Color(0x993C3C43),
         textTertiary = Color(0x4D3C3C43),
         indigo = Color(0xFF5B4FE8),
+        onIndigo = Color(0xFFFFFFFF),
+        // systemGray5 / white, on the light grouped page
+        bubbleSent = Color(0xFFDCDCE1),
+        bubbleReceived = Color(0xFFFFFFFF),
         danger = Color(0xFFFF3B30),
         safe = Color(0xFF34C759),
         suspicious = Color(0xFFFF9500),
+        suspiciousText = Color(0xFFC93400),
         iosBlue = Color(0xFF007AFF),
         darkIndigo = Color(0xFFECEBFD),
         protectionSurface = Color(0xFFE8F7EC),
@@ -149,6 +174,15 @@ val TextTertiary: Color
 val Indigo: Color
     @Composable @ReadOnlyComposable
     get() = LocalBantAIColors.current.indigo
+val OnIndigo: Color
+    @Composable @ReadOnlyComposable
+    get() = LocalBantAIColors.current.onIndigo
+val BubbleSent: Color
+    @Composable @ReadOnlyComposable
+    get() = LocalBantAIColors.current.bubbleSent
+val BubbleReceived: Color
+    @Composable @ReadOnlyComposable
+    get() = LocalBantAIColors.current.bubbleReceived
 val Danger: Color
     @Composable @ReadOnlyComposable
     get() = LocalBantAIColors.current.danger
@@ -158,6 +192,9 @@ val Safe: Color
 val Suspicious: Color
     @Composable @ReadOnlyComposable
     get() = LocalBantAIColors.current.suspicious
+val SuspiciousText: Color
+    @Composable @ReadOnlyComposable
+    get() = LocalBantAIColors.current.suspiciousText
 val IosBlue: Color
     @Composable @ReadOnlyComposable
     get() = LocalBantAIColors.current.iosBlue

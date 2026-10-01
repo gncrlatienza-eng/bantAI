@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,8 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -51,19 +53,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
-import com.bantai.data.remote.SmsApi
-import com.bantai.ui.components.BantAILogo
-import com.bantai.ui.components.MessageRowSkeleton
+import com.bantai.R
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
-import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.SettingsViewModel
 
@@ -83,8 +83,7 @@ fun NotificationsScreen(
     val suspiciousAlerts by viewModel.suspiciousAlerts.collectAsState()
     val spamAlerts by viewModel.spamAlerts.collectAsState()
     val autoBlockNotice by viewModel.autoBlockNotice.collectAsState()
-    val recentAlerts by viewModel.recentAlerts.collectAsState()
-    val alertsLoading by viewModel.alertsLoading.collectAsState()
+    val deliveryReports by viewModel.deliveryReports.collectAsState()
     val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
@@ -99,10 +98,14 @@ fun NotificationsScreen(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                "Notifications",
+                stringResource(R.string.notifications_notifications),
                 color = White,
                 fontWeight = FontWeight.Bold,
                 fontSize = TextSize.Headline,
@@ -115,12 +118,18 @@ fun NotificationsScreen(
             modifier = Modifier.fillMaxSize(),
             // Bottom clearance matches the floating tab bar's footprint (see
             // MainScreen) -- this screen renders behind that persistent bar.
-            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 116.dp),
+            contentPadding =
+                PaddingValues(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = LocalBottomBarClearance.current,
+                ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { NotificationPermissionBanner() }
 
-            item { SectionLabel("ALERT TYPES") }
+            item { SectionLabel(stringResource(R.string.notifications_alert_types)) }
 
             item {
                 Column(
@@ -130,29 +139,29 @@ fun NotificationsScreen(
                             .background(Surface, RoundedCornerShape(16.dp)),
                 ) {
                     ToggleRow(
-                        title = "Smishing alerts",
-                        subtitle = "High-priority alert for likely scam messages",
+                        title = stringResource(R.string.notifications_smishing_alerts),
+                        subtitle = stringResource(R.string.notifications_high_priority_alert_for_likely),
                         checked = smishingAlerts,
                         onCheckedChange = { viewModel.toggleSmishingAlerts(it) },
                     )
                     HorizontalDivider(color = BorderColor, thickness = 1.dp)
                     ToggleRow(
-                        title = "Suspicious alerts",
-                        subtitle = "Alert for messages worth a second look",
+                        title = stringResource(R.string.notifications_suspicious_alerts),
+                        subtitle = stringResource(R.string.notifications_alert_for_messages_worth_a),
                         checked = suspiciousAlerts,
                         onCheckedChange = { viewModel.toggleSuspiciousAlerts(it) },
                     )
                     HorizontalDivider(color = BorderColor, thickness = 1.dp)
                     ToggleRow(
-                        title = "Spam alerts",
-                        subtitle = "Notify when a promo is filed to your Spam folder",
+                        title = stringResource(R.string.notifications_spam_alerts),
+                        subtitle = stringResource(R.string.notifications_notify_when_a_promo_is),
                         checked = spamAlerts,
                         onCheckedChange = { viewModel.toggleSpamAlerts(it) },
                     )
                     HorizontalDivider(color = BorderColor, thickness = 1.dp)
                     ToggleRow(
-                        title = "Auto-block notice",
-                        subtitle = "When a number is blocked",
+                        title = stringResource(R.string.notifications_auto_block_notice),
+                        subtitle = stringResource(R.string.notifications_when_a_number_is_blocked),
                         checked = autoBlockNotice,
                         onCheckedChange = { viewModel.toggleAutoBlockNotice(it) },
                     )
@@ -161,13 +170,30 @@ fun NotificationsScreen(
 
             item {
                 Text(
-                    "Turning off smishing or suspicious alerts still shows the message as a normal notification, " +
-                        "so nothing is hidden from you.",
+                    stringResource(R.string.notifications_turning_off_smishing_or_suspicious),
                     color = TextSecondary,
                     fontSize = TextSize.Caption,
                     lineHeight = 16.sp,
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
+            }
+
+            item { SectionLabel(stringResource(R.string.notifications_messages_section)) }
+
+            item {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp)),
+                ) {
+                    ToggleRow(
+                        title = stringResource(R.string.notifications_delivery_reports),
+                        subtitle = stringResource(R.string.notifications_delivery_reports_detail),
+                        checked = deliveryReports,
+                        onCheckedChange = { viewModel.toggleDeliveryReports(it) },
+                    )
+                }
             }
 
             item {
@@ -194,13 +220,13 @@ fun NotificationsScreen(
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Sound & vibration",
+                            stringResource(R.string.notifications_sound_vibration),
                             color = White,
                             fontWeight = FontWeight.Medium,
                             fontSize = TextSize.Subhead,
                         )
                         Text(
-                            "Managed in Android notification settings",
+                            stringResource(R.string.notifications_managed_in_android_notification_settings),
                             color = TextSecondary,
                             fontSize = TextSize.Caption,
                         )
@@ -211,41 +237,6 @@ fun NotificationsScreen(
                         tint = TextSecondary,
                         modifier = Modifier.size(14.dp),
                     )
-                }
-            }
-
-            item { SectionLabel("RECENT ALERTS") }
-
-            item {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(Surface, RoundedCornerShape(16.dp))
-                            .padding(12.dp),
-                ) {
-                    when {
-                        alertsLoading ->
-                            repeat(2) {
-                                MessageRowSkeleton(avatarSize = 36.dp, horizontalPadding = 0.dp, verticalPadding = 6.dp)
-                            }
-                        recentAlerts.isEmpty() ->
-                            NotificationItem(
-                                title = "BantAI is protecting you",
-                                subtitle = "No threats detected yet. All messages are clear.",
-                                time = "",
-                            )
-                        else ->
-                            recentAlerts.take(3).forEachIndexed { index, alert ->
-                                if (index > 0) {
-                                    HorizontalDivider(
-                                        color = BorderColor,
-                                        modifier = Modifier.padding(vertical = 10.dp),
-                                    )
-                                }
-                                RecentAlertItem(alert)
-                            }
-                    }
                 }
             }
         }
@@ -294,70 +285,17 @@ private fun NotificationPermissionBanner() {
         Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Suspicious, modifier = Modifier.size(18.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "Notifications are off for BantAI",
+                stringResource(R.string.notifications_notifications_are_off_for_bantai),
                 color = White,
                 fontWeight = FontWeight.Bold,
                 fontSize = TextSize.Footnote,
             )
             Text(
-                "The alerts below won't reach you until you turn on notifications in system settings. Tap to fix this.",
+                stringResource(R.string.notifications_the_alerts_below_won_t),
                 color = TextSecondary,
                 fontSize = TextSize.Caption,
                 lineHeight = 16.sp,
             )
-        }
-    }
-}
-
-@Composable
-private fun RecentAlertItem(alert: SmsApi.AlertSummary) {
-    // Alert status is always "Pending" (nothing ever changes it), so the old
-    // status == "Blocked" check labelled every alert "Suspicious"; the model's
-    // label is what actually separates a scam from a softer flag.
-    val isScam = alert.label.equals("Scam", ignoreCase = true)
-    val sender = alert.sender.ifBlank { "Unknown sender" }
-    val confidence = alert.score?.let { " · ${"%.0f".format(it * 100)}% confidence" } ?: ""
-    NotificationItem(
-        title = if (isScam) "Smishing detected — $sender" else "Suspicious message — $sender",
-        subtitle = (if (isScam) "Likely scam. Review in BantAI" else "Review in BantAI") + confidence,
-        time = alertRelativeTime(alert.createdAt),
-    )
-}
-
-/**
- * Mirrors what the real notification looks like, with the app icon itself
- * (BantAILogo) as the tile -- the same icon Android shows beside a BantAI
- * notification.
- */
-@Composable
-private fun NotificationItem(
-    title: String,
-    subtitle: String,
-    time: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        BantAILogo(size = 36.dp)
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("BantAI", color = TextSecondary, fontSize = TextSize.Caption)
-                if (time.isNotEmpty()) Text(time, color = TextSecondary, fontSize = TextSize.Caption)
-            }
-            Text(
-                title,
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Footnote,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption)
         }
     }
 }
@@ -373,7 +311,10 @@ private fun ToggleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
+                // The whole row is the switch: TalkBack reads the title with
+                // its on/off state as one item. The Switch below used to be a
+                // second, unlabelled stop ("switch, off").
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -384,10 +325,10 @@ private fun ToggleRow(
         Spacer(Modifier.width(12.dp))
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors =
                 SwitchDefaults.colors(
-                    checkedThumbColor = OnAccent,
+                    checkedThumbColor = OnIndigo,
                     checkedTrackColor = Indigo,
                 ),
         )
@@ -398,32 +339,10 @@ private fun ToggleRow(
 private fun SectionLabel(text: String) {
     Text(
         text,
-        color = TextTertiary,
+        color = TextSecondary,
         fontSize = TextSize.Caption2,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp,
         modifier = Modifier.padding(top = 4.dp, start = 4.dp),
     )
 }
-
-private fun alertRelativeTime(iso: String): String =
-    try {
-        val instant = java.time.Instant.parse(iso)
-        val diffMin =
-            (
-                java.time.Instant
-                    .now()
-                    .toEpochMilli() - instant.toEpochMilli()
-            ) / 60_000
-        when {
-            diffMin < 1 -> "now"
-            diffMin < 60 -> "${diffMin}m"
-            diffMin < 1440 -> "${diffMin / 60}h"
-            else ->
-                java.time.format.DateTimeFormatter
-                    .ofPattern("MMM d", java.util.Locale.US)
-                    .format(instant.atZone(java.time.ZoneId.systemDefault()))
-        }
-    } catch (_: Exception) {
-        ""
-    }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,19 +34,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
-import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 
 @Composable
@@ -56,16 +58,22 @@ fun UnsafeLinkScreen(navController: NavController) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
             containerColor = Surface,
-            title = { Text("Proceed at your own risk", color = White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    stringResource(R.string.unsafe_link_proceed_at_your_own_risk),
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
             text = {
                 Text(
-                    "Visiting this link may expose you to credential theft or malware.",
+                    stringResource(R.string.unsafe_link_visiting_this_link_may_expose),
                     color = TextSecondary,
                 )
             },
             confirmButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("OK", color = Indigo)
+                    Text(stringResource(R.string.action_ok), color = Indigo)
                 }
             },
         )
@@ -88,10 +96,14 @@ fun UnsafeLinkScreen(navController: NavController) {
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                "Unsafe Link",
+                stringResource(R.string.unsafe_link_unsafe_link),
                 color = White,
                 fontWeight = FontWeight.Bold,
                 fontSize = TextSize.Headline,
@@ -118,10 +130,15 @@ fun UnsafeLinkScreen(navController: NavController) {
             }
 
             Spacer(Modifier.height(16.dp))
-            Text("Dangerous link detected", color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Title)
+            Text(
+                stringResource(R.string.unsafe_link_dangerous_link_detected),
+                color = White,
+                fontWeight = FontWeight.Bold,
+                fontSize = TextSize.Title,
+            )
             Spacer(Modifier.height(12.dp))
             Text(
-                "This link has been flagged as part of a known smishing campaign. Visiting it may expose you to credential theft or malware.",
+                stringResource(R.string.unsafe_link_this_link_has_been_flagged),
                 color = TextSecondary,
                 fontSize = TextSize.Subhead,
                 lineHeight = 20.sp,
@@ -139,7 +156,7 @@ fun UnsafeLinkScreen(navController: NavController) {
             ) {
                 Icon(Icons.Default.Link, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
                 Text(
-                    "bdo-secure-ph.net/transactions/confirm",
+                    stringResource(R.string.unsafe_link_bdo_secure_ph_net_transactions),
                     color = Danger,
                     fontSize = TextSize.Footnote,
                     textDecoration = TextDecoration.LineThrough,
@@ -149,10 +166,10 @@ fun UnsafeLinkScreen(navController: NavController) {
             Spacer(Modifier.height(24.dp))
 
             listOf(
-                "Not an official verified domain",
-                "Registered recently — under 30 days",
-                "Reported by multiple BantAI users",
-                "Associated with active smishing campaigns",
+                stringResource(R.string.unsafe_link_reason_unverified),
+                stringResource(R.string.unsafe_link_reason_new),
+                stringResource(R.string.unsafe_link_reason_reported),
+                stringResource(R.string.unsafe_link_reason_campaign),
             ).forEach { item ->
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -179,16 +196,21 @@ fun UnsafeLinkScreen(navController: NavController) {
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Indigo),
             ) {
-                Text("Go back to safety", color = OnAccent, fontSize = TextSize.Body, fontWeight = FontWeight.Medium)
+                Text(
+                    stringResource(R.string.unsafe_link_go_back_to_safety),
+                    color = OnIndigo,
+                    fontSize = TextSize.Body,
+                    fontWeight = FontWeight.Medium,
+                )
             }
             TextButton(onClick = { showDialog = true }) {
                 Text(
-                    "I understand the risk, proceed anyway",
-                    color = TextTertiary,
+                    stringResource(R.string.unsafe_link_i_understand_the_risk_proceed),
+                    color = TextSecondary,
                     fontSize = TextSize.Caption,
                     textDecoration = TextDecoration.Underline,
                 )

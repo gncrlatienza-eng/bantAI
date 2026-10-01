@@ -1,22 +1,16 @@
 package com.bantai.data
 
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
-import android.provider.Telephony
 import android.util.Log
-import com.bantai.BuildConfig
-import com.bantai.data.local.BackendMessageIdStore
-import com.bantai.data.local.CampaignMatchStore
-import com.bantai.data.local.ClassificationStore
+import com.bantai.container
 import com.bantai.data.local.UserData
-import com.bantai.data.local.UserPreferences
+import com.bantai.data.model.Classification
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.remote.ApiConfig
 import com.bantai.data.remote.ApiException
-import com.bantai.data.remote.BlockedNumbersApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.util.BlockHelper
+import com.bantai.util.DefaultSmsApp
 import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsPrivacyMasker
 import com.bantai.util.SmsSourceId
@@ -34,7 +28,13 @@ private const val MAX_MASKED_BODY_LENGTH = 1600
 
 // 401 means the session expired and 408/429 are transient; none of them say
 // anything is wrong with the individual message, so the scan stops instead.
-private val RETRYABLE_CLIENT_STATUSES = setOf(401, 408, 429)
+private const val HTTP_UNAUTHORIZED = 401
+private const val HTTP_REQUEST_TIMEOUT = 408
+private const val HTTP_TOO_MANY_REQUESTS = 429
+private const val HTTP_CLIENT_ERROR_MIN = 400
+private const val HTTP_CLIENT_ERROR_MAX = 499
+private val HTTP_CLIENT_ERRORS = HTTP_CLIENT_ERROR_MIN..HTTP_CLIENT_ERROR_MAX
+private val RETRYABLE_CLIENT_STATUSES = setOf(HTTP_UNAUTHORIZED, HTTP_REQUEST_TIMEOUT, HTTP_TOO_MANY_REQUESTS)
 
 // Mirrors the backend's own auto-block threshold (sms.service.ts routeFromLabel:
 // Scam >= 0.90 -> 'blocked'). The backend no longer actually returns a 'blocked'
@@ -59,7 +59,7 @@ internal enum class AlertKind {
 }
 
 internal data class ClassificationRoute(
-    val classification: String,
+    val classification: Classification,
     val alertKind: AlertKind,
 )
 
@@ -74,6 +74,7 @@ internal data class ClassificationRoute(
  * SCAM_HIGH_CONFIDENCE_THRESHOLD comment above), so `label`/`score` have to
  * be consulted too.
  */
+@Suppress("CyclomaticComplexMethod") // one branch per backend action/label combination
 internal fun routeServerClassification(result: SmsApi.IngestResult): ClassificationRoute {
     if (result.suppressed) {
         // The sender is already on this user's block list server-side --
@@ -81,19 +82,19 @@ internal fun routeServerClassification(result: SmsApi.IngestResult): Classificat
         // on every subsequent message from a number the user already dealt
         // with. See sms.service.ts: blocked senders short-circuit before any
         // classification work.
-        return ClassificationRoute("blocked", AlertKind.SILENT)
+        return ClassificationRoute(Classification.SCAM, AlertKind.SILENT)
     }
     return when (result.action) {
         // Real auto-block verdict (older servers, or a future backend change)
         // -- the highest-priority channel, matching what an actual auto-block
         // deserves.
-        SmsApi.Action.BLOCKED -> ClassificationRoute("blocked", AlertKind.SMISHING)
+        SmsApi.Action.BLOCKED -> ClassificationRoute(Classification.SCAM, AlertKind.SMISHING)
         SmsApi.Action.ALERT ->
             when {
                 result.label == "Scam" && result.score >= SCAM_HIGH_CONFIDENCE_THRESHOLD ->
-                    ClassificationRoute("blocked", AlertKind.SMISHING)
-                result.label == "Scam" -> ClassificationRoute("unknown", AlertKind.SUSPICIOUS)
-                else -> ClassificationRoute("spam", AlertKind.SPAM)
+                    ClassificationRoute(Classification.SCAM, AlertKind.SMISHING)
+                result.label == "Scam" -> ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS)
+                else -> ClassificationRoute(Classification.SPAM, AlertKind.SPAM)
             }
         // The backend now returns INBOX for everything that isn't smishing (Spam
         // no longer creates an Alert row), so the label/bucket decide the chip.
@@ -106,13 +107,15 @@ internal fun routeServerClassification(result: SmsApi.IngestResult): Classificat
                 // something) -- mirror applyOfflineCaution, never claim "safe".
                 result.classificationSource == "device_fallback" ->
                     if (result.label == "Spam" || result.label == "Scam") {
-                        ClassificationRoute("unknown", AlertKind.SUSPICIOUS)
+                        ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS)
                     } else {
-                        ClassificationRoute("unverified", AlertKind.MESSAGE)
+                        ClassificationRoute(Classification.UNVERIFIED, AlertKind.MESSAGE)
                     }
-                result.label == "Scam" || result.bucket == "unknown" -> ClassificationRoute("unknown", AlertKind.SUSPICIOUS)
-                result.label == "Spam" || result.bucket == "spam" -> ClassificationRoute("spam", AlertKind.SPAM)
-                else -> ClassificationRoute("safe", AlertKind.MESSAGE)
+                result.label == "Scam" || result.bucket == "unknown" ->
+                    ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS)
+                result.label == "Spam" || result.bucket == "spam" ->
+                    ClassificationRoute(Classification.SPAM, AlertKind.SPAM)
+                else -> ClassificationRoute(Classification.SAFE, AlertKind.MESSAGE)
             }
     }
 }
@@ -130,6 +133,8 @@ object SmsIngestPipeline {
         val body: String,
         val notificationId: Int,
         val messageId: Long?,
+        // The thread a tap opens: a group MMS's group, otherwise [sender].
+        val conversationKey: String = sender,
     )
 
     /**
@@ -146,16 +151,16 @@ object SmsIngestPipeline {
         receivedAt: Long,
         sentAt: Long,
     ) {
-        val repository = SmsRepository(context)
-        val isDefaultSmsApp = Telephony.Sms.getDefaultSmsPackage(context) == context.packageName
+        val isDefaultSmsApp = DefaultSmsApp.isDefault(context)
         val messageId = if (isDefaultSmsApp) storeMessage(context, sender, body, receivedAt, sentAt) else null
         val token =
             runCatching {
-                UserPreferences(context).userData.first().authToken
+                context.container.userPreferences.userData
+                    .first()
+                    .authToken
             }.getOrDefault("")
         classifyAndNotify(
             context,
-            repository,
             token,
             sender,
             body,
@@ -165,32 +170,19 @@ object SmsIngestPipeline {
         )
     }
 
+    @Suppress("LongParameterList") // one parameter per SMS field
     fun storeMessage(
         context: Context,
         sender: String,
         body: String,
         receivedAt: Long,
         sentAt: Long,
-    ): Long? {
-        val values =
-            ContentValues().apply {
-                put(Telephony.Sms.ADDRESS, sender)
-                put(Telephony.Sms.BODY, body)
-                put(Telephony.Sms.DATE, receivedAt)
-                put(Telephony.Sms.DATE_SENT, sentAt)
-                put(Telephony.Sms.READ, 0)
-                put(Telephony.Sms.SEEN, 0)
-                put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_NONE)
-                put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_INBOX)
-            }
-        return try {
-            val uri = context.contentResolver.insert(Telephony.Sms.Inbox.CONTENT_URI, values)
-            uri?.let { ContentUris.parseId(it) }
-        } catch (e: Exception) {
-            if (BuildConfig.DEBUG) Log.e(TAG, "Failed to insert message from $sender", e)
-            null
-        }
-    }
+        subId: Int = -1,
+    ): Long? =
+        // Falls back to BantAI's own store when Android drops the write (fake
+        // ".../0" answer with WRITE_SMS blocked) -- incoming texts used to be
+        // lost outright then, with a verdict attached to "message 0".
+        context.container.smsWriter.insertIncomingMessage(sender, body, receivedAt, sentAt, subId)
 
     /**
      * Requests the deployed model using locally masked text. Offline keyword
@@ -198,23 +190,24 @@ object SmsIngestPipeline {
      * fraud results open an alert so the user can choose Block, Report, or
      * Ignore explicitly.
      */
+    @Suppress("LongParameterList") // one value per piece of the incoming SMS
     suspend fun classifyAndNotify(
         context: Context,
-        repository: SmsRepository,
         token: String,
         sender: String,
         body: String,
         receivedAt: Long,
         messageId: Long?,
         timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
+        conversationKey: String = sender,
     ) {
         // Notification ID: XOR of sender hash and truncated timestamp avoids
         // the collision caused by System.currentTimeMillis().toInt() overflow.
         val notificationId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
-        val notification = NotificationTarget(sender, body, notificationId, messageId)
+        val notification = NotificationTarget(sender, body, notificationId, messageId, conversationKey)
 
         if (token.isNotEmpty()) {
-            val fallback = repository.classifyMessagePublic(body)
+            val fallback = MessageClassifier.classify(body)
             val (label, score, bucket) = classificationMetadata(fallback)
             val sourceId =
                 messageId?.let { SmsSourceId.forRow(context, it) }
@@ -248,24 +241,24 @@ object SmsIngestPipeline {
                 }
             if (outcome == null) {
                 Log.w(TAG, "Classification timed out; showing local caution only")
-                applyOfflineCaution(context, repository, notification)
+                applyOfflineCaution(context, notification)
             } else {
                 outcome
                     .onSuccess { result ->
                         applyServerClassification(context, token, notification, result)
                     }.onFailure {
                         Log.w(TAG, "Model classification unavailable; showing local caution only", it)
-                        applyOfflineCaution(context, repository, notification)
+                        applyOfflineCaution(context, notification)
                     }
             }
         } else {
-            applyOfflineCaution(context, repository, notification)
+            applyOfflineCaution(context, notification)
         }
     }
 
     sealed interface ScanOutcome {
         data class Classified(
-            val classification: String,
+            val classification: Classification,
         ) : ScanOutcome
 
         /** The backend rejected this one message; the scan should move on. */
@@ -283,6 +276,7 @@ object SmsIngestPipeline {
      * as Unavailable: it must not overwrite the on-device result with something
      * that only looks like a model verdict.
      */
+    @Suppress("ReturnCount") // each early return is a distinct scan outcome
     suspend fun classifyExisting(
         context: Context,
         token: String,
@@ -292,7 +286,7 @@ object SmsIngestPipeline {
         val result =
             outcome.getOrElse { error ->
                 val status = (error as? ApiException)?.status
-                return if (status != null && status in 400..499 && status !in RETRYABLE_CLIENT_STATUSES) {
+                return if (status != null && status in HTTP_CLIENT_ERRORS && status !in RETRYABLE_CLIENT_STATUSES) {
                     Log.w(TAG, "Backend rejected message ${message.id} during inbox scan (HTTP $status)")
                     ScanOutcome.Skipped
                 } else {
@@ -302,7 +296,19 @@ object SmsIngestPipeline {
         if (!result.suppressed && result.classificationSource != "model") return ScanOutcome.Unavailable
         persistBackendMessageId(context, message.id, result.messageId)
         persistCampaignMatch(context, message.id, result)
-        return ScanOutcome.Classified(routeServerClassification(result).classification)
+        val route = routeServerClassification(result)
+        // Same rule as a live SMS (handledAsScam), minus the notification: a
+        // confirmed scam already sitting in the inbox blocks its sender too.
+        // Scanned scams used to be listed as "blocked" in Alerts while their
+        // sender was never blocked anywhere.
+        if (route.classification == Classification.SCAM &&
+            !result.suppressed &&
+            !TrustedSenders.isTrusted(message.sender, result.senderStatus)
+        ) {
+            if (userUnblocked(context, message.sender)) return ScanOutcome.Classified(Classification.UNKNOWN)
+            autoBlockSender(context, token, message.sender)
+        }
+        return ScanOutcome.Classified(route.classification)
     }
 
     /**
@@ -312,13 +318,20 @@ object SmsIngestPipeline {
      * label. Null when the local row is gone or the sender is already blocked
      * server-side (the backend stores nothing for those).
      */
+    @Suppress("ReturnCount") // each early return is a distinct reason there is no backend id
     suspend fun backendMessageIdFor(
         context: Context,
         token: String,
         localMessageId: Long,
     ): String? {
-        BackendMessageIdStore(context).get(localMessageId)?.takeIf { it.isNotEmpty() }?.let { return it }
-        val message = withContext(Dispatchers.IO) { SmsRepository(context).getMessageById(localMessageId) } ?: return null
+        context.container.backendMessageIdStore
+            .get(localMessageId)
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { return it }
+        val message =
+            withContext(Dispatchers.IO) {
+                context.container.smsRepository.getMessageById(localMessageId)
+            } ?: return null
         val result = SmsApi.ingest(token, existingMessageRequest(context, message)).getOrNull() ?: return null
         if (result.suppressed) return null
         persistBackendMessageId(context, localMessageId, result.messageId)
@@ -329,7 +342,7 @@ object SmsIngestPipeline {
         context: Context,
         message: SmsMessage,
     ): SmsApi.IngestRequest {
-        val (label, score, bucket) = classificationMetadata(SmsRepository(context).classifyMessagePublic(message.body))
+        val (label, score, bucket) = classificationMetadata(MessageClassifier.classify(message.body))
         return SmsApi.IngestRequest(
             // Trimmed to IngestSmsDto's limits so a long multi-part message
             // isn't rejected outright.
@@ -348,11 +361,11 @@ object SmsIngestPipeline {
     private suspend fun persistClassification(
         context: Context,
         messageId: Long?,
-        classification: String,
+        classification: Classification,
     ) {
         if (messageId == null) return
         try {
-            ClassificationStore(context).setClassification(messageId, classification)
+            context.container.classificationStore.setClassification(messageId, classification)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist classification for $messageId", e)
         }
@@ -368,7 +381,7 @@ object SmsIngestPipeline {
     ) {
         if (messageId == null || backendMessageId.isNullOrEmpty()) return
         try {
-            BackendMessageIdStore(context).set(messageId, backendMessageId)
+            context.container.backendMessageIdStore.set(messageId, backendMessageId)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist backend message id for $messageId", e)
         }
@@ -388,37 +401,49 @@ object SmsIngestPipeline {
         result: SmsApi.IngestResult,
         route: ClassificationRoute,
     ): Boolean {
-        if (route.classification != "blocked" || result.suppressed) return false
-        if (TrustedSenders.isTrusted(target.sender, result.senderStatus)) {
-            persistClassification(context, target.messageId, "unknown")
+        if (route.classification != Classification.SCAM || result.suppressed) return false
+        if (TrustedSenders.isTrusted(target.sender, result.senderStatus) || userUnblocked(context, target.sender)) {
+            persistClassification(context, target.messageId, Classification.UNKNOWN)
             notifyHighRiskOrFallback(context, target, { it.smishingAlerts }) {
                 NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)
             }
             return true
         }
-        persistClassification(context, target.messageId, "blocked")
+        persistClassification(context, target.messageId, Classification.SCAM)
         autoBlockSender(context, token, target.sender)
-        if (alertEnabled(context) { it.smishingAlerts }) {
+        // Settings → Notifications → "Auto-block notice". It used to read the
+        // smishing toggle, so the auto-block switch did nothing.
+        if (alertEnabled(context) { it.autoBlockNotice }) {
             NotificationHelper.sendScamBlockedNotice(context, target.sender, target.notificationId)
         }
         return true
     }
 
-    // Blocks at the device level when BantAI is the default SMS app (Android
-    // refuses anyone else), and mirrors the block to the backend so later texts
-    // from this sender are suppressed server-side either way.
+    // Blocks on the device when BantAI is the default SMS app (Android refuses
+    // anyone else), on the backend so later texts from this sender are
+    // suppressed server-side either way, and in BlockedSendersStore so the
+    // block shows up in Blocked Numbers. See BlockHelper.blockSender.
     private suspend fun autoBlockSender(
         context: Context,
         token: String,
         sender: String,
     ) {
-        if (Telephony.Sms.getDefaultSmsPackage(context) == context.packageName) {
-            withContext(Dispatchers.IO) { BlockHelper.blockNumberSystem(context, sender) }
-        }
-        if (token.isNotEmpty()) {
-            BlockedNumbersApi.block(token, sender).onFailure { Log.w(TAG, "Backend auto-block failed", it) }
-        }
+        val outcome = BlockHelper.blockSender(context, token, sender)
+        if (!outcome.blocked) Log.w(TAG, "Auto-block didn't land on the device or the server")
     }
+
+    // A sender the user unblocked stays unblocked: a later scam verdict from it
+    // is surfaced for review instead of silently re-blocking it.
+    private suspend fun userUnblocked(
+        context: Context,
+        sender: String,
+    ): Boolean =
+        runCatching {
+            sender in
+                context.container.blockedSendersStore
+                    .current()
+                    .userUnblocked
+        }.getOrDefault(false)
 
     // Feeds the on-device Campaigns grouping (see LocalCampaigns.kt). Skipped for
     // a backend that doesn't send `campaign` at all, so an old server's silence
@@ -430,21 +455,17 @@ object SmsIngestPipeline {
     ) {
         if (messageId == null || result.suppressed || !result.campaignKnown) return
         try {
-            CampaignMatchStore(context).set(messageId, result.campaign)
+            context.container.campaignMatchStore.set(messageId, result.campaign)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist campaign match for $messageId", e)
         }
     }
 
-    private fun classificationMetadata(classification: String): Triple<String, Double, String> =
+    // The on-device heuristic only ever returns UNKNOWN or UNVERIFIED (see
+    // SmsRepository.classifyMessage).
+    private fun classificationMetadata(classification: Classification): Triple<String, Double, String> =
         when (classification) {
-            // classifyMessagePublic (the only caller of this function's input)
-            // never returns "suspicious" -- see SmsRepository.classifyMessage's
-            // doc comment, it only returns "unknown"/"unverified". Kept as an
-            // explicit, defensive case rather than silently falling through to
-            // "Ham" if that contract ever changes.
-            "suspicious" -> Triple("Scam", 0.0, "unknown")
-            "unknown" -> Triple("Spam", 0.0, "unknown")
+            Classification.UNKNOWN -> Triple("Spam", 0.0, "unknown")
             else -> Triple("Ham", 0.0, "unknown")
         }
 
@@ -462,7 +483,13 @@ object SmsIngestPipeline {
     private suspend fun alertEnabled(
         context: Context,
         selector: (UserData) -> Boolean,
-    ): Boolean = runCatching { selector(UserPreferences(context).userData.first()) }.getOrDefault(true)
+    ): Boolean =
+        runCatching {
+            selector(
+                context.container.userPreferences.userData
+                    .first(),
+            )
+        }.getOrDefault(true)
 
     // When the corresponding toggle is off, the SMS still needs to be surfaced
     // somehow -- silently dropping it entirely would hide real messages, not
@@ -476,7 +503,13 @@ object SmsIngestPipeline {
         if (alertEnabled(context, toggle)) {
             sendHighRisk()
         } else {
-            NotificationHelper.sendMessageNotification(context, target.sender, target.body, target.notificationId)
+            NotificationHelper.sendMessageNotification(
+                context,
+                target.sender,
+                target.body,
+                target.notificationId,
+                target.conversationKey,
+            )
         }
     }
 
@@ -520,13 +553,18 @@ object SmsIngestPipeline {
                     NotificationHelper.sendSpamAlert(context, target.sender, target.notificationId)
                 }
             AlertKind.MESSAGE ->
-                NotificationHelper.sendMessageNotification(context, target.sender, target.body, target.notificationId)
+                NotificationHelper.sendMessageNotification(
+                    context,
+                    target.sender,
+                    target.body,
+                    target.notificationId,
+                    target.conversationKey,
+                )
         }
     }
 
     private suspend fun applyOfflineCaution(
         context: Context,
-        repository: SmsRepository,
         target: NotificationTarget,
     ) {
         // The offline heuristic is a keyword/pattern score, not a confident AI
@@ -536,7 +574,7 @@ object SmsIngestPipeline {
         // backend verdict in applyServerClassification above). Never "blocked"
         // (that requires a real backend result) or "spam" (it has no way to
         // detect promotional content at all).
-        val classification = repository.classifyMessagePublic(target.body)
+        val classification = MessageClassifier.classify(target.body)
         // Persist the actual heuristic result ("unknown" or "unverified"), not a
         // hardcoded value -- MessagesViewModel/MessageDetailScreen/MessagesScreen
         // all treat the two differently (review bucket + warning banner vs. a
@@ -544,11 +582,7 @@ object SmsIngestPipeline {
         // offline message as reviewable.
         persistClassification(context, target.messageId, classification)
         when (classification) {
-            // classifyMessagePublic never actually returns "suspicious" (see
-            // SmsRepository.classifyMessage) -- kept as an explicit, defensive
-            // case rather than silently falling through to the quiet-notification
-            // branch if that contract ever changes.
-            "suspicious", "unknown" -> {
+            Classification.UNKNOWN -> {
                 notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
                     NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
                 }
@@ -560,6 +594,7 @@ object SmsIngestPipeline {
                     target.sender,
                     target.body,
                     target.notificationId,
+                    target.conversationKey,
                 )
         }
     }

@@ -16,11 +16,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,6 +44,9 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -65,12 +72,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.BuildConfig
+import com.bantai.R
 import com.bantai.data.remote.ApiConfig
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.AvatarTeal
@@ -80,13 +91,15 @@ import com.bantai.ui.theme.GlassStroke
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.SurfaceElevated
+import com.bantai.ui.theme.TabTitleTopSpacing
+import com.bantai.ui.theme.TextScale
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.ThemeMode
 import com.bantai.ui.theme.White
-import com.bantai.ui.theme.isDark
 import com.bantai.viewmodel.SettingsViewModel
 
 @Composable
@@ -98,6 +111,8 @@ fun SettingsScreen(
     val userData by viewModel.userData.collectAsState()
     val scanPeriod by viewModel.scanPeriod.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val textScale by viewModel.textScale.collectAsState()
+    val showScamWavesTab by viewModel.showScamWavesTab.collectAsState()
     val context = LocalContext.current
 
     val avatarColorParsed =
@@ -123,14 +138,17 @@ fun SettingsScreen(
     var showOnnxBenchmarkDialog by remember { mutableStateOf(false) }
     var showBackendCheckDialog by remember { mutableStateOf(false) }
     var developerOptionsExpanded by rememberSaveable { mutableStateOf(false) }
+    // Theme, accent and text size took most of the screen as three always-open
+    // segmented controls; one row with the current choices opens them.
+    var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
 
     if (showSignOutDialog) {
         AlertDialog(
             onDismissRequest = { showSignOutDialog = false },
-            title = { Text("Sign out?", color = White, fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.settings_sign_out), color = White, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "You'll need to verify your email again to sign back in.",
+                    stringResource(R.string.settings_you_ll_need_to_verify),
                     color = TextSecondary,
                     fontSize = TextSize.Subhead,
                 )
@@ -140,7 +158,7 @@ fun SettingsScreen(
                     onClick = {
                         showSignOutDialog = false
                         viewModel.signOut {
-                            navController.navigate("splash") {
+                            navController.navigate(Screen.Welcome.route) {
                                 popUpTo(navController.graph.id) { inclusive = true }
                             }
                         }
@@ -148,12 +166,12 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Danger),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Sign out", color = OnAccent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_sign_out_2), color = OnAccent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSignOutDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
             },
             containerColor = SurfaceElevated,
@@ -164,20 +182,23 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showScanPeriodDialog = false },
             containerColor = SurfaceElevated,
-            title = { Text("Scan period", color = White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    stringResource(R.string.settings_scan_period),
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Choose how far back BantAI scans your messages for threats.",
+                        stringResource(R.string.settings_choose_how_far_back_bantai),
                         color = TextSecondary,
                         fontSize = TextSize.Footnote,
                     )
                     Spacer(Modifier.height(8.dp))
-                    listOf(
-                        "daily" to "Today only",
-                        "weekly" to "Last 7 days",
-                        "monthly" to "Last 30 days",
-                    ).forEach { (value, label) ->
+                    listOf("daily", "weekly", "monthly").forEach { value ->
+                        val label = stringResource(scanPeriodLabel(value))
                         Row(
                             modifier =
                                 Modifier
@@ -221,19 +242,24 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showSimulateSmsDialog = false },
             containerColor = SurfaceElevated,
-            title = { Text("Simulate incoming SMS", color = White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    stringResource(R.string.settings_simulate_incoming_sms),
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "Debug-only: feeds a message straight into the same detection " +
-                            "pipeline a real SMS would, for testing/demos.",
+                        stringResource(R.string.settings_debug_only_feeds_a_message),
                         color = TextSecondary,
                         fontSize = TextSize.Caption,
                     )
                     OutlinedTextField(
                         value = simSender,
                         onValueChange = { simSender = it },
-                        label = { Text("Sender") },
+                        label = { Text(stringResource(R.string.settings_sender)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors =
@@ -250,7 +276,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = simBody,
                         onValueChange = { simBody = it },
-                        label = { Text("Message body") },
+                        label = { Text(stringResource(R.string.settings_message_body)) },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
                         colors =
@@ -275,12 +301,12 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Simulate", color = OnAccent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_simulate), color = OnIndigo, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSimulateSmsDialog = false }) {
-                    Text("Close", color = TextSecondary)
+                    Text(stringResource(R.string.action_close), color = TextSecondary)
                 }
             },
         )
@@ -294,14 +320,17 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showOnnxBenchmarkDialog = false },
             containerColor = SurfaceElevated,
-            title = { Text("ONNX latency benchmark", color = White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    stringResource(R.string.settings_onnx_latency_benchmark),
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "Debug-only, on-device-AI feasibility spike: times the exported model's " +
-                            "forward pass on this phone using dummy input, not real tokenization. " +
-                            "Says nothing about accuracy — push model_int8.onnx to the app's " +
-                            "external files dir first (adb push).",
+                        stringResource(R.string.settings_debug_only_on_device_ai),
                         color = TextSecondary,
                         fontSize = TextSize.Caption,
                     )
@@ -316,12 +345,12 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Run", color = OnAccent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_run), color = OnIndigo, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showOnnxBenchmarkDialog = false }) {
-                    Text("Close", color = TextSecondary)
+                    Text(stringResource(R.string.action_close), color = TextSecondary)
                 }
             },
         )
@@ -338,14 +367,18 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showBackendCheckDialog = false },
             containerColor = SurfaceElevated,
-            title = { Text("Backend connection", color = White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    stringResource(R.string.settings_backend_connection),
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(ApiConfig.BASE_URL, color = White, fontSize = TextSize.Footnote)
                     Text(
-                        "Debug-only. Set at build time to this laptop's LAN IP — the phone must be " +
-                            "on the same wifi, with the backend running. If unreachable after " +
-                            "switching networks, rebuild and reinstall the app.",
+                        stringResource(R.string.settings_debug_only_set_at_build),
                         color = TextSecondary,
                         fontSize = TextSize.Caption,
                     )
@@ -360,12 +393,12 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Check again", color = OnAccent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_check_again), color = OnIndigo, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBackendCheckDialog = false }) {
-                    Text("Close", color = TextSecondary)
+                    Text(stringResource(R.string.action_close), color = TextSecondary)
                 }
             },
         )
@@ -378,11 +411,11 @@ fun SettingsScreen(
         // shouldn't be the odd one out just because the profile hero sits
         // right below it. Pinned above the scrolling list along with the
         // profile hero, rather than scrolling away with everything else.
-        // The 16dp gap matches the other tabs, so the title doesn't jump
-        // when switching to this tab.
-        Spacer(Modifier.height(16.dp))
+        // TabTitleTopSpacing matches the other tabs, so the title doesn't
+        // jump when switching to this tab.
+        Spacer(Modifier.height(TabTitleTopSpacing))
         Text(
-            "Settings",
+            stringResource(R.string.settings_settings),
             color = White,
             fontWeight = FontWeight.Bold,
             fontSize = TextSize.LargeTitle,
@@ -396,6 +429,9 @@ fun SettingsScreen(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // Gap above: the photo sat right under the "Settings" title
+                    // and the page looked cramped.
+                    .padding(top = 28.dp)
                     .clickable { navController.navigate(Screen.SettingsEditProfile.route) }
                     .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -412,6 +448,20 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(10.dp))
             Text(fullName, color = White, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Headline)
+            // The whole hero opens Edit Profile, but nothing said so.
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.edit_profile_edit_profile),
+                color = Indigo,
+                fontWeight = FontWeight.Medium,
+                fontSize = TextSize.Footnote,
+                modifier =
+                    Modifier
+                        .clip(CircleShape)
+                        .background(SurfaceElevated)
+                        .clickable { navController.navigate(Screen.SettingsEditProfile.route) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+            )
         }
 
         LazyColumn(
@@ -428,35 +478,60 @@ fun SettingsScreen(
             // iOS-style inset grouped list: one card per topic, each under a
             // small caps heading, so related settings read as a set.
             item {
-                SettingsGroup("Appearance") {
-                    DarkModeRow(
-                        checked = themeMode.isDark(),
-                        onCheckedChange = { dark ->
-                            viewModel.setThemeMode(if (dark) ThemeMode.DARK else ThemeMode.LIGHT)
-                        },
-                    )
-                }
-            }
-
-            item {
                 SettingsGroup("Notifications") {
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
-                        title = "Notifications",
+                        title = stringResource(R.string.notifications_notifications),
                         onClick = { navController.navigate(Screen.SettingsNotifications.route) },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Schedule,
-                        title = "Scan period",
-                        value = scanPeriodLabel(scanPeriod),
+                        title = stringResource(R.string.settings_scan_period),
+                        value = stringResource(scanPeriodLabel(scanPeriod)),
                         onClick = { showScanPeriodDialog = true },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Block,
-                        title = "Blocked numbers",
+                        title = stringResource(R.string.settings_blocked_numbers),
                         onClick = { navController.navigate(Screen.BlockedNumbers.route) },
+                    )
+                }
+            }
+
+            item {
+                SettingsGroup("Appearance") {
+                    SettingsRow(
+                        icon = Icons.Outlined.Palette,
+                        title = stringResource(R.string.settings_appearance_row),
+                        // Just the theme: all three ("Automatic · White · Default")
+                        // was too long for the row; opening it shows the rest.
+                        value = stringResource(themeLabel(themeMode)),
+                        onClick = { appearanceExpanded = !appearanceExpanded },
+                        trailingIcon = if (appearanceExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    )
+                    AnimatedVisibility(visible = appearanceExpanded) {
+                        Column {
+                            RowDivider()
+                            AppearanceRow(
+                                selected = themeMode,
+                                onSelect = viewModel::setThemeMode,
+                            )
+                            RowDivider()
+                            TextSizeRow(
+                                selected = textScale,
+                                onSelect = viewModel::setTextScale,
+                            )
+                        }
+                    }
+                    RowDivider()
+                    SettingsSwitchRow(
+                        icon = Icons.Outlined.Layers,
+                        title = stringResource(R.string.settings_show_scam_waves),
+                        subtitle = stringResource(R.string.settings_show_scam_waves_detail),
+                        checked = showScamWavesTab,
+                        onCheckedChange = viewModel::setShowScamWavesTab,
                     )
                 }
             }
@@ -465,13 +540,13 @@ fun SettingsScreen(
                 SettingsGroup("Tips") {
                     SettingsRow(
                         icon = Icons.AutoMirrored.Filled.Article,
-                        title = "Scam awareness tips",
+                        title = stringResource(R.string.settings_scam_awareness_tips),
                         onClick = { navController.navigate(Screen.SettingsScamAwareness.route) },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Psychology,
-                        title = "How BantAI works",
+                        title = stringResource(R.string.settings_how_bantai_works),
                         onClick = { navController.navigate(Screen.SettingsHowItWorks.route) },
                     )
                 }
@@ -481,17 +556,17 @@ fun SettingsScreen(
                 SettingsGroup("Privacy & Support") {
                     SettingsRow(
                         icon = Icons.Filled.Lock,
-                        title = "Privacy & data",
+                        title = stringResource(R.string.privacy_data_privacy_data),
                         onClick = { navController.navigate(Screen.SettingsPrivacy.route) },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.AutoMirrored.Filled.Help,
-                        title = "Contact support",
+                        title = stringResource(R.string.settings_contact_support),
                         onClick = {
                             val intent =
                                 Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bantai.ph")).apply {
-                                    putExtra(Intent.EXTRA_SUBJECT, "BantAI support request")
+                                    putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_support_subject))
                                 }
                             runCatching { context.startActivity(intent) }
                         },
@@ -507,7 +582,7 @@ fun SettingsScreen(
                     SettingsGroup("Developer") {
                         SettingsRow(
                             icon = Icons.Filled.Code,
-                            title = "Developer options",
+                            title = stringResource(R.string.settings_developer_options),
                             onClick = { developerOptionsExpanded = !developerOptionsExpanded },
                             trailingIcon =
                                 if (developerOptionsExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
@@ -517,21 +592,21 @@ fun SettingsScreen(
                                 RowDivider()
                                 SettingsRow(
                                     icon = Icons.Filled.Wifi,
-                                    title = "Backend connection",
+                                    title = stringResource(R.string.settings_backend_connection),
                                     onClick = { showBackendCheckDialog = true },
                                     indented = true,
                                 )
                                 RowDivider()
                                 SettingsRow(
                                     icon = Icons.Filled.BugReport,
-                                    title = "Simulate incoming SMS",
+                                    title = stringResource(R.string.settings_simulate_incoming_sms),
                                     onClick = { showSimulateSmsDialog = true },
                                     indented = true,
                                 )
                                 RowDivider()
                                 SettingsRow(
                                     icon = Icons.Filled.Speed,
-                                    title = "ONNX latency benchmark",
+                                    title = stringResource(R.string.settings_onnx_latency_benchmark),
                                     onClick = { showOnnxBenchmarkDialog = true },
                                     indented = true,
                                 )
@@ -554,14 +629,19 @@ fun SettingsScreen(
                             .padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Sign Out", color = Danger, fontWeight = FontWeight.Medium, fontSize = TextSize.Body)
+                    Text(
+                        stringResource(R.string.settings_sign_out_3),
+                        color = Danger,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = TextSize.Body,
+                    )
                 }
             }
 
             // Version footer
             item {
                 Text(
-                    "BantAI v${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE}",
+                    stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, Build.VERSION.RELEASE),
                     color = TextSecondary,
                     fontSize = TextSize.Caption2,
                     textAlign = TextAlign.Center,
@@ -603,7 +683,17 @@ private fun SettingsRow(
             modifier = Modifier.weight(1f),
         )
         if (value != null) {
-            Text(value, color = TextSecondary, fontSize = TextSize.Footnote)
+            // Capped and shortened with "…": a long value ("Dark · Purple ·
+            // Default") used to squeeze the title into a one-word-per-line column.
+            Text(
+                value,
+                color = TextSecondary,
+                fontSize = TextSize.Footnote,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.padding(start = 8.dp).widthIn(max = 170.dp),
+            )
             Spacer(Modifier.width(8.dp))
         }
         // A chevron glyph fills its box; expand/collapse arrows need a larger box to match its weight.
@@ -613,6 +703,39 @@ private fun SettingsRow(
             contentDescription = null,
             tint = TextTertiary,
             modifier = Modifier.size(if (isChevron) 14.dp else 20.dp),
+        )
+    }
+}
+
+// A row that is a switch: tapping anywhere flips it, and TalkBack reads the
+// title with its on/off state as one item.
+@Composable
+private fun SettingsSwitchRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = TextSize.Subhead)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(checkedThumbColor = OnIndigo, checkedTrackColor = Indigo),
         )
     }
 }
@@ -648,54 +771,114 @@ private fun RowDivider() {
     HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 46.dp))
 }
 
-// Same row shape as SettingsRow, with a switch in place of the chevron --
-// matches the toggles on the Notifications page.
+// Automatic / Light / Dark. This was an on/off Dark switch, so once flipped
+// there was no way back to following the phone.
 @Composable
-private fun DarkModeRow(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+private fun AppearanceRow(
+    selected: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
-                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            Icons.Outlined.DarkMode,
-            contentDescription = null,
-            tint = TextTertiary,
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            "Dark mode",
-            color = White,
-            fontWeight = FontWeight.Medium,
-            fontSize = TextSize.Subhead,
-            modifier = Modifier.weight(1f),
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors =
-                SwitchDefaults.colors(
-                    checkedThumbColor = OnAccent,
-                    checkedTrackColor = Indigo,
-                    checkedBorderColor = Indigo,
-                    uncheckedThumbColor = OnAccent,
-                    uncheckedTrackColor = Hairline,
-                    uncheckedBorderColor = Hairline,
-                ),
-        )
+    SegmentedSettingRow(
+        icon = Icons.Outlined.DarkMode,
+        title = stringResource(R.string.settings_theme),
+        options =
+            listOf(
+                ThemeMode.SYSTEM to R.string.settings_theme_automatic,
+                ThemeMode.LIGHT to R.string.settings_theme_light,
+                ThemeMode.DARK to R.string.settings_theme_dark,
+            ),
+        selected = selected,
+        onSelect = onSelect,
+    )
+}
+
+// Makes all app text bigger for anyone who finds it hard to read (older users
+// especially, the people scam texts target most). The sample line below the
+// choices shows the size live, since the whole screen resizes as you tap.
+@Composable
+private fun TextSizeRow(
+    selected: TextScale,
+    onSelect: (TextScale) -> Unit,
+) {
+    SegmentedSettingRow(
+        icon = Icons.Outlined.FormatSize,
+        title = stringResource(R.string.settings_text_size),
+        options = TextScale.entries.map { it to it.label },
+        selected = selected,
+        onSelect = onSelect,
+        footer = {
+            Text(
+                stringResource(R.string.settings_text_size_sample),
+                color = TextSecondary,
+                fontSize = TextSize.Body,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        },
+    )
+}
+
+// iOS-style segmented control under an icon + title, one row in a settings card.
+@Composable
+@Suppress("LongParameterList")
+private fun <T> SegmentedSettingRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    options: List<Pair<T, Int>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    footer: @Composable () -> Unit = {},
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = TextSize.Subhead)
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Hairline.copy(alpha = 0.35f))
+                    .padding(3.dp),
+        ) {
+            options.forEach { (value, label) ->
+                val isSelected = value == selected
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .heightIn(min = 40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) SurfaceElevated else Color.Transparent)
+                            .selectable(selected = isSelected, role = Role.RadioButton) { onSelect(value) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(label),
+                        color = White,
+                        fontSize = TextSize.Subhead,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        footer()
     }
 }
 
-private fun scanPeriodLabel(period: String): String =
+private fun themeLabel(mode: ThemeMode): Int =
+    when (mode) {
+        ThemeMode.SYSTEM -> R.string.settings_theme_automatic
+        ThemeMode.LIGHT -> R.string.settings_theme_light
+        ThemeMode.DARK -> R.string.settings_theme_dark
+    }
+
+private fun scanPeriodLabel(period: String): Int =
     when (period) {
-        "weekly" -> "Last 7 days"
-        "monthly" -> "Last 30 days"
-        else -> "Today only"
+        "weekly" -> R.string.settings_scan_week
+        "monthly" -> R.string.settings_scan_month
+        else -> R.string.settings_scan_today
     }

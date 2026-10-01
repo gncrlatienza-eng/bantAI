@@ -2,7 +2,9 @@ package com.bantai.util
 
 private const val MIN_RECIPIENT_DIGITS = 7
 private const val MAX_RECIPIENT_DIGITS = 15
-private val SERVICE_CODE_DIGITS = 3..6
+private const val MIN_SERVICE_CODE_DIGITS = 3
+private const val MAX_SERVICE_CODE_DIGITS = 6
+private val SERVICE_CODE_DIGITS = MIN_SERVICE_CODE_DIGITS..MAX_SERVICE_CODE_DIGITS
 
 /** Whether, and how, a thread's sender can be texted back. */
 enum class SenderReplyKind {

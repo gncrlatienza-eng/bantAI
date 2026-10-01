@@ -109,7 +109,12 @@ def _extract_domains(text: str) -> List[str]:
 
     out = []
     for url in _URL_RE.findall(text or ""):
-        host = urlparse(url if "://" in url else f"//{url}").hostname or ""
+        try:
+            host = urlparse(url if "://" in url else f"//{url}").hostname or ""
+        except ValueError:
+            # Same guard as service/lexical.py:extract_domains, which must agree
+            # with this function: a malformed link is skipped, not fatal.
+            continue
         host = host.lower()
         if host.startswith("www."):
             host = host[4:]

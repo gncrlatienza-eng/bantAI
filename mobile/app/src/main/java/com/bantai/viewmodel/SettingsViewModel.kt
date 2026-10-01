@@ -3,31 +3,26 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.container
+import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
-import com.bantai.data.SmsRepository
-import com.bantai.data.local.AlertStateStore
-import com.bantai.data.local.BackendMessageIdStore
-import com.bantai.data.local.CampaignMatchStore
-import com.bantai.data.local.ClassificationStore
-import com.bantai.data.local.DeletedMessagesStore
-import com.bantai.data.local.DraftsStore
 import com.bantai.data.local.UserData
-import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.ApiConfig
 import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.AuthApi
 import com.bantai.data.remote.HealthApi
-import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.toUserMessage
+import com.bantai.ui.theme.TextScale
 import com.bantai.ui.theme.ThemeMode
 import com.bantai.util.OnnxBenchmark
+import com.bantai.util.SenderReplyKind
 import com.bantai.util.isValidName
+import com.bantai.util.replyKindFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -37,8 +32,7 @@ import kotlinx.coroutines.withContext
 class SettingsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
-    private val smsRepository = SmsRepository(application)
+    private val userPreferences = application.container.userPreferences
 
     private val _userData = MutableStateFlow(UserData())
     val userData: StateFlow<UserData> = _userData.asStateFlow()
@@ -48,6 +42,12 @@ class SettingsViewModel(
 
     private val _editLastName = MutableStateFlow("")
     val editLastName: StateFlow<String> = _editLastName.asStateFlow()
+
+    // Edit Profile → My number (optional, stays on this phone; see OwnNumber).
+    private val _editMyNumber = MutableStateFlow("")
+    val editMyNumber: StateFlow<String> = _editMyNumber.asStateFlow()
+    private val _myNumberError = MutableStateFlow<String?>(null)
+    val myNumberError: StateFlow<String?> = _myNumberError.asStateFlow()
 
     private val _editAvatarColor = MutableStateFlow("#FF6B35")
     val editAvatarColor: StateFlow<String> = _editAvatarColor.asStateFlow()
@@ -82,17 +82,14 @@ class SettingsViewModel(
     private val _spamAlerts = MutableStateFlow(true)
     val spamAlerts: StateFlow<Boolean> = _spamAlerts.asStateFlow()
 
+    private val _deliveryReports = MutableStateFlow(false)
+    val deliveryReports: StateFlow<Boolean> = _deliveryReports.asStateFlow()
+
     private val _autoBlockNotice = MutableStateFlow(true)
     val autoBlockNotice: StateFlow<Boolean> = _autoBlockNotice.asStateFlow()
 
     private val _scanPeriod = MutableStateFlow("daily")
     val scanPeriod: StateFlow<String> = _scanPeriod.asStateFlow()
-
-    private val _recentAlerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
-    val recentAlerts: StateFlow<List<SmsApi.AlertSummary>> = _recentAlerts.asStateFlow()
-
-    private val _alertsLoading = MutableStateFlow(true)
-    val alertsLoading: StateFlow<Boolean> = _alertsLoading.asStateFlow()
 
     // Debug-only: lets the "Simulate incoming SMS" tool report success/failure
     // without needing a real SMS to arrive first.
@@ -100,6 +97,9 @@ class SettingsViewModel(
     val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            userPreferences.myNumber.collect { _editMyNumber.value = it }
+        }
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
                 _userData.value = data
@@ -110,33 +110,9 @@ class SettingsViewModel(
                 _suspiciousAlerts.value = data.suspiciousAlerts
                 _spamAlerts.value = data.spamAlerts
                 _autoBlockNotice.value = data.autoBlockNotice
+                _deliveryReports.value = data.deliveryReports
                 _scanPeriod.value = data.scanPeriod
             }
-        }
-        // Reacts to the token itself rather than reading it once — this ViewModel
-        // is hoisted at NavGraph's top level, constructed before the user may
-        // have logged in, so a one-shot check would permanently see an empty
-        // token and never retry once a real session exists.
-        viewModelScope.launch {
-            userPreferences.userData
-                .map { it.authToken }
-                .distinctUntilChanged()
-                .collect { token ->
-                    if (token.isEmpty()) {
-                        _recentAlerts.value = emptyList()
-                        _alertsLoading.value = false
-                        return@collect
-                    }
-                    _alertsLoading.value = true
-                    // Same filtering as the Alerts tab: the backend sends sender = ""
-                    // (privacy placeholder), so the real sender/body come from this
-                    // phone's inbox, and alerts with no local SMS can't be shown.
-                    SmsApi.getAlerts(token).onSuccess { alerts ->
-                        val smishing = alerts.filter { it.bucket != "spam" }
-                        _recentAlerts.value = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(smishing) }
-                    }
-                    _alertsLoading.value = false
-                }
         }
     }
 
@@ -148,6 +124,11 @@ class SettingsViewModel(
     fun updateEditLastName(name: String) {
         _editLastName.value = name
         _lastNameError.value = null
+    }
+
+    fun updateEditMyNumber(number: String) {
+        _editMyNumber.value = number
+        _myNumberError.value = null
     }
 
     fun cycleAvatarColor() {
@@ -193,10 +174,16 @@ class SettingsViewModel(
             _lastNameError.value = "Name should only contain letters"
             return
         }
+        val myNumber = _editMyNumber.value.replace(Regex("[\\s\\-()]"), "")
+        if (myNumber.isNotEmpty() && replyKindFor(myNumber) != SenderReplyKind.PHONE_NUMBER) {
+            _myNumberError.value = "Enter a mobile number, like 09171234567"
+            return
+        }
         if (_profileSaving.value) return
         _profileSyncError.value = null
         _profileSaving.value = true
         viewModelScope.launch {
+            userPreferences.saveMyNumber(myNumber)
             userPreferences.saveProfile(
                 firstName = trimmedFirst,
                 lastName = trimmedLast,
@@ -242,6 +229,18 @@ class SettingsViewModel(
         saveNotificationSettings()
     }
 
+    val showScamWavesTab: StateFlow<Boolean> =
+        userPreferences.showScamWavesTab.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setShowScamWavesTab(show: Boolean) {
+        viewModelScope.launch { userPreferences.saveShowScamWavesTab(show) }
+    }
+
+    fun toggleDeliveryReports(value: Boolean) {
+        _deliveryReports.value = value
+        viewModelScope.launch { userPreferences.saveDeliveryReports(value) }
+    }
+
     fun toggleAutoBlockNotice(value: Boolean) {
         _autoBlockNotice.value = value
         saveNotificationSettings()
@@ -265,6 +264,15 @@ class SettingsViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { userPreferences.saveThemeMode(mode.value) }
+    }
+
+    val textScale: StateFlow<TextScale> =
+        userPreferences.textScale
+            .map { TextScale.fromValue(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TextScale.DEFAULT)
+
+    fun setTextScale(scale: TextScale) {
+        viewModelScope.launch { userPreferences.saveTextScale(scale.value) }
     }
 
     fun setScanPeriod(period: String) {
@@ -292,12 +300,14 @@ class SettingsViewModel(
             // ids and silently reappears (wrong classifications, "deleted"
             // messages back in the inbox, stale reply drafts) for the next
             // account that signs in on this device.
-            ClassificationStore(getApplication()).clear()
-            DeletedMessagesStore(getApplication()).clearAll()
-            DraftsStore(getApplication()).clearAll()
-            BackendMessageIdStore(getApplication()).clear()
-            CampaignMatchStore(getApplication()).clear()
-            AlertStateStore(getApplication()).clearAll()
+            getApplication<Application>().container.classificationStore.clear()
+            getApplication<Application>().container.deletedMessagesStore.clearAll()
+            getApplication<Application>().container.draftsStore.clearAll()
+            getApplication<Application>().container.backendMessageIdStore.clear()
+            getApplication<Application>().container.campaignMatchStore.clear()
+            getApplication<Application>().container.alertStateStore.clearAll()
+            OutgoingSms.clearAll(getApplication())
+            getApplication<Application>().container.blockedSendersStore.clearAll()
             onComplete()
         }
     }

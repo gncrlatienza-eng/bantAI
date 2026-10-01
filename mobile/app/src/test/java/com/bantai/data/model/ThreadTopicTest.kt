@@ -8,7 +8,7 @@ import org.junit.Test
 class ThreadTopicTest {
     private fun sms(
         body: String,
-        classification: String = "safe",
+        classification: Classification = Classification.SAFE,
     ) = SmsMessage(id = body.hashCode().toLong(), sender = "GLOBE", body = body, classification = classification)
 
     @Test
@@ -41,8 +41,8 @@ class ThreadTopicTest {
     fun `reports how many were marked spam`() {
         val messages =
             listOf(
-                sms("Get a FREE voucher today only!", classification = "spam"),
-                sms("Promo: double points on load", classification = "spam"),
+                sms("Get a FREE voucher today only!", classification = Classification.SPAM),
+                sms("Promo: double points on load", classification = Classification.SPAM),
                 sms("Thanks for loading with us"),
             )
         val description = describeThread(messages, "SMART")!!

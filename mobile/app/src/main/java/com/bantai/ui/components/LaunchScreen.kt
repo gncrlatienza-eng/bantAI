@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,7 +51,7 @@ fun LaunchScreen() {
         // Offset from the centre rather than stacked in a Column, so the icon
         // stays exactly where the launch window drew it.
         Text(
-            "BantAI",
+            stringResource(R.string.app_name),
             color = Color.White,
             fontFamily = FontFamily.SansSerif,
             fontSize = 22.sp,

@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
@@ -61,14 +57,25 @@ describe('ReportsService', () => {
       );
     });
 
-    it('throws BadRequestException when reported label matches current label', async () => {
+    it('accepts a confirmation (reported label matches current label)', async () => {
       mockPrisma.smsMessage.findUnique.mockResolvedValue({
         userId,
-        classification: { label: 'Spam' },
+        classification: { label: 'Scam' },
       });
-      await expect(
-        service.submit(userId, { messageId: 'msg-1', reportedLabel: 'Spam' }),
-      ).rejects.toThrow(BadRequestException);
+      mockPrisma.userReport.findUnique.mockResolvedValue(null);
+      mockPrisma.userReport.create.mockResolvedValue({ id: 'r2' });
+      await service.submit(userId, {
+        messageId: 'msg-1',
+        reportedLabel: 'Scam',
+      });
+      expect(mockPrisma.userReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            originalLabel: 'Scam',
+            reportedLabel: 'Scam',
+          }),
+        }),
+      );
     });
 
     it('throws ConflictException when user has already reported this message', async () => {

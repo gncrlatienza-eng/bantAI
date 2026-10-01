@@ -8,30 +8,85 @@ import java.time.ZoneId
 
 /**
  * Two different things arrive in Alerts:
- * - [BLOCKED]: a scam BantAI already stopped (its sender was auto-blocked) --
- *   a record to learn from, nothing to decide.
+ * - [BLOCKED]: a scam whose sender is actually blocked -- a record to learn
+ *   from, nothing to decide.
  * - [NEEDS_REVIEW]: something suspicious BantAI did *not* block -- a
- *   "suspicious" verdict, or scam-like text from a trusted sender, which is
- *   never auto-blocked (see TrustedSenders). These need the user's eyes.
+ *   "suspicious" verdict, scam-like text from a trusted sender (never
+ *   auto-blocked, see TrustedSenders), or a scam whose sender isn't blocked
+ *   (the user unblocked it, or the block didn't land). These need the user's eyes.
  */
 enum class AlertKind { NEEDS_REVIEW, BLOCKED }
 
-fun SmsApi.AlertSummary.kind(): AlertKind {
-    val scamVerdict = bucket == "blocked" || label == "Likely Smishing"
-    return if (scamVerdict && !TrustedSenders.isBuiltIn(sender)) AlertKind.BLOCKED else AlertKind.NEEDS_REVIEW
-}
+/** The model called it a scam -- whether or not its sender ended up blocked. */
+fun SmsApi.AlertSummary.isScamVerdict(): Boolean = bucket == "blocked" || label == "Likely Smishing"
+
+fun SmsApi.AlertSummary.kind(): AlertKind =
+    if (isScamVerdict() && senderBlocked && !TrustedSenders.isBuiltIn(sender)) {
+        AlertKind.BLOCKED
+    } else {
+        AlertKind.NEEDS_REVIEW
+    }
 
 /**
- * Two separate views, never mixed: [ALL] is what BantAI didn't block (what
- * needs review on top, already-reviewed below), [BLOCKED] is only the scams
- * it stopped. Blocked scams need no decision, so they stay out of the way.
+ * The Alerts tab's three pages. Every alert is on exactly one, so nothing
+ * appears twice and each page means one thing:
+ * - [TO_REVIEW]: suspicious texts BantAI didn't block -- these need a decision.
+ * - [REPORTED]: texts the user reported (Ham/Spam/Scam), with where the review
+ *   stands. Reporting *is* reviewing: it files the text under the chosen label
+ *   and moves the alert here. Takes priority: once reported, nothing is left to decide.
+ * - [BLOCKED]: scams whose sender BantAI blocked -- a record, nothing to do.
+ *
+ * There used to be a separate "Reviewed" page fed by a "Mark as reviewed"
+ * button/swipe; it duplicated what a report already says, so it's gone.
  */
-enum class AlertFilter(
-    val title: String,
-) {
-    ALL("Alerts"),
-    BLOCKED("Blocked"),
+enum class AlertTab {
+    // Declaration order is the chip order: what needs you first, then what
+    // you've dealt with, then what BantAI dealt with on its own.
+    TO_REVIEW,
+    REPORTED,
+    BLOCKED,
 }
+
+fun SmsApi.AlertSummary.tab(): AlertTab =
+    when {
+        report != null -> AlertTab.REPORTED
+        kind() == AlertKind.BLOCKED -> AlertTab.BLOCKED
+        else -> AlertTab.TO_REVIEW
+    }
+
+/**
+ * [alerts] with reports filed from this phone ([reported], messageId to
+ * label) filled in where the backend's list doesn't have them yet, so a
+ * report moves its alert to Reported straight away.
+ */
+fun withLocalReports(
+    alerts: List<SmsApi.AlertSummary>,
+    reported: Map<String, String>,
+): List<SmsApi.AlertSummary> =
+    alerts.map { alert ->
+        val label = reported[alert.messageId]
+        if (alert.report != null || label == null) {
+            alert
+        } else {
+            alert.copy(report = SmsApi.AlertReport(reportedLabel = label, status = REPORT_PENDING))
+        }
+    }
+
+const val REPORT_PENDING = "Pending"
+const val REPORT_VALIDATED = "Validated"
+const val REPORT_REJECTED = "Rejected"
+
+/**
+ * The alerts the user hasn't opened yet: what the Alerts tab's count shows.
+ * Each page with any of them gets a dot on its chip, so the count always
+ * points somewhere. Nothing is new before the store's first load (see
+ * AlertStateStore.initializeIfNeeded).
+ */
+fun unseenAlerts(
+    alerts: List<SmsApi.AlertSummary>,
+    initialized: Boolean,
+    seen: Set<String>,
+): List<SmsApi.AlertSummary> = if (!initialized) emptyList() else alerts.filter { it.messageId !in seen }
 
 data class AlertSection(
     val title: String,
@@ -39,37 +94,20 @@ data class AlertSection(
 )
 
 /**
- * Splits the alert list into what the Alerts tab shows under [filter], newest
- * first. [AlertFilter.ALL]: alerts still waiting for review in their own
- * section, then already-reviewed ones grouped Today / This Week / Earlier.
- * [AlertFilter.BLOCKED]: blocked scams grouped the same way. Empty sections
- * are dropped.
+ * The alerts on [tab], newest first, grouped Today / This Week / Earlier.
+ * Empty sections are dropped.
  */
 fun sectionAlerts(
     alerts: List<SmsApi.AlertSummary>,
-    filter: AlertFilter,
-    reviewed: Set<String>,
+    tab: AlertTab,
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
 ): List<AlertSection> {
     // Newest message first. The backend orders alerts by when it created them,
     // which for an inbox scan of old texts isn't when the SMS arrived.
-    val newestFirst = alerts.sortedByDescending { receivedMillis(it.receivedAt) }
-    val visible =
-        when (filter) {
-            AlertFilter.ALL -> newestFirst.filter { it.kind() == AlertKind.NEEDS_REVIEW }
-            AlertFilter.BLOCKED -> newestFirst.filter { it.kind() == AlertKind.BLOCKED }
-        }
-    val (pending, history) =
-        visible.partition { it.kind() == AlertKind.NEEDS_REVIEW && it.messageId !in reviewed }
-
-    val byAge = history.groupBy { ageBucket(it.receivedAt, today, zone) }
-    return buildList {
-        if (pending.isNotEmpty()) add(AlertSection("Needs Review", pending))
-        AGE_BUCKETS.forEach { bucket ->
-            byAge[bucket]?.let { add(AlertSection(bucket, it)) }
-        }
-    }
+    val onTab = alerts.filter { it.tab() == tab }.sortedByDescending { receivedMillis(it.receivedAt) }
+    val byAge = onTab.groupBy { ageBucket(it.receivedAt, today, zone) }
+    return AGE_BUCKETS.mapNotNull { bucket -> byAge[bucket]?.let { AlertSection(bucket, it) } }
 }
 
 private const val TODAY = "Today"

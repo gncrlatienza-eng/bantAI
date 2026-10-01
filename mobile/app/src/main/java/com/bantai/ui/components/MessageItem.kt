@@ -24,6 +24,8 @@ enum class BadgeType { CONTACT, SAFE, UNVERIFIED, SPAM, UNKNOWN, BLOCKED }
 
 data class MessageItem(
     val sender: String,
+    // What the row shows as its title: the contact's name, or the number.
+    val title: String = sender,
     val initials: String,
     val avatarColor: Color,
     val preview: String,

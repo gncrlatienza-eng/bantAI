@@ -9,8 +9,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.screens.settings.SettingsScreen
 import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.SettingsViewModel
@@ -31,7 +31,7 @@ fun MainScreen(
     selectedTab: Int,
 ) {
     // Content draws edge to edge behind the floating bar.
-    val contentPadding = PaddingValues(bottom = 116.dp)
+    val contentPadding = PaddingValues(bottom = LocalBottomBarClearance.current)
 
     AnimatedContent(
         targetState = selectedTab,

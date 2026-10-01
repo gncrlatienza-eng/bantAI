@@ -39,6 +39,24 @@ class SpoofWarningTest {
     }
 
     @Test
+    fun `asking for a PIN or password is flagged, the never-share warning is not`() {
+        assertNotNull(SmsRiskSignals.spoofWarning("Maya", "Account update needed. Reply with your MPIN to continue."))
+        assertNull(
+            SmsRiskSignals.spoofWarning("Maya", "Maya will never ask you to send your MPIN or password by text."),
+        )
+    }
+
+    @Test
+    fun `a telco name with a lookalike link is flagged`() {
+        // A real sender ID (compromised gateway, or a fake tower using the
+        // name) with content that gives it away. Telcos do send links, so this
+        // isn't the bank-link rule.
+        assertNotNull(
+            SmsRiskSignals.spoofWarning("GLOBE", "Your points expire today! Redeem at globe-rewards.xyz/claim"),
+        )
+    }
+
+    @Test
     fun `untrusted senders are left to the normal scam checks`() {
         assertNull(SmsRiskSignals.spoofWarning("+639171234567", "cancel here: bdo-secure.xyz/cancel"))
     }

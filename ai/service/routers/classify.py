@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, status
 from ..campaign import CampaignMatcher
 from ..classifier import ModelNotReadyError, classifier, route
 from ..explainer import explain
+from ..language import is_supported_language
 from ..schemas import CampaignMatch, ClassifyRequest, ClassifyResponse
 
 router = APIRouter(tags=["classification"])
@@ -61,11 +62,19 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     # after the response, not before it (docs/api/explainability.md).
     explanation = explain(req.message, result.masked_text, predicted_label=result.label)
 
+    # A message in a language the model wasn't trained on (Italian, Spanish,
+    # Chinese...) gets out-of-distribution scores that can look confident.
+    # Never let those auto-block or hide it: route to "unknown" so the user
+    # reviews it. The label and score are left as the model gave them.
+    bucket = route(result.scores)
+    if bucket in ("blocked", "spam") and not is_supported_language(req.message):
+        bucket = "unknown"
+
     return ClassifyResponse(
         label=result.label,
         score=result.score,
         scores=result.scores,
-        bucket=route(result.scores),
+        bucket=bucket,
         masked_text=result.masked_text,
         campaign=campaign,
         indicators=explanation.to_indicator_payload(),

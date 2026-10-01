@@ -1,5 +1,7 @@
 package com.bantai.util
 
+import com.bantai.data.model.Classification
+
 /** Prevents untrusted SMS links from being displayed as usable-looking text. */
 object SmsLinkSafety {
     private val url =
@@ -18,10 +20,10 @@ object SmsLinkSafety {
      */
     fun visibleBody(
         body: String,
-        classification: String,
+        classification: Classification,
         sender: String = "",
     ): String =
-        if (classification == "safe" && SmsRiskSignals.spoofWarning(sender, body) == null) {
+        if (classification == Classification.SAFE && SmsRiskSignals.spoofWarning(sender, body) == null) {
             body
         } else {
             hideLinks(body)

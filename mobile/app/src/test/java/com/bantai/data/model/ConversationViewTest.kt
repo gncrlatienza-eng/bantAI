@@ -6,11 +6,11 @@ import org.junit.Test
 class ConversationViewTest {
     private val globeThread =
         listOf(
-            SmsMessage(id = 1, sender = "GLOBE", body = "Your balance is P12", classification = "safe"),
-            SmsMessage(id = 2, sender = "GLOBE", body = "Go+99 JUST FOR YOU", classification = "spam"),
-            SmsMessage(id = 3, sender = "GLOBE", body = "Your OTP is 1234", classification = "unverified"),
-            SmsMessage(id = 4, sender = "GLOBE", body = "Check this link", classification = "unknown"),
-            SmsMessage(id = 5, sender = "GLOBE", body = "Scam", classification = "blocked"),
+            SmsMessage(id = 1, sender = "GLOBE", body = "Your balance is P12", classification = Classification.SAFE),
+            SmsMessage(id = 2, sender = "GLOBE", body = "Go+99 JUST FOR YOU", classification = Classification.SPAM),
+            SmsMessage(id = 3, sender = "GLOBE", body = "Your OTP is 1234", classification = Classification.UNVERIFIED),
+            SmsMessage(id = 4, sender = "GLOBE", body = "Check this link", classification = Classification.UNKNOWN),
+            SmsMessage(id = 5, sender = "GLOBE", body = "Scam", classification = Classification.SCAM),
             SmsMessage(id = 6, sender = "GLOBE", body = "GO99", isOutgoing = true),
         )
 

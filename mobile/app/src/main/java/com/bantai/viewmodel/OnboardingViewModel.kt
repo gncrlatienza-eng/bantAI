@@ -3,8 +3,8 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.container
 import com.bantai.data.local.UserData
-import com.bantai.data.local.UserPreferences
 import com.bantai.data.remote.AuthApi
 import com.bantai.data.remote.toUserMessage
 import com.bantai.util.isValidEmailAddress
@@ -41,7 +41,7 @@ data class OnboardingUiState(
 class OnboardingViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
+    private val userPreferences = application.container.userPreferences
 
     private val _userData = MutableStateFlow(UserData())
     val userData: StateFlow<UserData> = _userData.asStateFlow()
@@ -69,6 +69,9 @@ class OnboardingViewModel(
 
     private val _state = MutableStateFlow(OnboardingUiState())
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
+
+    /** True on the sign-in path (existing account), false when creating an account. */
+    var signingIn = false
 
     // Fires once backend OTP verification and local token persistence complete.
     // The enter-code screen collects this to navigate onward instead of
@@ -233,6 +236,7 @@ class OnboardingViewModel(
                 .verifyMobileEmailOtp(current.emailAddress, current.otpCode)
                 .onSuccess { auth ->
                     userPreferences.saveAuth(auth.accessToken, current.emailAddress)
+                    restoreProfile(auth.accessToken)
                     _state.update {
                         it.copy(
                             isLoading = false,
@@ -246,6 +250,17 @@ class OnboardingViewModel(
                     handleVerifyFailure(error.toUserMessage("Could not reach the server"))
                 }
         }
+    }
+
+    // Sign-out clears the locally kept name; bring back the account's saved one
+    // so a returning user isn't asked for it again. Best effort: without it the
+    // user is simply sent to the profile step.
+    private suspend fun restoreProfile(token: String) {
+        val profile = AuthApi.me(token).getOrNull() ?: return
+        if (profile.firstName.isBlank()) return
+        userPreferences.saveProfile(profile.firstName, profile.lastName, userData.value.avatarColor)
+        _firstName.value = profile.firstName
+        _lastName.value = profile.lastName
     }
 
     private fun codeEntryError(current: OnboardingUiState): String? =

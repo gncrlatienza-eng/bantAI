@@ -9,13 +9,18 @@ class SmsRiskSignalsTest {
     // keyword-only rule flagged as suspicious.
     private val legit =
         listOf(
-            "Congratulations! Your account has been fully verified. You can now use Send Money, Online Cash-in, and more.",
-            "Congratulations! May FREE P20 Online Voucher ka when you spend at least P300. Visit your voucher pocket to claim your free voucher.",
+            "Congratulations! Your account has been fully verified. You can now use Send Money, Online " +
+                "Cash-in, and more.",
+            "Congratulations! May FREE P20 Online Voucher ka when you spend at least P300. Visit your " +
+                "voucher pocket to claim your free voucher.",
             "Claim your FREEBIE of 1GB for surfing valid for 7 days now! Simply load a total of P90 before 10/16/2025.",
             "Ay, na-click! Beware of messages with links to claim your prize or redeem thousands of Rewards points.",
-            "Get FREE 1GB FOR ALL SITES when you register to GoEXTRA99! Access the GlobeOne app at https://globeone.onelink.me/abc",
-            "Go all-in with GoEXTRA99! Get it via GCash (https://go.gcash.com/app) or GlobeOne app (https://glbe.co/app).",
-            "Congratulations! You've earned one free raffle entry for the DITO Rewards Raffle Promo. Visit https://app.dito.ph/rewards",
+            "Get FREE 1GB FOR ALL SITES when you register to GoEXTRA99! Access the GlobeOne app at " +
+                "https://globeone.onelink.me/abc",
+            "Go all-in with GoEXTRA99! Get it via GCash (https://go.gcash.com/app) or GlobeOne app " +
+                "(https://glbe.co/app).",
+            "Congratulations! You've earned one free raffle entry for the DITO Rewards Raffle Promo. " +
+                "Visit https://app.dito.ph/rewards",
             "Your OTP is 482913. Do not share this code with anyone, including GCash employees.",
             "Hi anak, pauwi na ako, bili ka ng tinapay",
         )

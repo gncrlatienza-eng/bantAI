@@ -1,48 +1,34 @@
 package com.bantai.ui.screens.main
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.ReportGmailerrorred
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,50 +42,70 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.data.OutgoingSms
-import com.bantai.data.local.BackendMessageIdStore
-import com.bantai.data.local.UserPreferences
+import com.bantai.data.model.Classification
 import com.bantai.data.model.ConversationView
-import com.bantai.data.model.SendStatus
+import com.bantai.data.model.MmsDownloadState
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.describeThread
+import com.bantai.data.model.isGroupKey
+import com.bantai.data.model.normalizeSenderKey
 import com.bantai.data.model.summarizeThread
-import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.components.ChatThreadSkeleton
-import com.bantai.ui.components.SenderAvatar
-import com.bantai.ui.components.getRelativeTime
+import com.bantai.ui.components.StateMessage
 import com.bantai.ui.components.rememberSmsSendPermission
+import com.bantai.ui.screens.main.thread.DayDivider
+import com.bantai.ui.screens.main.thread.DeletedActionsBar
+import com.bantai.ui.screens.main.thread.FocusedMessage
+import com.bantai.ui.screens.main.thread.FocusedMessageOverlay
+import com.bantai.ui.screens.main.thread.MessageBubble
+import com.bantai.ui.screens.main.thread.MessageRow
+import com.bantai.ui.screens.main.thread.ReplyBar
+import com.bantai.ui.screens.main.thread.ThreadMenu
+import com.bantai.ui.screens.main.thread.ThreadWarningBanner
+import com.bantai.ui.screens.main.thread.UnreachableSenderNotice
+import com.bantai.ui.screens.main.thread.messageActions
+import com.bantai.ui.screens.main.thread.shareableText
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
-import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
-import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.util.ActiveConversation
+import com.bantai.util.MessageTime
 import com.bantai.util.SenderReplyKind
 import com.bantai.util.SmsLinkSafety
 import com.bantai.util.SmsRiskSignals
@@ -116,8 +122,15 @@ import kotlinx.coroutines.withContext
 // messages in a very long-running thread, rather than the whole history.
 private const val MAX_AI_SUMMARY_SOURCE_MESSAGES = 50
 
+// Scrolls past the top of the last message to the end of the list. Scrolling
+// to the item alone lined up its *top*: a tall last message (a photo) left its
+// bottom -- and its "Not delivered · Tap to retry" line -- below the reply bar.
+// The list clamps the offset at its end.
+private const val SCROLL_TO_END_PX = 100_000
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod") // the whole thread screen; splitting it is a separate refactor
 fun MessageDetailScreen(
     sender: String,
     navController: NavController,
@@ -132,6 +145,10 @@ fun MessageDetailScreen(
     // mixes OTPs and promos appears in both Messages and Spam, each with its
     // own slice. (There used to be a "show only / show all" toggle here.)
     val conversation = remember(fullConversation, initialView) { fullConversation.filter { initialView.includes(it) } }
+    // Opened from Recently Deleted: only this sender's deleted messages, with
+    // Recover / Delete instead of a reply bar.
+    val deletedView = initialView == ConversationView.DELETED
+    var permanentDeleteIds by remember { mutableStateOf<Set<Long>?>(null) }
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val selectionMode by viewModel.selectionMode.collectAsState()
@@ -142,34 +159,27 @@ fun MessageDetailScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     var replyText by remember { mutableStateOf("") }
     var replyPrefilled by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var senderVerification by remember(sender) { mutableStateOf<VerificationApi.SenderVerification?>(null) }
-    // The backend messageId for this thread's most recently flagged message --
-    // TakeAction's Report needs this backend UUID, which the SMS provider row
-    // itself has no column for (see BackendMessageIdStore). Previously the
-    // banners below navigated to TakeAction with no messageId at all, which
-    // silently disabled Report for every in-thread entry point.
-    var flaggedMessageId by remember(sender) { mutableStateOf("") }
+    // The message whose long-press menu is open, and the one the reply bar is replying to.
+    var focused by remember { mutableStateOf<FocusedMessage?>(null) }
+    val haptics = LocalHapticFeedback.current
+    var replyingTo by remember(sender) { mutableStateOf<SmsMessage?>(null) }
+    val replyQuotes by viewModel.replyQuotes.collectAsState()
+    val clipboard = LocalClipboardManager.current
+    val senderVerification by viewModel.senderVerification.collectAsState()
+    val flaggedMessageId by viewModel.flaggedMessageId.collectAsState()
+    val contactName by viewModel.contactName.collectAsState()
+    val memberNames by viewModel.memberNames.collectAsState()
+    val isGroup = isGroupKey(sender)
+    // Only the newest sent message says "Delivered", like iMessage.
+    val lastOutgoingId = conversation.lastOrNull { it.isOutgoing }?.id
 
     BackHandler(enabled = selectionMode) { viewModel.exitSelectionMode() }
 
     LaunchedEffect(sender) {
+        viewModel.showDeletedOnly(deletedView)
         viewModel.loadConversation(sender)
-        viewModel.markAsRead(sender)
-        val token = UserPreferences(context).userData.first().authToken
-        if (token.isNotEmpty()) {
-            senderVerification = VerificationApi.verifySender(token, sender).getOrNull()
-        }
-    }
-
-    LaunchedEffect(conversation) {
-        val flagged = conversation.lastOrNull { it.classification == "blocked" || it.classification == "unknown" }
-        flaggedMessageId =
-            if (flagged != null) {
-                withContext(Dispatchers.IO) { BackendMessageIdStore(context).get(flagged.id) }.orEmpty()
-            } else {
-                ""
-            }
+        if (!deletedView) viewModel.markAsRead(sender)
+        viewModel.loadSenderDetails(sender)
     }
 
     // Resume any unsent reply left from a previous visit, once — after that, typing
@@ -187,13 +197,75 @@ fun MessageDetailScreen(
     // the draft" rather than storing an empty one.
     DisposableEffect(sender) {
         onDispose {
-            viewModel.saveDraft(replyText)
+            // The deleted view has no reply bar; saving its empty box would
+            // wipe the real conversation's draft.
+            if (!deletedView) viewModel.saveDraft(replyText)
         }
     }
 
-    LaunchedEffect(conversation.size) {
-        if (conversation.isNotEmpty()) {
-            listState.scrollToItem(conversation.size - 1)
+    // Where to scroll when the thread changes. It used to jump to the bottom
+    // on every change, yanking the user away from older messages they were
+    // reading. Now: bottom on first load, after your own send, or when you
+    // were already at the bottom; older messages loaded on top keep your place.
+    var shownIds by remember(sender) { mutableStateOf<List<Long>>(emptyList()) }
+    LaunchedEffect(conversation) {
+        val previous = shownIds
+        shownIds = conversation.map { it.id }
+        if (conversation.isEmpty()) return@LaunchedEffect
+        val last = conversation.size - 1
+        val prepended =
+            previous.isNotEmpty() &&
+                conversation.first().id != previous.first() &&
+                previous.first() in shownIds
+        val lastVisible =
+            listState.layoutInfo.visibleItemsInfo
+                .lastOrNull()
+                ?.index ?: -1
+        val wasAtBottom = previous.isEmpty() || lastVisible >= previous.size - 2
+        when {
+            previous.isEmpty() -> listState.scrollToItem(last, SCROLL_TO_END_PX)
+            prepended ->
+                listState.scrollToItem(
+                    shownIds.indexOf(previous.first()).coerceAtLeast(0) + listState.firstVisibleItemIndex,
+                    listState.firstVisibleItemScrollOffset,
+                )
+            conversation.last().isOutgoing && conversation.last().id !in previous ->
+                listState.animateScrollToItem(last, SCROLL_TO_END_PX)
+            wasAtBottom -> listState.animateScrollToItem(last, SCROLL_TO_END_PX)
+        }
+    }
+
+    // Scrolled to the top of what's loaded: fetch older messages.
+    val canLoadOlder by viewModel.canLoadOlder.collectAsState()
+    LaunchedEffect(listState, canLoadOlder) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .collect { first -> if (first == 0 && canLoadOlder && conversation.isNotEmpty()) viewModel.loadOlder() }
+    }
+
+    // While this thread is on screen, new messages are marked read as they
+    // arrive and don't raise a notification (see ActiveConversation).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, sender, deletedView) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME ->
+                        if (!deletedView) {
+                            ActiveConversation.opened(sender)
+                            viewModel.setVisible(true)
+                        }
+                    Lifecycle.Event.ON_PAUSE -> {
+                        ActiveConversation.closed(sender)
+                        viewModel.setVisible(false)
+                    }
+                    else -> Unit
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            ActiveConversation.closed(sender)
+            viewModel.setVisible(false)
         }
     }
 
@@ -204,24 +276,29 @@ fun MessageDetailScreen(
     }
 
     // Telcos, banks, e-wallets, Google and other big apps (built-in list), or an
-    // organisation the backend registry verified. Their threads show no warnings
-    // and no report/block -- only the AI summary. See TrustedSenders.
+    // organisation the backend registry verified. A trusted name is never
+    // blocked (that would cut off the real sender's OTPs and notices), but it
+    // doesn't vouch for the content either. See TrustedSenders.
     val isTrusted = TrustedSenders.isTrusted(sender, senderVerification?.familiarity)
-    val hasSuspicious = !isTrusted && conversation.any { it.classification == "blocked" }
-    val hasUnknown = !isTrusted && conversation.any { it.classification == "unknown" }
-    // The one exception for a trusted name: content that gives a spoof away
-    // (a bank sending a link, anyone asking for an OTP). Names are fakeable,
-    // e.g. by SMS blasters, so this gets a warning with Report -- never Block,
-    // which would also cut off the real sender. See SmsRiskSignals.spoofWarning.
+    val hasSuspicious = !isTrusted && conversation.any { it.classification == Classification.SCAM }
+    val hasUnknown = !isTrusted && conversation.any { it.classification == Classification.UNKNOWN }
+    // Every text under a trusted name is still checked: the name can be faked
+    // (SMS blasters / fake cell towers never pass through the telco), and the
+    // real company's account or SMS gateway can be compromised and used to
+    // send scams. Content that gives that away (SmsRiskSignals.spoofWarning), or
+    // a message the model/heuristic flagged, gets a warning with Report --
+    // never Block, which would also cut off the real sender.
     val spoofWarning =
         remember(conversation, isTrusted) {
             if (!isTrusted) {
                 null
             } else {
-                conversation
-                    .asReversed()
-                    .firstNotNullOfOrNull { msg ->
-                        if (msg.isOutgoing) null else SmsRiskSignals.spoofWarning(sender, msg.body)
+                val incoming = conversation.asReversed().filter { !it.isOutgoing }
+                incoming.firstNotNullOfOrNull { SmsRiskSignals.spoofWarning(sender, it.body) }
+                    ?: if (incoming.any { it.classification.isFlagged }) {
+                        context.getString(R.string.thread_trusted_flagged, contactName ?: sender)
+                    } else {
+                        null
                     }
             }
         }
@@ -235,15 +312,17 @@ fun MessageDetailScreen(
         action: String = "",
         canBlock: Boolean = true,
     ) {
+        // Blocking a trusted name would also cut off the real company.
+        val allowBlock = canBlock && !isTrusted
         val message =
             target
-                ?: conversation.lastOrNull { it.classification == "blocked" || it.classification == "unknown" }
+                ?: conversation.lastOrNull { it.classification.isFlagged }
                 ?: conversation.lastOrNull { !it.isOutgoing }
         val currentLabel =
             when (message?.classification) {
-                "safe", "unverified" -> "Ham"
-                "spam" -> "Spam"
-                "blocked" -> "Scam"
+                Classification.SAFE, Classification.UNVERIFIED -> "Ham"
+                Classification.SPAM -> "Spam"
+                Classification.SCAM -> "Scam"
                 else -> ""
             }
         val knownBackendId = if (target == null) flaggedMessageId else ""
@@ -254,7 +333,7 @@ fun MessageDetailScreen(
                 localId = message?.id?.takeIf { it > 0 },
                 currentLabel = currentLabel,
                 action = action,
-                canBlock = canBlock,
+                canBlock = allowBlock,
             ),
         )
     }
@@ -302,7 +381,7 @@ fun MessageDetailScreen(
                 // to the "not enough content" fallback below.
                 summarySourceCount = incoming.size
             } else {
-                summaryText = if (topic != null) "" else "Not enough content to summarize this conversation."
+                summaryText = if (topic != null) "" else context.getString(R.string.thread_summary_too_short)
             }
             summaryLoading = false
         }
@@ -310,8 +389,8 @@ fun MessageDetailScreen(
 
     if (showAISummary) {
         AISummaryBottomSheet(
-            isSuspicious = hasSuspicious || hasUnknown,
-            isTrusted = isTrusted,
+            isSuspicious = hasSuspicious || hasUnknown || spoofWarning != null,
+            isTrusted = isTrusted && spoofWarning == null,
             summary = summaryText,
             sourceMessageCount = summarySourceCount.takeIf { it > 0 },
             isLoadingSummary = summaryLoading,
@@ -328,515 +407,419 @@ fun MessageDetailScreen(
         )
     }
 
-    if (showDeleteConfirm) {
-        val count = selectedIds.size
+    // Recently Deleted: leave once everything here has been recovered or deleted.
+    var deletedLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoading, conversation.isEmpty()) {
+        if (!deletedView || isLoading) return@LaunchedEffect
+        if (conversation.isNotEmpty()) {
+            deletedLoaded = true
+        } else if (deletedLoaded) {
+            navController.popBackStack()
+        }
+    }
+
+    permanentDeleteIds?.let { ids ->
         AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
+            onDismissRequest = { permanentDeleteIds = null },
             containerColor = SurfaceElevated,
-            title = { Text("Delete $count message${if (count == 1) "" else "s"}?", color = White) },
-            text = { Text("They'll move to Recently Deleted.", color = TextSecondary) },
+            title = {
+                Text(pluralStringResource(R.plurals.messages_delete_forever_title, ids.size, ids.size), color = White)
+            },
+            text = { Text(stringResource(R.string.deleted_delete_forever_detail), color = TextSecondary) },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deleteSelected()
-                    showDeleteConfirm = false
-                }) { Text("Delete", color = Danger) }
+                    viewModel.deletePermanently(ids)
+                    permanentDeleteIds = null
+                }) { Text(stringResource(R.string.deleted_delete_forever), color = Danger) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel", color = TextSecondary) }
+                TextButton(onClick = { permanentDeleteIds = null }) {
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
+                }
             },
         )
     }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(Black)
-                .imePadding(),
-    ) {
-        // Top bar
-        if (selectionMode) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { viewModel.exitSelectionMode() }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Cancel", tint = White)
-                }
-                Text(
-                    if (selectedIds.isEmpty()) "Select messages" else "${selectedIds.size} selected",
-                    color = White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = TextSize.Headline,
-                    modifier = Modifier.weight(1f).padding(start = 4.dp),
-                )
-                TextButton(onClick = { viewModel.selectAll(conversation.map { it.id }) }) {
-                    Text("Select All", color = IosBlue, fontSize = TextSize.Subhead)
-                }
-                val reportTarget = conversation.singleOrNull { it.id in selectedIds }?.takeIf { !it.isOutgoing }
-                if (!isTrusted) {
-                    IconButton(
-                        onClick = {
-                            viewModel.exitSelectionMode()
-                            openReport(reportTarget, action = "report")
-                        },
-                        enabled = reportTarget != null && selectedIds.size == 1,
-                    ) {
-                        Icon(
-                            Icons.Outlined.ReportGmailerrorred,
-                            contentDescription = "Report message",
-                            tint = if (reportTarget != null && selectedIds.size == 1) White else TextTertiary,
-                        )
-                    }
-                }
-                IconButton(onClick = { showDeleteConfirm = true }, enabled = selectedIds.isNotEmpty()) {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = "Delete",
-                        tint = if (selectedIds.isNotEmpty()) Danger else TextTertiary,
-                    )
-                }
-            }
-        } else {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-            ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier.align(Alignment.CenterStart),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
-                }
-                Column(
+    // From pixels, not Configuration.screenWidthDp: BantAITheme rescales dp
+    // on very narrow and very wide phones, and screenWidthDp doesn't know.
+    val screenWidthPx = LocalContext.current.resources.displayMetrics.widthPixels
+    val screenWidth = with(LocalDensity.current) { screenWidthPx.toDp() }
+    val bubbleMaxWidth = screenWidth * 0.75f
+
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Black)
+                    .imePadding(),
+        ) {
+            // Top bar
+            if (selectionMode) {
+                Row(
                     modifier =
                         Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 100.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    IconButton(onClick = { viewModel.exitSelectionMode() }) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.action_cancel),
+                            tint = White,
+                        )
+                    }
                     Text(
-                        text = sender,
-                        color = White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = TextSize.Body,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (hasSuspicious) {
-                        Text("Suspicious", color = Suspicious, fontSize = TextSize.Caption2)
-                    } else if (isTrusted && senderVerification?.familiarity != "verified_organization") {
-                        Text("Trusted sender", color = IosBlue, fontSize = TextSize.Caption2)
-                    } else if (senderVerification?.risk == "confirmed_fraud") {
-                        Text("Confirmed fraud", color = Suspicious, fontSize = TextSize.Caption2)
-                    } else if (senderVerification?.familiarity == "verified_organization") {
-                        Text(
-                            "Verified organization${senderVerification?.organizationName?.let { " • $it" } ?: ""}",
-                            color = IosBlue,
-                            fontSize = TextSize.Caption2,
-                        )
-                    } else if (senderVerification?.familiarity == "known_contact") {
-                        Text("Known contact", color = IosBlue, fontSize = TextSize.Caption2)
-                    }
-                }
-                Row(modifier = Modifier.align(Alignment.CenterEnd)) {
-                    IconButton(onClick = { showAISummary = true }) {
-                        Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI Summary", tint = Indigo)
-                    }
-                    if (!isTrusted) {
-                        ThreadMenu(
-                            enabled = conversation.any { !it.isOutgoing },
-                            onReport = { openReport(action = "report") },
-                            onBlock = { openReport(action = "block") },
-                        )
-                    }
-                }
-            }
-        }
-
-        HorizontalDivider(color = Surface)
-
-        // Suspicious warning -- goes straight to Take Action (Report/Block)
-        // rather than the disabled-action ThreatAnalysisScreen; see
-        // flaggedMessageId's comment above for why this needs its own lookup.
-        // Never shown for a trusted sender (hasSuspicious/hasUnknown are false).
-        if (hasSuspicious || hasUnknown) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-                        .clickable { openReport() }
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    Icons.Outlined.WarningAmber,
-                    contentDescription = null,
-                    tint = Suspicious,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    if (hasSuspicious) "This conversation looks like a scam" else "Some messages here look suspicious",
-                    color = White,
-                    fontSize = TextSize.Footnote,
-                    modifier = Modifier.weight(1f),
-                )
-                Text("Review", color = Suspicious, fontSize = TextSize.Footnote, fontWeight = FontWeight.SemiBold)
-            }
-        } else if (spoofWarning != null) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-                        .clickable { openReport(action = "report", canBlock = false) }
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    Icons.Outlined.WarningAmber,
-                    contentDescription = null,
-                    tint = Suspicious,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(spoofWarning, color = White, fontSize = TextSize.Footnote, modifier = Modifier.weight(1f))
-                Text("Report", color = Suspicious, fontSize = TextSize.Footnote, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-        val bubbleMaxWidth = screenWidth * 0.75f
-
-        // Conversation thread
-        if (isLoading) {
-            ChatThreadSkeleton(modifier = Modifier.weight(1f).fillMaxWidth())
-        } else if (errorMessage != null) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(errorMessage ?: "Couldn't load this conversation", color = Danger, fontSize = TextSize.Subhead)
-            }
-        } else if (conversation.isEmpty()) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No messages found", color = TextSecondary, fontSize = TextSize.Subhead)
-            }
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        // Tapping the thread background (not a message row, not the reply
-                        // field — those are separate elements with their own tap handling)
-                        // dismisses the keyboard, same as any normal messaging app.
-                        .pointerInput(Unit) {
-                            detectTapGestures(onPress = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                            })
+                        if (selectedIds.isEmpty()) {
+                            stringResource(R.string.messages_select)
+                        } else {
+                            stringResource(R.string.messages_selected_count, selectedIds.size)
                         },
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(conversation) { msg ->
-                    val isOutgoing = msg.isOutgoing
-                    val isSelected = msg.id in selectedIds
+                        color = White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = TextSize.Headline,
+                        modifier = Modifier.weight(1f).padding(start = 4.dp),
+                    )
+                    TextButton(onClick = { viewModel.selectAll(conversation.map { it.id }) }) {
+                        Text(
+                            stringResource(R.string.message_detail_select_all),
+                            color = IosBlue,
+                            fontSize = TextSize.Subhead,
+                        )
+                    }
+                    val reportTarget = conversation.singleOrNull { it.id in selectedIds }?.takeIf { !it.isOutgoing }
+                    if (deletedView) {
+                        IconButton(onClick = { viewModel.recover(selectedIds) }, enabled = selectedIds.isNotEmpty()) {
+                            Icon(
+                                Icons.Filled.Restore,
+                                contentDescription = stringResource(R.string.deleted_recover),
+                                tint = if (selectedIds.isNotEmpty()) IosBlue else TextTertiary,
+                            )
+                        }
+                        IconButton(onClick = { permanentDeleteIds = selectedIds }, enabled = selectedIds.isNotEmpty()) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.deleted_delete_forever),
+                                tint = if (selectedIds.isNotEmpty()) Danger else TextTertiary,
+                            )
+                        }
+                    } else {
+                        IconButton(
+                            onClick = {
+                                viewModel.exitSelectionMode()
+                                openReport(reportTarget, action = "report")
+                            },
+                            enabled = reportTarget != null && selectedIds.size == 1,
+                        ) {
+                            Icon(
+                                Icons.Outlined.ReportGmailerrorred,
+                                contentDescription = stringResource(R.string.message_detail_report_message),
+                                tint = if (reportTarget != null && selectedIds.size == 1) White else TextTertiary,
+                            )
+                        }
+                    }
+                    if (!deletedView) {
+                        IconButton(onClick = { permanentDeleteIds = selectedIds }, enabled = selectedIds.isNotEmpty()) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.action_delete),
+                                tint = if (selectedIds.isNotEmpty()) Danger else TextTertiary,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                ) {
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.align(Alignment.CenterStart),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back),
+                            tint = White,
+                        )
+                    }
                     Column(
                         modifier =
                             Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = { if (selectionMode) viewModel.toggleSelected(msg.id) },
-                                    onLongClick = { if (!selectionMode) viewModel.enterSelectionMode(msg.id) },
-                                ),
-                        horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start,
+                                .align(Alignment.Center)
+                                .padding(horizontal = 100.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            if (selectionMode) {
+                        Text(
+                            text = contactName ?: sender,
+                            color = White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = TextSize.Body,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        // Same color rule as Alerts: red = likely scam, orange = suspicious.
+                        if (deletedView) {
+                            Text(
+                                stringResource(R.string.messages_filter_deleted_title),
+                                color = TextSecondary,
+                                fontSize = TextSize.Footnote,
+                            )
+                        } else if (hasSuspicious) {
+                            Text(
+                                stringResource(R.string.verdict_likely_scam),
+                                color = Danger,
+                                fontSize = TextSize.Footnote,
+                            )
+                        } else if (hasUnknown) {
+                            Text(
+                                stringResource(R.string.verdict_suspicious),
+                                color = SuspiciousText,
+                                fontSize = TextSize.Footnote,
+                            )
+                        } else if (spoofWarning != null) {
+                            Text(
+                                stringResource(R.string.thread_trusted_check),
+                                color = SuspiciousText,
+                                fontSize = TextSize.Footnote,
+                            )
+                        } else if (isTrusted && senderVerification?.familiarity != "verified_organization") {
+                            Text(
+                                stringResource(R.string.thread_trusted_sender),
+                                color = IosBlue,
+                                fontSize = TextSize.Footnote,
+                            )
+                        } else if (senderVerification?.risk == "confirmed_fraud") {
+                            Text(
+                                stringResource(R.string.thread_confirmed_fraud),
+                                color = Danger,
+                                fontSize = TextSize.Footnote,
+                            )
+                        } else if (senderVerification?.familiarity == "verified_organization") {
+                            Text(
+                                stringResource(R.string.thread_verified_org) +
+                                    (senderVerification?.organizationName?.let { " • $it" } ?: ""),
+                                color = IosBlue,
+                                fontSize = TextSize.Footnote,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        } else if (senderVerification?.familiarity == "known_contact") {
+                            Text(
+                                stringResource(R.string.thread_known_contact),
+                                color = IosBlue,
+                                fontSize = TextSize.Footnote,
+                            )
+                        }
+                    }
+                    if (!deletedView) {
+                        Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+                            IconButton(onClick = { showAISummary = true }) {
                                 Icon(
-                                    imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-                                    contentDescription = if (isSelected) "Selected" else "Not selected",
-                                    tint = if (isSelected) Indigo else TextTertiary,
-                                    modifier = Modifier.size(20.dp),
+                                    Icons.Outlined.AutoAwesome,
+                                    contentDescription = stringResource(R.string.ai_summary_bottom_sheet_ai_summary),
+                                    tint = Indigo,
                                 )
                             }
-                            if (!isOutgoing) {
-                                SenderAvatar(sender = msg.sender, size = 28.dp)
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .widthIn(max = bubbleMaxWidth)
-                                            .background(
-                                                color =
-                                                    if (msg.classification == "blocked" && !isTrusted) {
-                                                        Suspicious.copy(alpha = 0.15f)
-                                                    } else {
-                                                        Surface
-                                                    },
-                                                shape =
-                                                    RoundedCornerShape(
-                                                        topStart = 4.dp,
-                                                        topEnd = 16.dp,
-                                                        bottomEnd = 16.dp,
-                                                        bottomStart = 16.dp,
-                                                    ),
-                                            ).padding(horizontal = 12.dp, vertical = 8.dp),
-                                ) {
-                                    Column {
-                                        Text(
-                                            SmsLinkSafety.visibleBody(msg.body, msg.classification, msg.sender),
-                                            color = White,
-                                            fontSize = TextSize.Subhead,
-                                            lineHeight = 20.sp,
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            getRelativeTime(msg.timestamp),
-                                            color =
-                                                if (msg.classification == "blocked" && !isTrusted) {
-                                                    Suspicious.copy(alpha = 0.7f)
-                                                } else {
-                                                    TextSecondary
-                                                },
-                                            fontSize = TextSize.Caption2,
-                                        )
-                                    }
-                                }
-                            } else {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .widthIn(max = bubbleMaxWidth)
-                                            .background(
-                                                color = if (msg.sendStatus == SendStatus.FAILED) Indigo.copy(alpha = 0.5f) else Indigo,
-                                                shape =
-                                                    RoundedCornerShape(
-                                                        topStart = 16.dp,
-                                                        topEnd = 4.dp,
-                                                        bottomEnd = 16.dp,
-                                                        bottomStart = 16.dp,
-                                                    ),
-                                            ).padding(horizontal = 12.dp, vertical = 8.dp),
-                                ) {
-                                    Column {
-                                        Text(
-                                            msg.body,
-                                            color = OnAccent,
-                                            fontSize = TextSize.Subhead,
-                                            lineHeight = 20.sp,
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            if (msg.sendStatus == SendStatus.SENDING) "Sending…" else getRelativeTime(msg.timestamp),
-                                            color = OnAccent.copy(alpha = 0.7f),
-                                            fontSize = TextSize.Caption2,
-                                            modifier = Modifier.align(Alignment.End),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        if (isOutgoing && msg.sendStatus == SendStatus.FAILED) {
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .padding(top = 2.dp)
-                                        .clickable { retryFailedMessage(msg) },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Icon(Icons.Default.Warning, contentDescription = null, tint = Danger, modifier = Modifier.size(12.dp))
-                                Text("Not delivered · Tap to retry", color = Danger, fontSize = TextSize.Caption2)
+                            // A group can't be blocked or reported as a whole; each
+                            // message's long-press menu still reports its own sender.
+                            if (!isGroup) {
+                                ThreadMenu(
+                                    enabled = conversation.any { !it.isOutgoing },
+                                    onReport = { openReport(action = "report") },
+                                    onBlock = if (isTrusted) null else ({ openReport(action = "block") }),
+                                )
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Reply bar -- an alphanumeric sender ID (e.g. "GCash", "PLDTHome") has no
-        // SMS return path at all, so replying would always fail after SmsSender's
-        // 20s timeout with no way to succeed; show a disabled notice instead.
-        // Service short codes (8080, 3733) do take replies, with a load caution.
-        if (isValidSmsRecipient(sender)) {
-            if (replyKindFor(sender) == SenderReplyKind.SERVICE_CODE) {
-                val purpose = serviceCodeLabel(sender)?.let { "$sender · $it. " } ?: "$sender is a service number. "
-                Text(
-                    purpose + "Sending a keyword here can register a promo and deduct load.",
-                    color = TextSecondary,
-                    fontSize = TextSize.Caption2,
-                    lineHeight = 15.sp,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+            HorizontalDivider(color = Surface)
+
+            // Suspicious warning -- goes straight to Take Action (Report/Block)
+            // rather than the disabled-action ThreatAnalysisScreen; see
+            // MessageDetailViewModel.flaggedMessageId for why this needs its own lookup.
+            // A trusted sender gets the spoofWarning banner instead (hasSuspicious/hasUnknown are false).
+            if (deletedView) {
+                // No verdict banners here: these messages are on their way out.
+            } else if (hasSuspicious || hasUnknown) {
+                ThreadWarningBanner(
+                    text =
+                        stringResource(
+                            if (hasSuspicious) R.string.thread_banner_scam else R.string.thread_banner_suspicious,
+                        ),
+                    actionLabel = stringResource(R.string.thread_banner_review),
+                    tint = if (hasSuspicious) Danger else Suspicious,
+                    actionColor = if (hasSuspicious) Danger else SuspiciousText,
+                    onClick = { openReport() },
+                )
+            } else if (spoofWarning != null) {
+                ThreadWarningBanner(
+                    text = spoofWarning,
+                    actionLabel = stringResource(R.string.thread_banner_report),
+                    tint = Suspicious,
+                    actionColor = SuspiciousText,
+                    onClick = { openReport(action = "report", canBlock = false) },
                 )
             }
-            ReplyBar(
-                sender = sender,
-                replyText = replyText,
-                onReplyTextChange = { replyText = it },
-                viewModel = viewModel,
-            )
-        } else {
-            UnreachableSenderNotice(sender)
-        }
-    }
-}
 
-// Report and Block live behind one "..." menu, iOS-style, rather than a
-// colored flag in the title bar.
-@Composable
-private fun ThreadMenu(
-    enabled: Boolean,
-    onReport: () -> Unit,
-    onBlock: () -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }, enabled = enabled) {
-            Icon(
-                Icons.Outlined.MoreHoriz,
-                contentDescription = "More",
-                tint = if (enabled) White else TextTertiary,
-            )
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = SurfaceElevated,
-            shape = RoundedCornerShape(14.dp),
-        ) {
-            DropdownMenuItem(
-                text = { Text("Report message", color = White, fontSize = TextSize.Body) },
-                trailingIcon = {
-                    Icon(
-                        Icons.Outlined.ReportGmailerrorred,
-                        contentDescription = null,
-                        tint = White,
-                        modifier = Modifier.size(20.dp),
+            // Conversation thread
+            if (isLoading) {
+                ChatThreadSkeleton(modifier = Modifier.weight(1f).fillMaxWidth())
+            } else if (errorMessage != null) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    StateMessage(
+                        icon = Icons.Outlined.CloudOff,
+                        title = stringResource(R.string.thread_load_failed),
+                        detail = errorMessage,
+                        actionLabel = stringResource(R.string.action_retry),
+                        onAction = { viewModel.loadConversation(sender) },
                     )
-                },
-                onClick = {
-                    expanded = false
-                    onReport()
-                },
-            )
-            HorizontalDivider(color = Hairline, thickness = 0.5.dp)
-            DropdownMenuItem(
-                text = { Text("Block sender", color = Danger, fontSize = TextSize.Body) },
-                trailingIcon = {
-                    Icon(
-                        Icons.Outlined.Block,
-                        contentDescription = null,
-                        tint = Danger,
-                        modifier = Modifier.size(20.dp),
+                }
+            } else if (conversation.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    StateMessage(
+                        icon = Icons.Outlined.Inbox,
+                        title = stringResource(R.string.thread_empty_title),
+                        detail = stringResource(R.string.thread_empty_detail),
                     )
-                },
-                onClick = {
-                    expanded = false
-                    onBlock()
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReplyBar(
-    sender: String,
-    replyText: String,
-    onReplyTextChange: (String) -> Unit,
-    viewModel: MessageDetailViewModel,
-) {
-    val context = LocalContext.current
-    val withSmsPermission = rememberSmsSendPermission()
-    HorizontalDivider(color = Surface)
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .background(Surface, RoundedCornerShape(22.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-        ) {
-            BasicTextField(
-                value = replyText,
-                onValueChange = onReplyTextChange,
-                textStyle = TextStyle(color = White, fontSize = TextSize.Subhead),
-                cursorBrush = SolidColor(Indigo),
-                modifier = Modifier.fillMaxWidth(),
-                decorationBox = { inner ->
-                    if (replyText.isEmpty()) {
-                        Text("Message", color = TextSecondary, fontSize = TextSize.Subhead)
-                    }
-                    inner()
-                },
-            )
-        }
-        Box(
-            modifier =
-                Modifier
-                    .size(44.dp)
-                    .background(if (replyText.isNotEmpty()) Indigo else Surface, CircleShape)
-                    .clickable {
-                        val body = replyText.trim()
-                        if (body.isEmpty()) return@clickable
-                        // The bubble shows "Sending…" at once and settles to sent or
-                        // "Not delivered · Tap to retry" -- see OutgoingSms.
-                        withSmsPermission {
-                            OutgoingSms.send(context, sender, body)
-                            viewModel.clearDraft()
-                            onReplyTextChange("")
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            // Tapping the thread background (not a message row, not the reply
+                            // field — those are separate elements with their own tap handling)
+                            // dismisses the keyboard, same as any normal messaging app.
+                            .pointerInput(Unit) {
+                                detectTapGestures(onPress = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                })
+                            },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(conversation, key = { _, m -> m.id }) { index, msg ->
+                        if (index == 0 || !MessageTime.sameDay(conversation[index - 1].timestamp, msg.timestamp)) {
+                            DayDivider(MessageTime.dayLabel(context, msg.timestamp))
                         }
-                    },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Filled.ArrowUpward,
-                contentDescription = "Send",
-                tint = if (replyText.isNotEmpty()) OnAccent else TextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
+                        MessageRow(
+                            msg = msg,
+                            selectionMode = selectionMode,
+                            isSelected = msg.id in selectedIds,
+                            isTrusted = isTrusted,
+                            bubbleMaxWidth = bubbleMaxWidth,
+                            quote = replyQuotes[msg.id],
+                            otherPartyName = contactName ?: sender,
+                            showDelivered = msg.delivered && msg.id == lastOutgoingId,
+                            senderLabel =
+                                if (isGroup && !msg.isOutgoing) {
+                                    memberNames[normalizeSenderKey(msg.sender)] ?: msg.sender
+                                } else {
+                                    null
+                                },
+                            onClick = {
+                                when {
+                                    selectionMode -> viewModel.toggleSelected(msg.id)
+                                    msg.mmsDownload?.state == MmsDownloadState.FAILED ->
+                                        viewModel.retryMmsDownload(msg.id)
+                                }
+                            },
+                            hidden = focused?.message?.id == msg.id,
+                            onLongClick = { bounds ->
+                                if (!selectionMode) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    focused = FocusedMessage(msg, bounds)
+                                }
+                            },
+                            onRetry = { retryFailedMessage(msg) },
+                        )
+                    }
+                }
+            }
 
-@Composable
-private fun UnreachableSenderNotice(sender: String) {
-    HorizontalDivider(color = Surface)
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            "Can't reply to $sender — this sender doesn't accept text replies.",
-            color = TextSecondary,
-            fontSize = TextSize.Caption,
-            textAlign = TextAlign.Center,
-        )
+            // Reply bar -- an alphanumeric sender ID (e.g. "GCash", "PLDTHome") has no
+            // SMS return path at all, so replying would always fail after SmsSender's
+            // 20s timeout with no way to succeed; show a disabled notice instead.
+            // Service short codes (8080, 3733) do take replies, with a load caution.
+            if (deletedView) {
+                DeletedActionsBar(
+                    onRecover = { viewModel.recover(conversation.map { it.id }) },
+                    onDelete = { permanentDeleteIds = conversation.map { it.id }.toSet() },
+                    enabled = conversation.isNotEmpty(),
+                )
+            } else if (isValidSmsRecipient(sender) || isGroup) {
+                if (replyKindFor(sender) == SenderReplyKind.SERVICE_CODE) {
+                    val purpose =
+                        serviceCodeLabel(sender)?.let {
+                            stringResource(R.string.thread_service_code_purpose, sender, it)
+                        }
+                            ?: stringResource(R.string.thread_service_code_generic, sender)
+                    Text(
+                        purpose + " " + stringResource(R.string.thread_service_code_warning),
+                        color = TextSecondary,
+                        fontSize = TextSize.Footnote,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    )
+                }
+                ReplyBar(
+                    sender = sender,
+                    replyText = replyText,
+                    onReplyTextChange = { replyText = it },
+                    viewModel = viewModel,
+                    warnBeforeSending = hasSuspicious,
+                    subId = conversation.lastOrNull { !it.isOutgoing }?.subId ?: -1,
+                    replyingTo = replyingTo,
+                    replyingToName = replyingTo?.let { if (it.isOutgoing) null else contactName ?: sender },
+                    onCancelReply = { replyingTo = null },
+                )
+            } else {
+                UnreachableSenderNotice(sender)
+            }
+        }
+
+        focused?.let { current ->
+            val msg = current.message
+            FocusedMessageOverlay(
+                focused = current,
+                actions =
+                    messageActions(
+                        message = msg,
+                        canReply = !deletedView && (isValidSmsRecipient(sender) || isGroup),
+                        canReport = !deletedView && !msg.isOutgoing,
+                        onReply = { replyingTo = msg },
+                        onCopy = {
+                            clipboard.setText(AnnotatedString(shareableText(msg)))
+                            Toast.makeText(context, R.string.thread_copied, Toast.LENGTH_SHORT).show()
+                        },
+                        onForward = { navController.navigate(Screen.Compose.createRoute(body = shareableText(msg))) },
+                        onReport = { openReport(msg, action = "report") },
+                        onSelect = { viewModel.enterSelectionMode(msg.id) },
+                        onRetry = { retryFailedMessage(msg) },
+                        onDelete = { permanentDeleteIds = setOf(msg.id) },
+                    ),
+                onDismiss = { focused = null },
+            ) {
+                MessageBubble(
+                    msg = msg,
+                    isTrusted = isTrusted,
+                    bubbleMaxWidth = bubbleMaxWidth,
+                    quote = replyQuotes[msg.id],
+                    otherPartyName = contactName ?: sender,
+                    onImageLongClick = {},
+                )
+            }
+        }
     }
 }

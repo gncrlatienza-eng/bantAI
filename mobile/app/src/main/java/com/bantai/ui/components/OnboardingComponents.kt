@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,11 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
-import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 
 @Composable
@@ -52,7 +52,7 @@ fun PrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(52.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
         shape = RoundedCornerShape(14.dp),
         colors =
             ButtonDefaults.buttonColors(
@@ -63,11 +63,11 @@ fun PrimaryButton(
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = OnAccent,
+                color = OnIndigo,
                 strokeWidth = 2.dp,
             )
         } else {
-            Text(text, color = OnAccent, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
+            Text(text, color = OnIndigo, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
         }
     }
 }
@@ -84,7 +84,7 @@ fun PillTextField(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .heightIn(min = 48.dp)
                 .background(SurfaceElevated, RoundedCornerShape(12.dp))
                 .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -110,7 +110,7 @@ fun PillTextField(
 fun SectionLabel(text: String) {
     Text(
         text.uppercase(),
-        color = TextTertiary,
+        color = TextSecondary,
         fontSize = TextSize.Caption2,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp,

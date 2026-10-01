@@ -5,7 +5,8 @@ import android.content.Intent
 import android.os.IBinder
 import android.provider.Telephony
 import android.util.Log
-import com.bantai.data.SmsRepository
+import com.bantai.container
+import com.bantai.util.DefaultSmsApp
 import com.bantai.util.SmsSender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,8 +67,8 @@ class HeadlessSmsSendService : Service() {
             return START_NOT_STICKY
         }
 
-        val repo = SmsRepository(applicationContext)
-        val isDefaultSmsApp = Telephony.Sms.getDefaultSmsPackage(applicationContext) == applicationContext.packageName
+        val repo = applicationContext.container.smsWriter
+        val isDefaultSmsApp = DefaultSmsApp.isDefault(applicationContext)
         scope.launch {
             // Only the default SMS app may write to the provider at all -- see
             // SmsReceiver's identical check. The reply still sends either way; it

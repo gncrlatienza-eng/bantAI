@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,23 +36,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.data.remote.SmsApi
 import com.bantai.ui.components.DetailSkeleton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
-import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
@@ -61,6 +64,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
+@Suppress("LongMethod")
 fun ThreatAnalysisScreen(
     messageId: String = "",
     navController: NavController,
@@ -90,10 +94,14 @@ fun ThreatAnalysisScreen(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                "Threat Analysis",
+                stringResource(R.string.threat_analysis_threat_analysis),
                 color = White,
                 fontWeight = FontWeight.Bold,
                 fontSize = TextSize.Headline,
@@ -106,11 +114,19 @@ fun ThreatAnalysisScreen(
             isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = TextSize.Subhead)
+                    Text(
+                        errorMessage ?: stringResource(R.string.alert_load_failed),
+                        color = Danger,
+                        fontSize = TextSize.Subhead,
+                    )
                 }
             alert == null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No threat details available", color = TextSecondary, fontSize = TextSize.Subhead)
+                    Text(
+                        stringResource(R.string.threat_analysis_no_threat_details_available),
+                        color = TextSecondary,
+                        fontSize = TextSize.Subhead,
+                    )
                 }
             else -> ThreatAnalysisContent(alert!!, indicators)
         }
@@ -153,7 +169,7 @@ private fun ThreatAnalysisContent(
                         Icon(Icons.Default.GppBad, contentDescription = null, tint = Danger, modifier = Modifier.size(24.dp))
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Message stored on this device", color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
+                        Text(stringResource(R.string.threat_analysis_message_stored_on_this_device), color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
                         Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = TextSize.Caption)
                     }
                     Box(
@@ -163,7 +179,7 @@ private fun ThreatAnalysisContent(
                                 .border(1.dp, Suspicious, RoundedCornerShape(100.dp))
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
-                        Text(alert.label ?: "Suspicious", color = Suspicious, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
+                        Text(alert.label ?: "Suspicious", color = SuspiciousText, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
                     }
                 }
                 HorizontalDivider(color = BorderColor)
@@ -171,7 +187,7 @@ private fun ThreatAnalysisContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Confidence", color = TextSecondary, fontSize = TextSize.Caption)
+                    Text(stringResource(R.string.threat_analysis_confidence), color = TextSecondary, fontSize = TextSize.Caption)
                     LinearProgressIndicator(
                         progress = { confidence.toFloat() },
                         modifier =
@@ -182,13 +198,13 @@ private fun ThreatAnalysisContent(
                         color = Suspicious,
                         trackColor = BorderColor,
                     )
-                    Text("${(confidence * 100).roundToInt()}%", color = Suspicious, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
+                    Text("${(confidence * 100).roundToInt()}%", color = SuspiciousText, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
                 }
             }
         }
 
         item {
-            SectionLabel("MESSAGE")
+            SectionLabel(stringResource(R.string.threat_analysis_message))
             Column(
                 modifier =
                     Modifier
@@ -201,7 +217,7 @@ private fun ThreatAnalysisContent(
         }
 
         item {
-            SectionLabel("AI SUMMARY")
+            SectionLabel(stringResource(R.string.threat_analysis_ai_summary))
             Column(
                 modifier =
                     Modifier
@@ -212,11 +228,11 @@ private fun ThreatAnalysisContent(
             ) {
                 Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
                 Text(
-                    buildString {
-                        append("This message was classified as ")
-                        append(alert.label ?: "suspicious")
-                        append(" with ${(confidence * 100).roundToInt()}% confidence.")
-                    },
+                    stringResource(
+                        R.string.threat_analysis_classified_as,
+                        alert.label ?: stringResource(R.string.verdict_suspicious),
+                        (confidence * 100).roundToInt(),
+                    ),
                     color = White,
                     fontSize = TextSize.Subhead,
                     lineHeight = 22.sp,
@@ -225,7 +241,7 @@ private fun ThreatAnalysisContent(
         }
 
         item {
-            SectionLabel("THREAT INDICATORS")
+            SectionLabel(stringResource(R.string.threat_analysis_threat_indicators))
             if (indicators.isEmpty()) {
                 Column(
                     modifier =
@@ -241,7 +257,7 @@ private fun ThreatAnalysisContent(
                     // (no navigation reaches it), but its indicators source is
                     // the same AlertDetailViewModel, so it'll show real tags
                     // too whenever it's wired back in.
-                    Text("No specific indicators were recorded for this message.", color = TextSecondary, fontSize = TextSize.Footnote)
+                    Text(stringResource(R.string.threat_analysis_no_specific_indicators_were_recorded), color = TextSecondary, fontSize = TextSize.Footnote)
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,18 +269,18 @@ private fun ThreatAnalysisContent(
         }
 
         item {
-            SectionLabel("ACTIONS")
+            SectionLabel(stringResource(R.string.threat_analysis_actions))
             Button(
                 onClick = {},
                 enabled = false,
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Indigo),
             ) {
-                Text("Use your device inbox to take action", color = OnAccent, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
+                Text(stringResource(R.string.threat_analysis_use_your_device_inbox_to), color = OnIndigo, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -275,7 +291,7 @@ private fun ThreatAnalysisContent(
 private fun SectionLabel(text: String) {
     Text(
         text,
-        color = TextTertiary,
+        color = TextSecondary,
         fontSize = TextSize.Caption2,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp,

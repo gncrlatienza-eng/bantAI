@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.ksp)
 }
 
 // Release signing. Store/key credentials live in mobile/keystore.properties
@@ -185,11 +186,24 @@ androidComponents {
     }
 }
 
+ksp {
+    // Checked-in schema history, so later Room migrations can be tested against it.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 ktlint {
     // Android-specific import-order/idiom handling (differs from plain
     // Kotlin) -- without this ktlint flags conventional Android code style.
     android.set(true)
     version.set("1.5.0")
+    // Vendored AOSP MMS code (see mms/pdu/README.md) keeps upstream's style.
+    filter {
+        exclude {
+            it.file.path
+                .replace('\\', '/')
+                .contains("/com/bantai/mms/pdu/")
+        }
+    }
 }
 
 detekt {
@@ -200,6 +214,14 @@ detekt {
     // *new* issues in future PRs actually fail the build. Same "start
     // lenient, tighten later" approach used for ai/, backend/, and web/.
     baseline = file("$projectDir/detekt-baseline.xml")
+}
+
+// Same vendored AOSP MMS package as the ktlint filter above.
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    exclude("**/com/bantai/mms/pdu/**")
+}
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
+    exclude("**/com/bantai/mms/pdu/**")
 }
 
 dependencies {
@@ -232,6 +254,11 @@ dependencies {
     // that actually blurs the screen content behind it, not just a translucent
     // tint. dev.chrisbanes.haze, stable since 1.2.0's hazeSource/hazeEffect API.
     implementation("dev.chrisbanes.haze:haze:1.5.3")
+    // Local message/classification storage (replaced JSON-file and single-key
+    // DataStore blobs that were rewritten whole on every change).
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     debugImplementation(libs.androidx.ui.tooling)
     if (googleServicesFile.exists()) {
         implementation(platform(libs.firebase.bom))

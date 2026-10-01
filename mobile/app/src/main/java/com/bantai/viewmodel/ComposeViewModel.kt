@@ -3,7 +3,7 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bantai.data.local.DraftsStore
+import com.bantai.container
 import com.bantai.data.model.normalizeSenderKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 class ComposeViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val draftsStore = DraftsStore(application)
+    private val draftsStore = application.container.draftsStore
 
     // Runs on viewModelScope rather than a screen-level CoroutineScope, since this
     // is called from Compose's onDispose as the screen is leaving — a scope tied to

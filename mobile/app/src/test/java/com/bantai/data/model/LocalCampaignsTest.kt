@@ -62,7 +62,7 @@ class LocalCampaignsTest {
 
         val group = overview.localGroups.single()
         assertEquals(GroupReason.SAME_LINK, group.reason)
-        assertEquals("Same link: lbc-track[.]xyz", group.title)
+        assertEquals("Texts with the same link", group.title)
         assertEquals("Parcel / delivery scam", group.category)
         assertEquals(2, group.senderCount)
         assertEquals(1, overview.unmatched.size)
@@ -131,5 +131,31 @@ class LocalCampaignsTest {
     @Test
     fun `empty input gives an empty overview`() {
         assertTrue(buildLocalCampaigns(emptyList()).isEmpty)
+    }
+
+    @Test
+    fun `an AI cluster number is dropped from the name`() {
+        assertEquals("Bank phishing (BDO)", cleanCampaignLabel("Bank phishing (BDO) #2"))
+        assertEquals("Promo (Globe)", cleanCampaignLabel("Promo (Globe)"))
+    }
+
+    @Test
+    fun `same-named campaigns in a section get their main sender added`() {
+        fun campaign(
+            key: String,
+            sender: String,
+        ) = LocalCampaign(
+            key = key,
+            title = "Similar rewards / prize claim messages",
+            category = "Rewards / prize claim",
+            reason = GroupReason.SIMILAR_WORDING,
+            clusterId = null,
+            messages = listOf(msg("x", sender = sender), msg("y", sender = sender)),
+        )
+        val titles = distinctTitles(listOf(campaign("a", "BPI"), campaign("b", "BDO"))).map { it.title }
+        assertEquals(
+            listOf("Similar rewards / prize claim messages · BPI", "Similar rewards / prize claim messages · BDO"),
+            titles,
+        )
     }
 }

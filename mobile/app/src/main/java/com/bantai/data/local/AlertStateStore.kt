@@ -13,12 +13,19 @@ import java.io.IOException
 
 private val Context.alertStateDataStore by preferencesDataStore(name = "bantai_alert_state")
 
-/** Which alerts (by backend messageId) the user has opened, and which they've marked reviewed. */
+/**
+ * Which alerts (by backend messageId) the user has opened, and which they've
+ * reported from this phone (messageId to the label they reported,
+ * Scam/Spam/Ham). An old "reviewed" key from the removed Reviewed page may
+ * still sit in the store; nothing reads it.
+ */
 data class AlertState(
     val initialized: Boolean = false,
     val seen: Set<String> = emptySet(),
-    val reviewed: Set<String> = emptySet(),
+    val reported: Map<String, String> = emptyMap(),
 )
+
+private const val REPORTED_SEPARATOR = "\t"
 
 /**
  * Phone-only bookkeeping for the Alerts tab. The backend has no endpoint to
@@ -32,7 +39,7 @@ class AlertStateStore(
     private object Keys {
         val INITIALIZED = booleanPreferencesKey("initialized")
         val SEEN = stringSetPreferencesKey("seen")
-        val REVIEWED = stringSetPreferencesKey("reviewed")
+        val REPORTED = stringSetPreferencesKey("reported")
     }
 
     val state: Flow<AlertState> =
@@ -43,7 +50,13 @@ class AlertStateStore(
                 AlertState(
                     initialized = prefs[Keys.INITIALIZED] ?: false,
                     seen = prefs[Keys.SEEN].orEmpty(),
-                    reviewed = prefs[Keys.REVIEWED].orEmpty(),
+                    reported =
+                        prefs[Keys.REPORTED]
+                            .orEmpty()
+                            .mapNotNull { entry ->
+                                val parts = entry.split(REPORTED_SEPARATOR, limit = 2)
+                                if (parts.size == 2) parts[0] to parts[1] else null
+                            }.toMap(),
                 )
             }
 
@@ -61,18 +74,26 @@ class AlertStateStore(
     }
 
     suspend fun markSeen(id: String) {
-        context.alertStateDataStore.edit { prefs -> prefs[Keys.SEEN] = prefs[Keys.SEEN].orEmpty() + id }
+        markSeen(listOf(id))
     }
 
-    suspend fun setReviewed(
+    suspend fun markSeen(ids: Collection<String>) {
+        context.alertStateDataStore.edit { prefs -> prefs[Keys.SEEN] = prefs[Keys.SEEN].orEmpty() + ids }
+    }
+
+    /**
+     * A report was just filed (or the backend said it already was). The
+     * backend returns reports with the alert list too; this makes the alert
+     * move to Reported at once rather than on the next refresh.
+     */
+    suspend fun markReported(
         id: String,
-        reviewed: Boolean,
+        reportedLabel: String,
     ) {
         context.alertStateDataStore.edit { prefs ->
-            val current = prefs[Keys.REVIEWED].orEmpty()
-            prefs[Keys.REVIEWED] = if (reviewed) current + id else current - id
-            // Reviewing an alert implies having seen it.
-            if (reviewed) prefs[Keys.SEEN] = prefs[Keys.SEEN].orEmpty() + id
+            val others = prefs[Keys.REPORTED].orEmpty().filterNot { it.startsWith(id + REPORTED_SEPARATOR) }
+            prefs[Keys.REPORTED] = others.toSet() + (id + REPORTED_SEPARATOR + reportedLabel)
+            prefs[Keys.SEEN] = prefs[Keys.SEEN].orEmpty() + id
         }
     }
 

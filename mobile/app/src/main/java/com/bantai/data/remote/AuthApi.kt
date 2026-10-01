@@ -30,6 +30,21 @@ object AuthApi {
                 AuthResult(accessToken = JSONObject(body).getString("access_token"))
             }
 
+    data class Profile(
+        val firstName: String,
+        val lastName: String,
+    )
+
+    /** The signed-in account's saved name, so signing back in on this phone restores it. */
+    suspend fun me(token: String): Result<Profile> =
+        HttpClient.get("/auth/me", token = token).mapCatching { body ->
+            val json = JSONObject(body)
+            Profile(
+                firstName = json.optString("firstName").takeUnless { json.isNull("firstName") }.orEmpty(),
+                lastName = json.optString("lastName").takeUnless { json.isNull("lastName") }.orEmpty(),
+            )
+        }
+
     suspend fun updateProfile(
         token: String,
         firstName: String,

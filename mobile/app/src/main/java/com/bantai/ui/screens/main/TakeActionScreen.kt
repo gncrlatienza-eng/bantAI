@@ -1,13 +1,10 @@
 package com.bantai.ui.screens.main
 
-import android.app.role.RoleManager
 import android.content.Context
-import android.content.Intent
-import android.os.Build
-import android.provider.Telephony
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -16,8 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,6 +41,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,14 +55,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.container
 import com.bantai.data.SmsIngestPipeline
-import com.bantai.data.local.UserPreferences
-import com.bantai.data.remote.BlockedNumbersApi
+import com.bantai.data.model.Classification
+import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.ReportsApi
 import com.bantai.data.remote.VerificationApi
 import com.bantai.navigation.Screen
@@ -79,12 +80,11 @@ import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.util.BlockHelper
+import com.bantai.util.DefaultSmsApp
 import com.bantai.util.SenderReplyKind
 import com.bantai.util.replyKindFor
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val DISABLED_CARD_ALPHA = 0.4f
 
@@ -92,32 +92,25 @@ private const val DISABLED_CARD_ALPHA = 0.4f
 // (Ham/Spam/Scam) -- reports feed AI retraining, so every choice has to name
 // the label the message should have had, including "this is legit".
 private data class ReportOption(
-    val title: String,
+    @StringRes val title: Int,
     val reportedLabel: String,
 )
 
 private val allReportOptions =
     listOf(
-        ReportOption("Smishing / Phishing (scam)", "Scam"),
-        ReportOption("Spam / unwanted promo", "Spam"),
-        ReportOption("Legitimate — wrongly flagged", "Ham"),
+        ReportOption(R.string.take_action_option_scam, "Scam"),
+        ReportOption(R.string.take_action_option_spam, "Spam"),
+        ReportOption(R.string.take_action_option_ham, "Ham"),
     )
 
 // The backend rejects a "correction" that matches the current verdict, so that
 // option is hidden; with no known label (e.g. an Unknown message) all show.
-private fun reportOptionsFor(currentLabel: String): List<ReportOption> = allReportOptions.filter { it.reportedLabel != currentLabel }
+private fun reportOptionsFor(label: String): List<ReportOption> = allReportOptions.filter { it.reportedLabel != label }
 
 private class NotDefaultSmsAppException : Exception("Set BantAI as your default SMS app to block numbers.")
 
-// Opens the system prompt that makes BantAI the default SMS app (same request
-// as onboarding's OnboardingDefaultSmsScreen), falling back to the pre-Q intent.
-private fun defaultSmsAppIntent(context: Context): Intent =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_SMS)
-    } else {
-        Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT)
-            .putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, context.packageName)
-    }
+/** TakeAction `action` value for the one-tap "Report as scam" shortcut. */
+const val PRESELECT_REPORT_SCAM = "report_scam"
 
 private data class TakeActionRequest(
     val reportSelected: Boolean,
@@ -128,14 +121,20 @@ private data class TakeActionRequest(
     val reportedLabel: String?,
 )
 
+@Suppress("ReturnCount") // each early return is a distinct, user-facing failure
 private suspend fun submitReportIfSelected(
     context: Context,
     request: TakeActionRequest,
 ): Result<Unit> {
     if (!request.reportSelected) return Result.success(Unit)
-    if (request.reportedLabel == null) return Result.failure(Exception("Choose what this message really is"))
-    val token = UserPreferences(context).userData.first().authToken
-    if (token.isEmpty()) return Result.failure(Exception("Sign in to submit a report"))
+    if (request.reportedLabel == null) {
+        return Result.failure(Exception(context.getString(R.string.take_action_error_choose_label)))
+    }
+    val token =
+        context.container.userPreferences.userData
+            .first()
+            .authToken
+    if (token.isEmpty()) return Result.failure(Exception(context.getString(R.string.take_action_error_sign_in)))
     // A message the backend hasn't seen yet (never scanned, or never flagged) is
     // registered on the spot rather than making Report unavailable for it.
     val messageId =
@@ -144,12 +143,46 @@ private suspend fun submitReportIfSelected(
         }
     if (messageId.isBlank()) {
         // Say so instead of silently no-opping into a "submitted" confirmation screen.
-        return Result.failure(Exception("Couldn't reach BantAI to report this message — check your connection and try again."))
+        return Result.failure(Exception(context.getString(R.string.take_action_error_offline)))
     }
     val submitted = ReportsApi.submit(token, messageId, request.reportedLabel)
     if (submitted.isSuccess && request.reportedLabel == "Scam") fileSenderReport(token, request.sender)
+    // Filed now, or already filed before (the backend allows one per message):
+    // either way the alert belongs under Reported, where Report isn't offered.
+    val alreadyReported = (submitted.exceptionOrNull() as? ApiException)?.status == HTTP_CONFLICT
+    if (submitted.isSuccess || alreadyReported) {
+        context.container.alertStateStore.markReported(messageId, request.reportedLabel)
+    }
+    if (submitted.isSuccess) refileReported(context, request.localMessageId, request.reportedLabel)
     return submitted
 }
+
+/**
+ * Moves the reported message to the chip the user chose, right away -- a report
+ * used to change nothing on the phone, so a scam reported from Messages stayed
+ * in Messages. Ham -> Messages, Spam -> Spam. Scam -> Unknown: a scam label
+ * hides a sender's whole thread from every chip (it's meant to live in Alerts),
+ * and a report doesn't create an alert, so the text would vanish. A message
+ * already filed as a scam (an alert) stays one.
+ */
+private suspend fun refileReported(
+    context: Context,
+    localMessageId: Long?,
+    reportedLabel: String,
+) {
+    if (localMessageId == null || localMessageId <= 0) return
+    val store = context.container.classificationStore
+    val current = store.snapshotFor(localMessageId)
+    val label =
+        when (reportedLabel) {
+            "Ham" -> Classification.SAFE
+            "Spam" -> Classification.SPAM
+            else -> if (current == Classification.SCAM) return else Classification.UNKNOWN
+        }
+    store.setClassification(localMessageId, label)
+}
+
+private const val HTTP_CONFLICT = 409
 
 // Corroborating evidence so several users reporting the same number can get it
 // confirmed as fraud for everyone. Only real phone numbers: brand sender IDs
@@ -175,27 +208,27 @@ private suspend fun blockIfSelected(
     request: TakeActionRequest,
 ): Result<Unit> {
     if (!request.blockSelected) return Result.success(Unit)
-    if (request.sender.isBlank()) return Result.failure(Exception("Can't block — no number for this message."))
+    if (request.sender.isBlank()) {
+        return Result.failure(
+            Exception(context.getString(R.string.take_action_error_no_number)),
+        )
+    }
     // Android only lets the default SMS (or phone) app write to its block list;
     // any other app's insert is refused, which used to surface as a bare
     // "Couldn't block this number" with no way forward.
-    if (Telephony.Sms.getDefaultSmsPackage(context) != context.packageName) {
+    if (!DefaultSmsApp.isDefault(context)) {
         return Result.failure(NotDefaultSmsAppException())
     }
-    // BlockHelper's calls are synchronous ContentResolver I/O (BlockedNumberContract),
-    // not suspend functions -- without Dispatchers.IO here they'd run straight on
-    // whatever dispatcher rememberCoroutineScope() gave the caller, which for a
-    // Compose scope is Main.
-    val blockedOk =
-        withContext(Dispatchers.IO) {
-            BlockHelper.blockNumberSystem(context, request.sender)
-            BlockHelper.isBlocked(context, request.sender)
-        }
-    if (!blockedOk) {
-        return Result.failure(Exception("Couldn't block this number"))
+    // Same path as an auto-block, so the sender also lands in Blocked Numbers'
+    // local record (BlockedSendersStore) and Alerts sees it as blocked.
+    val token =
+        context.container.userPreferences.userData
+            .first()
+            .authToken
+    val outcome = BlockHelper.blockSender(context, token, request.sender)
+    if (!outcome.onDevice) {
+        return Result.failure(Exception(context.getString(R.string.take_action_error_block_failed)))
     }
-    val token = UserPreferences(context).userData.first().authToken
-    if (token.isNotEmpty()) BlockedNumbersApi.block(token, request.sender)
     return Result.success(Unit)
 }
 
@@ -241,32 +274,46 @@ fun TakeActionScreen(
     val coroutineScope = rememberCoroutineScope()
     val canReport = messageId.isNotBlank() || localMessageId != null
     val reportOptions = remember(currentLabel) { reportOptionsFor(currentLabel) }
-    var reportSelected by remember { mutableStateOf(canReport && preselect == "report") }
-    var blockSelected by remember { mutableStateOf(canBlock && preselect == "block") }
-    var selectedReportType by remember { mutableIntStateOf(0) }
+    // "report_scam" is the one-tap shortcut: Report with "Scam" already chosen,
+    // straight to the confirmation.
+    val quickScamReport = preselect == PRESELECT_REPORT_SCAM
+    var reportSelected by remember { mutableStateOf(canReport && (preselect == "report" || quickScamReport)) }
+    // Block needs the default SMS app role; asked for up front (below) rather
+    // than only discovered at Submit.
+    var blockSelected by remember {
+        mutableStateOf(canBlock && preselect == "block" && BlockHelper.isDefaultSmsApp(context))
+    }
+    var selectedReportType by remember {
+        mutableIntStateOf(
+            if (quickScamReport) reportOptions.indexOfFirst { it.reportedLabel == "Scam" }.coerceAtLeast(0) else 0,
+        )
+    }
     var notes by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
-    var showDefaultSmsPrompt by remember { mutableStateOf(false) }
+    var showDefaultSmsPrompt by remember {
+        mutableStateOf(canBlock && preselect == "block" && !BlockHelper.isDefaultSmsApp(context))
+    }
     val defaultSmsLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (Telephony.Sms.getDefaultSmsPackage(context) == context.packageName) {
-                Toast
-                    .makeText(context, "BantAI is now your default SMS app. Tap Submit again.", Toast.LENGTH_LONG)
-                    .show()
-            }
+            if (BlockHelper.isDefaultSmsApp(context)) blockSelected = true
         }
+
+    LaunchedEffect(Unit) {
+        if (quickScamReport && reportSelected && reportOptions.any { it.reportedLabel == "Scam" }) showDialog = true
+    }
 
     if (showDefaultSmsPrompt) {
         AlertDialog(
             onDismissRequest = { showDefaultSmsPrompt = false },
             containerColor = SurfaceElevated,
             shape = RoundedCornerShape(20.dp),
-            title = { Text("Make BantAI your default SMS app", color = White, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(stringResource(R.string.default_sms_prompt_title), color = White, fontWeight = FontWeight.Bold)
+            },
             text = {
                 Text(
-                    "Android only lets your default SMS app block numbers. " +
-                        "Set BantAI as default, then tap Submit again. Your report was not sent yet.",
+                    stringResource(R.string.default_sms_prompt_block),
                     color = TextSecondary,
                     fontSize = TextSize.Subhead,
                 )
@@ -274,11 +321,19 @@ fun TakeActionScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDefaultSmsPrompt = false
-                    runCatching { defaultSmsLauncher.launch(defaultSmsAppIntent(context)) }
-                }) { Text("Set as default", color = Indigo, fontWeight = FontWeight.Bold) }
+                    runCatching { defaultSmsLauncher.launch(BlockHelper.defaultSmsAppIntent(context)) }
+                }) {
+                    Text(
+                        stringResource(R.string.default_sms_prompt_confirm),
+                        color = Indigo,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDefaultSmsPrompt = false }) { Text("Not now", color = TextSecondary) }
+                TextButton(onClick = { showDefaultSmsPrompt = false }) {
+                    Text(stringResource(R.string.action_not_now), color = TextSecondary)
+                }
             },
         )
     }
@@ -327,8 +382,11 @@ fun TakeActionScreen(
                                 showDefaultSmsPrompt = true
                             } else {
                                 Toast
-                                    .makeText(context, error.message ?: "Something went wrong", Toast.LENGTH_LONG)
-                                    .show()
+                                    .makeText(
+                                        context,
+                                        error.message ?: context.getString(R.string.error_generic),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
                             }
                         }
                 }
@@ -345,7 +403,13 @@ fun TakeActionScreen(
         selectedReportType = selectedReportType,
         notes = notes,
         onToggleReport = { reportSelected = !reportSelected },
-        onToggleBlock = { blockSelected = !blockSelected },
+        onToggleBlock = {
+            if (!blockSelected && !BlockHelper.isDefaultSmsApp(context)) {
+                showDefaultSmsPrompt = true
+            } else {
+                blockSelected = !blockSelected
+            }
+        },
         onSelectReportType = { selectedReportType = it },
         onNotesChange = { notes = it },
         onSubmit = { showDialog = true },
@@ -374,7 +438,12 @@ private fun TakeActionContent(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Black),
+                .background(Black)
+                // The notes box sits at the bottom of the form; without this the
+                // keyboard covered it (edge-to-edge means adjustResize no longer
+                // shrinks the window). The scroll area shrinks instead and the
+                // focused field is scrolled into view.
+                .imePadding(),
     ) {
         Box(
             modifier =
@@ -387,10 +456,14 @@ private fun TakeActionContent(
                 onClick = onBack,
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = White,
+                )
             }
             Text(
-                if (canBlock) "Report or Block" else "Report Message",
+                stringResource(if (canBlock) R.string.take_action_title else R.string.take_action_title_report),
                 color = White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = TextSize.Headline,
@@ -408,18 +481,20 @@ private fun TakeActionContent(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 12.dp),
         ) {
-            SectionHeader("Choose an action")
+            SectionHeader(stringResource(R.string.take_action_choose_an_action))
             GroupCard {
                 ActionRow(
                     icon = Icons.Outlined.ReportGmailerrorred,
                     tint = Indigo,
-                    title = "Report message",
+                    title = stringResource(R.string.message_detail_report_message),
                     subtitle =
-                        if (canReport) {
-                            "Send it to BantAI for review"
-                        } else {
-                            "Not available for this message"
-                        },
+                        stringResource(
+                            if (canReport) {
+                                R.string.take_action_report_subtitle
+                            } else {
+                                R.string.take_action_report_unavailable
+                            },
+                        ),
                     selected = reportSelected,
                     enabled = canReport,
                     onClick = onToggleReport,
@@ -429,8 +504,8 @@ private fun TakeActionContent(
                     ActionRow(
                         icon = Icons.Outlined.Block,
                         tint = Danger,
-                        title = "Block sender",
-                        subtitle = "Stop messages from this number",
+                        title = stringResource(R.string.alert_block_sender),
+                        subtitle = stringResource(R.string.take_action_stop_messages_from_this_number),
                         selected = blockSelected,
                         onClick = onToggleBlock,
                     )
@@ -438,16 +513,15 @@ private fun TakeActionContent(
             }
 
             if (reportSelected) {
-                SectionHeader("What is this message?")
+                SectionHeader(stringResource(R.string.take_action_what_is_this_message))
                 ReportTypeSection(reportOptions, selectedReportType, onSelectReportType)
-                SectionHeader("Notes (optional)")
+                SectionHeader(stringResource(R.string.take_action_notes_optional))
                 NotesSection(notes, onNotesChange)
             }
 
             if (blockSelected) {
                 Text(
-                    "This number will be added to your blocked list and can no longer send you messages. " +
-                        "You can unblock it anytime in Settings.",
+                    stringResource(R.string.take_action_this_number_will_be_added),
                     color = TextSecondary,
                     fontSize = TextSize.Footnote,
                     lineHeight = 18.sp,
@@ -503,7 +577,7 @@ private fun RowDivider(startInset: Int = 60) {
 private fun SelectionIndicator(selected: Boolean) {
     Icon(
         if (selected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-        contentDescription = if (selected) "Selected" else "Not selected",
+        contentDescription = stringResource(if (selected) R.string.cd_selected else R.string.cd_not_selected),
         tint = if (selected) Indigo else TextTertiary,
         modifier = Modifier.size(22.dp),
     )
@@ -565,12 +639,17 @@ private fun ReportTypeSection(
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(option.title, color = White, fontSize = TextSize.Body, modifier = Modifier.weight(1f))
+                Text(
+                    stringResource(option.title),
+                    color = White,
+                    fontSize = TextSize.Body,
+                    modifier = Modifier.weight(1f),
+                )
                 // iOS picker style: a plain checkmark on the chosen row only.
                 if (isSelected) {
                     Icon(
                         Icons.Filled.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.take_action_selected),
                         tint = Indigo,
                         modifier = Modifier.size(20.dp),
                     )
@@ -596,7 +675,12 @@ private fun NotesSection(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 96.dp),
-            placeholder = { Text("Anything that helps us review it", color = TextTertiary) },
+            placeholder = {
+                Text(
+                    stringResource(R.string.take_action_anything_that_helps_us_review),
+                    color = TextSecondary,
+                )
+            },
             shape = RoundedCornerShape(14.dp),
             colors =
                 OutlinedTextFieldDefaults.colors(
@@ -611,7 +695,7 @@ private fun NotesSection(
         )
         Text(
             "${notes.length}/$NOTES_MAX_LENGTH",
-            color = TextTertiary,
+            color = TextSecondary,
             fontSize = TextSize.Caption2,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp, end = 8.dp),
             textAlign = TextAlign.End,
@@ -634,7 +718,7 @@ private fun ActionButton(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
-                .height(50.dp),
+                .heightIn(min = 50.dp),
         shape = RoundedCornerShape(14.dp),
         colors =
             ButtonDefaults.buttonColors(
@@ -664,31 +748,29 @@ private fun ConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    val safeSender = sender.ifBlank { "This number" }
+    val safeSender = sender.ifBlank { stringResource(R.string.take_action_this_number) }
     val data =
         when (type) {
             "report_only" ->
                 DialogData(
                     Icons.Outlined.ReportGmailerrorred,
-                    "Send this report?",
-                    "Your report goes to the BantAI team to help improve threat detection for everyone.",
-                    "Send Report",
+                    stringResource(R.string.take_action_confirm_report_title),
+                    stringResource(R.string.take_action_confirm_report_body),
+                    stringResource(R.string.take_action_confirm_report_button),
                 )
             "block_only" ->
                 DialogData(
                     Icons.Outlined.Block,
-                    "Block this number?",
-                    "$safeSender will be added to your blocked list and can no longer send you messages. " +
-                        "You can unblock it anytime in Settings.",
-                    "Block",
+                    stringResource(R.string.take_action_confirm_block_title),
+                    stringResource(R.string.take_action_confirm_block_body, safeSender),
+                    stringResource(R.string.take_action_confirm_block_button),
                 )
             else ->
                 DialogData(
                     Icons.Outlined.Block,
-                    "Report and block?",
-                    "Your report goes to the BantAI team and this number will be blocked " +
-                        "from sending you messages.",
-                    "Report & Block",
+                    stringResource(R.string.take_action_confirm_both_title),
+                    stringResource(R.string.take_action_confirm_both_body),
+                    stringResource(R.string.take_action_confirm_both_button),
                 )
         }
     val accent = if (type == "report_only") Indigo else Danger
@@ -720,7 +802,7 @@ private fun ConfirmationDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextSecondary)
+                Text(stringResource(R.string.action_cancel), color = TextSecondary)
             }
         },
     )

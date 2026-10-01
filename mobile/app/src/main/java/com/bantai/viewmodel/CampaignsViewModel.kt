@@ -5,11 +5,9 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.container
 import com.bantai.data.SmsIngestPipeline
-import com.bantai.data.SmsRepository
-import com.bantai.data.local.CampaignMatchStore
-import com.bantai.data.local.ClassificationStore
-import com.bantai.data.local.UserPreferences
+import com.bantai.data.model.Classification
 import com.bantai.data.model.LocalCampaignOverview
 import com.bantai.data.model.LocalScamMessage
 import com.bantai.data.model.SmsMessage
@@ -27,7 +25,7 @@ private const val TAG = "CampaignsViewModel"
 
 // Messages this phone treats as scam or suspicious (see routeServerClassification
 // / applyOfflineCaution). Spam is promotional and deliberately left out.
-private val SCAM_CLASSIFICATIONS = setOf("blocked", "unknown")
+private val SCAM_CLASSIFICATIONS = setOf(Classification.SCAM, Classification.UNKNOWN)
 
 // Older messages never checked against campaigns are re-sent a batch at a
 // time, so opening the tab never fires hundreds of requests at once.
@@ -41,9 +39,6 @@ sealed interface OpenTarget {
     data class Alert(
         val backendMessageId: String,
     ) : OpenTarget
-
-    /** A blocked scam whose alert can't be looked up (offline or signed out). */
-    data object Unavailable : OpenTarget
 }
 
 data class CampaignsUiState(
@@ -64,10 +59,10 @@ data class CampaignsUiState(
 class CampaignsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
-    private val smsRepository = SmsRepository(application)
-    private val matchStore = CampaignMatchStore(application)
-    private val classificationStore = ClassificationStore(application)
+    private val userPreferences = application.container.userPreferences
+    private val smsRepository = application.container.smsRepository
+    private val matchStore = application.container.campaignMatchStore
+    private val classificationStore = application.container.classificationStore
 
     private val _state = MutableStateFlow(CampaignsUiState())
     val state: StateFlow<CampaignsUiState> = _state.asStateFlow()
@@ -101,7 +96,7 @@ class CampaignsViewModel(
 
                 val token = userPreferences.userData.first().authToken
                 if (token.isEmpty()) {
-                    _state.value = _state.value.copy(matchingNote = "Sign in to match known campaigns")
+                    _state.value = _state.value.copy(matchingNote = "Sign in to see scam waves reported by others")
                     return@launch
                 }
                 backfillMatches(token, scamMessages)
@@ -110,15 +105,20 @@ class CampaignsViewModel(
 
     /**
      * Where tapping a campaign message should go. High-confidence scams
-     * ("blocked") are deliberately hidden from conversation threads and live
-     * only as alerts, so they open the Smishing Alert screen, which needs the
-     * backend message id; everything else opens the thread.
+     * ("blocked") open their Smishing Alert, which needs the backend message
+     * id; everything else opens the thread.
+     *
+     * A blocked scam with no backend id opens its thread too. The server
+     * stores nothing for a sender it has already blocked, so those messages
+     * never get an id -- this used to show "Connect to the server to open this
+     * scam alert" on a perfectly good connection, for every message from a
+     * blocked sender. The thread still shows them, marked as a likely scam.
      */
     fun resolveOpenTarget(
         message: LocalScamMessage,
         onResult: (OpenTarget) -> Unit,
     ) {
-        if (message.classification != "blocked") {
+        if (message.classification != Classification.SCAM) {
             onResult(OpenTarget.Thread(message.sender))
             return
         }
@@ -131,7 +131,7 @@ class CampaignsViewModel(
                     runCatching { SmsIngestPipeline.backendMessageIdFor(getApplication(), token, message.id) }
                         .getOrNull()
                 }
-            onResult(backendId?.let { OpenTarget.Alert(it) } ?: OpenTarget.Unavailable)
+            onResult(backendId?.let { OpenTarget.Alert(it) } ?: OpenTarget.Thread(message.sender))
         }
     }
 
@@ -165,8 +165,8 @@ class CampaignsViewModel(
         }
 
         var unavailable = false
-        for ((index, message) in pending.withIndex()) {
-            _state.value = _state.value.copy(matchingProgress = "Matching ${index + 1} of ${pending.size} messages…")
+        _state.value = _state.value.copy(matchingProgress = "Checking for new scam waves…")
+        for (message in pending) {
             val outcome =
                 runCatching { SmsIngestPipeline.classifyExisting(getApplication(), token, message) }
                     .onFailure { Log.w(TAG, "Campaign match failed for ${message.id}", it) }
@@ -183,7 +183,7 @@ class CampaignsViewModel(
             _state.value =
                 _state.value.copy(
                     matchingProgress = null,
-                    matchingNote = "Couldn't reach the server, so these groups come from this phone only",
+                    matchingNote = "You're offline, so these groups come from this phone only",
                 )
         } else {
             _state.value = _state.value.copy(matchingProgress = null, matchingNote = null)

@@ -29,7 +29,7 @@ data class LocalScamMessage(
     val timestamp: Long,
     val match: SmsApi.CampaignMatch?,
     /** Local classification; "blocked" scams are hidden from threads and open as alerts. */
-    val classification: String = "unknown",
+    val classification: Classification = Classification.UNKNOWN,
 )
 
 enum class GroupReason { AI_MATCH, SAME_LINK, SIMILAR_WORDING }
@@ -89,7 +89,7 @@ fun buildLocalCampaigns(messages: List<LocalScamMessage>): LocalCampaignOverview
                 val category = match.category ?: OTHER_SCAM_CATEGORY
                 LocalCampaign(
                     key = "ai:$clusterId",
-                    title = match.label ?: category,
+                    title = match.label?.let(::cleanCampaignLabel) ?: category,
                     category = category,
                     reason = GroupReason.AI_MATCH,
                     clusterId = clusterId,
@@ -101,7 +101,7 @@ fun buildLocalCampaigns(messages: List<LocalScamMessage>): LocalCampaignOverview
         (aiCampaigns + localGroups)
             .groupBy { it.category }
             .map { (category, campaigns) ->
-                CategorySection(category, campaigns.sortedByDescending { it.messages.size })
+                CategorySection(category, distinctTitles(campaigns.sortedByDescending { it.messages.size }))
             }.sortedByDescending { it.messageCount }
 
     return LocalCampaignOverview(
@@ -109,6 +109,37 @@ fun buildLocalCampaigns(messages: List<LocalScamMessage>): LocalCampaignOverview
         unmatched = unmatched.sortedByDescending { it.timestamp },
         hiddenPromoCount = promo.size,
     )
+}
+
+// The AI numbers same-named clusters ("Bank phishing (BDO) #2"); on a phone
+// that only has #2 the number reads as a glitch, so it's dropped.
+private val CLUSTER_NUMBER_SUFFIX = Regex("""\s*#\d+$""")
+
+internal fun cleanCampaignLabel(label: String): String = label.replace(CLUSTER_NUMBER_SUFFIX, "").ifBlank { label }
+
+/**
+ * Two campaigns with the same name in one section ("Similar rewards / prize
+ * claim messages" twice) can't be told apart, so each gets its main sender
+ * added: "Similar rewards / prize claim messages · BPI".
+ */
+internal fun distinctTitles(campaigns: List<LocalCampaign>): List<LocalCampaign> {
+    val repeated =
+        campaigns
+            .groupingBy { it.title }
+            .eachCount()
+            .filterValues { it > 1 }
+            .keys
+    if (repeated.isEmpty()) return campaigns
+    return campaigns.map { campaign ->
+        if (campaign.title !in repeated) return@map campaign
+        val mainSender =
+            campaign.messages
+                .groupingBy { it.sender }
+                .eachCount()
+                .maxByOrNull { it.value }
+                ?.key
+        if (mainSender.isNullOrBlank()) campaign else campaign.copy(title = "${campaign.title} · $mainSender")
+    }
 }
 
 private fun groupUnmatched(messages: List<LocalScamMessage>): Pair<List<LocalCampaign>, List<LocalScamMessage>> {
@@ -125,8 +156,9 @@ private fun groupUnmatched(messages: List<LocalScamMessage>): Pair<List<LocalCam
             groups +=
                 localGroup(
                     key = "link:$domain",
-                    // Defanged ("lbc-track[.]xyz") so the name can't read as a tappable link.
-                    title = "Same link: ${domain.replace(".", "[.]")}",
+                    // Plain words: the defanged domain ("lbc-track[.]xyz") read as
+                    // technical noise. The link itself shows when the group is opened.
+                    title = "Texts with the same link",
                     reason = GroupReason.SAME_LINK,
                     members = members,
                 )
@@ -157,7 +189,7 @@ private fun groupUnmatched(messages: List<LocalScamMessage>): Pair<List<LocalCam
             groups +=
                 localGroup(
                     key = "similar:${members.minOf { it.id }}",
-                    title = "Similar ${category.lowercase()} messages",
+                    title = "Texts with similar wording",
                     reason = GroupReason.SIMILAR_WORDING,
                     members = members,
                     category = category,

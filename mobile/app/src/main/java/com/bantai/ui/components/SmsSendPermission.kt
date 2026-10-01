@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.bantai.R
 
 /**
  * Runs a send only once SEND_SMS is granted, asking for it first when it isn't.
@@ -33,8 +34,7 @@ fun rememberSmsSendPermission(): (onGranted: () -> Unit) -> Unit {
                 Toast
                     .makeText(
                         context,
-                        "BantAI needs SMS permission to send. " +
-                            "Allow it in Settings, or set BantAI as your default SMS app.",
+                        R.string.send_permission_needed,
                         Toast.LENGTH_LONG,
                     ).show()
             }

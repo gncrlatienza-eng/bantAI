@@ -3,11 +3,13 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bantai.data.SmsRepository
-import com.bantai.data.local.UserPreferences
+import com.bantai.container
+import com.bantai.data.AlertBlocking
+import com.bantai.data.remote.CampaignsApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.VerificationApi
 import com.bantai.data.remote.toUserMessage
+import com.bantai.data.withLocalContent
 import com.bantai.util.TrustedSenders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,8 +22,8 @@ import kotlinx.coroutines.withContext
 class AlertDetailViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
-    private val smsRepository = SmsRepository(application)
+    private val userPreferences = application.container.userPreferences
+    private val smsRepository = application.container.smsRepository
 
     private val _alert = MutableStateFlow<SmsApi.AlertSummary?>(null)
     val alert: StateFlow<SmsApi.AlertSummary?> = _alert.asStateFlow()
@@ -60,6 +62,11 @@ class AlertDetailViewModel(
     // Scams block their sender automatically, so the alert is a learning record
     // with nothing to act on -- except for trusted senders (telcos, registry
     // organisations), which are never auto-blocked and keep Block/Report.
+    // How many texts the alert's scam wave (campaign) has, for the "sent N
+    // times" line; null when it isn't in one or the count couldn't be read.
+    private val _waveSize = MutableStateFlow<Int?>(null)
+    val waveSize: StateFlow<Int?> = _waveSize.asStateFlow()
+
     private val _isTrustedSender = MutableStateFlow(false)
     val isTrustedSender: StateFlow<Boolean> = _isTrustedSender.asStateFlow()
 
@@ -95,7 +102,8 @@ class AlertDetailViewModel(
                 .onSuccess { alerts ->
                     val found =
                         alerts.find { it.messageId == messageId }?.let { alert ->
-                            withContext(Dispatchers.IO) { smsRepository.withLocalContent(listOf(alert)).first() }
+                            val local = withContext(Dispatchers.IO) { smsRepository.withLocalContent(listOf(alert)) }
+                            AlertBlocking.withBlockStatus(getApplication(), token, local, catchUp = false).first()
                         }
                     _alert.value = found
                     _resolvedSender.value = found?.sender.orEmpty()
@@ -103,8 +111,17 @@ class AlertDetailViewModel(
 
             _isLoading.value = false
 
+            _waveSize.value = null
             if (_alert.value != null) {
                 resolveTrust(token, _resolvedSender.value)
+                _alert.value?.clusterId?.let { clusterId ->
+                    _waveSize.value =
+                        CampaignsApi
+                            .getById(token, clusterId)
+                            .getOrNull()
+                            ?.messageCount
+                            ?.takeIf { it > 1 }
+                }
                 loadIndicators(token, messageId)
             }
         }

@@ -340,7 +340,12 @@ def _link_hosts(raw_text: str) -> List[str]:
     """Hostnames of every link in a message, with or without "http://"."""
     hosts = []
     for url in _URL_RE.findall(raw_text or ""):
-        hosts.append(urlparse(url if "://" in url else f"//{url}").hostname or "")
+        try:
+            hosts.append(urlparse(url if "://" in url else f"//{url}").hostname or "")
+        except ValueError:
+            # Malformed netloc (e.g. "Invalid IPv6 URL" from a stray "["); skip
+            # the link rather than failing the whole request.
+            continue
     # Bare links, after removing the ones already found above so they are not
     # counted twice.
     rest = _URL_RE.sub(" ", raw_text or "")

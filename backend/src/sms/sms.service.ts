@@ -228,6 +228,14 @@ export class SmsService {
             classification: {
               select: { label: true, score: true, bucket: true },
             },
+            // This user's own report on the message, if any (one per user per
+            // message), so the phone can file it under Reported and show its
+            // review status instead of offering Report again.
+            reports: {
+              where: { userId },
+              select: { reportedLabel: true, status: true, createdAt: true },
+              take: 1,
+            },
           },
         },
       },

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -31,13 +30,11 @@ export class ReportsService {
       throw new NotFoundException(`Message ${dto.messageId} not found`);
     }
 
+    // A report matching the current label is a confirmation ("yes, this
+    // is a scam") -- the mobile Alerts tab files every reviewed alert this
+    // way. Stored like a correction; the admin dashboard already separates
+    // the two (originalLabel !== reportedLabel = mismatch).
     const originalLabel = message.classification?.label ?? 'Ham';
-
-    if (originalLabel === dto.reportedLabel) {
-      throw new BadRequestException(
-        'Reported label is the same as the current classification.',
-      );
-    }
 
     // One report per user per message (enforced by DB unique constraint too)
     const existing = await this.prisma.userReport.findUnique({

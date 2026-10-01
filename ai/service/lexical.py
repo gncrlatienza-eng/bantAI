@@ -95,7 +95,13 @@ def extract_domains(text: str) -> List[str]:
     """
     out: List[str] = []
     for url in _URL_RE.findall(text or ""):
-        host = urlparse(url if "://" in url else f"//{url}").hostname or ""
+        try:
+            host = urlparse(url if "://" in url else f"//{url}").hostname or ""
+        except ValueError:
+            # urlparse raises on malformed netlocs (e.g. "Invalid IPv6 URL" for a
+            # stray "[" in "www.site.com/[claim]"). One bad link must not turn
+            # the whole /classify call into a 500 -- skip it.
+            continue
         host = host.lower()
         if host.startswith("www."):
             host = host[4:]

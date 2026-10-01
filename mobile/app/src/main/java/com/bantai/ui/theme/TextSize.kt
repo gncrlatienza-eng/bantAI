@@ -15,7 +15,10 @@ import androidx.compose.ui.unit.sp
  * - [Subhead] -- secondary lines: previews, descriptions
  * - [Footnote] -- timestamps, counts, helper text
  * - [Caption] -- small labels and badges
- * - [Caption2] -- the smallest text: tiny tags, bubble times
+ * - [Caption2] -- the smallest text: tiny tags, bubble times. Never for
+ *   anything the user has to act on (status, errors) -- use [Footnote].
+ *   12sp, not iOS's 11: many BantAI users are older, the people scam texts
+ *   target most.
  */
 object TextSize {
     val LargeTitle = 32.sp
@@ -25,5 +28,5 @@ object TextSize {
     val Subhead = 14.sp
     val Footnote = 13.sp
     val Caption = 12.sp
-    val Caption2 = 11.sp
+    val Caption2 = 12.sp
 }

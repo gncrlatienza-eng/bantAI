@@ -1,95 +1,64 @@
 package com.bantai.data.local
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.bantai.data.db.BantaiDatabase
+import com.bantai.data.db.ClassificationEntity
+import com.bantai.data.model.Classification
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import org.json.JSONObject
-import java.io.IOException
 
-private val Context.classificationsDataStore by preferencesDataStore(name = "bantai_classifications")
+// Where classifications lived before the Room table; kept only so
+// LegacyStoreImport can read (and then clear) it once on upgrade.
+internal val Context.classificationsDataStore: DataStore<Preferences>
+    by preferencesDataStore(name = "bantai_classifications")
+internal val CLASSIFICATION_ENTRIES_KEY = stringPreferencesKey("entries")
+
+// SQLite's host-parameter cap is ~999.
+private const val DELETE_CHUNK_SIZE = 900
 
 /**
- * Persists the real backend/AI classification per message id. Without this, every
- * screen re-derives a message's classification from SmsRepository's local keyword
- * heuristic on every read — including for messages the backend already classified
- * with the actual fine-tuned model at receive time — so the label shown in the UI
- * can silently disagree with the real decision that drove blocking/notifications.
- * The Android SMS provider has no custom column to store this, hence app-local.
+ * Persists the real backend/AI classification per message id, so screens show
+ * the verdict that drove blocking/notifications instead of re-deriving it from
+ * the local keyword heuristic. The SMS provider has no column for this.
  */
 class ClassificationStore(
-    private val context: Context,
+    context: Context,
 ) {
-    private object Keys {
-        val ENTRIES = stringPreferencesKey("entries")
-    }
+    private val dao = BantaiDatabase.get(context).classifications()
 
-    val classifications: Flow<Map<Long, String>> =
-        context.classificationsDataStore.data
-            .catch { exception ->
-                if (exception is IOException) emit(emptyPreferences()) else throw exception
-            }.map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "{}") }
+    val classifications: Flow<Map<Long, Classification>> = dao.observeAll().map { it.toMap() }
+
+    /** Blocking snapshot for SmsRepository's (already off-main-thread) queries. */
+    fun snapshot(): Map<Long, Classification> = dao.all().toMap()
+
+    /** One message's stored verdict, or null. */
+    suspend fun snapshotFor(messageId: Long): Classification? = classifications.first()[messageId]
 
     suspend fun setClassification(
         messageId: Long,
-        classification: String,
-    ) {
-        context.classificationsDataStore.edit { prefs ->
-            val current = parseEntries(prefs[Keys.ENTRIES] ?: "{}").toMutableMap()
-            current[messageId] = classification
-            prefs[Keys.ENTRIES] = serializeEntries(current)
-        }
-    }
+        classification: Classification,
+    ) = dao.upsert(listOf(ClassificationEntity(messageId, classification.storage)))
 
-    suspend fun setClassifications(entries: Map<Long, String>) {
+    suspend fun setClassifications(entries: Map<Long, Classification>) {
         if (entries.isEmpty()) return
-        context.classificationsDataStore.edit { prefs ->
-            val current = parseEntries(prefs[Keys.ENTRIES] ?: "{}").toMutableMap()
-            current.putAll(entries)
-            prefs[Keys.ENTRIES] = serializeEntries(current)
-        }
+        dao.upsert(entries.map { (id, label) -> ClassificationEntity(id, label.storage) })
     }
 
-    /** Called after a permanent delete so this store doesn't grow forever for ids that no longer exist anywhere. */
+    /** Called after a permanent delete so this table doesn't grow forever for ids that no longer exist anywhere. */
     suspend fun remove(messageIds: Collection<Long>) {
-        if (messageIds.isEmpty()) return
-        context.classificationsDataStore.edit { prefs ->
-            val remaining = parseEntries(prefs[Keys.ENTRIES] ?: "{}").filterKeys { it !in messageIds }
-            prefs[Keys.ENTRIES] = serializeEntries(remaining)
-        }
+        for (chunk in messageIds.toList().chunked(DELETE_CHUNK_SIZE)) dao.delete(chunk)
     }
 
-    suspend fun clear() {
-        context.classificationsDataStore.edit { it.clear() }
-    }
+    suspend fun clear() = dao.clear()
 
-    private fun parseEntries(json: String): Map<Long, String> {
-        val obj =
-            try {
-                JSONObject(json)
-            } catch (_: Exception) {
-                return emptyMap()
-            }
-        val result = mutableMapOf<Long, String>()
-        obj.keys().forEach { key ->
-            // Skip just this malformed entry rather than discarding every other
-            // previously-stored classification because one key/value is bad.
-            try {
-                result[key.toLong()] = obj.getString(key)
-            } catch (_: Exception) {
-                // Skipped.
-            }
-        }
-        return result
-    }
-
-    private fun serializeEntries(entries: Map<Long, String>): String {
-        val obj = JSONObject()
-        entries.forEach { (id, classification) -> obj.put(id.toString(), classification) }
-        return obj.toString()
-    }
+    // A label this build doesn't know is skipped (reads as unlabelled) rather than guessed.
+    private fun List<ClassificationEntity>.toMap(): Map<Long, Classification> =
+        mapNotNull { row ->
+            Classification.fromStorage(row.label)?.let { row.messageId to it }
+        }.toMap()
 }

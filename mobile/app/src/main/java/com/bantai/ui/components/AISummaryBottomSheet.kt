@@ -27,9 +27,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bantai.R
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
@@ -102,7 +105,7 @@ fun AISummaryBottomSheet(
                     modifier = Modifier.size(20.dp),
                 )
                 Text(
-                    "AI Summary",
+                    stringResource(R.string.ai_summary_bottom_sheet_ai_summary),
                     color = White,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = TextSize.Headline,
@@ -111,7 +114,7 @@ fun AISummaryBottomSheet(
                 IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.action_close),
                         tint = TextTertiary,
                         modifier = Modifier.size(18.dp),
                     )
@@ -135,11 +138,13 @@ fun AISummaryBottomSheet(
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        when {
-                            isTrusted -> "Trusted sender"
-                            isSuspicious -> "Suspicious"
-                            else -> "Looks safe"
-                        },
+                        stringResource(
+                            when {
+                                isTrusted -> R.string.thread_trusted_sender
+                                isSuspicious -> R.string.verdict_suspicious
+                                else -> R.string.ai_summary_looks_safe
+                            },
+                        ),
                         color = verdictColor,
                         fontSize = TextSize.Caption2,
                         fontWeight = FontWeight.Medium,
@@ -153,14 +158,28 @@ fun AISummaryBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CircularProgressIndicator(color = Indigo, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                    Text("Summarizing conversation…", color = TextSecondary, fontSize = TextSize.Footnote)
+                    Text(
+                        stringResource(R.string.ai_summary_bottom_sheet_summarizing_conversation),
+                        color = TextSecondary,
+                        fontSize = TextSize.Footnote,
+                    )
                 }
             } else {
                 if (!topic.isNullOrBlank()) {
-                    Text("WHAT IT'S ABOUT", color = TextSecondary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.ai_summary_bottom_sheet_what_it_s_about),
+                        color = TextSecondary,
+                        fontSize = TextSize.Caption2,
+                        fontWeight = FontWeight.Bold,
+                    )
                     Text(topic, color = White, fontSize = TextSize.Subhead, lineHeight = 20.sp)
                     if (!summary.isNullOrBlank()) {
-                        Text("KEY MESSAGES", color = TextSecondary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.ai_summary_bottom_sheet_key_messages),
+                            color = TextSecondary,
+                            fontSize = TextSize.Caption2,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
                 if (!summary.isNullOrBlank() || topic.isNullOrBlank()) {
@@ -168,9 +187,9 @@ fun AISummaryBottomSheet(
                         if (!summary.isNullOrBlank()) {
                             summary
                         } else if (isSuspicious && !isTrusted) {
-                            "This conversation contains suspicious patterns. It may be legitimate but proceed with caution. Do not share personal information."
+                            stringResource(R.string.ai_summary_fallback_suspicious)
                         } else {
-                            "No smishing indicators found in this conversation. The sender and message contents look consistent with legitimate messaging. Stay alert for unexpected links or requests for personal information."
+                            stringResource(R.string.ai_summary_fallback_safe)
                         },
                         color = White,
                         fontSize = TextSize.Subhead,
@@ -182,9 +201,8 @@ fun AISummaryBottomSheet(
                 // the summary must never be presented as if it were the whole
                 // thread.
                 if (sourceMessageCount != null && sourceMessageCount > 0) {
-                    val plural = if (sourceMessageCount == 1) "" else "s"
                     Text(
-                        "Summary of $sourceMessageCount message$plural · generated on this device",
+                        pluralStringResource(R.plurals.ai_summary_source_count, sourceMessageCount, sourceMessageCount),
                         color = TextSecondary,
                         fontSize = TextSize.Caption2,
                     )
@@ -203,7 +221,7 @@ fun AISummaryBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Report or block this sender",
+                        stringResource(R.string.ai_summary_bottom_sheet_report_or_block_this_sender),
                         color = Indigo,
                         fontSize = TextSize.Body,
                         modifier = Modifier.weight(1f),

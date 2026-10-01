@@ -1,7 +1,10 @@
 package com.bantai.ui.components
 
 import androidx.compose.ui.graphics.Color
+import com.bantai.ui.theme.AvatarCoral
 import com.bantai.ui.theme.AvatarGreen
+import com.bantai.ui.theme.AvatarIndigo
+import com.bantai.ui.theme.AvatarOrange
 import com.bantai.ui.theme.AvatarPink
 import com.bantai.ui.theme.AvatarPurple
 import com.bantai.ui.theme.AvatarRed
@@ -14,10 +17,10 @@ fun getAvatarColor(sender: String): Color {
             AvatarTeal,
             AvatarPink,
             AvatarGreen,
-            Color(0xFFFF9500),
+            AvatarOrange,
             AvatarPurple,
-            Color(0xFF5B4FE8),
-            Color(0xFFFF6B35),
+            AvatarIndigo,
+            AvatarCoral,
         )
     // abs() must wrap the modulo, not the raw hashCode -- kotlin.math.abs(Int.MIN_VALUE)
     // overflows back to Int.MIN_VALUE (two's complement has no positive counterpart),

@@ -8,11 +8,18 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,18 +39,21 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.bantai.container
 import com.bantai.data.AuthEventBus
-import com.bantai.data.SmsRepository
-import com.bantai.data.local.UserPreferences
 import com.bantai.data.model.ConversationView
 import com.bantai.ui.components.FloatingTabBar
 import com.bantai.ui.components.LaunchScreen
+import com.bantai.ui.components.LocalBottomBarClearance
+import com.bantai.ui.components.SCAM_WAVES_TAB_ID
+import com.bantai.ui.components.tabBarHeight
 import com.bantai.ui.screens.main.BlockedNumbersScreen
 import com.bantai.ui.screens.main.CampaignDetailScreen
 import com.bantai.ui.screens.main.ComposeScreen
 import com.bantai.ui.screens.main.MainScreen
 import com.bantai.ui.screens.main.MessageDetailScreen
 import com.bantai.ui.screens.main.ReportSentScreen
+import com.bantai.ui.screens.main.ScamWaveScreen
 import com.bantai.ui.screens.main.SmishingAlertScreen
 import com.bantai.ui.screens.main.SuspiciousDetailScreen
 import com.bantai.ui.screens.main.TakeActionScreen
@@ -57,6 +67,7 @@ import com.bantai.ui.screens.onboarding.OnboardingProfileScreen
 import com.bantai.ui.screens.onboarding.OnboardingProtectedScreen
 import com.bantai.ui.screens.onboarding.OnboardingTermsScreen
 import com.bantai.ui.screens.onboarding.SplashScreen
+import com.bantai.ui.screens.onboarding.WelcomeScreen
 import com.bantai.ui.screens.settings.EditProfileScreen
 import com.bantai.ui.screens.settings.HowItWorksScreen
 import com.bantai.ui.screens.settings.NotificationsScreen
@@ -64,6 +75,7 @@ import com.bantai.ui.screens.settings.PrivacyDataScreen
 import com.bantai.ui.screens.settings.ScamAwarenessScreen
 import com.bantai.ui.screens.settings.TipDetailScreen
 import com.bantai.ui.theme.Black
+import com.bantai.ui.theme.GlassFill
 import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.OnboardingViewModel
 import com.bantai.viewmodel.SettingsViewModel
@@ -126,6 +138,10 @@ sealed class Screen(
         fun createRoute(campaignId: String) = "campaign_detail/${Uri.encode(campaignId)}"
     }
 
+    data object ScamWave : Screen("scam_wave/{waveKey}") {
+        fun createRoute(waveKey: String) = "scam_wave/${Uri.encode(waveKey)}"
+    }
+
     data object SmishingAlert : Screen("smishing_alert/{messageId}") {
         fun createRoute(messageId: String) = "smishing_alert/${Uri.encode(messageId)}"
     }
@@ -152,6 +168,10 @@ sealed class Screen(
     data object SettingsHowItWorks : Screen("settings/how_it_works")
 
     data object Splash : Screen("splash")
+
+    data object Welcome : Screen("welcome")
+
+    data object SignIn : Screen("sign_in")
 
     data object OnboardingDefaultSms : Screen("onboarding_default_sms")
 
@@ -180,6 +200,16 @@ sealed class Screen(
 private const val SCREEN_TRANSITION_MS = 320
 private const val SCREEN_SLIDE_OFFSET_DIVISOR = 5
 
+// Bottom system bar taller than this means 3-button navigation (~48dp);
+// gesture navigation's handle is ~16-24dp.
+private val THREE_BUTTON_NAV_MIN_HEIGHT = 32.dp
+
+// Gap between the floating pill and the bottom of the screen.
+private val FLOATING_BAR_MARGIN = 12.dp
+
+// Breathing room between the last row of a list and the bar above it.
+private val CONTENT_BOTTOM_GAP = 16.dp
+
 // Routes where the floating tab bar persists -- the four main tabs plus the
 // "browsing" screens reachable from them. Deliberately excludes flow/modal
 // screens (Compose, TakeAction, ReportSent, UnsafeLink) and the message
@@ -190,6 +220,7 @@ private val BOTTOM_BAR_ROUTES =
     setOf(
         "main",
         Screen.SmishingAlert.route,
+        Screen.ScamWave.route,
         Screen.CampaignDetail.route,
         Screen.SettingsNotifications.route,
         Screen.SettingsEditProfile.route,
@@ -256,6 +287,13 @@ fun NavGraph(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = remember { HazeState() }
 
+    // Settings → "Show Scam Waves tab". Turning it off while on that tab
+    // falls back to Messages rather than leaving a tab with no button.
+    val showScamWaves by settingsViewModel.showScamWavesTab.collectAsState()
+    LaunchedEffect(showScamWaves) {
+        if (!showScamWaves && selectedTab == SCAM_WAVES_TAB_ID) selectedTab = 0
+    }
+
     // Jumps to the requested tab on cold start from a notification tap, and again
     // whenever a new notification is tapped while the app is already running.
     LaunchedEffect(requestedTab) {
@@ -269,7 +307,8 @@ fun NavGraph(
         // Compose's Main dispatcher) never blocks the first frame.
         val userData =
             withContext(Dispatchers.IO) {
-                UserPreferences(context).userData.first()
+                context.container.userPreferences.userData
+                    .first()
             }
         // onboardingComplete alone isn't "logged in" -- the token can be cleared
         // independently (e.g. the 401 handler below) while that flag stays true.
@@ -279,7 +318,9 @@ fun NavGraph(
         startDestination =
             when {
                 userData.onboardingComplete && userData.authToken.isNotEmpty() -> "main"
-                userData.onboardingComplete -> "onboarding_confirm_number"
+                // Signed out on a phone that's already set up: the landing page,
+                // like Telegram/WhatsApp after logging out.
+                userData.onboardingComplete -> Screen.Welcome.route
                 else -> "splash"
             }
     }
@@ -289,8 +330,8 @@ fun NavGraph(
     // every call just keeps failing the same generic way forever.
     LaunchedEffect(Unit) {
         AuthEventBus.sessionExpired.collect {
-            UserPreferences(context).clearAuthToken()
-            navController.navigate("onboarding_confirm_number") {
+            context.container.userPreferences.clearAuthToken()
+            navController.navigate(Screen.Welcome.route) {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -306,242 +347,335 @@ fun NavGraph(
     val currentRoute = topBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in BOTTOM_BAR_ROUTES
 
-    Box(modifier = Modifier.fillMaxSize().background(Black)) {
-        // Shared between the screen content (the blur source) and the pill (the
-        // blurred surface) -- Haze reads whatever's been drawn to this state's
-        // source(s) each frame the pill is on top of them. Wraps the whole
-        // NavHost (not just one screen) so the pill glassifies whatever
-        // browsing screen happens to be behind it.
-        Box(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
-            NavHost(
-                navController = navController,
-                startDestination = startDestination!!,
-                modifier = Modifier.fillMaxSize(),
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { it / SCREEN_SLIDE_OFFSET_DIVISOR },
-                        animationSpec = tween(SCREEN_TRANSITION_MS),
-                    ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_MS))
-                },
-                exitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { -it / SCREEN_SLIDE_OFFSET_DIVISOR },
-                        animationSpec = tween(SCREEN_TRANSITION_MS),
-                    ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_MS))
-                },
-                popEnterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { -it / SCREEN_SLIDE_OFFSET_DIVISOR },
-                        animationSpec = tween(SCREEN_TRANSITION_MS),
-                    ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_MS))
-                },
-                popExitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { it / SCREEN_SLIDE_OFFSET_DIVISOR },
-                        animationSpec = tween(SCREEN_TRANSITION_MS),
-                    ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_MS))
-                },
-            ) {
-                composable("splash") {
-                    SplashScreen(onFinished = {
-                        navController.navigate("onboarding_default_sms") {
-                            popUpTo("splash") { inclusive = true }
-                        }
-                    })
-                }
-
-                composable("onboarding_default_sms") {
-                    OnboardingDefaultSmsScreen(onNext = {
-                        navController.navigate("onboarding_allow_access")
-                    })
-                }
-
-                composable("onboarding_allow_access") {
-                    OnboardingAllowAccessScreen(onNext = {
-                        navController.navigate("onboarding_confirm_number")
-                    })
-                }
-
-                composable("onboarding_confirm_number") {
-                    OnboardingConfirmNumberScreen(
-                        navController = navController,
-                        viewModel = viewModel,
-                    )
-                }
-
-                composable("onboarding_enter_code") {
-                    OnboardingEnterCodeScreen(
-                        navController = navController,
-                        viewModel = viewModel,
-                    )
-                }
-
-                composable("onboarding_terms") {
-                    OnboardingTermsScreen(
-                        navController = navController,
-                        viewModel = viewModel,
-                    )
-                }
-
-                composable("onboarding_profile") {
-                    OnboardingProfileScreen(
-                        navController = navController,
-                        viewModel = viewModel,
-                        onNext = { navController.navigate("onboarding_protected") },
-                    )
-                }
-
-                composable("onboarding_protected") {
-                    OnboardingProtectedScreen(
-                        viewModel = viewModel,
-                        onFinish = {
-                            navController.navigate("main") {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        },
-                    )
-                }
-
-                composable("main") {
-                    MainScreen(navController, settingsViewModel, alertsViewModel, selectedTab = selectedTab)
-                }
-
-                // Main app sub-screens
-                composable(
-                    route = Screen.SuspiciousDetail.route,
-                    arguments = listOf(navArgument("sender") { type = NavType.StringType }),
-                ) { backStackEntry ->
-                    val sender = backStackEntry.arguments?.getString("sender") ?: ""
-                    SuspiciousDetailScreen(sender = sender, navController = navController)
-                }
-                composable(Screen.UnsafeLink.route) { UnsafeLinkScreen(navController) }
-                composable(
-                    route = Screen.ThreatAnalysis.route,
-                    arguments =
-                        listOf(
-                            navArgument("messageId") {
-                                type = NavType.StringType
-                                defaultValue = ""
-                            },
-                        ),
-                ) { backStackEntry ->
-                    val messageId = backStackEntry.arguments?.getString("messageId") ?: ""
-                    ThreatAnalysisScreen(messageId = messageId, navController = navController)
-                }
-                composable(
-                    route = Screen.TakeAction.route,
-                    arguments = takeActionArguments,
-                ) { backStackEntry ->
-                    TakeActionScreen(
-                        navController = navController,
-                        messageId = backStackEntry.arguments?.getString("messageId") ?: "",
-                        sender = backStackEntry.arguments?.getString("sender") ?: "",
-                        localMessageId = backStackEntry.arguments?.getString("localId")?.toLongOrNull(),
-                        currentLabel = backStackEntry.arguments?.getString("label") ?: "",
-                        preselect = backStackEntry.arguments?.getString("action") ?: "",
-                        canBlock = backStackEntry.arguments?.getBoolean("canBlock") ?: true,
-                    )
-                }
-                composable(
-                    route = Screen.ReportSent.route,
-                    arguments = listOf(navArgument("type") { type = NavType.StringType }),
-                ) { backStackEntry ->
-                    val type = backStackEntry.arguments?.getString("type") ?: "report_only"
-                    ReportSentScreen(type = type, navController = navController)
-                }
-                composable(Screen.BlockedNumbers.route) { BlockedNumbersScreen(navController) }
-                composable(
-                    route = Screen.CampaignDetail.route,
-                    arguments = listOf(navArgument("campaignId") { type = NavType.StringType }),
-                ) { backStackEntry ->
-                    val campaignId = backStackEntry.arguments?.getString("campaignId") ?: return@composable
-                    CampaignDetailScreen(campaignId = campaignId, navController = navController)
-                }
-                composable(
-                    route = Screen.SmishingAlert.route,
-                    arguments = listOf(navArgument("messageId") { type = NavType.StringType }),
-                ) { backStackEntry ->
-                    val messageId = backStackEntry.arguments?.getString("messageId") ?: return@composable
-                    SmishingAlertScreen(messageId = messageId, navController = navController)
-                }
-                composable(
-                    route = Screen.Compose.route,
-                    arguments =
-                        listOf(
-                            navArgument("recipient") {
-                                type = NavType.StringType
-                                defaultValue = ""
-                            },
-                            navArgument("body") {
-                                type = NavType.StringType
-                                defaultValue = ""
-                            },
-                        ),
-                ) { backStackEntry ->
-                    ComposeScreen(
-                        navController = navController,
-                        initialRecipient = backStackEntry.arguments?.getString("recipient") ?: "",
-                        initialBody = backStackEntry.arguments?.getString("body") ?: "",
-                    )
-                }
-                composable(Screen.SettingsNotifications.route) { NotificationsScreen(navController, settingsViewModel) }
-                composable(Screen.SettingsEditProfile.route) { EditProfileScreen(navController, settingsViewModel) }
-                composable(Screen.SettingsHowItWorks.route) { HowItWorksScreen(navController) }
-                composable(Screen.SettingsScamAwareness.route) { ScamAwarenessScreen(navController) }
-                composable(
-                    route = Screen.SettingsTipDetail.route,
-                    arguments = listOf(navArgument("tip") { type = NavType.StringType }),
-                ) { backStackEntry ->
-                    val tip = backStackEntry.arguments?.getString("tip") ?: ""
-                    TipDetailScreen(tip = tip, navController = navController)
-                }
-                composable(Screen.SettingsPrivacy.route) { PrivacyDataScreen(navController) }
-                composable(
-                    route = Screen.Detail.route,
-                    arguments =
-                        listOf(
-                            navArgument("sender") { type = NavType.StringType },
-                            navArgument("view") {
-                                type = NavType.StringType
-                                defaultValue = ConversationView.ALL.routeValue
-                            },
-                        ),
-                ) { backStackEntry ->
-                    val sender = backStackEntry.arguments?.getString("sender") ?: return@composable
-                    MessageDetailScreen(
-                        sender = sender,
-                        navController = navController,
-                        initialView = ConversationView.fromRoute(backStackEntry.arguments?.getString("view")),
-                    )
-                }
-            }
+    // Gesture navigation leaves only a thin handle (~16-24dp) at the bottom;
+    // 3-button navigation is a ~48dp row. On the latter the floating pill
+    // would stack on the buttons, so the bar docks to the edge instead.
+    val systemNavHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val dockedTabBar = systemNavHeight > THREE_BUTTON_NAV_MIN_HEIGHT
+    val bottomBarClearance =
+        when {
+            !showBottomBar -> systemNavHeight + CONTENT_BOTTOM_GAP
+            dockedTabBar -> tabBarHeight(docked = true) + systemNavHeight + CONTENT_BOTTOM_GAP
+            else -> tabBarHeight(docked = false) + FLOATING_BAR_MARGIN + systemNavHeight + CONTENT_BOTTOM_GAP
         }
 
-        if (showBottomBar) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 12.dp)
-                        .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                FloatingTabBar(
-                    selected = selectedTab,
-                    alertsBadge = unseenAlerts,
-                    hazeState = hazeState,
-                    onSelect = { index ->
-                        selectedTab = index
-                        // Back to the tabs from any browsing sub-screen: pop down to
-                        // the existing "main" entry (which keeps each tab's state)
-                        // rather than re-creating it; navigate only if it's gone.
-                        if (currentRoute != "main" && !navController.popBackStack("main", inclusive = false)) {
-                            navController.navigate("main") { launchSingleTop = true }
-                        }
+    CompositionLocalProvider(LocalBottomBarClearance provides bottomBarClearance) {
+        Box(modifier = Modifier.fillMaxSize().background(Black)) {
+            // Shared between the screen content (the blur source) and the pill (the
+            // blurred surface) -- Haze reads whatever's been drawn to this state's
+            // source(s) each frame the pill is on top of them. Wraps the whole
+            // NavHost (not just one screen) so the pill glassifies whatever
+            // browsing screen happens to be behind it.
+            Box(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
+                NavHost(
+                    navController = navController,
+                    startDestination = startDestination!!,
+                    modifier = Modifier.fillMaxSize(),
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                            animationSpec = tween(SCREEN_TRANSITION_MS),
+                        ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_MS))
                     },
-                )
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                            animationSpec = tween(SCREEN_TRANSITION_MS),
+                        ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_MS))
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { -it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                            animationSpec = tween(SCREEN_TRANSITION_MS),
+                        ) + fadeIn(animationSpec = tween(SCREEN_TRANSITION_MS))
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { it / SCREEN_SLIDE_OFFSET_DIVISOR },
+                            animationSpec = tween(SCREEN_TRANSITION_MS),
+                        ) + fadeOut(animationSpec = tween(SCREEN_TRANSITION_MS))
+                    },
+                ) {
+                    // Onboarding order: Terms first (consent before any data is
+                    // collected), then email + code, then the phone permissions
+                    // once the user knows what BantAI is, then the profile. It used
+                    // to open on "make BantAI your default SMS app" before anything
+                    // was explained, with Terms only after SMS access and email.
+                    composable("splash") {
+                        SplashScreen(onFinished = {
+                            navController.navigate(Screen.Welcome.route) {
+                                popUpTo("splash") { inclusive = true }
+                            }
+                        })
+                    }
+
+                    composable(Screen.Welcome.route) {
+                        WelcomeScreen(
+                            onCreateAccount = {
+                                viewModel.signingIn = false
+                                navController.navigate("onboarding_terms")
+                            },
+                            onSignIn = {
+                                viewModel.signingIn = true
+                                navController.navigate(Screen.SignIn.route)
+                            },
+                        )
+                    }
+
+                    // "I already have an account" on the Welcome page.
+                    composable(Screen.SignIn.route) {
+                        LaunchedEffect(Unit) { viewModel.signingIn = true }
+                        OnboardingConfirmNumberScreen(
+                            navController = navController,
+                            viewModel = viewModel,
+                            signIn = true,
+                            onCreateAccount = {
+                                viewModel.signingIn = false
+                                navController.navigate("onboarding_terms")
+                            },
+                        )
+                    }
+
+                    composable("onboarding_default_sms") {
+                        OnboardingDefaultSmsScreen(onNext = {
+                            navController.navigate("onboarding_allow_access")
+                        })
+                    }
+
+                    composable("onboarding_allow_access") {
+                        OnboardingAllowAccessScreen(onNext = {
+                            // Signing in to an account that already has a name skips
+                            // the name step. Popped so Back doesn't land on a screen
+                            // that skips itself straight forward again.
+                            val next =
+                                if (viewModel.signingIn && viewModel.firstName.value.isNotBlank()) {
+                                    "onboarding_protected"
+                                } else {
+                                    "onboarding_profile"
+                                }
+                            navController.navigate(next) {
+                                popUpTo("onboarding_allow_access") { inclusive = true }
+                            }
+                        })
+                    }
+
+                    composable("onboarding_confirm_number") {
+                        OnboardingConfirmNumberScreen(
+                            navController = navController,
+                            viewModel = viewModel,
+                        )
+                    }
+
+                    composable("onboarding_enter_code") {
+                        OnboardingEnterCodeScreen(
+                            navController = navController,
+                            viewModel = viewModel,
+                        )
+                    }
+
+                    composable("onboarding_terms") {
+                        OnboardingTermsScreen(
+                            navController = navController,
+                            viewModel = viewModel,
+                        )
+                    }
+
+                    composable("onboarding_profile") {
+                        OnboardingProfileScreen(
+                            navController = navController,
+                            viewModel = viewModel,
+                            onNext = { navController.navigate("onboarding_protected") },
+                        )
+                    }
+
+                    composable("onboarding_protected") {
+                        OnboardingProtectedScreen(
+                            viewModel = viewModel,
+                            onFinish = {
+                                navController.navigate("main") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+
+                    composable("main") {
+                        MainScreen(navController, settingsViewModel, alertsViewModel, selectedTab = selectedTab)
+                    }
+
+                    // Main app sub-screens
+                    composable(
+                        route = Screen.SuspiciousDetail.route,
+                        arguments = listOf(navArgument("sender") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val sender = backStackEntry.arguments?.getString("sender") ?: ""
+                        SuspiciousDetailScreen(sender = sender, navController = navController)
+                    }
+                    composable(Screen.UnsafeLink.route) { UnsafeLinkScreen(navController) }
+                    composable(
+                        route = Screen.ThreatAnalysis.route,
+                        arguments =
+                            listOf(
+                                navArgument("messageId") {
+                                    type = NavType.StringType
+                                    defaultValue = ""
+                                },
+                            ),
+                    ) { backStackEntry ->
+                        val messageId = backStackEntry.arguments?.getString("messageId") ?: ""
+                        ThreatAnalysisScreen(messageId = messageId, navController = navController)
+                    }
+                    composable(
+                        route = Screen.TakeAction.route,
+                        arguments = takeActionArguments,
+                    ) { backStackEntry ->
+                        TakeActionScreen(
+                            navController = navController,
+                            messageId = backStackEntry.arguments?.getString("messageId") ?: "",
+                            sender = backStackEntry.arguments?.getString("sender") ?: "",
+                            localMessageId = backStackEntry.arguments?.getString("localId")?.toLongOrNull(),
+                            currentLabel = backStackEntry.arguments?.getString("label") ?: "",
+                            preselect = backStackEntry.arguments?.getString("action") ?: "",
+                            canBlock = backStackEntry.arguments?.getBoolean("canBlock") ?: true,
+                        )
+                    }
+                    composable(
+                        route = Screen.ReportSent.route,
+                        arguments = listOf(navArgument("type") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val type = backStackEntry.arguments?.getString("type") ?: "report_only"
+                        ReportSentScreen(type = type, navController = navController)
+                    }
+                    composable(Screen.BlockedNumbers.route) { BlockedNumbersScreen(navController) }
+                    composable(
+                        route = Screen.CampaignDetail.route,
+                        arguments = listOf(navArgument("campaignId") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val campaignId = backStackEntry.arguments?.getString("campaignId") ?: return@composable
+                        CampaignDetailScreen(campaignId = campaignId, navController = navController)
+                    }
+                    composable(
+                        route = Screen.ScamWave.route,
+                        arguments = listOf(navArgument("waveKey") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val waveKey = backStackEntry.arguments?.getString("waveKey") ?: return@composable
+                        ScamWaveScreen(waveKey = waveKey, navController = navController)
+                    }
+                    composable(
+                        route = Screen.SmishingAlert.route,
+                        arguments = listOf(navArgument("messageId") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val messageId = backStackEntry.arguments?.getString("messageId") ?: return@composable
+                        SmishingAlertScreen(messageId = messageId, navController = navController)
+                    }
+                    composable(
+                        route = Screen.Compose.route,
+                        arguments =
+                            listOf(
+                                navArgument("recipient") {
+                                    type = NavType.StringType
+                                    defaultValue = ""
+                                },
+                                navArgument("body") {
+                                    type = NavType.StringType
+                                    defaultValue = ""
+                                },
+                            ),
+                    ) { backStackEntry ->
+                        ComposeScreen(
+                            navController = navController,
+                            initialRecipient = backStackEntry.arguments?.getString("recipient") ?: "",
+                            initialBody = backStackEntry.arguments?.getString("body") ?: "",
+                        )
+                    }
+                    composable(Screen.SettingsNotifications.route) {
+                        NotificationsScreen(
+                            navController,
+                            settingsViewModel,
+                        )
+                    }
+                    composable(Screen.SettingsEditProfile.route) { EditProfileScreen(navController, settingsViewModel) }
+                    composable(Screen.SettingsHowItWorks.route) { HowItWorksScreen(navController) }
+                    composable(Screen.SettingsScamAwareness.route) { ScamAwarenessScreen(navController) }
+                    composable(
+                        route = Screen.SettingsTipDetail.route,
+                        arguments = listOf(navArgument("tip") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val tip = backStackEntry.arguments?.getString("tip") ?: ""
+                        TipDetailScreen(tip = tip, navController = navController)
+                    }
+                    composable(Screen.SettingsPrivacy.route) { PrivacyDataScreen(navController) }
+                    composable(
+                        route = Screen.Detail.route,
+                        arguments =
+                            listOf(
+                                navArgument("sender") { type = NavType.StringType },
+                                navArgument("view") {
+                                    type = NavType.StringType
+                                    defaultValue = ConversationView.ALL.routeValue
+                                },
+                            ),
+                    ) { backStackEntry ->
+                        val sender = backStackEntry.arguments?.getString("sender") ?: return@composable
+                        MessageDetailScreen(
+                            sender = sender,
+                            navController = navController,
+                            initialView = ConversationView.fromRoute(backStackEntry.arguments?.getString("view")),
+                        )
+                    }
+                }
+            }
+
+            if (showBottomBar) {
+                val onSelectTab: (Int) -> Unit = { index ->
+                    selectedTab = index
+                    // Back to the tabs from any browsing sub-screen: pop down to
+                    // the existing "main" entry (which keeps each tab's state)
+                    // rather than re-creating it; navigate only if it's gone.
+                    if (currentRoute != "main" && !navController.popBackStack("main", inclusive = false)) {
+                        navController.navigate("main") { launchSingleTop = true }
+                    }
+                }
+                if (dockedTabBar) {
+                    // Edge to edge, with the same glass fill running down behind the
+                    // system buttons so bar and buttons read as one surface.
+                    Column(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .background(GlassFill),
+                    ) {
+                        FloatingTabBar(
+                            selected = selectedTab,
+                            alertsBadge = unseenAlerts,
+                            hazeState = hazeState,
+                            docked = true,
+                            showScamWaves = showScamWaves,
+                            onSelect = onSelectTab,
+                        )
+                        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+                    }
+                } else {
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .navigationBarsPadding()
+                                .padding(horizontal = 24.dp)
+                                .padding(bottom = FLOATING_BAR_MARGIN)
+                                .fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        FloatingTabBar(
+                            selected = selectedTab,
+                            alertsBadge = unseenAlerts,
+                            hazeState = hazeState,
+                            showScamWaves = showScamWaves,
+                            onSelect = onSelectTab,
+                        )
+                    }
+                }
             }
         }
     }
@@ -557,7 +691,9 @@ fun NavGraph(
         val sender = requestedConversationSender ?: return@LaunchedEffect
         val conversationExists =
             withContext(Dispatchers.IO) {
-                SmsRepository(context).getConversationBySender(sender, limit = 1).isNotEmpty()
+                context.container.smsRepository
+                    .getConversationBySender(sender, limit = 1)
+                    .isNotEmpty()
             }
         if (conversationExists) {
             navController.navigate(Screen.Detail.createRoute(sender))

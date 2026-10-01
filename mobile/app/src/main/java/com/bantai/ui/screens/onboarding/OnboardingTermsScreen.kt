@@ -2,6 +2,7 @@
 
 package com.bantai.ui.screens.onboarding
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -30,10 +32,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
@@ -45,28 +49,16 @@ import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 
 private data class TermsCard(
-    val title: String,
-    val body: String,
+    @StringRes val title: Int,
+    @StringRes val body: Int,
 )
 
 private val termsCards =
     listOf(
-        TermsCard(
-            "Data collected",
-            "BantAI processes SMS content on your phone. To synchronize threat metadata, the app briefly sends the sender to derive a server-side pseudonym, plus classification result, timestamp, and campaign domains. The server does not retain raw SMS bodies or contact names/numbers.",
-        ),
-        TermsCard(
-            "How it works",
-            "Messages are classified locally on your device. Only privacy-minimized threat metadata is synchronized for campaign intelligence; it is not used to transmit your SMS content.",
-        ),
-        TermsCard(
-            "Your rights",
-            "You can delete your account and all associated data at any time from Settings > Account. Deletion is permanent and irreversible.",
-        ),
-        TermsCard(
-            "Third parties",
-            "BantAI does not sell your data to third parties. We may share aggregate threat intelligence with authorized research partners.",
-        ),
+        TermsCard(R.string.terms_data_title, R.string.terms_data_body),
+        TermsCard(R.string.terms_how_title, R.string.terms_how_body),
+        TermsCard(R.string.terms_rights_title, R.string.terms_rights_body),
+        TermsCard(R.string.terms_third_parties_title, R.string.terms_third_parties_body),
     )
 
 @Composable
@@ -88,13 +80,19 @@ fun OnboardingTermsScreen(
         // Top bar
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Spacer(Modifier.height(8.dp))
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+            // Terms is now the first onboarding screen, so there's usually
+            // nothing to go back to.
+            if (navController.previousBackStackEntry != null) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = White)
+                }
+            } else {
+                Spacer(Modifier.height(40.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text("STEP 4 OF 4", color = Indigo, fontSize = TextSize.Caption, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(stringResource(R.string.onboarding_terms_step_1_of_5), color = Indigo, fontSize = TextSize.Caption, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Spacer(Modifier.height(12.dp))
-            Text("Terms & Privacy", fontWeight = FontWeight.Bold, fontSize = TextSize.Title, color = White)
+            Text(stringResource(R.string.onboarding_terms_terms_privacy), fontWeight = FontWeight.Bold, fontSize = TextSize.Title, color = White)
             Spacer(Modifier.height(16.dp))
         }
 
@@ -116,8 +114,8 @@ fun OnboardingTermsScreen(
                             .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(card.title, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead, color = White)
-                    Text(card.body, fontSize = TextSize.Footnote, color = TextSecondary, lineHeight = 20.sp)
+                    Text(stringResource(card.title), fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead, color = White)
+                    Text(stringResource(card.body), fontSize = TextSize.Footnote, color = TextSecondary, lineHeight = 20.sp)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -140,7 +138,7 @@ fun OnboardingTermsScreen(
                         ),
                 )
                 Text(
-                    "I have read and agree to the Terms of Service and Privacy Policy.",
+                    stringResource(R.string.onboarding_terms_i_have_read_and_agree),
                     color = White,
                     fontSize = TextSize.Footnote,
                     lineHeight = 18.sp,
@@ -148,9 +146,9 @@ fun OnboardingTermsScreen(
                 )
             }
             Button(
-                onClick = { navController.navigate(Screen.OnboardingProfile.route) },
+                onClick = { navController.navigate(Screen.OnboardingConfirmNumber.route) },
                 enabled = state.termsAccepted,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors =
                     ButtonDefaults.buttonColors(
@@ -159,7 +157,7 @@ fun OnboardingTermsScreen(
                         disabledContentColor = TextSecondary,
                     ),
             ) {
-                Text("Get started", fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
+                Text(stringResource(R.string.onboarding_terms_get_started), fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
             }
             Spacer(Modifier.height(16.dp))
         }

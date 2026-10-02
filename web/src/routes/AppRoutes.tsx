@@ -46,6 +46,10 @@ const AdminReportsPage = lazyPage(
   () => import('../pages/admin/ReportsPage'),
   (m) => m.ReportsPage,
 );
+const AdminSenderReportsPage = lazyPage(
+  () => import('../pages/admin/SenderReportsPage'),
+  (m) => m.SenderReportsPage,
+);
 const AdminUsersPage = lazyPage(
   () => import('../pages/admin/UsersPage'),
   (m) => m.UsersPage,
@@ -358,6 +362,10 @@ export function AppRoutes() {
         element={adminPage(<AdminOverviewPage />)}
       />
       <Route path="/admin/reports" element={adminPage(<AdminReportsPage />)} />
+      <Route
+        path="/admin/sender-reports"
+        element={adminPage(<AdminSenderReportsPage />)}
+      />
       <Route
         path="/admin/mobile-sync"
         element={adminPage(<AdminMobileSyncPage />)}

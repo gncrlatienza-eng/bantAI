@@ -32,12 +32,15 @@ class ScamAwarenessViewModel(
     private fun deriveRelevantTips(alerts: List<SmsApi.AlertSummary>): Set<String> {
         val tips = mutableSetOf<String>()
         for (alert in alerts) {
+            // SmsApi.parseAlert has already mapped the backend's Scam/Spam to
+            // the display terms "Likely Smishing"/"Suspicious", so matching on
+            // "scam"/"spam" here never fired.
             val label = alert.label?.lowercase() ?: ""
             val bucket = alert.bucket?.lowercase() ?: ""
-            if (label.contains("scam") || bucket == "blocked") {
+            if (label.contains("smishing") || label.contains("scam") || bucket == "blocked") {
                 tips += setOf("gcash", "otp", "links")
             }
-            if (label.contains("spam") || alert.status == "Pending") {
+            if (label.contains("suspicious") || label.contains("spam") || alert.status == "Pending") {
                 tips += setOf("urgency", "links")
             }
         }

@@ -6,8 +6,8 @@
  * (deactivate). Everything else - fetch, filter, search, sort, table - is
  * identical across both surfaces so we do not maintain two copies.
  *
- * Note: CampaignCluster has no explicit severity field. The list displays
- * lifecycle status only and keeps the semantic color neutral.
+ * Severity comes from the reviewed campaign `risk` (LOW..CRITICAL) that the
+ * backend returns to both audiences; unreviewed campaigns stay neutral.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -36,16 +36,38 @@ function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
 }
 
-function computeStatus(): StatusKind {
-  // The backend exposes lifecycle state but no campaign severity. Keep the
-  // semantic color neutral rather than inventing a risk level.
-  return 'unknown';
+function riskToStatus(risk?: string | null): StatusKind {
+  switch (risk) {
+    case 'CRITICAL':
+      return 'critical';
+    case 'HIGH':
+      return 'threat';
+    case 'MEDIUM':
+      return 'suspicious';
+    default:
+      // LOW, UNKNOWN or not yet reviewed: neutral, never "verified".
+      return 'unknown';
+  }
+}
+
+const RISK_ORDER: Record<string, number> = {
+  LOW: 1,
+  MEDIUM: 2,
+  HIGH: 3,
+  CRITICAL: 4,
+};
+
+function riskLabel(risk?: string | null): string {
+  return risk && risk !== 'UNKNOWN'
+    ? risk.charAt(0) + risk.slice(1).toLowerCase()
+    : 'Not rated';
 }
 
 interface CampaignRow {
   id: string;
   label: string;
   severity: StatusKind;
+  risk: string | null;
   isActive: boolean;
   archivedAt: string | null;
   messageCount: number;
@@ -60,10 +82,11 @@ function toRow(c: CampaignCluster): CampaignRow {
   return {
     id: c.id,
     label: c.label || 'Unlabeled campaign',
-    severity: computeStatus(),
+    severity: riskToStatus(c.risk),
+    risk: c.risk ?? null,
     isActive: c.isActive,
     archivedAt: c.archivedAt ?? null,
-    messageCount: c.messageCount,
+    messageCount: c.messageCount ?? 0,
     countVerified: c.countVerified !== false,
     domainCount: c.urlDomains.length,
     createdAt: c.createdAt,
@@ -163,7 +186,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
           case 'updatedAt':
             return row.updatedAt;
           case 'severity':
-            return row.isActive ? 1 : 0;
+            return RISK_ORDER[row.risk ?? ''] ?? 0;
           default:
             return row.label;
         }
@@ -207,15 +230,19 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
     },
     {
       key: 'severity',
-      header: 'Status',
+      header: 'Risk',
       render: (r) => (
-        <StatusBadge
-          kind={r.severity}
-          label={r.archivedAt ? 'Archived' : r.isActive ? 'Active' : 'Inactive'}
-        />
+        <StatusBadge kind={r.severity} label={riskLabel(r.risk)} />
       ),
       sortable: true,
-      width: '15%',
+      width: '13%',
+    },
+    {
+      key: 'lifecycle',
+      header: 'Status',
+      render: (r) =>
+        r.archivedAt ? 'Archived' : r.isActive ? 'Active' : 'Inactive',
+      width: '11%',
     },
     ...(role === 'admin'
       ? [

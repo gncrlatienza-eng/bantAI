@@ -7,7 +7,8 @@ import java.time.Instant
 /**
  * Sends locally masked text to the backend's deployed classifier. Raw SMS text
  * never leaves the handset. The sender is transmitted only so the backend can
- * derive a non-reversible server-side pseudonym; it is not stored.
+ * derive a non-reversible server-side pseudonym (an HMAC); only that pseudonym
+ * is stored, never the number or name itself.
  */
 object SmsApi {
     /** Routing decision returned by the backend, mapped from its `action` field. */
@@ -109,8 +110,55 @@ object SmsApi {
         return HttpClient.post("/sms/ingest", payload, token, request.timeoutMs).mapCatching { parseIngestResponse(it) }
     }
 
-    /** GET /sms/alerts — all alerts for the signed-in user, newest first. */
-    suspend fun getAlerts(token: String): Result<List<AlertSummary>> = HttpClient.get("/sms/alerts", token).mapCatching { body -> parseAlerts(JSONArray(body)) }
+    /** Server page size for GET /sms/alerts (ListAlertsQueryDto's maximum). */
+    const val ALERTS_PAGE_SIZE = 100
+
+    /**
+     * GET /sms/alerts — the signed-in user's alerts, newest first. The backend
+     * returns at most [ALERTS_PAGE_SIZE] per call; with [maxPages] > 1 this
+     * follows the `before` (createdAt) cursor so older alerts are included too.
+     */
+    suspend fun getAlerts(
+        token: String,
+        maxPages: Int = 1,
+    ): Result<List<AlertSummary>> =
+        runCatching {
+            val all = mutableListOf<AlertSummary>()
+            var cursor: AlertSummary? = null
+            repeat(maxPages.coerceAtLeast(1)) {
+                val path =
+                    cursor?.let {
+                        // (createdAt, id) keyset: alerts sharing a millisecond
+                        // are never skipped between pages.
+                        "/sms/alerts?before=${encodePathSegment(it.createdAt)}" +
+                            "&beforeId=${encodePathSegment(it.id)}&limit=$ALERTS_PAGE_SIZE"
+                    } ?: "/sms/alerts"
+                val page = parseAlerts(JSONArray(HttpClient.get(path, token).getOrThrow()))
+                all += page
+                val last = page.lastOrNull()?.takeIf { it.createdAt.isNotEmpty() }
+                if (page.size < ALERTS_PAGE_SIZE || last == null) return@runCatching all
+                cursor = last
+            }
+            all
+        }
+
+    /**
+     * GET /sms/:messageId/alert — the one alert for this message (Alert detail),
+     * instead of downloading the whole list to find it. A 404 (no alert, or not
+     * this user's message) comes back as success(null).
+     */
+    suspend fun getAlertForMessage(
+        token: String,
+        messageId: String,
+    ): Result<AlertSummary?> =
+        HttpClient
+            .get("/sms/${encodePathSegment(messageId)}/alert", token)
+            .mapCatching { body -> parseAlert(JSONObject(body)) as AlertSummary? }
+            .recoverCatching { error ->
+                if ((error as? ApiException)?.status == HTTP_NOT_FOUND) null else throw error
+            }
+
+    private const val HTTP_NOT_FOUND = 404
 
     /**
      * GET /sms/:messageId/indicators -- returns the tags the classifier
@@ -127,7 +175,7 @@ object SmsApi {
         messageId: String,
     ): Result<List<IndicatorTag>> =
         HttpClient
-            .get("/sms/${java.net.URLEncoder.encode(messageId, "UTF-8")}/indicators", token)
+            .get("/sms/${encodePathSegment(messageId)}/indicators", token)
             .mapCatching { body -> parseIndicators(JSONObject(body)) }
 
     private fun parseAlerts(json: JSONArray): List<AlertSummary> = List(json.length()) { i -> parseAlert(json.getJSONObject(i)) }
@@ -169,13 +217,18 @@ object SmsApi {
     private fun parseIngestResponse(raw: String): IngestResult {
         val json = JSONObject(raw)
 
-        // Blocked senders short-circuit server-side: nothing is stored or classified.
+        // A sender already on this user's block list: the backend still stores
+        // and classifies the message (sms.service.ts ingest) and returns its
+        // messageId, so the user can still report it ("not a scam?"). Locally
+        // it stays a silent block.
         if (json.optBoolean("suppressed", false)) {
             return IngestResult(
                 action = Action.BLOCKED,
                 label = "Blocked",
                 score = 1.0,
                 suppressed = true,
+                messageId = json.optString("messageId").takeIf { it.isNotEmpty() },
+                bucket = json.optJSONObject("classification")?.optNullableString("bucket"),
             )
         }
 

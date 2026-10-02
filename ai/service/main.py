@@ -10,6 +10,7 @@ Interactive docs are served at ``/docs`` in local environments only
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,7 +27,7 @@ from retraining.version_file import IntegrityResult, read_version, verify_versio
 from .auth import enforce_inbound_auth_policy, is_local_environment, require_api_key
 from .campaign import CampaignMatcher
 from .campaign_space import CampaignSpace, labels_of, resolve_space
-from .centroid_source import load_centroids
+from .centroid_source import load_centroids, load_from_backend
 from .config import settings
 from .limits import WorkLimitMiddleware
 from .readiness import prepare_model_readiness
@@ -52,6 +53,13 @@ def load_campaign_centroids(served_model_version: str | None, model_integrity: I
         backend_url=settings.backend_url,
         backend_api_key=settings.campaigns_api_key,
     )
+    apply_campaign_centroids(centroids, served_model_version, model_integrity)
+
+
+def apply_campaign_centroids(
+    centroids, served_model_version: str | None, model_integrity: IntegrityResult
+) -> None:
+    """Install ``centroids`` as the live matcher, after the identity/space checks."""
 
     # Campaign centroids are model-space artifacts. Classification may remain
     # available when model provenance is incomplete, but campaign matching must
@@ -212,6 +220,40 @@ def check_served_version(served: str | None, integrity: IntegrityResult) -> None
         logger.info("Serving version %s, matching the backend's active ModelVersion.", served)
 
 
+def refresh_campaign_centroids(served_model_version: str | None, model_integrity: IntegrityResult) -> bool:
+    """Re-read the backend's centroids into the live matcher.
+
+    Unlike startup, a failed fetch keeps the current matcher: a backend blip
+    must not silently switch campaign matching off until the next success.
+    Returns True when a new set was applied.
+    """
+    try:
+        centroids = load_from_backend(settings.backend_url, settings.campaigns_api_key)
+    except Exception as exc:  # noqa: BLE001 -- refresh is best-effort
+        logger.warning("Campaign centroid refresh failed; keeping the current set: %s", exc)
+        return False
+    previous = classify.matcher
+    try:
+        apply_campaign_centroids(centroids, served_model_version, model_integrity)
+    except Exception:  # noqa: BLE001 -- a bad set must not end the refresh loop
+        logger.exception("Applying refreshed campaign centroids failed; keeping the current set")
+        classify.matcher = previous
+        return False
+    return True
+
+
+async def _campaign_refresh_loop(served_model_version: str | None, model_integrity: IntegrityResult) -> None:
+    interval = settings.campaign_refresh_seconds
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            await asyncio.to_thread(refresh_campaign_centroids, served_model_version, model_integrity)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 -- never let one bad tick stop refreshing
+            logger.exception("Campaign centroid refresh tick failed")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Load campaign centroids and verify the served model version once,
@@ -227,14 +269,21 @@ async def lifespan(_app: FastAPI):
         settings.model_dir,
         settings.model_approval_path,
     )
+    refresher = None
     if ready.ready:
         load_campaign_centroids(served, integrity)
+        if settings.centroid_source == "backend" and settings.campaign_refresh_seconds > 0:
+            refresher = asyncio.create_task(_campaign_refresh_loop(served, integrity))
     else:
         # Do not leave an earlier in-process matcher active after a failed
         # reload. Classification is already readiness-gated; this also keeps
         # campaign state fail-closed if startup is exercised more than once.
         classify.matcher = CampaignMatcher([])
-    yield
+    try:
+        yield
+    finally:
+        if refresher is not None:
+            refresher.cancel()
 
 
 # The schema documents every gated route and its payload shape; only serve it

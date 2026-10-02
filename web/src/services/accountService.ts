@@ -37,8 +37,17 @@ export type RouteGroup =
   | 'account'
   | 'workspace';
 
+// Mirrors backend access-control/member-capabilities.ts (the values
+// /account returns in `capabilities`).
 export type MemberCapability =
-  'readIntelligence' | 'exportCampaigns' | 'manageApiKeys' | 'viewOwnUsage';
+  | 'viewWorkspace'
+  | 'readIntelligence'
+  | 'readReports'
+  | 'exportData'
+  | 'manageMembers'
+  | 'manageApiKeys'
+  | 'viewBilling'
+  | 'manageWorkspace';
 
 export interface ApplicationSummary {
   id: string;

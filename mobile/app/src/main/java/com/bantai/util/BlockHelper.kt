@@ -52,6 +52,9 @@ object BlockHelper {
         context: Context,
         token: String,
         sender: String,
+        // True for BantAI's own high-confidence scam blocks; recorded on the
+        // server as AutoBlock instead of a user's explicit UserBlock.
+        automatic: Boolean = false,
     ): BlockOutcome {
         val onDevice =
             isDefaultSmsApp(context) &&
@@ -62,7 +65,7 @@ object BlockHelper {
         val onServer =
             token.isNotEmpty() &&
                 BlockedNumbersApi
-                    .block(token, sender)
+                    .block(token, sender, automatic)
                     .onFailure { Log.w(TAG, "Backend block failed", it) }
                     .isSuccess
         val outcome = BlockOutcome(onDevice, onServer)

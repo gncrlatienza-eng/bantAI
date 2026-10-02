@@ -14,10 +14,12 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminAccessRequestActionDto } from './dto/admin-access-request-action.dto';
 import { PaymentsService } from './payments.service';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @SkipThrottle()
 @Controller('admin/access-requests')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('access_requests:manage')
 export class AdminAccessRequestPaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 

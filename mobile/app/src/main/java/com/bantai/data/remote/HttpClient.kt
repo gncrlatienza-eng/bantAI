@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 private const val HTTP_OK_MIN = 200
 private const val HTTP_OK_MAX = 299
@@ -131,3 +132,11 @@ internal object HttpClient {
             "Request failed (HTTP $status)"
         }
 }
+
+/**
+ * Percent-encodes one URL *path segment*. URLEncoder is a form encoder and
+ * turns a space into `+`, which Express does not decode back in a path, so a
+ * sender like "BDO Bank" reached the backend as "BDO+Bank" and hashed to the
+ * wrong pseudonym (unblock silently 404'd, verify looked up the wrong sender).
+ */
+internal fun encodePathSegment(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")

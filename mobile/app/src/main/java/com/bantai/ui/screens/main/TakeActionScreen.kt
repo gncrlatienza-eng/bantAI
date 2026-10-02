@@ -119,6 +119,7 @@ private data class TakeActionRequest(
     val localMessageId: Long?,
     val sender: String,
     val reportedLabel: String?,
+    val notes: String = "",
 )
 
 @Suppress("ReturnCount") // each early return is a distinct, user-facing failure
@@ -145,7 +146,7 @@ private suspend fun submitReportIfSelected(
         // Say so instead of silently no-opping into a "submitted" confirmation screen.
         return Result.failure(Exception(context.getString(R.string.take_action_error_offline)))
     }
-    val submitted = ReportsApi.submit(token, messageId, request.reportedLabel)
+    val submitted = ReportsApi.submit(token, messageId, request.reportedLabel, request.notes)
     if (submitted.isSuccess && request.reportedLabel == "Scam") fileSenderReport(token, request.sender)
     // Filed now, or already filed before (the backend allows one per message):
     // either way the alert belongs under Reported, where Report isn't offered.
@@ -198,8 +199,8 @@ private suspend fun fileSenderReport(
 }
 
 // Blocks at the device level (the part that actually stops the sender), then
-// best-effort mirrors the block to the backend for cross-device sync — same
-// split BlockedNumbersViewModel.reconcileWithBackend() uses. Verifies the
+// best-effort mirrors the block to the backend (BlockHelper.blockSender), which
+// also moves the sender's server-side alerts to Blocked. Verifies the
 // device-level block actually landed before reporting success, since the
 // confirmation screen's "can no longer send you messages" claim must be true,
 // not just attempted.
@@ -371,6 +372,7 @@ fun TakeActionScreen(
                                 localMessageId = localMessageId,
                                 sender = sender,
                                 reportedLabel = reportedLabel,
+                                notes = notes,
                             ),
                         )
                     isSubmitting = false

@@ -18,11 +18,27 @@ object BlockedNumbersApi {
     /** GET /blocked-numbers — every sender the backend has on record for this user. */
     suspend fun list(token: String): Result<List<BlockedNumberEntry>> = HttpClient.get("/blocked-numbers", token).mapCatching { body -> parseList(JSONArray(body)) }
 
-    /** POST /blocked-numbers — idempotent; safe to call for a number already blocked. */
+    /**
+     * POST /blocked-numbers — idempotent; safe to call for a number already blocked.
+     * [automatic] marks the phone's own high-confidence scam blocks as `AutoBlock`
+     * so the server can tell them apart from a user's explicit block.
+     */
     suspend fun block(
         token: String,
         sender: String,
-    ): Result<Unit> = HttpClient.post("/blocked-numbers", JSONObject().put("sender", sender), token).map { }
+        automatic: Boolean = false,
+    ): Result<Unit> =
+        HttpClient
+            .post(
+                "/blocked-numbers",
+                // `source` only for auto-blocks: a user's block stays the exact
+                // payload older backends (no `source` in BlockNumberDto,
+                // forbidNonWhitelisted) still accept.
+                JSONObject()
+                    .put("sender", sender)
+                    .apply { if (automatic) put("source", "AutoBlock") },
+                token,
+            ).map { }
 
     /** DELETE /blocked-numbers/:sender — a 404 (already gone) is not surfaced as failure. */
     suspend fun unblock(
@@ -30,7 +46,7 @@ object BlockedNumbersApi {
         sender: String,
     ): Result<Unit> =
         HttpClient.delete(
-            "/blocked-numbers/${java.net.URLEncoder.encode(sender, "UTF-8")}",
+            "/blocked-numbers/${encodePathSegment(sender)}",
             token,
             treat404AsSuccess = true,
         )

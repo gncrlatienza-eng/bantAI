@@ -19,11 +19,13 @@ import { CreateDatasetSnapshotDto } from './dto/create-dataset-snapshot.dto';
 import { CurateReportDto } from './dto/curate-report.dto';
 import { UpdateDatasetSampleDto } from './dto/update-dataset-sample.dto';
 import { DatasetsService } from './datasets.service';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 type AuthRequest = { user: { userId: string } };
 
 @Controller('datasets')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('models:read')
 export class DatasetsController {
   constructor(private readonly datasets: DatasetsService) {}
 

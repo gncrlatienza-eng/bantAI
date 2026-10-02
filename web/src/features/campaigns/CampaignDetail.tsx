@@ -314,7 +314,7 @@ export function CampaignDetail({
           value={
             data.countVerified === false
               ? 'Needs review'
-              : data.messageCount.toLocaleString()
+              : (data.messageCount ?? 0).toLocaleString()
           }
         />
         <Metric label="Linked domains" value={data.urlDomains.length} />

@@ -95,13 +95,13 @@ class AlertDetailViewModel(
                 return@launch
             }
 
-            // There is no single-alert-by-id endpoint yet — GET /sms/alerts returns
-            // the full list, so the matching alert for this messageId is found here.
+            // GET /sms/:messageId/alert -- just this alert, so one older than the
+            // newest page of the list still opens.
             SmsApi
-                .getAlerts(token)
-                .onSuccess { alerts ->
+                .getAlertForMessage(token, messageId)
+                .onSuccess { fetched ->
                     val found =
-                        alerts.find { it.messageId == messageId }?.let { alert ->
+                        fetched?.let { alert ->
                             val local = withContext(Dispatchers.IO) { smsRepository.withLocalContent(listOf(alert)) }
                             AlertBlocking.withBlockStatus(getApplication(), token, local, catchUp = false).first()
                         }

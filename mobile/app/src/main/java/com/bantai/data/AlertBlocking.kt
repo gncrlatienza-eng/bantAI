@@ -55,7 +55,7 @@ object AlertBlocking {
                 }
             toBlock
                 .filter { mayAutoBlock(token, it) }
-                .forEach { BlockHelper.blockSender(context, token, it) }
+                .forEach { BlockHelper.blockSender(context, token, it, automatic = true) }
         }
         val blocked = store.current().blocked
         return withContext(Dispatchers.IO) {

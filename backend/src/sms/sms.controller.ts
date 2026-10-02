@@ -5,7 +5,9 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +16,7 @@ import { AiIndicatorsKeyGuard } from '../auth/guards/api-key.guard';
 import { PortalLicensed } from '../access-control/portal-route.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IngestSmsDto } from './dto/ingest-sms.dto';
+import { ListAlertsQueryDto } from './dto/list-alerts-query.dto';
 import { StoreIndicatorsDto } from './dto/store-indicators.dto';
 import { SmsService } from './sms.service';
 
@@ -38,8 +41,27 @@ export class SmsController {
     entitlement: 'MASKED_DATASET',
   })
   @Get('alerts')
-  getAlerts(@Request() req: { user: { userId: string } }) {
-    return this.smsService.getAlerts(req.user.userId);
+  getAlerts(
+    @Request() req: { user: { userId: string } },
+    @Query() query: ListAlertsQueryDto,
+  ) {
+    return this.smsService.getAlerts(req.user.userId, query);
+  }
+
+  // Mobile: the alert for one message (Alert detail is keyed by messageId),
+  // so the phone no longer downloads the whole list to find it and can open
+  // alerts older than the newest page.
+  @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
+  @Get(':messageId/alert')
+  getAlertForMessage(
+    @Request() req: { user: { userId: string } },
+    @Param('messageId', new ParseUUIDPipe()) messageId: string,
+  ) {
+    return this.smsService.getAlertForMessage(req.user.userId, messageId);
   }
 
   // Mobile: fetch SHAP indicator tags for a specific message.

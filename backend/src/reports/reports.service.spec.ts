@@ -8,6 +8,7 @@ import { ReportsService } from './reports.service';
 const mockPrisma = {
   $transaction: jest.fn((operation) => operation(mockPrisma)),
   smsMessage: { findUnique: jest.fn() },
+  alert: { updateMany: jest.fn() },
   userReport: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -72,6 +73,45 @@ describe('ReportsService', () => {
           data: expect.objectContaining({
             originalLabel: 'Scam',
             reportedLabel: 'Scam',
+          }),
+        }),
+      );
+    });
+
+    it('moves the message alert to Reported in the same transaction', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId,
+        classification: { label: 'Scam' },
+      });
+      mockPrisma.userReport.findUnique.mockResolvedValue(null);
+      mockPrisma.userReport.create.mockResolvedValue({ id: 'r3' });
+      await service.submit(userId, {
+        messageId: 'msg-1',
+        reportedLabel: 'Scam',
+      });
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.alert.updateMany).toHaveBeenCalledWith({
+        where: { messageId: 'msg-1', status: { not: 'Reported' } },
+        data: { status: 'Reported' },
+      });
+    });
+
+    it('privacy-masks the reporter note before storing it', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId,
+        classification: { label: 'Scam' },
+      });
+      mockPrisma.userReport.findUnique.mockResolvedValue(null);
+      mockPrisma.userReport.create.mockResolvedValue({ id: 'r4' });
+      await service.submit(userId, {
+        messageId: 'msg-1',
+        reportedLabel: 'Scam',
+        note: 'They called me from 09171234567',
+      });
+      expect(mockPrisma.userReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            note: 'They called me from [PHONE]',
           }),
         }),
       );

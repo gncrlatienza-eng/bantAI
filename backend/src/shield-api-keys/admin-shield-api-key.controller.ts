@@ -12,9 +12,11 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ShieldApiKeyService } from './shield-api-key.service';
 import { UpdateShieldApiLimitsDto } from './dto/update-shield-api-limits.dto';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @Controller('admin/shield-api-keys')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('*')
 export class AdminShieldApiKeyController {
   constructor(private readonly keys: ShieldApiKeyService) {}
 

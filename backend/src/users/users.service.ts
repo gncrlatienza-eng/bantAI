@@ -49,7 +49,16 @@ export class UsersService {
       await tx.alert.deleteMany({ where: { message: { userId } } });
       await tx.messageFeature.deleteMany({ where: { message: { userId } } });
       await tx.classification.deleteMany({ where: { message: { userId } } });
+      // Same Restrict FKs as the retention purge: keep curated samples by
+      // detaching them, and drop the deleted messages' assignment history.
+      await tx.datasetSample.updateMany({
+        where: { sourceReport: { userId } },
+        data: { sourceReportId: null },
+      });
       await tx.userReport.deleteMany({ where: { userId } });
+      await tx.campaignAssignmentHistory.deleteMany({
+        where: { message: { userId } },
+      });
       await tx.smsMessage.deleteMany({ where: { userId } });
       await tx.contact.deleteMany({ where: { userId } });
       await tx.blockedNumber.deleteMany({ where: { userId } });

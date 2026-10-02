@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     centroid_source: str = "backend"
     cluster_file: str = "datasets/processed/campaign_clusters.json"
     backend_url: str = "http://localhost:3000/api"
+    # How often (seconds) the live matcher re-reads /campaigns/centroids when
+    # centroid_source="backend", so Admin merges/archives/deactivations and
+    # new syncs take effect without restarting the service. 0 disables it.
+    # A failed refresh keeps the current matcher rather than emptying it.
+    campaign_refresh_seconds: int = 600
 
     # Separate machine credentials: each is accepted by only one internal
     # capability. They must never be bundled in the web dashboard.
@@ -87,11 +92,9 @@ class Settings(BaseSettings):
     campaign_space_file: str = "models/xlm-roberta-smishing/campaign_space.json"
 
     # Shared secret callers must present as ``x-api-key`` on /classify,
-    # /summarize and /retrain. Empty (the default) leaves the service open,
-    # which is fine on a laptop where only the local backend can reach it and
-    # is what every existing dev setup assumes -- but it is not safe once the
-    # service is reachable beyond that boundary, so `main.py` logs a warning
-    # at startup while it is unset (audit item 7). /health stays open either
+    # /summarize and /retrain. Empty is only accepted in the ``local``/``test``
+    # environments with ``allow_unauthenticated_dev`` set; anywhere else the
+    # service refuses to start (service/auth.py). /health stays open either
     # way: a health check that needs a secret cannot be used by the thing
     # deciding whether this process is alive.
     service_api_key: str = ""

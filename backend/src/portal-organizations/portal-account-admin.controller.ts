@@ -16,9 +16,11 @@ import { PortalAccountActionDto } from './dto/portal-account-action.dto';
 import { ReviewLegacyLicenseDto } from './dto/review-legacy-license.dto';
 import { LegacyLicenseReviewService } from './legacy-license-review.service';
 import { PortalOrganizationsService } from './portal-organizations.service';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @Controller('admin/portal-accounts')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('access_requests:manage')
 export class PortalAccountAdminController {
   constructor(
     private readonly organizations: PortalOrganizationsService,

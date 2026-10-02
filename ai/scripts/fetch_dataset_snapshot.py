@@ -76,7 +76,10 @@ def main(argv: Optional[list] = None) -> int:
     base_url = args.backend_url or os.environ.get(ENV_BACKEND_URL, "")
     api_key = args.api_key or os.environ.get(ENV_DATASETS_API_KEY, "")
     if not base_url or not api_key:
-        print(f"error: set {ENV_BACKEND_URL} and {ENV_DATASETS_API_KEY} (or pass --backend-url/--api-key).", file=sys.stderr)
+        print(
+            f"error: set {ENV_BACKEND_URL} and {ENV_DATASETS_API_KEY} (or pass --backend-url/--api-key).",
+            file=sys.stderr,
+        )
         return 2
     try:
         snapshot = fetch_snapshot(base_url, api_key, args.dataset_version)

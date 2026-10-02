@@ -56,9 +56,7 @@ def load_campaign_centroids(served_model_version: str | None, model_integrity: I
     apply_campaign_centroids(centroids, served_model_version, model_integrity)
 
 
-def apply_campaign_centroids(
-    centroids, served_model_version: str | None, model_integrity: IntegrityResult
-) -> None:
+def apply_campaign_centroids(centroids, served_model_version: str | None, model_integrity: IntegrityResult) -> None:
     """Install ``centroids`` as the live matcher, after the identity/space checks."""
 
     # Campaign centroids are model-space artifacts. Classification may remain

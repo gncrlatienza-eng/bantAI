@@ -12,7 +12,14 @@ SNAPSHOT = {
     "versionTag": "ds-1",
     "createdAt": "2026-10-01T00:00:00.000Z",
     "items": [
-        {"sampleId": "s1", "sampleVersion": 2, "maskedText": "Claim at [URL]", "label": "Scam", "language": "en", "provenance": "report"},
+        {
+            "sampleId": "s1",
+            "sampleVersion": 2,
+            "maskedText": "Claim at [URL]",
+            "label": "Scam",
+            "language": "en",
+            "provenance": "report",
+        },
     ],
 }
 

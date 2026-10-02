@@ -25,6 +25,7 @@ private const val TAG = "SmsIngestPipeline"
 private const val MAX_EXTRACTED_DOMAINS = 20
 private const val MAX_SENDER_LENGTH = 64
 private const val MAX_MASKED_BODY_LENGTH = 1600
+private const val MAX_DOMAIN_LENGTH = 255
 
 // 401 means the session expired and 408/429 are transient; none of them say
 // anything is wrong with the individual message, so the scan stops instead.
@@ -233,10 +234,16 @@ object SmsIngestPipeline {
                     SmsApi.ingest(
                         token,
                         SmsApi.IngestRequest(
-                            sender = sender,
+                            // Same IngestSmsDto limits as the inbox-scan path: an
+                            // untrimmed long multi-part SMS was rejected with a 400
+                            // and fell back to the offline caution.
+                            sender = sender.take(MAX_SENDER_LENGTH),
                             receivedAtMillis = receivedAt,
                             sourceId = sourceId,
-                            maskedBody = SmsPrivacyMasker.maskForRemoteClassification(body),
+                            maskedBody =
+                                SmsPrivacyMasker
+                                    .maskForRemoteClassification(body)
+                                    .take(MAX_MASKED_BODY_LENGTH),
                             label = label,
                             score = score,
                             bucket = bucket,
@@ -324,8 +331,9 @@ object SmsIngestPipeline {
      * The backend SmsMessage id a report has to attach to. Messages the scan or
      * a live SMS already sent have one stored; anything else is ingested on the
      * spot (same masked path) so every message can be reported, whatever its
-     * label. Null when the local row is gone or the sender is already blocked
-     * server-side (the backend stores nothing for those).
+     * label -- including one from a sender already blocked server-side, which
+     * the backend still stores and returns a messageId for. Null when the local
+     * row is gone or the backend is unreachable.
      */
     @Suppress("ReturnCount") // each early return is a distinct reason there is no backend id
     suspend fun backendMessageIdFor(
@@ -342,7 +350,6 @@ object SmsIngestPipeline {
                 context.container.smsRepository.getMessageById(localMessageId)
             } ?: return null
         val result = SmsApi.ingest(token, existingMessageRequest(context, message)).getOrNull() ?: return null
-        if (result.suppressed) return null
         persistBackendMessageId(context, localMessageId, result.messageId)
         return result.messageId
     }
@@ -439,7 +446,7 @@ object SmsIngestPipeline {
         token: String,
         sender: String,
     ) {
-        val outcome = BlockHelper.blockSender(context, token, sender)
+        val outcome = BlockHelper.blockSender(context, token, sender, automatic = true)
         if (!outcome.blocked) Log.w(TAG, "Auto-block didn't land on the device or the server")
     }
 
@@ -484,6 +491,8 @@ object SmsIngestPipeline {
         Regex("https?://([^/\\s?#]+)", RegexOption.IGNORE_CASE)
             .findAll(body)
             .map { it.groupValues[1].lowercase().removePrefix("www.") }
+            // IngestSmsDto caps each domain at 255 characters.
+            .filter { it.isNotEmpty() && it.length <= MAX_DOMAIN_LENGTH }
             .distinct()
             .take(MAX_EXTRACTED_DOMAINS)
             .toList()

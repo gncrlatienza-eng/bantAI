@@ -529,6 +529,8 @@ model UserReport {
 
   originalLabel String // AI label at receive time: Ham | Spam | Scam
   reportedLabel String // what user says it should be: Ham | Spam | Scam
+  // Optional free-text context from the reporter; privacy-masked before storage.
+  note          String?
 
   // Pending → Validated (accepted into training set) | Rejected (discarded)
   status      String    @default("Pending")

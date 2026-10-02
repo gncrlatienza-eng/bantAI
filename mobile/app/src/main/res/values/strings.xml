@@ -110,6 +110,7 @@
     <string name="thread_trusted_check">Check this message</string>
     <string name="thread_trusted_flagged">This text looks like a scam even though it\'s under %1$s\'s name. The name can be faked, or the real account may have been hacked. Don\'t open links or share codes.</string>
     <string name="thread_confirmed_fraud">Confirmed fraud</string>
+    <string name="thread_external_high_risk">High-risk number</string>
     <string name="thread_verified_org">Verified organization</string>
     <string name="thread_known_contact">Known contact</string>
     <string name="thread_banner_scam">This conversation looks like a scam</string>

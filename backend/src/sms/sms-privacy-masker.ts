@@ -33,8 +33,13 @@ const PATHED_DOMAIN =
 const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 const PHONE = /(?<!\w)(?:\+63[\s-]?|0)9(?:[\s-]?\d){9}(?!\w)/g;
 const MONEY = /(?:₱|PHP\s?)\d+(?:[,.]\d+)*/gi;
+// Plain "P" amounts ("P5,000", "P 250.00") -- the commonest way pesos are
+// written. Case-sensitive and bounded on both sides so "P2P"/"MP3" survive.
+const PESO_P = /(?<![A-Za-z0-9])P\s?\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9])/g;
+// "MPIN", "passcode", "security number" etc.: a 4-digit e-wallet MPIN is too
+// short for the generic digit-run mask, so it needs its own keyword.
 const OTP = new RegExp(
-  `\\b(otp|code|pin)(\\D{0,${OTP_KEYWORD_GAP}})\\d{4,8}\\b`,
+  `\\b(otp|code|pin|mpin|passcode|password|tac|security\\s+(?:code|number)|verification\\s+number)(\\D{0,${OTP_KEYWORD_GAP}})\\d{4,8}\\b`,
   'gi',
 );
 const GENERIC_DIGIT_RUN = new RegExp(
@@ -53,6 +58,7 @@ export function maskSmsBody(body: string): string {
       .replace(PATHED_DOMAIN, '[URL]')
       .replace(PHONE, '[PHONE]')
       .replace(MONEY, '[AMOUNT]')
+      .replace(PESO_P, '[AMOUNT]')
       .replace(OTP, '$1$2[OTP]')
       .replace(GENERIC_DIGIT_RUN, '[NUMBER]')
       .replace(/\s+/g, ' ')

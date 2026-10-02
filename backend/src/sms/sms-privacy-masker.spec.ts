@@ -18,6 +18,12 @@ describe('maskSmsBody', () => {
     ['You have 3 new messages, 50% off', 'You have 3 new messages, 50% off'],
     ['You sent ₱1,500.00 to Juan', 'You sent [AMOUNT] to Juan'],
     ['Visit gcash-verify.ph/login today', 'Visit [URL] today'],
+    ['Padala ka ng P5,000 ngayon', 'Padala ka ng [AMOUNT] ngayon'],
+    ['Bayad P 250.00 lang', 'Bayad [AMOUNT] lang'],
+    ['Send via P2P or MP3', 'Send via P2P or MP3'],
+    ['Your MPIN is 4821', 'Your MPIN is [OTP]'],
+    ['Enter passcode 9911 now', 'Enter passcode [OTP] now'],
+    ['Security number: 4455', 'Security number: [OTP]'],
     // Server-only strictness beyond the phone masker:
     ['Open bit.ly/3xYz now', 'Open [URL] now'],
     ['Go to secure.gcash-help.com', 'Go to [URL]'],

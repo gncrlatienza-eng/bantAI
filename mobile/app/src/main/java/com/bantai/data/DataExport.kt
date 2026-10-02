@@ -14,6 +14,9 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 
+// Up to 50 pages of 100 alerts; far beyond any real account, but bounded.
+private const val EXPORT_MAX_ALERT_PAGES = 50
+
 /**
  * Settings > Privacy & data > Download my data. There's no backend export
  * endpoint (the server keeps only pseudonymous telemetry), so the export is
@@ -82,7 +85,8 @@ object DataExport {
         token: String,
     ): JSONObject {
         if (token.isEmpty()) return JSONObject().put("note", "Not signed in, so alert history wasn't included.")
-        val fetched = SmsApi.getAlerts(token)
+        // A data export should be complete, not just the newest 100.
+        val fetched = SmsApi.getAlerts(token, maxPages = EXPORT_MAX_ALERT_PAGES)
         val list =
             fetched.getOrElse {
                 return JSONObject().put("note", "Couldn't reach BantAI's server, so alert history wasn't included.")

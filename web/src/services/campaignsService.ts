@@ -1,12 +1,20 @@
 import { fetchApi, fetchApiBlob } from '../api/apiClient';
 
+/*
+ * One type covers both audiences. Admin sessions get the full cluster row;
+ * Shield (client) sessions get the published DTO (campaigns.service.ts
+ * toShieldCampaign): no messageCount/countVerified/revision/messages, plus
+ * title/status/firstObserved/lastObserved/observedDomainCount, and urlDomains
+ * defanged ("x[.]com"). Fields only one audience receives are optional.
+ */
 export interface CampaignCluster {
   id: string;
   label?: string | null;
   centroid?: unknown;
   urlDomains: string[];
   isActive: boolean;
-  messageCount: number;
+  /** Admin only. */
+  messageCount?: number;
   countVerified?: boolean;
   revision?: number;
   createdAt: string;
@@ -17,6 +25,12 @@ export interface CampaignCluster {
   mitigation?: string | null;
   publishedAt?: string | null;
   archivedAt?: string | null;
+  // Shield-only published fields.
+  title?: string;
+  status?: 'ACTIVE' | 'DORMANT';
+  firstObserved?: string;
+  lastObserved?: string;
+  observedDomainCount?: number;
 }
 
 export interface CampaignMessageSummary {
@@ -33,7 +47,25 @@ export interface CampaignMessageSummary {
 /* The backend returns an explicit published DTO to Shield, all reviewed
  * campaign members to Admin, and only own messages to mobile users. */
 export interface CampaignDetail extends CampaignCluster {
-  messages: CampaignMessageSummary[];
+  /** Admin (all reviewed members) and mobile (own messages); absent for Shield. */
+  messages?: CampaignMessageSummary[];
+}
+
+/** Admin-approved masked example (GET /campaigns/:id/masked-messages). */
+export interface ShieldMaskedMessage {
+  text: string;
+  language?: string | null;
+  classification?: string | null;
+  confidence?: number | null;
+  campaignId: string;
+}
+
+export async function getCampaignMaskedMessages(
+  id: string,
+): Promise<ShieldMaskedMessage[]> {
+  return fetchApi<ShieldMaskedMessage[]>(
+    `/campaigns/${encodeURIComponent(id)}/masked-messages`,
+  );
 }
 
 export async function getActiveCampaigns(): Promise<CampaignCluster[]> {

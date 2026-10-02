@@ -9,6 +9,7 @@ import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
+  Dialog,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -26,6 +27,7 @@ import {
   validateReport,
   type UserReportItem,
 } from '../../services/reportsService';
+import { MaskedMessage } from '../../components/masked/MaskedMessage';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
@@ -60,6 +62,7 @@ type StatusFilter = 'all' | UserReportItem['status'];
 interface ReportRow {
   id: string;
   submitter: string;
+  body: string | null;
   originalLabel: string;
   reportedLabel: string;
   status: string;
@@ -73,6 +76,7 @@ function toRow(r: UserReportItem): ReportRow {
   return {
     id: r.id,
     submitter,
+    body: r.message?.body ?? null,
     originalLabel: r.originalLabel || 'Unlabeled',
     reportedLabel: r.reportedLabel || 'Unlabeled',
     status: r.status,
@@ -100,6 +104,7 @@ export function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<UserReportItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,7 +130,15 @@ export function ReportsPage() {
     const needle = search.trim().toLowerCase();
     if (needle) {
       mapped = mapped.filter((r) =>
-        [r.id, r.submitter, r.originalLabel, r.reportedLabel, r.status]
+        [
+          r.id,
+          r.submitter,
+          r.originalLabel,
+          r.reportedLabel,
+          r.status,
+          r.body,
+          r.original.note,
+        ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(needle)),
       );
@@ -154,6 +167,7 @@ export function ReportsPage() {
     try {
       if (action === 'validate') await validateReport(id);
       else await rejectReport(id);
+      setSelected(null);
       await load();
     } catch (e) {
       setActionError(errorText(e));
@@ -167,13 +181,24 @@ export function ReportsPage() {
       key: 'createdAt',
       header: 'Submitted',
       render: (r) => formatDate(r.createdAt),
-      width: '14%',
+      width: '11%',
     },
     {
-      key: 'submitter',
-      header: 'Submitted by',
-      render: (r) => r.submitter,
-      width: '18%',
+      key: 'body',
+      header: 'Message (masked)',
+      render: (r) => (
+        <span
+          style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}
+        >
+          {r.reportedLabel === 'Scam' && (
+            <span>
+              <StatusBadge kind="threat" label="Reported scam" />
+            </span>
+          )}
+          <MaskedMessage text={r.body} maxLength={90} />
+        </span>
+      ),
+      width: '34%',
     },
     {
       key: 'originalLabel',
@@ -184,7 +209,7 @@ export function ReportsPage() {
           label={r.originalLabel}
         />
       ),
-      width: '15%',
+      width: '12%',
     },
     {
       key: 'reportedLabel',
@@ -195,13 +220,13 @@ export function ReportsPage() {
           label={r.reportedLabel}
         />
       ),
-      width: '15%',
+      width: '12%',
     },
     {
       key: 'status',
       header: 'Status',
       render: (r) => formatStatus(r.status),
-      width: '12%',
+      width: '9%',
     },
     {
       key: 'actions',
@@ -336,6 +361,8 @@ export function ReportsPage() {
             rowKey={(r) => r.id}
             rows={rows}
             columns={columns}
+            onRowClick={(r) => setSelected(r.original)}
+            activeRowKey={selected?.id}
             emptyState={
               <EmptyState
                 title={
@@ -353,7 +380,126 @@ export function ReportsPage() {
           />
         </>
       )}
+
+      <Dialog
+        open={selected !== null}
+        title="Reported message"
+        description="Privacy-masked as stored by the backend. Phone numbers, links, amounts and codes are redacted."
+        onClose={() => {
+          setSelected(null);
+          setActionError(null);
+        }}
+        actions={
+          selected?.status === 'Pending' ? (
+            <>
+              <Button
+                variant="ghost"
+                disabled={busyId === selected.id}
+                onClick={() => void handle('reject', selected.id)}
+              >
+                Reject
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busyId === selected.id}
+                onClick={() => void handle('validate', selected.id)}
+              >
+                Approve
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" onClick={() => setSelected(null)}>
+              Close
+            </Button>
+          )
+        }
+      >
+        {selected && <ReportDetail report={selected} />}
+        {selected && actionError && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 12,
+              color: 'var(--status-threat)',
+              fontSize: '0.85rem',
+            }}
+          >
+            {actionError}
+          </div>
+        )}
+      </Dialog>
     </AppShell>
+  );
+}
+
+function ReportDetail({ report }: { report: UserReportItem }) {
+  const classification = report.message?.classification;
+  const row: React.CSSProperties = {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    margin: '6px 0',
+    fontSize: '0.88rem',
+  };
+  const muted: React.CSSProperties = { color: 'var(--text-secondary)' };
+  return (
+    <div>
+      <div
+        style={{
+          padding: '12px 14px',
+          borderRadius: 8,
+          border: '1px solid var(--border-default)',
+          background: 'var(--surface-canvas)',
+          color: 'var(--text-primary)',
+          marginBottom: 12,
+        }}
+      >
+        <MaskedMessage text={report.message?.body} />
+      </div>
+      <div style={row}>
+        <span style={muted}>Model said</span>
+        <StatusBadge
+          kind={labelToStatusKind(report.originalLabel)}
+          label={report.originalLabel}
+        />
+        {classification && (
+          <span style={muted}>
+            {Math.round(classification.score * 100)}% confidence
+            {classification.bucket ? ` · ${classification.bucket}` : ''}
+          </span>
+        )}
+      </div>
+      <div style={row}>
+        <span style={muted}>User reported</span>
+        <StatusBadge
+          kind={labelToStatusKind(report.reportedLabel)}
+          label={
+            report.reportedLabel === 'Scam'
+              ? 'Reported scam'
+              : report.reportedLabel
+          }
+        />
+      </div>
+      {report.message?.receivedAt && (
+        <div style={row}>
+          <span style={muted}>Received</span>
+          <span>{formatDate(report.message.receivedAt)}</span>
+        </div>
+      )}
+      {report.note && (
+        <div style={{ ...row, alignItems: 'flex-start' }}>
+          <span style={muted}>Reporter note</span>
+          <MaskedMessage text={report.note} />
+        </div>
+      )}
+      {report.adminNote && (
+        <div style={row}>
+          <span style={muted}>Admin note</span>
+          <span>{report.adminNote}</span>
+        </div>
+      )}
+    </div>
   );
 }
 

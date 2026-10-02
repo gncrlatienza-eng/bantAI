@@ -22,7 +22,6 @@ import {
   type StatusKind,
 } from '../../components/primitives';
 import {
-  getAllReports,
   getPendingReports,
   type UserReportItem,
 } from '../../services/reportsService';
@@ -37,6 +36,7 @@ import {
   type ReadinessStatus,
 } from '../../services/healthService';
 import { getPortalOrganizations } from '../../services/portalOrganizationsService';
+import { getAnalyticsSummary } from '../../services/analyticsService';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 import {
   getAdminMobileSync,
@@ -133,9 +133,11 @@ export function OverviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [reports, setReports] = useState<UserReportItem[]>([]);
-  const [pending, setPending] = useState<UserReportItem[]>([]);
-  const [campaigns, setCampaigns] = useState<CampaignCluster[]>([]);
+  // null = this staff role may not read that source (or it failed); each
+  // panel degrades on its own instead of the whole Overview erroring out.
+  const [totalReports, setTotalReports] = useState<number | null>(null);
+  const [pending, setPending] = useState<UserReportItem[] | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignCluster[] | null>(null);
   const [orgCount, setOrgCount] = useState<number | null>(null);
   const [mobileSync, setMobileSync] = useState<AdminMobileSyncSummary | null>(
     null,
@@ -153,18 +155,27 @@ export function OverviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const [allReports, pendingReports, activeCampaigns, orgs, sync] =
+      // Each source has its own staff permission (reports:read,
+      // campaigns:manage, access_requests:manage, overview:read). A role
+      // without one of them still gets the rest of the Overview.
+      const [summary, pendingReports, activeCampaigns, orgs, sync] =
         await Promise.all([
-          getAllReports(),
-          getPendingReports(),
-          getActiveCampaigns(),
-          getPortalOrganizations(),
+          getAnalyticsSummary().catch(() => null),
+          getPendingReports().catch(() => null),
+          getActiveCampaigns().catch(() => null),
+          getPortalOrganizations().catch(() => null),
           // Mobile sync is additive telemetry. Keep the rest of the overview
           // usable if this newer endpoint is temporarily unavailable during a
           // staggered backend/web deployment.
           getAdminMobileSync().catch(() => null),
         ]);
-      setReports(allReports);
+      if (!summary && !pendingReports && !activeCampaigns && !sync) {
+        throw new Error(
+          'None of the Overview sources answered. Check the backend and your staff permissions.',
+        );
+      }
+      // Exact all-time count (the /reports list is capped at 100 rows).
+      setTotalReports(summary?.totalReports ?? null);
       setPending(pendingReports);
       setCampaigns(activeCampaigns);
       setOrgCount(Array.isArray(orgs) ? orgs.length : null);
@@ -195,7 +206,9 @@ export function OverviewPage() {
     void load();
   }, [load]);
 
-  const reportRows = pending.slice(0, 5).map(toReportRow);
+  const reportRows = (pending ?? []).slice(0, 5).map(toReportRow);
+  const fmt = (n: number | null | undefined) =>
+    n == null ? '—' : n.toLocaleString();
 
   return (
     <AppShell
@@ -214,9 +227,9 @@ export function OverviewPage() {
         meta={
           loading
             ? 'Loading live telemetry...'
-            : `${mobileSync?.classifiedMessages.toLocaleString() ?? 0} mobile classifications · ${reports.length.toLocaleString()} reports · ${campaigns.length.toLocaleString()} active campaigns · ${
-                orgCount ?? 0
-              } organizations`
+            : `${fmt(mobileSync?.classifiedMessages)} mobile classifications · ${fmt(totalReports)} reports · ${fmt(campaigns?.length)} active campaigns · ${fmt(
+                orgCount,
+              )} organizations`
         }
         actions={
           <Button
@@ -331,17 +344,17 @@ export function OverviewPage() {
             <MetricRow columns={4}>
               <Metric
                 label="Reports received"
-                value={reports.length.toLocaleString()}
+                value={fmt(totalReports)}
                 meta="all-time submissions"
               />
               <Metric
                 label="Pending review"
-                value={pending.length.toLocaleString()}
+                value={fmt(pending?.length)}
                 meta="not yet resolved"
               />
               <Metric
                 label="Active campaigns"
-                value={campaigns.length.toLocaleString()}
+                value={fmt(campaigns?.length)}
                 meta="clusters detected"
               />
               <Metric
@@ -547,10 +560,17 @@ export function OverviewPage() {
               columns={REPORT_COLUMNS}
               onRowClick={() => void navigate('/admin/reports')}
               emptyState={
-                <EmptyState
-                  title="No pending reports"
-                  description="Analyst submissions awaiting review will appear here."
-                />
+                pending === null ? (
+                  <EmptyState
+                    title="Reports not available"
+                    description="Your staff role cannot read user reports, or the reports service did not answer."
+                  />
+                ) : (
+                  <EmptyState
+                    title="No pending reports"
+                    description="Analyst submissions awaiting review will appear here."
+                  />
+                )
               }
             />
           </section>

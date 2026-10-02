@@ -32,12 +32,42 @@ describe('AiService', () => {
       ).resolves.toEqual({
         label: 'Scam',
         score: 0.97,
+        scores: null,
         bucket: 'blocked',
         indicators: [],
         explanationMethod: 'keyword-fallback',
         campaign: null,
       });
       expect(fetchMock.mock.calls[0][0]).toContain('/classify');
+    });
+
+    it('keeps a well-formed softmax and drops a malformed one', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.9,
+          bucket: 'blocked',
+          scores: { Ham: 0.05, Spam: 0.05, Scam: 0.9 },
+        }),
+      });
+      await expect(service.classifyMasked('x')).resolves.toEqual(
+        expect.objectContaining({
+          scores: { Ham: 0.05, Spam: 0.05, Scam: 0.9 },
+        }),
+      );
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.9,
+          bucket: 'blocked',
+          scores: { Ham: 'x' },
+        }),
+      });
+      await expect(service.classifyMasked('x')).resolves.toEqual(
+        expect.objectContaining({ scores: null }),
+      );
     });
 
     it.each([

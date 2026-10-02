@@ -10,6 +10,16 @@ import { AuditService } from '../audit/audit.service';
 import { maskSmsBody } from '../sms/sms-privacy-masker';
 import { SubmitReportDto } from './dto/submit-report.dto';
 
+// What the Admin Reports page needs to judge a report: the masked body, what
+// the model said, and when it arrived. Sender stays an HMAC and is not sent.
+const REPORT_MESSAGE_SELECT = {
+  id: true,
+  body: true,
+  receivedAt: true,
+  clusterId: true,
+  classification: { select: { label: true, score: true, bucket: true } },
+} as const;
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -43,22 +53,45 @@ export class ReportsService {
       throw new ConflictException('You have already reported this message.');
     }
 
-    return this.prisma.userReport.create({
-      data: {
-        userId,
-        messageId: dto.messageId,
-        originalLabel,
-        reportedLabel: dto.reportedLabel,
-        status: 'Pending',
-      },
-      select: {
-        id: true,
-        status: true,
-        originalLabel: true,
-        reportedLabel: true,
-        createdAt: true,
-      },
-    });
+    const note = dto.note ? maskSmsBody(dto.note) || null : null;
+
+    // The report and the alert's server-side status move together, so the
+    // Admin overview's alertsByStatus reflects what users actually did.
+    return this.prisma
+      .$transaction(async (tx) => {
+        const report = await tx.userReport.create({
+          data: {
+            userId,
+            messageId: dto.messageId,
+            originalLabel,
+            reportedLabel: dto.reportedLabel,
+            note,
+            status: 'Pending',
+          },
+          select: {
+            id: true,
+            status: true,
+            originalLabel: true,
+            reportedLabel: true,
+            note: true,
+            createdAt: true,
+          },
+        });
+        await tx.alert.updateMany({
+          where: { messageId: dto.messageId, status: { not: 'Reported' } },
+          data: { status: 'Reported' },
+        });
+        return report;
+      })
+      .catch((err: unknown) => {
+        // Two submissions racing past the findUnique check above.
+        if ((err as { code?: string }).code === 'P2002') {
+          throw new ConflictException(
+            'You have already reported this message.',
+          );
+        }
+        throw err;
+      });
   }
 
   // Admin: list all reports, newest first.
@@ -74,8 +107,9 @@ export class ReportsService {
         adminNote: true,
         createdAt: true,
         updatedAt: true,
+        note: true,
         user: { select: { id: true } },
-        message: { select: { id: true, body: true } },
+        message: { select: REPORT_MESSAGE_SELECT },
       },
     });
     // An empty result discloses no restricted content, so it is not an
@@ -101,9 +135,12 @@ export class ReportsService {
         status: true,
         originalLabel: true,
         reportedLabel: true,
+        adminNote: true,
         createdAt: true,
+        updatedAt: true,
+        note: true,
         user: { select: { id: true } },
-        message: { select: { id: true, body: true } },
+        message: { select: REPORT_MESSAGE_SELECT },
       },
     });
     if (reports.length) {

@@ -600,6 +600,14 @@ fun MessageDetailScreen(
                                 color = Danger,
                                 fontSize = TextSize.Footnote,
                             )
+                        } else if (senderVerification?.risk == "external_high_risk") {
+                            // Flagged by the backend's outside phone-reputation
+                            // lookup, not by BantAI staff -- a caution, not a verdict.
+                            Text(
+                                stringResource(R.string.thread_external_high_risk),
+                                color = SuspiciousText,
+                                fontSize = TextSize.Footnote,
+                            )
                         } else if (senderVerification?.familiarity == "verified_organization") {
                             Text(
                                 stringResource(R.string.thread_verified_org) +

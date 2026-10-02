@@ -41,7 +41,11 @@ describe('BlockedNumbersController', () => {
 
     await controller.block(req, { sender: '09171234567' });
 
-    expect(mockService.block).toHaveBeenCalledWith('u1', '09171234567');
+    expect(mockService.block).toHaveBeenCalledWith(
+      'u1',
+      '09171234567',
+      undefined,
+    );
   });
 
   it('unblock delegates to the service with userId and the sender param', async () => {

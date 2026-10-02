@@ -21,6 +21,8 @@ export interface SummarizeResult {
 export interface ClassifyResult {
   label: 'Ham' | 'Spam' | 'Scam';
   score: number;
+  // Full softmax from the AI service; null when absent or malformed.
+  scores?: Record<'Ham' | 'Spam' | 'Scam', number> | null;
   bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
   indicators: { tag: string; weight: number }[];
   explanationMethod: 'shap' | 'keyword-fallback';
@@ -39,6 +41,7 @@ export interface CampaignMatchResult {
 interface AiClassifyResponse {
   label: 'Ham' | 'Spam' | 'Scam';
   score: number;
+  scores?: unknown;
   bucket: 'safe' | 'unknown' | 'spam' | 'blocked';
   indicators?: { tag?: unknown; weight?: unknown }[];
   explanation_method?: unknown;
@@ -47,6 +50,26 @@ interface AiClassifyResponse {
 
 const CAMPAIGN_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// The service's full softmax ({ Ham, Spam, Scam }). Anything malformed is
+// dropped rather than stored, since Classification.scores feeds analytics.
+function validatedScores(
+  value: unknown,
+): Record<'Ham' | 'Spam' | 'Scam', number> | null {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const out = {} as Record<'Ham' | 'Spam' | 'Scam', number>;
+  for (const key of ['Ham', 'Spam', 'Scam'] as const) {
+    const v = raw[key];
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 1) {
+      return null;
+    }
+    out[key] = v;
+  }
+  return out;
+}
 
 function validatedCampaign(value: unknown): CampaignMatchResult | null {
   if (value == null) return null;
@@ -180,6 +203,7 @@ export class AiService {
       return {
         label: data.label,
         score: data.score,
+        scores: validatedScores(data.scores),
         bucket: data.bucket,
         indicators,
         explanationMethod,

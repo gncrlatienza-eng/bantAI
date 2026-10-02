@@ -16,9 +16,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateSafetyTipDto } from './dto/create-safety-tip.dto';
 import { UpdateSafetyTipDto } from './dto/update-safety-tip.dto';
 import { TipsService } from './tips.service';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @Controller('admin/tips')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('*')
 export class AdminTipsController {
   constructor(private readonly tips: TipsService) {}
 

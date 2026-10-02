@@ -80,6 +80,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.data.ContactsSync
 import com.bantai.data.model.Classification
 import com.bantai.data.model.ConversationView
 import com.bantai.data.model.SmsMessage
@@ -137,6 +138,14 @@ fun MessagesScreen(
             readSmsPermission.launchPermissionRequest()
         } else if (!readContactsPermission.status.isGranted) {
             readContactsPermission.launchPermissionRequest()
+        }
+    }
+
+    // Once contacts are readable, let the backend know which senders are saved
+    // contacts (pseudonymous numbers only) so it never auto-blocks them.
+    LaunchedEffect(readContactsPermission.status.isGranted) {
+        if (readContactsPermission.status.isGranted) {
+            ContactsSync.syncIfDue(context)
         }
     }
 

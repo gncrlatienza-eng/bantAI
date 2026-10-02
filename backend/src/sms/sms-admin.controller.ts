@@ -3,9 +3,11 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SmsService } from './sms.service';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @Controller('admin/classifications')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('overview:read')
 export class SmsAdminController {
   constructor(private readonly smsService: SmsService) {}
 

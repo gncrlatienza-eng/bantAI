@@ -127,6 +127,8 @@ export class SmsService {
     const label = modelResult?.label ?? dto.label ?? 'Ham';
     const score = modelResult?.score ?? dto.score ?? 0;
     const bucket = modelResult?.bucket ?? dto.bucket;
+    // Only the model's own distribution is stored; device fallbacks have none.
+    const scores = modelResult?.scores ?? undefined;
     // A device fallback may preserve its bucket for audit/display purposes,
     // but routing it from that untrusted metadata can hide a Scam/Spam when
     // the device sends `unknown`. Route fallback classifications by label.
@@ -232,10 +234,22 @@ export class SmsService {
               const classification = existing.classification
                 ? await tx.classification.update({
                     where: { id: existing.classification.id },
-                    data: { label, score, bucket, createdAt: new Date() },
+                    data: {
+                      label,
+                      score,
+                      scores,
+                      bucket,
+                      createdAt: new Date(),
+                    },
                   })
                 : await tx.classification.create({
-                    data: { messageId: existing.id, label, score, bucket },
+                    data: {
+                      messageId: existing.id,
+                      label,
+                      score,
+                      scores,
+                      bucket,
+                    },
                   });
               if (modelResult.indicators?.length) {
                 await tx.explainableIndicator.upsert({
@@ -269,7 +283,7 @@ export class SmsService {
             // Repair a legacy message row that predates classification
             // persistence, even if this retry still uses device fallback.
             await tx.classification.create({
-              data: { messageId: existing.id, label, score, bucket },
+              data: { messageId: existing.id, label, score, scores, bucket },
             });
             if (
               !blocked &&
@@ -346,7 +360,7 @@ export class SmsService {
           },
         });
         const classification = await tx.classification.create({
-          data: { messageId: message.id, label, score, bucket },
+          data: { messageId: message.id, label, score, scores, bucket },
         });
         if (modelResult?.indicators?.length) {
           await tx.explainableIndicator.create({
@@ -444,7 +458,10 @@ export class SmsService {
       : null;
   }
 
-  async getAlerts(userId: string) {
+  async getAlerts(
+    userId: string,
+    page: { before?: string; beforeId?: string; limit?: number } = {},
+  ) {
     return this.prisma.alert.findMany({
       // Alerts are smishing only. Earlier builds created an Alert for every
       // model Spam (promos); those rows are excluded here rather than deleted,
@@ -454,34 +471,31 @@ export class SmsService {
           userId,
           NOT: { classification: { is: { bucket: 'spam' } } },
         },
+        ...(page.before ? { OR: alertCursor(page.before, page.beforeId) } : {}),
       },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      select: {
-        id: true,
-        status: true,
-        createdAt: true,
+      // id breaks createdAt ties so keyset paging never skips an alert.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: page.limit ?? 100,
+      select: alertSelect(userId),
+    });
+  }
+
+  async getAlertForMessage(userId: string, messageId: string) {
+    const alert = await this.prisma.alert.findFirst({
+      where: {
+        messageId,
         message: {
-          select: {
-            id: true,
-            sourceId: true,
-            receivedAt: true,
-            clusterId: true,
-            classification: {
-              select: { label: true, score: true, bucket: true },
-            },
-            // This user's own report on the message, if any (one per user per
-            // message), so the phone can file it under Reported and show its
-            // review status instead of offering Report again.
-            reports: {
-              where: { userId },
-              select: { reportedLabel: true, status: true, createdAt: true },
-              take: 1,
-            },
-          },
+          userId,
+          NOT: { classification: { is: { bucket: 'spam' } } },
         },
       },
+      orderBy: { createdAt: 'desc' },
+      select: alertSelect(userId),
     });
+    if (!alert) {
+      throw new NotFoundException(`No alert for message ${messageId}`);
+    }
+    return alert;
   }
 
   // Admin model-log view. Deliberately omit message body, sender, user, and
@@ -645,4 +659,38 @@ export class SmsService {
   ): 'blocked' | 'inbox' {
     return label === 'Scam' && score >= 0.9 ? 'blocked' : 'inbox';
   }
+}
+
+function alertSelect(userId: string) {
+  return {
+    id: true,
+    status: true,
+    createdAt: true,
+    message: {
+      select: {
+        id: true,
+        sourceId: true,
+        receivedAt: true,
+        clusterId: true,
+        classification: {
+          select: { label: true, score: true, bucket: true },
+        },
+        // This user's own report on the message, if any (one per user per
+        // message), so the phone can file it under Reported and show its
+        // review status instead of offering Report again.
+        reports: {
+          where: { userId },
+          select: { reportedLabel: true, status: true, createdAt: true },
+          take: 1,
+        },
+      },
+    },
+  } as const;
+}
+
+function alertCursor(before: string, beforeId?: string) {
+  const at = new Date(before);
+  return beforeId
+    ? [{ createdAt: { lt: at } }, { createdAt: at, id: { lt: beforeId } }]
+    : [{ createdAt: { lt: at } }];
 }

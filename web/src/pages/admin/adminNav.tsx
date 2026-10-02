@@ -39,6 +39,11 @@ export const ADMIN_SIDEBAR_GROUPS: NavGroupDef[] = [
       },
       { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
       { label: 'Reports', path: '/admin/reports', icon: <NavReportsIcon /> },
+      {
+        label: 'Sender reports',
+        path: '/admin/sender-reports',
+        icon: <NavReportsIcon />,
+      },
     ],
   },
   {
@@ -76,6 +81,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   '/admin/campaigns': ['campaigns:manage'],
   '/admin/model': ['models:read'],
   '/admin/reports': ['reports:read'],
+  '/admin/sender-reports': ['verification:read'],
   '/admin/export': ['*'],
   '/admin/system': ['system:read'],
   '/admin/access-requests': ['access_requests:manage'],

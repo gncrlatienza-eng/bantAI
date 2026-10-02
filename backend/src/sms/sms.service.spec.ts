@@ -26,7 +26,12 @@ describe('SmsService', () => {
       groupBy: jest.fn(),
     },
     explainableIndicator: { create: jest.fn(), upsert: jest.fn() },
-    alert: { create: jest.fn(), deleteMany: jest.fn(), findMany: jest.fn() },
+    alert: {
+      create: jest.fn(),
+      deleteMany: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+    },
     campaignCluster: { update: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
@@ -491,6 +496,44 @@ describe('SmsService', () => {
           },
         },
       }),
+    );
+  });
+
+  it('pages alerts with a createdAt cursor when one is given', async () => {
+    prisma.alert.findMany.mockResolvedValue([]);
+    const at = new Date('2026-10-01T00:00:00.000Z');
+    await service.getAlerts('u1', {
+      before: at.toISOString(),
+      beforeId: 'a5',
+      limit: 20,
+    });
+    expect(prisma.alert.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ createdAt: { lt: at } }, { createdAt: at, id: { lt: 'a5' } }],
+        }),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 20,
+      }),
+    );
+  });
+
+  it('finds the alert for one of the caller own messages, or 404s', async () => {
+    prisma.alert.findFirst.mockResolvedValueOnce({ id: 'a1' });
+    await expect(service.getAlertForMessage('u1', 'm1')).resolves.toEqual({
+      id: 'a1',
+    });
+    expect(prisma.alert.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          messageId: 'm1',
+          message: expect.objectContaining({ userId: 'u1' }),
+        }),
+      }),
+    );
+    prisma.alert.findFirst.mockResolvedValueOnce(null);
+    await expect(service.getAlertForMessage('u1', 'm2')).rejects.toThrow(
+      'No alert for message m2',
     );
   });
 

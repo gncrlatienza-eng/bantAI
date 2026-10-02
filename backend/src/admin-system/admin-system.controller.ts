@@ -6,9 +6,11 @@ import { AdminSystemService } from './admin-system.service';
 import { ApiLogQueryDto } from './dto/api-log-query.dto';
 import { AuditEventQueryDto } from './dto/audit-event-query.dto';
 import { RequestLogService } from './request-log.service';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@RequirePermissions('system:read')
 export class AdminSystemController {
   constructor(
     private readonly system: AdminSystemService,
@@ -25,6 +27,8 @@ export class AdminSystemController {
     return this.system.getDatabaseStorage();
   }
 
+  // Audit trail is SUPERADMIN-only in the Admin nav ('*').
+  @RequirePermissions('*')
   @Get('audit-events')
   getAuditEvents(@Query() query: AuditEventQueryDto) {
     return this.system.getAuditEvents({

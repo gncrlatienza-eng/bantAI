@@ -28,7 +28,18 @@ export class DataRetentionService {
       await tx.alert.deleteMany({ where: { message: staleMessages } });
       await tx.messageFeature.deleteMany({ where: { message: staleMessages } });
       await tx.classification.deleteMany({ where: { message: staleMessages } });
+      // A curated DatasetSample keeps its own masked copy; detach it from the
+      // expiring report (Restrict FK) instead of letting the purge roll back.
+      await tx.datasetSample.updateMany({
+        where: { sourceReport: { message: staleMessages } },
+        data: { sourceReportId: null },
+      });
       await tx.userReport.deleteMany({ where: { message: staleMessages } });
+      // Assignment history rows reference the message with Restrict, so an
+      // admin-corrected message older than 90 days blocked the whole purge.
+      await tx.campaignAssignmentHistory.deleteMany({
+        where: { message: staleMessages },
+      });
       const affectedClusters = await tx.smsMessage.findMany({
         where: { ...staleMessages, clusterId: { not: null } },
         select: { clusterId: true },

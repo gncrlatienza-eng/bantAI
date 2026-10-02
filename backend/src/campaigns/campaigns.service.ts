@@ -418,22 +418,28 @@ export class CampaignsService {
   }
 
   findAll() {
-    return this.prisma.campaignCluster.findMany({
-      where: { isActive: true, archivedAt: null },
-      orderBy: { messageCount: 'desc' },
-      select: {
-        id: true,
-        label: true,
-        category: true,
-        urlDomains: true,
-        isActive: true,
-        messageCount: true,
-        countVerified: true,
-        revision: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    return this.prisma.campaignCluster
+      .findMany({
+        where: { isActive: true, archivedAt: null },
+        orderBy: { messageCount: 'desc' },
+        select: {
+          id: true,
+          label: true,
+          category: true,
+          risk: true,
+          summary: true,
+          publishedAt: true,
+          archivedAt: true,
+          urlDomains: true,
+          isActive: true,
+          messageCount: true,
+          countVerified: true,
+          revision: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+      .then(withoutDraftSummary);
   }
 
   async findOne(id: string, userId: string) {
@@ -623,44 +629,55 @@ export class CampaignsService {
   }
 
   findAllInactive() {
-    return this.prisma.campaignCluster.findMany({
-      where: { isActive: false, archivedAt: null },
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
-      select: {
-        id: true,
-        label: true,
-        category: true,
-        urlDomains: true,
-        isActive: true,
-        messageCount: true,
-        countVerified: true,
-        revision: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    return this.prisma.campaignCluster
+      .findMany({
+        where: { isActive: false, archivedAt: null },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          label: true,
+          category: true,
+          risk: true,
+          summary: true,
+          publishedAt: true,
+          archivedAt: true,
+          urlDomains: true,
+          isActive: true,
+          messageCount: true,
+          countVerified: true,
+          revision: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+      .then(withoutDraftSummary);
   }
 
   findArchived() {
-    return this.prisma.campaignCluster.findMany({
-      where: { archivedAt: { not: null } },
-      orderBy: { archivedAt: 'desc' },
-      take: 100,
-      select: {
-        id: true,
-        label: true,
-        category: true,
-        urlDomains: true,
-        isActive: true,
-        messageCount: true,
-        createdAt: true,
-        updatedAt: true,
-        archivedAt: true,
-        countVerified: true,
-        revision: true,
-      },
-    });
+    return this.prisma.campaignCluster
+      .findMany({
+        where: { archivedAt: { not: null } },
+        orderBy: { archivedAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          label: true,
+          category: true,
+          risk: true,
+          summary: true,
+          publishedAt: true,
+          urlDomains: true,
+          isActive: true,
+          messageCount: true,
+          createdAt: true,
+          updatedAt: true,
+          archivedAt: true,
+          countVerified: true,
+          revision: true,
+        },
+      })
+      .then(withoutDraftSummary);
   }
 
   /**
@@ -823,4 +840,14 @@ function toShieldCampaign(campaign: {
       .filter((domain) => /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(domain))
       .map((domain) => domain.replaceAll('.', '[.]')),
   };
+}
+
+// The shared lists also reach mobile JWTs (GET /campaigns); a reviewer's
+// draft summary is only shown once the campaign is published.
+function withoutDraftSummary<
+  T extends { summary: string | null; publishedAt: Date | null },
+>(campaigns: T[]): T[] {
+  return campaigns.map((campaign) =>
+    campaign.publishedAt ? campaign : { ...campaign, summary: null },
+  );
 }

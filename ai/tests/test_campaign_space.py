@@ -437,3 +437,41 @@ def test_shared_development_loads_campaign_space_inside_approved_bundle(tmp_path
     loaded = service_main._load_campaign_space()
     assert loaded is not None
     assert loaded.space_id == expected.space_id
+
+
+# --- live centroid refresh ---------------------------------------------
+def test_refresh_applies_new_backend_centroids(monkeypatch, tmp_path):
+    s = _space()
+    first = CampaignCentroid("1", s.apply(_population()[0]), label=tag_label("cluster-1", s.space_id))
+    _startup(monkeypatch, tmp_path, [first], s)
+    second = CampaignCentroid("2", s.apply(_population()[1]), label=tag_label("cluster-2", s.space_id))
+    monkeypatch.setattr(service_main, "load_from_backend", lambda *_a, **_k: [first, second])
+    assert service_main.refresh_campaign_centroids("v-C", IntegrityResult("ok", detail="t")) is True
+    assert {c.cluster_id for c in routers.classify.matcher.centroids} == {"1", "2"}
+
+
+def test_refresh_failure_keeps_the_current_matcher(monkeypatch, tmp_path):
+    s = _space()
+    c = CampaignCentroid("1", s.apply(_population()[0]), label=tag_label("cluster-1", s.space_id))
+    before = _startup(monkeypatch, tmp_path, [c], s)
+
+    def boom(*_a, **_k):
+        raise OSError("backend down")
+
+    monkeypatch.setattr(service_main, "load_from_backend", boom)
+    assert service_main.refresh_campaign_centroids("v-C", IntegrityResult("ok", detail="t")) is False
+    assert routers.classify.matcher is before
+
+
+def test_refresh_keeps_the_matcher_when_applying_fails(monkeypatch, tmp_path):
+    s = _space()
+    c = CampaignCentroid("1", s.apply(_population()[0]), label=tag_label("cluster-1", s.space_id))
+    before = _startup(monkeypatch, tmp_path, [c], s)
+    monkeypatch.setattr(service_main, "load_from_backend", lambda *_a, **_k: [c])
+
+    def broken(*_a, **_k):
+        raise ValueError("uncalibrated space")
+
+    monkeypatch.setattr(service_main, "apply_campaign_centroids", broken)
+    assert service_main.refresh_campaign_centroids("v-C", IntegrityResult("ok", detail="t")) is False
+    assert routers.classify.matcher is before

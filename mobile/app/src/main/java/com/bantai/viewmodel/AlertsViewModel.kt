@@ -31,11 +31,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// The whole (unbounded, per WBS -- the backend has no pagination on this
-// endpoint yet) alert list gets re-fetched on every tick, so this trades
+// The newest page of alerts gets re-fetched on every tick (a full load pulls
+// up to ALERTS_MAX_PAGES pages of 100 via the backend's cursor), so this trades
 // alert-badge freshness against bandwidth/battery: long enough to not hammer
 // the backend, short enough that a new threat still shows up promptly.
 private const val ALERTS_POLL_INTERVAL_MS = 20_000L
+private const val ALERTS_MAX_PAGES = 5
 private const val TAG = "AlertsViewModel"
 
 class AlertsViewModel(
@@ -71,6 +72,19 @@ class AlertsViewModel(
         combine(_alerts, alertState) { alerts, state ->
             unseenAlerts(alerts, state.initialized, state.seen).size
         }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+
+    // Keeps alerts older than a polled first page (loaded by an earlier full
+    // load) instead of dropping them every 20s. ISO-8601 UTC strings from the
+    // backend compare correctly as text.
+    private fun withOlderAlerts(
+        fresh: List<SmsApi.AlertSummary>,
+        fetched: List<SmsApi.AlertSummary>,
+    ): List<SmsApi.AlertSummary> {
+        val oldest = fetched.lastOrNull()?.createdAt
+        if (oldest == null || fetched.size < SmsApi.ALERTS_PAGE_SIZE) return fresh
+        val ids = fresh.mapTo(HashSet()) { it.id }
+        return fresh + _alerts.value.filter { it.id !in ids && it.createdAt < oldest }
+    }
 
     fun setTab(tab: AlertTab) {
         _tab.value = tab
@@ -154,8 +168,10 @@ class AlertsViewModel(
                     return@launch
                 }
 
+                // A background poll only needs the newest page; older pages
+                // from the last full load are kept below.
                 SmsApi
-                    .getAlerts(token)
+                    .getAlerts(token, maxPages = if (silent) 1 else ALERTS_MAX_PAGES)
                     .onSuccess { alerts ->
                         // Alerts are smishing only; an older backend still returns the
                         // legacy promo alerts it created for every model Spam.
@@ -166,7 +182,7 @@ class AlertsViewModel(
                         val resolved = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(smishing) }
                         val local = AlertBlocking.withBlockStatus(getApplication(), token, resolved, catchUp = true)
                         alertStateStore.initializeIfNeeded(local.map { it.messageId })
-                        _alerts.value = local
+                        _alerts.value = if (silent) withOlderAlerts(local, alerts) else local
                         _errorMessage.value = null
                     }.onFailure { error ->
                         Log.w(TAG, "Failed to load alerts", error)

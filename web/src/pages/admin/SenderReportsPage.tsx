@@ -21,14 +21,19 @@ import {
   MetricRow,
   StatusBadge,
   type Column,
+  type StatusKind,
 } from '../../components/primitives';
 import { useStaffPermission } from '../../components/common/StaffPermissionGate';
+import { MaskedMessage } from '../../components/masked/MaskedMessage';
 import {
   confirmSenderFraud,
   getPendingSenderReports,
+  getSenderReportDetail,
   MINIMUM_CORROBORATING_REPORTS,
   type PendingSenderReport,
+  type SenderReportDetail,
 } from '../../services/senderReportsService';
+import { displayTitle } from '../../features/campaigns/campaignDisplay';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
@@ -43,6 +48,36 @@ function formatDate(iso: string): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+// The backend's report window is a 30-day bucket number (time since the
+// epoch / 30 days). Shown as the dates it covers, which a person can read.
+const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+function windowLabel(window: string): string {
+  const n = Number(window);
+  if (!Number.isFinite(n)) return window;
+  const fmt = (ms: number) =>
+    new Date(ms).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  const end = (n + 1) * WINDOW_MS - 1;
+  return `${fmt(n * WINDOW_MS)} – ${fmt(end)}, ${new Date(end).getFullYear()}`;
+}
+
+// Same mapping as the Reports page.
+function labelKind(label?: string | null): StatusKind {
+  switch (label) {
+    case 'Scam':
+      return 'threat';
+    case 'Spam':
+      return 'suspicious';
+    case 'Ham':
+      return 'verified';
+    default:
+      return 'unknown';
+  }
 }
 
 interface SenderGroup {
@@ -99,6 +134,20 @@ export function SenderReportsPage() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<SenderGroup | null>(null);
+  const [detail, setDetail] = useState<SenderReportDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  async function openDetail(group: SenderGroup) {
+    setViewing(group);
+    setDetail(null);
+    setDetailError(null);
+    try {
+      setDetail(await getSenderReportDetail(group.reportId));
+    } catch (e) {
+      setDetailError(errorText(e));
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,6 +183,8 @@ export function SenderReportsPage() {
         `${confirming.alias} confirmed as fraud from ${result.reportCount} reports. Every user now sees this sender as confirmed fraud.`,
       );
       setConfirming(null);
+      // The sender is no longer pending; don't fall back to its stale details.
+      setViewing(null);
       setReason('');
       await load();
     } catch (e) {
@@ -170,8 +221,8 @@ export function SenderReportsPage() {
     {
       key: 'window',
       header: 'Window',
-      render: (g) => g.reportWindow,
-      width: '14%',
+      render: (g) => windowLabel(g.reportWindow),
+      width: '18%',
     },
     {
       key: 'last',
@@ -194,7 +245,8 @@ export function SenderReportsPage() {
                 ? `Needs at least ${MINIMUM_CORROBORATING_REPORTS} independent reports`
                 : undefined
             }
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setActionError(null);
               setConfirming(g);
             }}
@@ -272,6 +324,7 @@ export function SenderReportsPage() {
               rowKey={(g) => g.key}
               rows={groups}
               columns={columns}
+              onRowClick={(g) => void openDetail(g)}
               emptyState={
                 <EmptyState
                   title="No pending sender reports"
@@ -282,6 +335,48 @@ export function SenderReportsPage() {
           </div>
         </>
       )}
+
+      <Dialog
+        size="lg"
+        open={viewing !== null && confirming === null}
+        title={viewing ? `Reported number · ${viewing.alias}` : ''}
+        description="The phone number itself is never stored, only a code for it. Below is everything this number has sent to BantAI users, with personal details hidden."
+        onClose={() => setViewing(null)}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setViewing(null)}>
+              Close
+            </Button>
+            {canManage && viewing && (
+              <Button
+                variant="secondary"
+                disabled={viewing.count < MINIMUM_CORROBORATING_REPORTS}
+                title={
+                  viewing.count < MINIMUM_CORROBORATING_REPORTS
+                    ? `Needs at least ${MINIMUM_CORROBORATING_REPORTS} different people to report it`
+                    : undefined
+                }
+                onClick={() => {
+                  setActionError(null);
+                  setConfirming(viewing);
+                }}
+              >
+                Confirm fraud
+              </Button>
+            )}
+          </>
+        }
+      >
+        {detailError ? (
+          <p role="alert" style={{ color: 'var(--status-threat)' }}>
+            {detailError}
+          </p>
+        ) : !detail ? (
+          <LoadingState label="Loading details" />
+        ) : (
+          <SenderDetail detail={detail} />
+        )}
+      </Dialog>
 
       <Dialog
         open={confirming !== null}
@@ -326,6 +421,137 @@ export function SenderReportsPage() {
         )}
       </Dialog>
     </AppShell>
+  );
+}
+
+const muted: React.CSSProperties = {
+  color: 'var(--text-secondary)',
+  fontSize: '0.8rem',
+};
+
+function SenderDetail({ detail }: { detail: SenderReportDetail }) {
+  const ready = detail.reporterCount >= detail.requiredReports;
+  const labelEntries = Object.entries(detail.labelCounts).sort(
+    (a, b) => b[1] - a[1],
+  );
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={muted}>People who reported it</div>
+          <div style={{ fontWeight: 600 }}>
+            {detail.reporterCount} of {detail.requiredReports} needed
+          </div>
+          <div style={muted}>
+            {ready
+              ? 'Enough to confirm'
+              : `Waiting for ${detail.requiredReports - detail.reporterCount} more`}
+          </div>
+        </div>
+        <div>
+          <div style={muted}>Texts on file</div>
+          <div style={{ fontWeight: 600 }}>
+            {detail.messageTotal.toLocaleString()}
+          </div>
+          <div style={muted}>
+            sent to {detail.recipientCount.toLocaleString()}{' '}
+            {detail.recipientCount === 1 ? 'user' : 'users'}
+          </div>
+        </div>
+        <div>
+          <div style={muted}>How BantAI labelled them</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {labelEntries.length ? (
+              labelEntries.map(([label, n]) => (
+                <StatusBadge
+                  key={label}
+                  kind={labelKind(label)}
+                  label={`${label} · ${n}`}
+                />
+              ))
+            ) : (
+              <span style={muted}>None</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style={{ ...muted, marginBottom: 6 }}>
+          {detail.messageTotal > detail.messages.length
+            ? `Newest ${detail.messages.length} texts from this number`
+            : 'Texts from this number'}
+        </div>
+        {detail.messages.length === 0 ? (
+          <p style={muted}>
+            No texts from this number are stored. It was reported, but none of
+            its messages reached the server.
+          </p>
+        ) : (
+          <div
+            className="bantai-p-scroll"
+            role="region"
+            aria-label="Texts from this number"
+            tabIndex={0}
+            style={{
+              border: '1px solid var(--border-default)',
+              borderRadius: 8,
+              maxHeight: 'min(360px, 45dvh)',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+            }}
+          >
+            {detail.messages.map((m, i) => (
+              <div
+                key={m.id}
+                style={{
+                  padding: '10px 12px',
+                  borderTop:
+                    i === 0 ? 'none' : '1px solid var(--border-default)',
+                  display: 'grid',
+                  gap: 4,
+                }}
+              >
+                <MaskedMessage text={m.body} />
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    ...muted,
+                  }}
+                >
+                  <span>{formatDate(m.receivedAt)}</span>
+                  {m.classification && (
+                    <StatusBadge
+                      kind={labelKind(m.classification.label)}
+                      label={m.classification.label}
+                    />
+                  )}
+                  {m.cluster && (
+                    <span>Campaign: {displayTitle(m.cluster)}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={muted}>
+        Reported on{' '}
+        {detail.reports.map((r) => formatDate(r.createdAt)).join(', ')}.
+        Confirming warns every BantAI user who gets a text from this number. It
+        never blocks the number on its own.
+      </div>
+    </div>
   );
 }
 

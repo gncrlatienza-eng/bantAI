@@ -14,8 +14,15 @@ describe('CampaignsController', () => {
     deactivate: jest.fn(),
     findCentroids: jest.fn(),
     findByDomains: jest.fn(),
+    archiveEmpty: jest.fn(),
   };
-  const controller = new CampaignsController(service as any, {} as never);
+  const emergingWaves = { run: jest.fn() };
+  const controller = new CampaignsController(
+    service as any,
+    {} as never,
+    {} as never,
+    emergingWaves as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -39,6 +46,16 @@ describe('CampaignsController', () => {
   it('uses the same implementation for the separately guarded machine deactivation route', () => {
     controller.deactivateInternal('campaign-1');
     expect(service.deactivate).toHaveBeenCalledWith('campaign-1');
+  });
+
+  it('attributes bulk empty-cluster archiving to the Admin actor', () => {
+    controller.archiveEmpty({ user: { userId: 'admin-1' } });
+    expect(service.archiveEmpty).toHaveBeenCalledWith('admin-1');
+  });
+
+  it('attributes a manual emerging-wave run to the Admin actor', () => {
+    void controller.runEmerging({ user: { userId: 'admin-1' } });
+    expect(emergingWaves.run).toHaveBeenCalledWith('admin-1');
   });
 
   it('attributes human deactivation to the Admin actor', () => {

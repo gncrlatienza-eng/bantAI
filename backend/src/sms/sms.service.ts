@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { EmergingWavesService } from '../campaigns/emerging-waves.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { fingerprintSender } from '../auth/phone';
 import { VerificationService } from '../verification/verification.service';
@@ -88,6 +89,7 @@ export class SmsService {
     private campaignsService: CampaignsService,
     private verificationService: VerificationService,
     private aiService: AiService,
+    private emergingWaves: EmergingWavesService,
   ) {}
 
   async ingest(userId: string, dto: IngestSmsDto) {
@@ -404,6 +406,10 @@ export class SmsService {
       };
     }
 
+    // A scam no known campaign matched may be part of a new blast; group it
+    // with similar unmatched texts shortly, off the request path.
+    if (label === 'Scam' && !result.campaignId) this.emergingWaves.schedule();
+
     return {
       suppressed: Boolean(blocked),
       ...(blocked ? { reason: 'blocked_sender' } : {}),
@@ -680,7 +686,14 @@ function alertSelect(userId: string) {
         // review status instead of offering Report again.
         reports: {
           where: { userId },
-          select: { reportedLabel: true, status: true, createdAt: true },
+          select: {
+            reportedLabel: true,
+            status: true,
+            createdAt: true,
+            note: true,
+            adminNote: true,
+            updatedAt: true,
+          },
           take: 1,
         },
       },

@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { SenderReputationService } from './sender-reputation.service';
 import { VerificationService } from './verification.service';
 
@@ -26,8 +27,11 @@ describe('VerificationService', () => {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    smsMessage: { findMany: jest.fn(), count: jest.fn(), groupBy: jest.fn() },
+    classification: { groupBy: jest.fn() },
     $transaction: jest.fn(),
   };
+  const audit = { record: jest.fn() };
   const senderReputation = { lookup: jest.fn() };
   let service: VerificationService;
 
@@ -39,6 +43,7 @@ describe('VerificationService', () => {
         VerificationService,
         { provide: PrismaService, useValue: prisma },
         { provide: SenderReputationService, useValue: senderReputation },
+        { provide: AuditService, useValue: audit },
       ],
     }).compile();
     service = module.get(VerificationService);
@@ -181,5 +186,66 @@ describe('VerificationService', () => {
       expiresAt: new Date(Date.now() - 60_000),
     });
     await expect(service.isConfirmedFraud('09171234567')).resolves.toBe(false);
+  });
+
+  describe('findSenderReportDetail', () => {
+    it("shows the number's reports and what it sent, masked and audited", async () => {
+      prisma.senderReport.findUnique.mockResolvedValue({
+        sender: 'hmac-1',
+        reportWindow: '690',
+      });
+      prisma.senderReport.findMany.mockResolvedValue([
+        { id: 'r1', status: 'Pending', createdAt: new Date() },
+      ]);
+      prisma.smsMessage.findMany.mockResolvedValue([
+        {
+          id: 'm1',
+          body: 'Call me at 09171234567 to claim',
+          receivedAt: new Date(),
+          classification: { label: 'Scam', score: 1 },
+          cluster: null,
+        },
+      ]);
+      prisma.smsMessage.count.mockResolvedValue(14);
+      prisma.smsMessage.groupBy.mockResolvedValue([
+        { userId: 'u1' },
+        { userId: 'u2' },
+      ]);
+      prisma.classification.groupBy.mockResolvedValue([
+        { label: 'Scam', _count: { _all: 14 } },
+      ]);
+
+      const detail = await service.findSenderReportDetail('r1', 'admin-1');
+
+      expect(prisma.smsMessage.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sender: 'hmac-1' }, take: 20 }),
+      );
+      expect(detail).toMatchObject({
+        reportWindow: '690',
+        reporterCount: 1,
+        requiredReports: 2,
+        messageTotal: 14,
+        recipientCount: 2,
+        labelCounts: { Scam: 14 },
+      });
+      // Re-masked on the way out, like every other admin message view.
+      expect(detail.messages[0].body).not.toContain('09171234567');
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorUserId: 'admin-1',
+          metadata: expect.objectContaining({
+            source: 'admin-sender-report-detail',
+            count: 1,
+          }),
+        }),
+      );
+    });
+
+    it('404s an unknown report', async () => {
+      prisma.senderReport.findUnique.mockResolvedValue(null);
+      await expect(
+        service.findSenderReportDetail('missing', 'admin-1'),
+      ).rejects.toThrow('Sender report not found.');
+    });
   });
 });

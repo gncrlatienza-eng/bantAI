@@ -11,11 +11,14 @@ import com.bantai.data.AlertBlocking
 import com.bantai.data.local.AlertState
 import com.bantai.data.localAlertsOnly
 import com.bantai.data.model.AlertTab
+import com.bantai.data.model.ReportFilter
 import com.bantai.data.model.unseenAlerts
 import com.bantai.data.model.withLocalReports
+import com.bantai.data.model.withReportList
+import com.bantai.data.remote.ReportsApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.toUserMessage
-import com.bantai.util.BlockHelper
+import com.bantai.util.ContactNames
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,7 +29,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +49,10 @@ class AlertsViewModel(
 
     private val _alerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
 
+    // The user's own reports (GET /reports/mine), on this phone. Reports on
+    // texts the model called safe have no alert, so they only come from here.
+    private val reportList = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -59,13 +65,26 @@ class AlertsViewModel(
     val alertState: StateFlow<AlertState> =
         alertStateStore.state.stateIn(viewModelScope, SharingStarted.Eagerly, AlertState())
 
-    /** The alerts, with reports just filed from this phone already applied. */
+    /**
+     * The alerts plus every report the user filed, with reports just filed
+     * from this phone already applied.
+     */
     val alerts: StateFlow<List<SmsApi.AlertSummary>> =
-        combine(_alerts, alertState) { alerts, state -> withLocalReports(alerts, state.reported) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        combine(_alerts, reportList, alertState) { alerts, reports, state ->
+            withLocalReports(withReportList(alerts, reports), state.reported)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _tab = MutableStateFlow(AlertTab.TO_REVIEW)
     val tab: StateFlow<AlertTab> = _tab.asStateFlow()
+
+    // Reported's status filter. Here rather than in the screen so it's kept
+    // while a report (or a sender's reports) is open and on the way back.
+    private val _reportFilter = MutableStateFlow(ReportFilter.WAITING)
+    val reportFilter: StateFlow<ReportFilter> = _reportFilter.asStateFlow()
+
+    fun setReportFilter(filter: ReportFilter) {
+        _reportFilter.value = filter
+    }
 
     /** Alerts the user hasn't opened yet -- drives the Alerts tab's count. */
     val unseenCount: StateFlow<Int> =
@@ -107,20 +126,6 @@ class AlertsViewModel(
      * [onDone] gets false when only the phone half worked -- the backend may
      * still be filtering this sender.
      */
-    fun unblockSender(
-        alert: SmsApi.AlertSummary,
-        onDone: (synced: Boolean) -> Unit,
-    ) {
-        viewModelScope.launch {
-            val token = userPreferences.userData.first().authToken
-            val synced = BlockHelper.unblockSender(getApplication(), token, alert.sender)
-            _alerts.update { alerts ->
-                alerts.map { if (it.sender == alert.sender) it.copy(senderBlocked = false) else it }
-            }
-            onDone(synced)
-        }
-    }
-
     init {
         loadAlerts()
         // Polling lives here (viewModelScope) rather than in AlertsScreen's own
@@ -180,7 +185,8 @@ class AlertsViewModel(
                         // device on the same account, deleted SMS) can't be shown
                         // or acted on here.
                         val resolved = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(smishing) }
-                        val local = AlertBlocking.withBlockStatus(getApplication(), token, resolved, catchUp = true)
+                        val blocked = AlertBlocking.withBlockStatus(getApplication(), token, resolved, catchUp = true)
+                        val local = withContext(Dispatchers.IO) { withSenderNames(blocked) }
                         alertStateStore.initializeIfNeeded(local.map { it.messageId })
                         _alerts.value = if (silent) withOlderAlerts(local, alerts) else local
                         _errorMessage.value = null
@@ -194,7 +200,37 @@ class AlertsViewModel(
                             _errorMessage.value = error.toUserMessage("Could not reach the server")
                         }
                     }
+                loadReports(token)
                 if (!silent) _isLoading.value = false
             }
+    }
+
+    // Best-effort: a failure keeps the last list (reports still show from the
+    // alerts that carry them), so it never replaces the alerts' error state.
+    private suspend fun loadReports(token: String) {
+        ReportsApi
+            .mine(token)
+            .onSuccess { reports ->
+                val resolved = withContext(Dispatchers.IO) { smsRepository.localAlertsOnly(reports) }
+                val blocked = AlertBlocking.withBlockStatus(getApplication(), token, resolved, catchUp = false)
+                val local = withContext(Dispatchers.IO) { withSenderNames(blocked) }
+                // A report is something the user did, never news to them: no
+                // "new" dot for reports made before this list existed.
+                alertStateStore.markSeen(local.map { it.messageId })
+                alertStateStore.markReportedLocal(
+                    local
+                        .mapNotNull { report ->
+                            val localId = report.localId ?: return@mapNotNull null
+                            report.report?.let { localId to it.reportedLabel }
+                        }.toMap(),
+                )
+                reportList.value = local
+            }.onFailure { error -> Log.w(TAG, "Failed to load reports", error) }
+    }
+
+    // "kryshan" rather than "+639157786474", same as the Messages list.
+    private fun withSenderNames(alerts: List<SmsApi.AlertSummary>): List<SmsApi.AlertSummary> {
+        val context = getApplication<Application>()
+        return alerts.map { it.copy(senderName = ContactNames.lookup(context, it.sender)) }
     }
 }

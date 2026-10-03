@@ -426,6 +426,8 @@
 .ra-form .form-input:focus,
 .ra-form .form-input:focus-visible {
   outline: none;
+  /* Same as the sign-in card: the field stays light while typing. */
+  background: var(--surface-canvas);
   border-color: color-mix(in srgb, var(--brand-primary) 72%, transparent);
   box-shadow: none;
 }

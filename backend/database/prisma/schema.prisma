@@ -309,6 +309,9 @@ model CampaignCluster {
   risk           String?
   category       String?
   mitigation     String?
+  // null = offline clustering or an Admin draft; "EMERGING" = grouped on the
+  // server from scam texts that matched no known campaign (EmergingWavesService).
+  origin         String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -531,6 +534,11 @@ model UserReport {
   reportedLabel String // what user says it should be: Ham | Spam | Scam
   // Optional free-text context from the reporter; privacy-masked before storage.
   note          String?
+  // Messages selected and reported together on the phone share one groupId,
+  // so the app's Reported tab and the Admin Reports page show them as one
+  // entry. Null for a single-message report. Each message is still its own
+  // report: an admin accepts or rejects them into training one by one.
+  groupId       String?
 
   // Pending → Validated (accepted into training set) | Rejected (discarded)
   status      String    @default("Pending")
@@ -544,6 +552,7 @@ model UserReport {
 
   @@unique([userId, messageId]) // one report per user per message
   @@index([status, validatedAt])
+  @@index([groupId])
 }
 
 enum DatasetSplit {

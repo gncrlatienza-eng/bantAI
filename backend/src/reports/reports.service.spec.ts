@@ -180,6 +180,145 @@ describe('ReportsService', () => {
 
   // --- findAll / findPending ---
 
+  describe('submit groupId', () => {
+    it('stores the groupId shared by messages reported together', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId: 'user-1',
+        classification: { label: 'Ham' },
+      });
+      mockPrisma.userReport.findUnique.mockResolvedValue(null);
+      mockPrisma.userReport.create.mockResolvedValue({ id: 'r1' });
+      const groupId = '7a1d2c9e-5b0f-4c55-9a51-3f7a1b2c3d4e';
+      await service.submit('user-1', {
+        messageId: 'msg-1',
+        reportedLabel: 'Scam',
+        groupId,
+      });
+      expect(mockPrisma.userReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ groupId }),
+        }),
+      );
+    });
+
+    it('stores null for a single-message report', async () => {
+      mockPrisma.smsMessage.findUnique.mockResolvedValue({
+        userId: 'user-1',
+        classification: { label: 'Ham' },
+      });
+      mockPrisma.userReport.findUnique.mockResolvedValue(null);
+      mockPrisma.userReport.create.mockResolvedValue({ id: 'r1' });
+      await service.submit('user-1', {
+        messageId: 'msg-1',
+        reportedLabel: 'Scam',
+      });
+      expect(mockPrisma.userReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ groupId: null }),
+        }),
+      );
+    });
+  });
+
+  describe('findMine', () => {
+    it("returns only the user's reports, shaped like an alert", async () => {
+      const createdAt = new Date('2026-10-02T03:07:33Z');
+      mockPrisma.userReport.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          groupId: 'g1',
+          reportedLabel: 'Scam',
+          status: 'Pending',
+          note: 'Asked for my OTP',
+          adminNote: null,
+          createdAt,
+          updatedAt: createdAt,
+          message: {
+            id: 'msg-1',
+            sourceId: 'sms:42',
+            receivedAt: createdAt,
+            clusterId: null,
+            classification: { label: 'Ham', score: 0.99, bucket: 'safe' },
+          },
+        },
+      ]);
+
+      const result = await service.findMine('user-1');
+
+      expect(mockPrisma.userReport.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1' } }),
+      );
+      expect(result).toEqual([
+        {
+          id: 'r1',
+          groupId: 'g1',
+          status: 'Reported',
+          createdAt,
+          message: {
+            id: 'msg-1',
+            sourceId: 'sms:42',
+            receivedAt: createdAt,
+            clusterId: null,
+            classification: { label: 'Ham', score: 0.99, bucket: 'safe' },
+            reports: [
+              {
+                reportedLabel: 'Scam',
+                status: 'Pending',
+                createdAt,
+                note: 'Asked for my OTP',
+                adminNote: null,
+                reviewedAt: null,
+              },
+            ],
+          },
+        },
+      ]);
+    });
+
+    it('dates a reviewed report and passes on the reviewer note', async () => {
+      const createdAt = new Date('2026-10-02T03:07:33Z');
+      const updatedAt = new Date('2026-10-03T05:00:00Z');
+      mockPrisma.userReport.findMany.mockResolvedValue([
+        {
+          id: 'r2',
+          groupId: null,
+          reportedLabel: 'Spam',
+          status: 'Rejected',
+          note: null,
+          adminNote: 'Legitimate promo from the telco',
+          createdAt,
+          updatedAt,
+          message: {
+            id: 'msg-2',
+            sourceId: null,
+            receivedAt: createdAt,
+            clusterId: null,
+            classification: null,
+          },
+        },
+      ]);
+
+      const [mine] = await service.findMine('user-1');
+
+      expect(mine.message.reports[0]).toEqual({
+        reportedLabel: 'Spam',
+        status: 'Rejected',
+        createdAt,
+        note: null,
+        adminNote: 'Legitimate promo from the telco',
+        reviewedAt: updatedAt,
+      });
+    });
+
+    it('never selects the message body or sender', async () => {
+      mockPrisma.userReport.findMany.mockResolvedValue([]);
+      await service.findMine('user-1');
+      const select = mockPrisma.userReport.findMany.mock.calls[0][0].select;
+      expect(select.message.select.body).toBeUndefined();
+      expect(select.message.select.sender).toBeUndefined();
+    });
+  });
+
   describe('findAll', () => {
     it('returns all reports ordered by createdAt desc', async () => {
       const reports = [

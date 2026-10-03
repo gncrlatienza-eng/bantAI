@@ -884,10 +884,47 @@
   max-width: 480px;
   width: 100%;
   padding: 24px;
+  /* Never taller than the screen; long content scrolls inside instead. */
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
   animation: bantai-dialog-in var(--motion-base) var(--motion-ease);
+}
+
+/* Themed scrollbar for scrolling regions inside panels and dialogs: thin,
+   drawn from the theme's own text colour so it follows each shell's tokens,
+   and still visible so a reader can tell there is more below. */
+.bantai-p-scroll,
+.bantai-p-dialog {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent)
+    transparent;
+}
+.bantai-p-scroll::-webkit-scrollbar,
+.bantai-p-dialog::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.bantai-p-scroll::-webkit-scrollbar-track,
+.bantai-p-dialog::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bantai-p-scroll::-webkit-scrollbar-thumb,
+.bantai-p-dialog::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.bantai-p-scroll::-webkit-scrollbar-thumb:hover,
+.bantai-p-dialog::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+}
+
+.bantai-p-dialog--lg {
+  max-width: 760px;
 }
 
 @keyframes bantai-dialog-in {

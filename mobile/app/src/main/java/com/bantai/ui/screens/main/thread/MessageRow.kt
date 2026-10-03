@@ -1,7 +1,10 @@
 package com.bantai.ui.screens.main.thread
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +54,7 @@ import com.bantai.data.model.SendStatus
 import com.bantai.data.model.SmsMessage
 import com.bantai.ui.components.MmsImages
 import com.bantai.ui.components.SenderAvatar
+import com.bantai.ui.components.reportedAsRes
 import com.bantai.ui.theme.BubbleReceived
 import com.bantai.ui.theme.BubbleSent
 import com.bantai.ui.theme.Danger
@@ -61,13 +66,19 @@ import com.bantai.ui.theme.White
 import com.bantai.util.MessageTime
 import com.bantai.util.SmsLinkSafety
 
+private const val GLOW_PULSES = 2
+private const val GLOW_PULSE_MS = 450
+private const val GLOW_FADE_MS = 1200
+private const val GLOW_LOW = 0.35f
+private val GLOW_CORNER = 18.dp
+
 /**
  * One message in a thread: avatar, bubble, the selection circle, and "Not
  * delivered · tap to retry" for a failed send. A long press reports where the
  * bubble is on screen, so the focused copy and its menu can open right there
  * (see FocusedMessageOverlay). [hidden] hides the bubble while that copy is up.
  */
-@Suppress("LongParameterList", "LongMethod") // avatar, bubble, selection, group label, delivered/failed lines
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // bubble + its status lines
 @OptIn(ExperimentalFoundationApi::class) // combinedClickable
 @Composable
 internal fun MessageRow(
@@ -86,8 +97,22 @@ internal fun MessageRow(
     showDelivered: Boolean = false,
     onLongClick: (bubbleBounds: Rect) -> Unit,
     onRetry: () -> Unit,
+    // Scam/Spam/Ham when the user reported this message; shown under it.
+    reportedLabel: String? = null,
+    // Pulses a red edge around the bubble, then fades: the message a
+    // Reported entry opened.
+    glow: Boolean = false,
 ) {
     val isOutgoing = msg.isOutgoing
+    val glowAlpha = remember { Animatable(0f) }
+    LaunchedEffect(glow) {
+        if (!glow) return@LaunchedEffect
+        repeat(GLOW_PULSES) {
+            glowAlpha.animateTo(1f, tween(GLOW_PULSE_MS))
+            glowAlpha.animateTo(GLOW_LOW, tween(GLOW_PULSE_MS))
+        }
+        glowAlpha.animateTo(0f, tween(GLOW_FADE_MS))
+    }
     var bubbleBounds by remember { mutableStateOf(Rect.Zero) }
     val longPress = { onLongClick(bubbleBounds) }
     Column(
@@ -124,7 +149,16 @@ internal fun MessageRow(
                 modifier =
                     Modifier
                         .alpha(if (hidden) 0f else 1f)
+                        .border(2.dp, Danger.copy(alpha = glowAlpha.value), RoundedCornerShape(GLOW_CORNER))
                         .onGloballyPositioned { bubbleBounds = it.boundsInWindow() },
+            )
+        }
+        if (reportedLabel != null) {
+            Text(
+                stringResource(reportedAsRes(reportedLabel)),
+                color = Indigo,
+                fontSize = TextSize.Caption2,
+                modifier = Modifier.padding(top = 2.dp, start = if (isOutgoing) 0.dp else 34.dp),
             )
         }
         if (showDelivered) {
@@ -203,7 +237,7 @@ internal fun MessageBubble(
             val text = msg.mms?.text ?: msg.body
             if (text.isNotBlank()) {
                 Text(
-                    if (isOutgoing) text else SmsLinkSafety.visibleBody(text, msg.classification, msg.sender),
+                    rememberVisibleBody(text, msg, isOutgoing),
                     color = White,
                     fontSize = TextSize.Subhead,
                     lineHeight = 20.sp,
@@ -270,7 +304,7 @@ private fun PhotoBubble(
         MmsImages(images = photos, maxWidth = maxWidth, onLongClick = onImageLongClick, cornerRadius = 0.dp)
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
-                if (isOutgoing) caption else SmsLinkSafety.visibleBody(caption, msg.classification, msg.sender),
+                rememberVisibleBody(caption, msg, isOutgoing),
                 color = White,
                 fontSize = TextSize.Subhead,
                 lineHeight = 20.sp,
@@ -321,3 +355,17 @@ private fun PendingMmsContent(download: PendingMmsDownload) {
         }
     }
 }
+
+// The text a bubble shows, links hidden unless it's safe. Remembered per
+// message: the spoof and link checks are regexes, and re-running them on every
+// recomposition (scrolling, the reply glow, a read receipt) added up across a
+// thread's bubbles.
+@Composable
+private fun rememberVisibleBody(
+    text: String,
+    msg: SmsMessage,
+    isOutgoing: Boolean,
+): String =
+    remember(text, msg.classification, msg.sender, isOutgoing) {
+        if (isOutgoing) text else SmsLinkSafety.visibleBody(text, msg.classification, msg.sender)
+    }

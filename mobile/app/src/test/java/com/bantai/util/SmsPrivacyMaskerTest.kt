@@ -102,4 +102,28 @@ class SmsPrivacyMaskerTest {
             SmsPrivacyMasker.maskForRemoteClassification("Security number 7731 expires soon"),
         )
     }
+
+    // Same cases as the backend's sms-privacy-masker.spec.ts.
+    @Test
+    fun `masks transaction references however they're written`() {
+        val cases =
+            mapOf(
+                "Ref. No. 1234 567 890123." to "Ref. No. [NUMBER].",
+                "RefNo1234567890123" to "RefNo[NUMBER]",
+                "Ref. No. 1234  567  890123" to "Ref. No. [NUMBER]",
+                "Reference: 7B3K9Q2X1M" to "Reference: [NUMBER]",
+                "Transaction ID 12345" to "Transaction ID [NUMBER]",
+                "Txn 9F3A22" to "Txn [NUMBER]",
+            )
+        cases.forEach { (raw, masked) -> assertEquals(masked, SmsPrivacyMasker.maskForRemoteClassification(raw)) }
+    }
+
+    @Test
+    fun `leaves reference-like words in ordinary text alone`() {
+        listOf(
+            "For your reference, please call us.",
+            "We will transfer your refund tomorrow.",
+            "Your transaction was successful.",
+        ).forEach { assertEquals(it, SmsPrivacyMasker.maskForRemoteClassification(it)) }
+    }
 }

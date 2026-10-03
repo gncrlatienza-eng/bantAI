@@ -38,3 +38,35 @@ export function confirmSenderFraud(
     body: JSON.stringify({ reportId, reason }),
   });
 }
+
+export interface SenderReportDetail {
+  reportWindow: string;
+  /** Distinct users with a pending report in this window. */
+  reporterCount: number;
+  requiredReports: number;
+  reports: { id: string; status: string; createdAt: string }[];
+  /** Texts stored from this number, across every user it reached. */
+  messageTotal: number;
+  recipientCount: number;
+  labelCounts: Record<string, number>;
+  /** Newest texts, privacy-masked. */
+  messages: {
+    id: string;
+    body: string;
+    receivedAt: string;
+    classification: { label: string; score: number } | null;
+    cluster: {
+      id: string;
+      label: string | null;
+      category: string | null;
+    } | null;
+  }[];
+}
+
+export function getSenderReportDetail(
+  reportId: string,
+): Promise<SenderReportDetail> {
+  return fetchApi<SenderReportDetail>(
+    `/verification/sender/reports/${encodeURIComponent(reportId)}`,
+  );
+}

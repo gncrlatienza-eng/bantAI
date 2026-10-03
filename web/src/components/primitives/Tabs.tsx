@@ -103,7 +103,9 @@ export function Tabs({
               onKeyDown={(e) => handleKey(e, index)}
             >
               <span>{tab.label}</span>
-              {tab.badge && (
+              {/* `!= null`, not truthiness: a 0 count is a real badge, and
+                  `0 && ...` renders a bare "0" glued to the label. */}
+              {tab.badge != null && tab.badge !== false && (
                 <span style={{ marginLeft: 6 }} aria-hidden>
                   {tab.badge}
                 </span>

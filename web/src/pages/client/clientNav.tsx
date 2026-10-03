@@ -16,8 +16,10 @@ import type {
 import {
   NavOverviewIcon,
   NavCampaignsIcon,
-  NavReportsIcon,
-  NavSystemIcon,
+  NavApiKeysIcon,
+  NavExportIcon,
+  NavDocsIcon,
+  NavAccountIcon,
   NotificationsIcon,
 } from '../../components/primitives';
 
@@ -44,12 +46,12 @@ const CLIENT_NAV: Array<Omit<NavGroupDef, 'items'> & { items: NavItemDef[] }> =
         {
           label: 'API',
           path: '/shield/api',
-          icon: <NavReportsIcon />,
+          icon: <NavApiKeysIcon />,
         },
         {
           label: 'Exports',
           path: '/shield/exports',
-          icon: <NavReportsIcon />,
+          icon: <NavExportIcon />,
         },
         {
           label: 'Notifications',
@@ -59,12 +61,12 @@ const CLIENT_NAV: Array<Omit<NavGroupDef, 'items'> & { items: NavItemDef[] }> =
         {
           label: 'Documentation',
           path: '/shield/documentation',
-          icon: <NavReportsIcon />,
+          icon: <NavDocsIcon />,
         },
         {
           label: 'Account',
           path: '/account',
-          icon: <NavSystemIcon />,
+          icon: <NavAccountIcon />,
         },
       ],
     },

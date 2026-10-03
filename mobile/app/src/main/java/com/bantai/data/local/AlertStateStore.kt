@@ -23,6 +23,11 @@ data class AlertState(
     val initialized: Boolean = false,
     val seen: Set<String> = emptySet(),
     val reported: Map<String, String> = emptyMap(),
+    /**
+     * The same reports keyed by the SMS row on this phone, so a thread can
+     * mark each reported bubble ("Reported as scam") without the backend id.
+     */
+    val reportedLocal: Map<Long, String> = emptyMap(),
 )
 
 private const val REPORTED_SEPARATOR = "\t"
@@ -40,6 +45,7 @@ class AlertStateStore(
         val INITIALIZED = booleanPreferencesKey("initialized")
         val SEEN = stringSetPreferencesKey("seen")
         val REPORTED = stringSetPreferencesKey("reported")
+        val REPORTED_LOCAL = stringSetPreferencesKey("reported_local")
     }
 
     val state: Flow<AlertState> =
@@ -56,6 +62,14 @@ class AlertStateStore(
                             .mapNotNull { entry ->
                                 val parts = entry.split(REPORTED_SEPARATOR, limit = 2)
                                 if (parts.size == 2) parts[0] to parts[1] else null
+                            }.toMap(),
+                    reportedLocal =
+                        prefs[Keys.REPORTED_LOCAL]
+                            .orEmpty()
+                            .mapNotNull { entry ->
+                                val parts = entry.split(REPORTED_SEPARATOR, limit = 2)
+                                val id = parts[0].toLongOrNull()
+                                if (parts.size == 2 && id != null) id to parts[1] else null
                             }.toMap(),
                 )
             }
@@ -94,6 +108,23 @@ class AlertStateStore(
             val others = prefs[Keys.REPORTED].orEmpty().filterNot { it.startsWith(id + REPORTED_SEPARATOR) }
             prefs[Keys.REPORTED] = others.toSet() + (id + REPORTED_SEPARATOR + reportedLabel)
             prefs[Keys.SEEN] = prefs[Keys.SEEN].orEmpty() + id
+        }
+    }
+
+    /**
+     * Records [reports] (SMS row on this phone to the label reported), for the
+     * thread's "Reported as ..." bubble labels. Also filled from the backend's
+     * list, so reports made before this existed show.
+     */
+    suspend fun markReportedLocal(reports: Map<Long, String>) {
+        if (reports.isEmpty()) return
+        context.alertStateDataStore.edit { prefs ->
+            val others =
+                prefs[Keys.REPORTED_LOCAL].orEmpty().filterNot { entry ->
+                    entry.substringBefore(REPORTED_SEPARATOR).toLongOrNull() in reports
+                }
+            val added = reports.map { (id, label) -> "$id$REPORTED_SEPARATOR$label" }
+            prefs[Keys.REPORTED_LOCAL] = others.toSet() + added
         }
     }
 

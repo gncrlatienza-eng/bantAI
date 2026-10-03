@@ -62,5 +62,5 @@ private fun SmsRepository.resolveLocal(
 // Every alert is a flagged message: links stay hidden, same as a non-safe thread.
 private fun SmsApi.AlertSummary.withContent(message: SmsMessage): SmsApi.AlertSummary {
     val safeBody = SmsLinkSafety.visibleBody(message.body, Classification.SCAM)
-    return copy(sender = message.sender, body = safeBody)
+    return copy(sender = message.sender, body = safeBody, localId = message.id)
 }

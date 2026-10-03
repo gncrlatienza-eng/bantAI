@@ -55,19 +55,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.container
-import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.MessageReports
 import com.bantai.data.model.Classification
-import com.bantai.data.remote.ApiException
-import com.bantai.data.remote.ReportsApi
-import com.bantai.data.remote.VerificationApi
+import com.bantai.data.model.SmsMessage
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
@@ -81,10 +81,11 @@ import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.util.BlockHelper
 import com.bantai.util.DefaultSmsApp
-import com.bantai.util.SenderReplyKind
-import com.bantai.util.replyKindFor
+import com.bantai.util.SmsLinkSafety
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val DISABLED_CARD_ALPHA = 0.4f
 
@@ -120,82 +121,34 @@ private data class TakeActionRequest(
     val sender: String,
     val reportedLabel: String?,
     val notes: String = "",
+    // Several messages from the thread, selected and reported together. Each
+    // is its own report; they share one groupId so they're listed as one.
+    val localMessageIds: List<Long> = emptyList(),
 )
 
-@Suppress("ReturnCount") // each early return is a distinct, user-facing failure
+private fun TakeActionRequest.targets(): List<MessageReports.Target> =
+    if (localMessageIds.isNotEmpty()) {
+        localMessageIds.map { MessageReports.Target(messageId = "", localMessageId = it) }
+    } else {
+        listOf(MessageReports.Target(messageId, localMessageId))
+    }
+
 private suspend fun submitReportIfSelected(
     context: Context,
     request: TakeActionRequest,
 ): Result<Unit> {
     if (!request.reportSelected) return Result.success(Unit)
-    if (request.reportedLabel == null) {
-        return Result.failure(Exception(context.getString(R.string.take_action_error_choose_label)))
-    }
-    val token =
-        context.container.userPreferences.userData
-            .first()
-            .authToken
-    if (token.isEmpty()) return Result.failure(Exception(context.getString(R.string.take_action_error_sign_in)))
-    // A message the backend hasn't seen yet (never scanned, or never flagged) is
-    // registered on the spot rather than making Report unavailable for it.
-    val messageId =
-        request.messageId.ifBlank {
-            request.localMessageId?.let { SmsIngestPipeline.backendMessageIdFor(context, token, it) }.orEmpty()
-        }
-    if (messageId.isBlank()) {
-        // Say so instead of silently no-opping into a "submitted" confirmation screen.
-        return Result.failure(Exception(context.getString(R.string.take_action_error_offline)))
-    }
-    val submitted = ReportsApi.submit(token, messageId, request.reportedLabel, request.notes)
-    if (submitted.isSuccess && request.reportedLabel == "Scam") fileSenderReport(token, request.sender)
-    // Filed now, or already filed before (the backend allows one per message):
-    // either way the alert belongs under Reported, where Report isn't offered.
-    val alreadyReported = (submitted.exceptionOrNull() as? ApiException)?.status == HTTP_CONFLICT
-    if (submitted.isSuccess || alreadyReported) {
-        context.container.alertStateStore.markReported(messageId, request.reportedLabel)
-    }
-    if (submitted.isSuccess) refileReported(context, request.localMessageId, request.reportedLabel)
-    return submitted
-}
-
-/**
- * Moves the reported message to the chip the user chose, right away -- a report
- * used to change nothing on the phone, so a scam reported from Messages stayed
- * in Messages. Ham -> Messages, Spam -> Spam. Scam -> Unknown: a scam label
- * hides a sender's whole thread from every chip (it's meant to live in Alerts),
- * and a report doesn't create an alert, so the text would vanish. A message
- * already filed as a scam (an alert) stays one.
- */
-private suspend fun refileReported(
-    context: Context,
-    localMessageId: Long?,
-    reportedLabel: String,
-) {
-    if (localMessageId == null || localMessageId <= 0) return
-    val store = context.container.classificationStore
-    val current = store.snapshotFor(localMessageId)
-    val label =
-        when (reportedLabel) {
-            "Ham" -> Classification.SAFE
-            "Spam" -> Classification.SPAM
-            else -> if (current == Classification.SCAM) return else Classification.UNKNOWN
-        }
-    store.setClassification(localMessageId, label)
-}
-
-private const val HTTP_CONFLICT = 409
-
-// Corroborating evidence so several users reporting the same number can get it
-// confirmed as fraud for everyone. Only real phone numbers: brand sender IDs
-// ("BPI", "GCash") are routinely spoofed, so flagging the ID would flag every
-// genuine message from that brand. Best-effort -- the message report already
-// succeeded, and a repeat report of the same sender (409) is expected.
-private suspend fun fileSenderReport(
-    token: String,
-    sender: String,
-) {
-    if (replyKindFor(sender) != SenderReplyKind.PHONE_NUMBER) return
-    VerificationApi.reportSender(token, sender)
+    val reportedLabel =
+        request.reportedLabel
+            ?: return Result.failure(Exception(context.getString(R.string.take_action_error_choose_label)))
+    return MessageReports.submit(
+        context = context,
+        sender = request.sender,
+        reportedLabel = reportedLabel,
+        targets = request.targets(),
+        notes = request.notes,
+        blocked = request.blockSelected,
+    )
 }
 
 // Blocks at the device level (the part that actually stops the sender), then
@@ -270,10 +223,22 @@ fun TakeActionScreen(
     currentLabel: String = "",
     preselect: String = "",
     canBlock: Boolean = true,
+    localMessageIds: List<Long> = emptyList(),
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val canReport = messageId.isNotBlank() || localMessageId != null
+    val canReport = messageId.isNotBlank() || localMessageId != null || localMessageIds.isNotEmpty()
+    // The exact bubbles being reported, shown at the top so it's never a guess.
+    val previewIds = localMessageIds.ifEmpty { listOfNotNull(localMessageId) }
+    var preview by remember { mutableStateOf<List<SmsMessage>>(emptyList()) }
+    LaunchedEffect(previewIds) {
+        preview =
+            withContext(Dispatchers.IO) {
+                context.container.smsRepository
+                    .getMessagesByIds(previewIds.toSet())
+                    .sortedBy { it.timestamp }
+            }
+    }
     val reportOptions = remember(currentLabel) { reportOptionsFor(currentLabel) }
     // "report_scam" is the one-tap shortcut: Report with "Scam" already chosen,
     // straight to the confirmation.
@@ -290,6 +255,16 @@ fun TakeActionScreen(
         )
     }
     var notes by remember { mutableStateOf("") }
+    // A scam report blocks the sender: the user has judged it, which outranks
+    // the model's verdict. Only when Block is possible at all -- a trusted
+    // sender name can't be blocked, and Android only lets the default SMS app
+    // block (without it, Block stays a manual choice that asks for the role).
+    val autoBlock =
+        canBlock &&
+            reportSelected &&
+            reportOptions.getOrNull(selectedReportType)?.reportedLabel == "Scam" &&
+            BlockHelper.isDefaultSmsApp(context)
+    val willBlock = blockSelected || autoBlock
     var showDialog by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var showDefaultSmsPrompt by remember {
@@ -341,9 +316,9 @@ fun TakeActionScreen(
 
     val dialogType =
         when {
-            reportSelected && blockSelected -> "both"
+            reportSelected && willBlock -> "both"
             reportSelected -> "report_only"
-            blockSelected -> "block_only"
+            willBlock -> "block_only"
             else -> "none"
         }
 
@@ -367,12 +342,13 @@ fun TakeActionScreen(
                             context,
                             TakeActionRequest(
                                 reportSelected = reportSelected,
-                                blockSelected = blockSelected,
+                                blockSelected = willBlock,
                                 messageId = messageId,
                                 localMessageId = localMessageId,
                                 sender = sender,
                                 reportedLabel = reportedLabel,
                                 notes = notes,
+                                localMessageIds = localMessageIds,
                             ),
                         )
                     isSubmitting = false
@@ -397,16 +373,20 @@ fun TakeActionScreen(
     }
 
     TakeActionContent(
+        preview = preview,
         canReport = canReport,
         canBlock = canBlock,
         reportOptions = reportOptions,
         reportSelected = reportSelected,
-        blockSelected = blockSelected,
+        blockSelected = willBlock,
+        autoBlock = autoBlock,
         selectedReportType = selectedReportType,
         notes = notes,
         onToggleReport = { reportSelected = !reportSelected },
         onToggleBlock = {
-            if (!blockSelected && !BlockHelper.isDefaultSmsApp(context)) {
+            if (autoBlock) {
+                // Locked on: a scam report always blocks.
+            } else if (!blockSelected && !BlockHelper.isDefaultSmsApp(context)) {
                 showDefaultSmsPrompt = true
             } else {
                 blockSelected = !blockSelected
@@ -422,11 +402,13 @@ fun TakeActionScreen(
 @Composable
 @Suppress("LongMethod", "LongParameterList") // one flat list of hoisted state + callbacks
 private fun TakeActionContent(
+    preview: List<SmsMessage>,
     canReport: Boolean,
     canBlock: Boolean,
     reportOptions: List<ReportOption>,
     reportSelected: Boolean,
     blockSelected: Boolean,
+    autoBlock: Boolean,
     selectedReportType: Int,
     notes: String,
     onToggleReport: () -> Unit,
@@ -483,6 +465,12 @@ private fun TakeActionContent(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 12.dp),
         ) {
+            if (preview.isNotEmpty()) {
+                SectionHeader(
+                    pluralStringResource(R.plurals.take_action_reporting_messages, preview.size, preview.size),
+                )
+                ReportPreview(preview)
+            }
             SectionHeader(stringResource(R.string.take_action_choose_an_action))
             GroupCard {
                 ActionRow(
@@ -507,8 +495,16 @@ private fun TakeActionContent(
                         icon = Icons.Outlined.Block,
                         tint = Danger,
                         title = stringResource(R.string.alert_block_sender),
-                        subtitle = stringResource(R.string.take_action_stop_messages_from_this_number),
+                        subtitle =
+                            stringResource(
+                                if (autoBlock) {
+                                    R.string.take_action_scam_auto_block
+                                } else {
+                                    R.string.take_action_stop_messages_from_this_number
+                                },
+                            ),
                         selected = blockSelected,
+                        enabled = !autoBlock,
                         onClick = onToggleBlock,
                     )
                 }
@@ -545,6 +541,26 @@ private fun TakeActionContent(
             enabled = reportSelected || blockSelected,
             onClick = onSubmit,
         )
+    }
+}
+
+// The bubbles being reported, as they read in the thread (links stay hidden,
+// same as a flagged message). Each keeps a red edge: these are what's sent.
+@Composable
+private fun ReportPreview(messages: List<SmsMessage>) {
+    GroupCard {
+        messages.forEachIndexed { index, message ->
+            if (index > 0) RowDivider(startInset = 16)
+            Text(
+                SmsLinkSafety.visibleBody(message.body, Classification.SCAM),
+                color = White,
+                fontSize = TextSize.Subhead,
+                lineHeight = 20.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        }
     }
 }
 

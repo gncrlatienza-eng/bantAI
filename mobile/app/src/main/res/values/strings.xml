@@ -117,6 +117,39 @@
     <string name="thread_banner_suspicious">Some messages here look suspicious</string>
     <string name="thread_banner_review">Review</string>
     <string name="thread_banner_report">Report</string>
+    <string name="report_detail_reported_on">Reported %1$s</string>
+    <string name="report_detail_reviewed_on">Reviewed %1$s</string>
+    <string name="report_detail_your_report">Your report</string>
+    <string name="report_detail_your_note">Your note</string>
+    <string name="report_detail_no_note">You didn\'t add a note.</string>
+    <string name="report_detail_team_note">Note from BantAI\'s team</string>
+    <string name="report_detail_message">Reported message</string>
+    <string name="report_detail_messages">Reported messages (%1$d)</string>
+    <string name="report_detail_view_conversation">View in conversation</string>
+    <string name="report_detail_gone">This report is no longer on this phone.</string>
+    <string name="unblock_confirm_title">Unblock %1$s?</string>
+    <string name="unblock_confirm_alert_detail">BantAI blocked this sender because its message looks like a scam. If you unblock it, its texts will reach your inbox again and BantAI won\'t block it automatically.</string>
+    <string name="alert_unblock_sender">Unblock this sender</string>
+    <string name="alert_unblocking">Unblocking…</string>
+    <string name="thread_flag_question">BantAI isn\'t sure about this message</string>
+    <string name="thread_unknown_detail">The AI couldn\'t tell whether this is a real message, spam or a scam. Tell it which below: your answer moves the message and helps BantAI learn.</string>
+    <string name="thread_spoof_headline">Is this really %1$s?</string>
+    <string name="thread_scam_detail">BantAI\'s AI flagged a message here as a likely scam. Don\'t open its links, reply, or share codes. Review it to report or block the sender.</string>
+    <string name="thread_banner_why">Why?</string>
+    <string name="thread_banner_hide">Hide</string>
+    <string name="thread_flag_real">Real</string>
+    <string name="thread_flag_spam">Spam</string>
+    <string name="thread_flag_report_scam">Scam</string>
+    <string name="thread_flag_sending">Moving and sending your feedback…</string>
+    <string name="thread_flag_real_title">Mark as a real message?</string>
+    <string name="thread_flag_real_detail">These messages will move to Messages. Your answer is sent to BantAI\'s team to help the AI get messages like this right.</string>
+    <string name="thread_flag_real_confirm">Mark as real</string>
+    <string name="thread_flag_spam_title">Move to Spam?</string>
+    <string name="thread_flag_spam_detail">These messages will move to Spam. Your answer is sent to BantAI\'s team to help the AI get messages like this right.</string>
+    <string name="thread_flag_spam_confirm">Move to Spam</string>
+    <string name="thread_flag_moved_messages">Moved to Messages. Thanks for the feedback.</string>
+    <string name="thread_flag_moved_spam">Moved to Spam. Thanks for the feedback.</string>
+    <string name="thread_flag_moved_not_sent">Moved on this phone, but your feedback couldn\'t be sent. Check your connection.</string>
     <string name="thread_load_failed">Couldn\'t load this conversation</string>
     <string name="thread_empty_title">No messages here</string>
     <string name="thread_empty_detail">They may have been deleted or moved to another folder.</string>
@@ -201,7 +234,6 @@
     <string name="blocked_numbers_no_blocked_numbers">No blocked numbers</string>
     <string name="blocked_numbers_scam_senders_bantai_blocks_and">Scam senders BantAI blocks, and numbers you block, will appear here.</string>
     <string name="blocked_numbers_unblock">Unblock</string>
-    <string name="blocked_numbers_unblock_number">Unblock number?</string>
     <!-- campaign -->
     <string name="campaign_detail_blocked_recent">Blocked</string>
     <string name="campaign_detail_campaign_specific_advice">WHAT TO DO</string>
@@ -361,7 +393,20 @@
     <string name="privacy_data_privacy_data">Privacy &amp; data</string>
     <string name="privacy_data_pseudonymous_threat_telemetry_is_deleted">Pseudonymous threat telemetry is deleted after 90 days. OTP and request-limit records are deleted after their challenge and one-hour request window expire. Sender reports are deleted after 90 days. Contact fingerprints remain only until your next complete contact sync or account deletion; block preferences remain until account deletion.</string>
     <string name="privacy_data_retention">Retention</string>
-    <string name="privacy_data_you_can_request_deletion_of">You can request deletion of all your data at any time. Deleting your account permanently removes all associated data.</string>
+    <string name="privacy_data_you_can_request_deletion_of">You can download a copy of your data or delete your account at any time, below. Deleting your account permanently removes all associated data.</string>
+    <string name="settings_server_connection">Server connection</string>
+    <string name="settings_server_checking">Checking…</string>
+    <string name="settings_server_connected">Connected</string>
+    <string name="settings_server_offline">Can\'t connect</string>
+    <string name="privacy_delete_account">Delete account</string>
+    <string name="privacy_delete_account_detail">Permanently removes your account and everything BantAI stores for it.</string>
+    <string name="delete_account_title">Delete your account?</string>
+    <string name="delete_account_body">This permanently deletes your BantAI account and everything BantAI\'s server keeps for it: your reports, alerts, blocked numbers and checked messages. It can\'t be undone. The text messages on this phone are not deleted.</string>
+    <string name="delete_account_type_prompt">Type %1$s to confirm</string>
+    <string name="delete_account_confirm">Delete account</string>
+    <string name="delete_account_deleting">Deleting…</string>
+    <string name="delete_account_failed">Couldn\'t delete your account. Check your connection and try again, or email %1$s.</string>
+    <string name="delete_account_done">Your account was deleted.</string>
     <string name="privacy_data_your_rights">Your rights</string>
     <!-- report -->
     <string name="report_sent_what_happens_next">What happens next</string>
@@ -372,7 +417,7 @@
     <string name="settings_backend_connection">Backend connection</string>
     <string name="settings_blocked_numbers">Blocked numbers</string>
     <string name="settings_check_again">Check again</string>
-    <string name="settings_choose_how_far_back_bantai">Choose how far back BantAI scans your messages for threats.</string>
+    <string name="settings_choose_how_far_back_bantai">Choose how far back BantAI\'s AI checks older messages. New messages are always checked.</string>
     <string name="settings_contact_support">Contact support</string>
     <string name="settings_debug_only_feeds_a_message">Debug-only: feeds a message straight into the same detection pipeline a real SMS would, for testing/demos.</string>
     <string name="settings_debug_only_on_device_ai">Debug-only, on-device-AI feasibility spike: times the exported model\'s forward pass on this phone using dummy input, not real tokenization. Says nothing about accuracy — push model_int8.onnx to the app\'s external files dir first (adb push).</string>
@@ -542,6 +587,7 @@
         <item quantity="other">Summary of %d messages · generated on this device</item>
     </plurals>
     <string name="send_permission_needed">BantAI needs SMS permission to send. Allow it in Settings, or set BantAI as your default SMS app.</string>
+    <string name="settings_scan_all">All messages</string>
     <string name="settings_scan_today">Today only</string>
     <string name="settings_scan_week">Last 7 days</string>
     <string name="settings_scan_month">Last 30 days</string>
@@ -563,6 +609,10 @@
     <string name="how_step5_body">High-confidence smishing triggers a push notification and clear choices to block, report, or ignore. Suspicious messages are flagged for your review.</string>
     <string name="how_privacy_title">Your Privacy</string>
     <string name="how_privacy_body">Your full messages stay on your phone. BantAI\'s server receives the masked text of each message and a fingerprint of the sender, and keeps them with the classification result, timestamp and link domains for threat intelligence.</string>
+    <string name="tip_notification_subtext">Safety tip</string>
+    <string name="tips_latest_warnings">Latest warnings from BantAI</string>
+    <string name="tips_by_topic">Tips by topic</string>
+    <string name="wave_team_tips">Advice from BantAI</string>
     <string name="tips_cat_finance">Money &amp; accounts</string>
     <string name="tips_cat_finance_desc">GCash, banks and one-time codes</string>
     <string name="tips_cat_psychology">Pressure tactics</string>
@@ -662,8 +712,28 @@
     <string name="alerts_reported_as_spam">Reported as spam</string>
     <string name="alerts_reported_as_safe">Reported as safe</string>
     <string name="alerts_report_pending">Waiting for review</string>
+    <plurals name="alerts_report_group_messages">
+        <item quantity="one">%1$d message</item>
+        <item quantity="other">%1$d messages</item>
+    </plurals>
+    <plurals name="reports_count">
+        <item quantity="one">%1$d report</item>
+        <item quantity="other">%1$d reports</item>
+    </plurals>
+    <string name="reports_sender_list">Reports</string>
+    <string name="reports_filter_waiting">Waiting</string>
+    <string name="reports_filter_accepted">Accepted</string>
+    <string name="reports_filter_not_accepted">Declined</string>
+    <string name="reports_empty_waiting">Nothing waiting for review</string>
+    <string name="reports_empty_accepted">No accepted reports yet</string>
+    <string name="reports_empty_not_accepted">No declined reports</string>
+    <plurals name="take_action_reporting_messages">
+        <item quantity="one">Reporting %1$d message</item>
+        <item quantity="other">Reporting %1$d messages</item>
+    </plurals>
+    <string name="take_action_scam_auto_block">Reported scams are blocked automatically</string>
     <string name="alerts_report_accepted">Accepted</string>
-    <string name="alerts_report_rejected">Not accepted</string>
+    <string name="alerts_report_rejected">Declined</string>
     <string name="alert_reported_title">You reported this</string>
     <string name="alert_reported_pending_detail">BantAI\'s team hasn\'t reviewed your report yet. You can only report a message once.</string>
     <string name="alert_reported_accepted_detail">BantAI\'s team agreed with your report. It will help the AI get messages like this right.</string>

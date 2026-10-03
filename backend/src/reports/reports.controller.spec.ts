@@ -6,6 +6,7 @@ import { ReportsService } from './reports.service';
 const mockService = {
   submit: jest.fn(),
   findAll: jest.fn(),
+  findMine: jest.fn(),
   findPending: jest.fn(),
   validate: jest.fn(),
   reject: jest.fn(),
@@ -32,6 +33,13 @@ describe('ReportsController', () => {
     const result = await controller.submit(req, dto);
     expect(result).toEqual({ id: 'r1', status: 'Pending' });
     expect(mockService.submit).toHaveBeenCalledWith('u1', dto);
+  });
+
+  it("findMine lists only the JWT user's own reports", async () => {
+    mockService.findMine.mockResolvedValue([{ id: 'r1' }]);
+    const result = await controller.findMine({ user: { userId: 'u1' } });
+    expect(result).toEqual([{ id: 'r1' }]);
+    expect(mockService.findMine).toHaveBeenCalledWith('u1');
   });
 
   it('findAll delegates to service', async () => {

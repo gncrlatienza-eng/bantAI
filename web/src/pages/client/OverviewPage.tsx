@@ -12,6 +12,7 @@ import {
 } from '../../components/primitives';
 import {
   getActiveCampaigns,
+  getInactiveCampaigns,
   type CampaignCluster,
 } from '../../services/campaignsService';
 import { logout } from '../../services/authService';
@@ -32,6 +33,8 @@ function formatRelative(iso: string) {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
+const lastObserved = (c: CampaignCluster) => c.lastObserved ?? c.updatedAt;
+
 export function OverviewPage() {
   const sidebarGroups = useClientSidebarGroups();
   const navigate = useNavigate();
@@ -43,7 +46,17 @@ export function OverviewPage() {
     setLoading(true);
     setError(null);
     try {
-      setCampaigns(await getActiveCampaigns());
+      // Active and inactive published campaigns (the backend's 30-day rule).
+      const [active, inactive] = await Promise.all([
+        getActiveCampaigns(),
+        getInactiveCampaigns(),
+      ]);
+      const seen = new Set<string>();
+      setCampaigns(
+        [...active, ...inactive].filter((c) =>
+          seen.has(c.id) ? false : (seen.add(c.id), true),
+        ),
+      );
     } catch (caught) {
       setError(errorText(caught));
     } finally {
@@ -53,12 +66,15 @@ export function OverviewPage() {
   useEffect(() => {
     void load();
   }, [load]);
-  const recentlyUpdated = useMemo(
+  const activeCount = campaigns.filter((c) => c.status === 'ACTIVE').length;
+  // Newest activity first: when a campaign's texts were last observed.
+  const latest = useMemo(
     () =>
       [...campaigns]
         .sort(
           (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+            new Date(lastObserved(b)).getTime() -
+            new Date(lastObserved(a)).getTime(),
         )
         .slice(0, 4),
     [campaigns],
@@ -124,16 +140,21 @@ export function OverviewPage() {
               marginBottom: 24,
             }}
           >
-            <MetricRow columns={2}>
+            <MetricRow columns={3}>
               <Metric
                 label="Active campaigns"
-                value={campaigns.length.toLocaleString()}
-                meta="Published intelligence"
+                value={activeCount.toLocaleString()}
+                meta="Observed in the last 30 days"
               />
               <Metric
-                label="Recently updated"
-                value={recentlyUpdated.length.toLocaleString()}
-                meta="Latest campaign changes"
+                label="Inactive campaigns"
+                value={(campaigns.length - activeCount).toLocaleString()}
+                meta="Quiet for 30+ days"
+              />
+              <Metric
+                label="Published campaigns"
+                value={campaigns.length.toLocaleString()}
+                meta="All intelligence available to you"
               />
             </MetricRow>
           </section>
@@ -158,7 +179,7 @@ export function OverviewPage() {
                 View campaigns
               </Button>
             </div>
-            {recentlyUpdated.length === 0 ? (
+            {latest.length === 0 ? (
               <EmptyState
                 title="No published campaigns"
                 description="Published campaign intelligence will appear here when it is available."
@@ -171,7 +192,7 @@ export function OverviewPage() {
                   gap: 12,
                 }}
               >
-                {recentlyUpdated.map((campaign) => (
+                {latest.map((campaign) => (
                   <button
                     key={campaign.id}
                     type="button"
@@ -200,7 +221,11 @@ export function OverviewPage() {
                       }}
                     >
                       <strong>{campaign.label || 'Published campaign'}</strong>
-                      <StatusBadge kind="threat" label="Active" />
+                      {campaign.status === 'ACTIVE' ? (
+                        <StatusBadge kind="threat" label="Active" />
+                      ) : (
+                        <StatusBadge kind="unknown" label="Inactive" />
+                      )}
                     </div>
                     <p
                       style={{
@@ -209,7 +234,7 @@ export function OverviewPage() {
                         fontSize: '0.85rem',
                       }}
                     >
-                      Updated {formatRelative(campaign.updatedAt)}
+                      Last observed {formatRelative(lastObserved(campaign))}
                     </p>
                   </button>
                 ))}

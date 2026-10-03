@@ -5,9 +5,11 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import java.security.KeyStore
 
 private const val TAG = "SecureTokenStore"
@@ -39,6 +41,17 @@ private const val ANDROID_KEY_STORE = "AndroidKeyStore"
 class SecureTokenStore(
     private val context: Context,
 ) {
+    // Opened once and reused. EncryptedSharedPreferences.create() sets up Tink
+    // and the Keystore-backed keys, which is slow; every token read (each
+    // backend call, each screen that checks sign-in) used to pay it again,
+    // often on the main thread -- one cause of the Scam Waves tab stutter.
+    @Volatile private var cachedPrefs: SharedPreferences? = null
+
+    private fun prefs(): SharedPreferences {
+        cachedPrefs?.let { return it }
+        return synchronized(this) { cachedPrefs ?: createPrefs().also { cachedPrefs = it } }
+    }
+
     private fun createPrefs(): SharedPreferences {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
         return EncryptedSharedPreferences.create(
@@ -55,6 +68,7 @@ class SecureTokenStore(
     // freshly generated key with stale (now-undecryptable) ciphertext, which
     // would just reproduce the same failure on the very next read.
     private fun wipeCorruptStore() {
+        cachedPrefs = null
         try {
             context
                 .getSharedPreferences(SECURE_PREFS_NAME, Context.MODE_PRIVATE)
@@ -84,12 +98,12 @@ class SecureTokenStore(
         block: (SharedPreferences) -> T,
     ): T =
         try {
-            block(createPrefs())
+            block(prefs())
         } catch (e: Exception) {
             Log.e(TAG, "Secure token store operation failed; wiping and retrying once", e)
             wipeCorruptStore()
             try {
-                block(createPrefs())
+                block(prefs())
             } catch (e2: Exception) {
                 Log.e(TAG, "Secure token store still failing after recovery; treating as signed out", e2)
                 recoveryDefault
@@ -117,5 +131,5 @@ class SecureTokenStore(
             val registeredOn: SharedPreferences? =
                 withPrefs(null) { p -> p.also { it.registerOnSharedPreferenceChangeListener(listener) } }
             awaitClose { registeredOn?.unregisterOnSharedPreferenceChangeListener(listener) }
-        }
+        }.flowOn(Dispatchers.IO) // the first read may open the encrypted store: never on the main thread
 }

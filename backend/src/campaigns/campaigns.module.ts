@@ -6,6 +6,7 @@ import { CampaignsController } from './campaigns.controller';
 import { CampaignsService } from './campaigns.service';
 import { CampaignReconciliationService } from './campaign-reconciliation.service';
 import { CampaignAnalysisService } from './campaign-analysis.service';
+import { EmergingWavesService } from './emerging-waves.service';
 import { WebCampaignAudienceGuard } from './guards/web-campaign-audience.guard';
 
 @Module({
@@ -15,8 +16,9 @@ import { WebCampaignAudienceGuard } from './guards/web-campaign-audience.guard';
     CampaignsService,
     CampaignReconciliationService,
     CampaignAnalysisService,
+    EmergingWavesService,
     WebCampaignAudienceGuard,
   ],
-  exports: [CampaignsService],
+  exports: [CampaignsService, EmergingWavesService],
 })
 export class CampaignsModule {}

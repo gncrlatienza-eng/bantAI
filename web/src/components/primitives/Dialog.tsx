@@ -20,6 +20,8 @@ interface DialogProps {
   children?: React.ReactNode;
   actions?: React.ReactNode;
   initialFocusRef?: React.RefObject<HTMLElement>;
+  /** `lg` widens the dialog for content with rows, such as a message list. */
+  size?: 'md' | 'lg';
 }
 
 const FOCUSABLE_SELECTOR =
@@ -33,6 +35,7 @@ export function Dialog({
   children,
   actions,
   initialFocusRef,
+  size = 'md',
 }: DialogProps) {
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previousActiveElement = React.useRef<HTMLElement | null>(null);
@@ -97,7 +100,7 @@ export function Dialog({
     >
       <div
         ref={dialogRef}
-        className="bantai-p-dialog"
+        className={`bantai-p-dialog${size === 'lg' ? ' bantai-p-dialog--lg' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

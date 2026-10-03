@@ -106,6 +106,14 @@
   --plum-14: color-mix(in srgb, var(--brand-primary) 14%, transparent);
   --plum-35: color-mix(in srgb, var(--brand-primary) 35%, transparent);
   --plum-60: color-mix(in srgb, var(--brand-primary) 60%, transparent);
+
+  /* Legacy form-field tokens (styles/tokens.css) still read by the shared
+     .form-input (components/common/Input). Unmapped, they kept their dark-
+     theme values here, so a focused field on Account setup, Sign up and
+     Request access turned near-black (#161622) under dark ink text and what
+     was typed couldn't be seen. */
+  --bg-input: var(--surface-raised);
+  --bg-input-focus: var(--surface-raised);
 }
 
 /* Reduced motion: collapse to instant */

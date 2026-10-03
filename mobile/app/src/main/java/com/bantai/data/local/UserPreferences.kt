@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.bantai.data.model.SCAN_PERIODS
+import com.bantai.data.model.SCAN_PERIOD_ALL
 import com.bantai.util.MAX_EMAIL_ADDRESS_LENGTH
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -21,7 +23,7 @@ data class UserData(
     val lastName: String = "",
     val avatarColor: String = "#FF6B35",
     val onboardingComplete: Boolean = false,
-    val scanPeriod: String = "daily",
+    val scanPeriod: String = SCAN_PERIOD_ALL,
     val smishingAlerts: Boolean = true,
     val suspiciousAlerts: Boolean = true,
     val spamAlerts: Boolean = true,
@@ -79,7 +81,7 @@ class UserPreferences(
                 lastName = prefs[Keys.LAST_NAME] ?: "",
                 avatarColor = prefs[Keys.AVATAR_COLOR] ?: "#FF6B35",
                 onboardingComplete = prefs[Keys.ONBOARDING_COMPLETE] ?: false,
-                scanPeriod = prefs[Keys.SCAN_PERIOD] ?: "daily",
+                scanPeriod = prefs[Keys.SCAN_PERIOD] ?: SCAN_PERIOD_ALL,
                 smishingAlerts = prefs[Keys.SMISHING_ALERTS] ?: true,
                 suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
                 spamAlerts = prefs[Keys.SPAM_ALERTS] ?: true,
@@ -132,11 +134,7 @@ class UserPreferences(
     }
 
     suspend fun saveScanPeriod(period: String) {
-        val safePeriod =
-            when (period) {
-                "weekly", "monthly" -> period
-                else -> "daily"
-            }
+        val safePeriod = period.takeIf { it in SCAN_PERIODS } ?: SCAN_PERIOD_ALL
         context.dataStore.edit { prefs ->
             prefs[Keys.SCAN_PERIOD] = safePeriod
         }

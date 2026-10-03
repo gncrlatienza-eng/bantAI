@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Request,
@@ -51,6 +52,20 @@ export class VerificationController {
   @Get('sender/pending-reports')
   pendingFraudReports() {
     return this.verificationService.findPendingFraudReports();
+  }
+
+  // Static prefix, so it never collides with `sender/:sender` below.
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('verification:read')
+  @Get('sender/reports/:reportId')
+  senderReportDetail(
+    @Request() req: { user: { userId: string } },
+    @Param('reportId', ParseUUIDPipe) reportId: string,
+  ) {
+    return this.verificationService.findSenderReportDetail(
+      reportId,
+      req.user.userId,
+    );
   }
 
   // This static route must stay above `sender/:sender`: Express matches route

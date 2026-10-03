@@ -15,4 +15,10 @@ export class SubmitReportDto {
   @IsString()
   @MaxLength(MAX_REPORT_NOTE_LENGTH)
   note?: string;
+
+  // Shared by every message the user selected and reported together, so they
+  // are listed as one entry. Generated on the phone; omitted for one message.
+  @IsOptional()
+  @IsUUID()
+  groupId?: string;
 }

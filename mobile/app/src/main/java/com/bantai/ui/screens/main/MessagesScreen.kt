@@ -5,11 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -174,7 +170,10 @@ fun MessagesScreen(
     // Back should never fall through to exiting the screen: while selecting, back
     // cancels the selection; while on a non-default filter (Spam, Unknown, Recently
     // Deleted, Unread), back returns to Messages instead of leaving the tab entirely.
-    BackHandler(enabled = selectionMode || selectedFilter != MessageFilter.MESSAGES) {
+    // Only while Messages is the tab on screen: tabs stay composed in the
+    // background (MainScreen), and this mustn't swallow Back on another tab.
+    val tabActive = LocalTabActive.current
+    BackHandler(enabled = tabActive && (selectionMode || selectedFilter != MessageFilter.MESSAGES)) {
         if (selectionMode) {
             viewModel.exitSelectionMode()
         } else {
@@ -254,15 +253,15 @@ fun MessagesScreen(
 
         Spacer(Modifier.height(6.dp))
 
-        AnimatedContent(
-            targetState = selectedFilter,
-            transitionSpec = {
-                fadeIn(tween(250)) togetherWith fadeOut(tween(200))
-            },
-            label = "filter_switch",
-        ) { _ ->
+        // One list for every filter, switched in place like Mail. It used to
+        // cross-fade between two lists, but both halves read the new filter's
+        // rows, so each switch built and drew the same list twice for nothing.
+        // A fresh scroll state per filter starts each one at the top.
+        run {
             val tabMessages = visibleMessages
+            val listState = remember(selectedFilter) { LazyListState() }
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = innerPadding,
             ) {
@@ -317,15 +316,25 @@ fun MessagesScreen(
                     }
                 } else {
                     val isDraftsFilter = selectedFilter == MessageFilter.DRAFTS
-                    items(tabMessages) { msg ->
-                        MessageListRow(
-                            item =
+                    // Stable keys: a new message or a read receipt updates its own
+                    // row instead of recomposing every row below it.
+                    items(tabMessages, key = { "${it.sender}|${it.id}" }, contentType = { "conversation" }) { msg ->
+                        val draftPrefix = stringResource(R.string.messages_draft_prefix)
+                        val unreadSummaryPrefix = stringResource(R.string.messages_unread_summary_prefix)
+                        // Remembered per row: building it runs the link/spoof regexes
+                        // and date formatting, which used to repeat for every row on
+                        // every recomposition (each filter switch, each new message).
+                        val item =
+                            remember(msg, isDraftsFilter) {
                                 msg.toDisplayItem(
                                     context = context,
                                     isDraft = isDraftsFilter,
-                                    draftPrefix = stringResource(R.string.messages_draft_prefix),
-                                    unreadSummaryPrefix = stringResource(R.string.messages_unread_summary_prefix),
-                                ),
+                                    draftPrefix = draftPrefix,
+                                    unreadSummaryPrefix = unreadSummaryPrefix,
+                                )
+                            }
+                        MessageListRow(
+                            item = item,
                             selectionMode = selectionMode,
                             isSelected = msg.id in selectedIds,
                             onClick = {

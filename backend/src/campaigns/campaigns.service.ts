@@ -298,7 +298,30 @@ export class CampaignsService {
       orderBy: { updatedAt: 'desc' },
       select: SHIELD_CAMPAIGN_SELECT,
     });
-    return campaigns.map(toShieldCampaign);
+    const activity = await this.observedRange(campaigns.map((c) => c.id));
+    return campaigns.map((c) => toShieldCampaign(c, activity.get(c.id)));
+  }
+
+  // When a campaign's linked texts were first and last received. Shield's
+  // ACTIVE/DORMANT and first/last observed come from this -- the same 30-day
+  // rule as the admin list and the phone -- not from isActive, which is the
+  // matcher's on/off flag and is flipped by every offline-clustering sync.
+  private async observedRange(
+    ids: string[],
+  ): Promise<Map<string, { first: Date | null; last: Date | null }>> {
+    if (ids.length === 0) return new Map();
+    const stats = await this.prisma.smsMessage.groupBy({
+      by: ['clusterId'],
+      where: { clusterId: { in: ids } },
+      _min: { receivedAt: true },
+      _max: { receivedAt: true },
+    });
+    return new Map(
+      stats.map((s) => [
+        s.clusterId as string,
+        { first: s._min.receivedAt, last: s._max.receivedAt },
+      ]),
+    );
   }
 
   async findShieldOne(id: string): Promise<ShieldCampaignDto> {
@@ -307,7 +330,8 @@ export class CampaignsService {
       select: SHIELD_CAMPAIGN_SELECT,
     });
     if (!campaign) throw new NotFoundException('Campaign not found');
-    return toShieldCampaign(campaign);
+    const activity = await this.observedRange([campaign.id]);
+    return toShieldCampaign(campaign, activity.get(campaign.id));
   }
 
   async findShieldIndicators(id: string) {
@@ -417,8 +441,8 @@ export class CampaignsService {
     });
   }
 
-  findAll() {
-    return this.prisma.campaignCluster
+  async findAll() {
+    const rows = await this.prisma.campaignCluster
       .findMany({
         where: { isActive: true, archivedAt: null },
         orderBy: { messageCount: 'desc' },
@@ -426,6 +450,7 @@ export class CampaignsService {
           id: true,
           label: true,
           category: true,
+          origin: true,
           risk: true,
           summary: true,
           publishedAt: true,
@@ -440,6 +465,7 @@ export class CampaignsService {
         },
       })
       .then(withoutDraftSummary);
+    return this.withActivity(rows);
   }
 
   async findOne(id: string, userId: string) {
@@ -628,16 +654,17 @@ export class CampaignsService {
     });
   }
 
-  findAllInactive() {
-    return this.prisma.campaignCluster
+  async findAllInactive() {
+    const rows = await this.prisma.campaignCluster
       .findMany({
         where: { isActive: false, archivedAt: null },
         orderBy: { updatedAt: 'desc' },
-        take: 100,
+        take: ADMIN_LIST_CAP,
         select: {
           id: true,
           label: true,
           category: true,
+          origin: true,
           risk: true,
           summary: true,
           publishedAt: true,
@@ -652,18 +679,20 @@ export class CampaignsService {
         },
       })
       .then(withoutDraftSummary);
+    return this.withActivity(rows);
   }
 
-  findArchived() {
-    return this.prisma.campaignCluster
+  async findArchived() {
+    const rows = await this.prisma.campaignCluster
       .findMany({
         where: { archivedAt: { not: null } },
         orderBy: { archivedAt: 'desc' },
-        take: 100,
+        take: ADMIN_LIST_CAP,
         select: {
           id: true,
           label: true,
           category: true,
+          origin: true,
           risk: true,
           summary: true,
           publishedAt: true,
@@ -678,6 +707,71 @@ export class CampaignsService {
         },
       })
       .then(withoutDraftSummary);
+    return this.withActivity(rows);
+  }
+
+  /**
+   * Archives every retired (isActive = false) cluster that no message has
+   * ever been linked to. Each offline-clustering sync deactivates the
+   * previous generation instead of deleting it, so these pile up and bury
+   * the campaigns that actually have traffic. Never deletes anything.
+   */
+  async archiveEmpty(actorUserId: string) {
+    const archived = await this.prisma.$transaction(async (tx) => {
+      const empty = await tx.campaignCluster.findMany({
+        where: {
+          isActive: false,
+          archivedAt: null,
+          messages: { none: {} },
+          shieldMessages: { none: {} },
+        },
+        select: { id: true },
+      });
+      if (empty.length === 0) return 0;
+      const ids = empty.map((c) => c.id);
+      const result = await tx.campaignCluster.updateMany({
+        where: { id: { in: ids }, isActive: false, archivedAt: null },
+        data: { archivedAt: new Date(), publishedAt: null },
+      });
+      await this.audit.record(
+        {
+          type: AuditEventType.CAMPAIGN_UPDATED,
+          actorUserId,
+          metadata: {
+            action: 'ARCHIVED_EMPTY_BULK',
+            archivedCount: result.count,
+          },
+        },
+        tx,
+      );
+      return result.count;
+    });
+    if (archived > 0) this.invalidateDomainCache();
+    return { archived };
+  }
+
+  // Activity as the admin list needs it: every linked message, whatever its
+  // match source, and when the newest one arrived. messageCount stays the
+  // global server-model match count and is left untouched.
+  private async withActivity<T extends { id: string }>(
+    campaigns: T[],
+  ): Promise<(T & { linkedMessageCount: number; lastSeenAt: Date | null })[]> {
+    if (campaigns.length === 0) return [];
+    const stats = await this.prisma.smsMessage.groupBy({
+      by: ['clusterId'],
+      where: { clusterId: { in: campaigns.map((c) => c.id) } },
+      _count: { _all: true },
+      _max: { receivedAt: true },
+    });
+    const byId = new Map(stats.map((s) => [s.clusterId, s]));
+    return campaigns.map((campaign) => {
+      const stat = byId.get(campaign.id);
+      return {
+        ...campaign,
+        linkedMessageCount: stat?._count._all ?? 0,
+        lastSeenAt: stat?._max.receivedAt ?? null,
+      };
+    });
   }
 
   /**
@@ -689,7 +783,14 @@ export class CampaignsService {
    */
   async findAllCentroids() {
     const clusters = await this.prisma.campaignCluster.findMany({
-      where: { isActive: true, archivedAt: null },
+      // Emerging waves have no centroid (the AI skips them anyway) and
+      // must not be retired by sync_campaigns_to_backend.py, which retires
+      // every cluster this list returns.
+      where: {
+        isActive: true,
+        archivedAt: null,
+        OR: [{ origin: null }, { origin: { not: 'EMERGING' } }],
+      },
       select: {
         id: true,
         centroid: true,
@@ -798,6 +899,7 @@ function isConservativelyMasked(text: string): boolean {
 
 const SHIELD_CAMPAIGN_SELECT = {
   id: true,
+  publishedAt: true,
   label: true,
   risk: true,
   category: true,
@@ -809,29 +911,43 @@ const SHIELD_CAMPAIGN_SELECT = {
   urlDomains: true,
 } as const;
 
-function toShieldCampaign(campaign: {
-  id: string;
-  label: string | null;
-  risk: string | null;
-  category: string | null;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  summary: string | null;
-  mitigation: string | null;
-  urlDomains: string[];
-}): ShieldCampaignDto {
+// Same window as the admin list and the phone's Scam Waves.
+const SHIELD_ACTIVE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+function toShieldCampaign(
+  campaign: {
+    id: string;
+    publishedAt: Date | null;
+    label: string | null;
+    risk: string | null;
+    category: string | null;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    summary: string | null;
+    mitigation: string | null;
+    urlDomains: string[];
+  },
+  observed?: { first: Date | null; last: Date | null },
+  now: number = Date.now(),
+): ShieldCampaignDto {
+  // A campaign published from outside intelligence may have no linked
+  // texts yet; publishing then counts as its latest observation.
+  const lastObserved =
+    observed?.last ?? campaign.publishedAt ?? campaign.createdAt;
+  const firstObserved = observed?.first ?? campaign.createdAt;
+  const recent = now - lastObserved.getTime() < SHIELD_ACTIVE_WINDOW_MS;
   return {
     id: campaign.id,
     title: campaign.label ?? 'Untitled campaign',
     label: campaign.label ?? 'Untitled campaign',
     risk: campaign.risk ?? 'UNKNOWN',
     category: campaign.category ?? 'Uncategorized',
-    status: campaign.isActive ? 'ACTIVE' : 'DORMANT',
-    isActive: campaign.isActive,
-    firstObserved: campaign.createdAt,
+    status: recent ? 'ACTIVE' : 'DORMANT',
+    isActive: recent,
+    firstObserved,
     createdAt: campaign.createdAt,
-    lastObserved: campaign.updatedAt,
+    lastObserved,
     updatedAt: campaign.updatedAt,
     summary: campaign.summary ?? '',
     mitigation: campaign.mitigation ?? '',
@@ -841,6 +957,11 @@ function toShieldCampaign(campaign: {
       .map((domain) => domain.replaceAll('.', '[.]')),
   };
 }
+
+// The admin list filters and sorts client-side, so the inactive/archived
+// lists return everything up to this safety cap (was 100, which hid most of
+// the ~1,000 rows offline-clustering syncs leave behind).
+const ADMIN_LIST_CAP = 2000;
 
 // The shared lists also reach mobile JWTs (GET /campaigns); a reviewer's
 // draft summary is only shown once the campaign is published.

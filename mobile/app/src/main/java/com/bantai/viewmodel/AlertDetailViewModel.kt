@@ -10,6 +10,7 @@ import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.VerificationApi
 import com.bantai.data.remote.toUserMessage
 import com.bantai.data.withLocalContent
+import com.bantai.util.BlockHelper
 import com.bantai.util.TrustedSenders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,6 +70,29 @@ class AlertDetailViewModel(
 
     private val _isTrustedSender = MutableStateFlow(false)
     val isTrustedSender: StateFlow<Boolean> = _isTrustedSender.asStateFlow()
+
+    private val _unblocking = MutableStateFlow(false)
+    val unblocking: StateFlow<Boolean> = _unblocking.asStateFlow()
+
+    /**
+     * Unblocks [sender] on the phone and on the backend (BlockHelper), then
+     * shows the alert as not blocked, so it offers Report/Block again. [onDone]
+     * gets false when only the phone half succeeded.
+     */
+    fun unblockSender(
+        sender: String,
+        onDone: (synced: Boolean) -> Unit,
+    ) {
+        if (sender.isEmpty() || _unblocking.value) return
+        _unblocking.value = true
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val synced = BlockHelper.unblockSender(getApplication(), token, sender)
+            _alert.value = _alert.value?.copy(senderBlocked = false)
+            _unblocking.value = false
+            onDone(synced)
+        }
+    }
 
     fun load(messageId: String) {
         // Two legacy entry points (the AI-summary shortcut and the suspicious-thread

@@ -38,6 +38,16 @@ import {
   Gear,
   MagnifyingGlassPlus,
   List,
+  Flag,
+  PhoneX,
+  UserPlus,
+  Key,
+  ClockCounterClockwise,
+  Lightbulb,
+  DownloadSimple,
+  HardDrives,
+  BookOpenText,
+  UserCircle,
 } from '@phosphor-icons/react';
 
 type IconProps = {
@@ -149,4 +159,38 @@ export const NavModelIcon = (props: IconProps) => (
 );
 export const NavSystemIcon = (props: IconProps) => (
   <Gear size={18} weight="regular" {...props} />
+);
+
+/* One distinct icon per sidebar destination. Several pages used to share
+   FileText or Gear, so Reports, Tips and Export (and Shield API, Audit,
+   System and Settings) looked identical in the sidebar. */
+export const NavFlaggedMessagesIcon = (props: IconProps) => (
+  <Flag size={18} weight="regular" {...props} />
+);
+export const NavReportedNumbersIcon = (props: IconProps) => (
+  <PhoneX size={18} weight="regular" {...props} />
+);
+export const NavAccessRequestsIcon = (props: IconProps) => (
+  <UserPlus size={18} weight="regular" {...props} />
+);
+export const NavApiKeysIcon = (props: IconProps) => (
+  <Key size={18} weight="regular" {...props} />
+);
+export const NavAuditIcon = (props: IconProps) => (
+  <ClockCounterClockwise size={18} weight="regular" {...props} />
+);
+export const NavTipsIcon = (props: IconProps) => (
+  <Lightbulb size={18} weight="regular" {...props} />
+);
+export const NavExportIcon = (props: IconProps) => (
+  <DownloadSimple size={18} weight="regular" {...props} />
+);
+export const NavInfrastructureIcon = (props: IconProps) => (
+  <HardDrives size={18} weight="regular" {...props} />
+);
+export const NavDocsIcon = (props: IconProps) => (
+  <BookOpenText size={18} weight="regular" {...props} />
+);
+export const NavAccountIcon = (props: IconProps) => (
+  <UserCircle size={18} weight="regular" {...props} />
 );

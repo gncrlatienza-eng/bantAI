@@ -72,13 +72,27 @@ object SmsPrivacyMasker {
                 "(\\D{0,$OTP_KEYWORD_GAP})\\d{4,8}\\b",
         )
 
+    // A transaction reference after its label: "Ref No. 1234 567 890123",
+    // "RefNo1234567890123", "Reference: 7B3K9Q2X1M", "Transaction ID 12345".
+    // The generic run below misses these when the digits touch the label, mix
+    // in letters, or are under six digits. The code must hold a digit and be 4+
+    // characters, so "for your reference" or "transfer" are left alone. Masked
+    // as [NUMBER], the placeholder the AI service and dashboard already know.
+    private val reference =
+        Regex(
+            "(?i)\\b(ref(?:erence)?|txn|trans(?:action)?|trace)" +
+                "(\\.?\\s*(?:no|num|number|id|code)?\\.?\\s*[:#]?\\s*)" +
+                "(?=[a-z0-9-]*\\d)(?=[a-z0-9-]{4})[a-z0-9][a-z0-9-]*(?:\\s+\\d[a-z0-9-]*)*",
+        )
+
     // Catch-all for anything left that reads as an identifying number --
-    // landlines, bank/e-wallet account numbers, card numbers, reference
-    // numbers, an OTP with no recognizable keyword nearby -- none of which the
-    // specific patterns above are shaped to catch. Runs last, after URL/email/
-    // PH-mobile/amount/keyword-OTP have already claimed their own digits, so
-    // this only ever sees what those left behind.
-    private val genericDigitRun = Regex("(?<!\\w)\\d(?:[\\s-]?\\d){${MIN_GENERIC_DIGIT_RUN - 1},}(?!\\w)")
+    // landlines, bank/e-wallet account numbers, card numbers, an OTP with no
+    // recognizable keyword nearby -- none of which the specific patterns above
+    // are shaped to catch. Runs last, after URL/email/PH-mobile/amount/
+    // keyword-OTP/reference have already claimed their own digits, so this only
+    // ever sees what those left behind. Up to two spaces/hyphens between
+    // digits, so a double-spaced "1234  567  890123" is still one run.
+    private val genericDigitRun = Regex("(?<!\\w)\\d(?:[\\s-]{0,2}\\d){${MIN_GENERIC_DIGIT_RUN - 1},}(?!\\w)")
 
     fun maskForRemoteClassification(body: String): String =
         Normalizer
@@ -96,6 +110,7 @@ object SmsPrivacyMasker {
             .replace(money, "[AMOUNT]")
             .replace(pesoP, "[AMOUNT]")
             .replace(otp) { match -> "${match.groupValues[1]}${match.groupValues[2]}[OTP]" }
+            .replace(reference) { match -> "${match.groupValues[1]}${match.groupValues[2]}[NUMBER]" }
             .replace(genericDigitRun, "[NUMBER]")
             .replace(Regex("\\s+"), " ")
             .trim()

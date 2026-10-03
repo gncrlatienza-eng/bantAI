@@ -20,6 +20,9 @@ const REPORT_MESSAGE_SELECT = {
   classification: { select: { label: true, score: true, bucket: true } },
 } as const;
 
+// The phone keeps the full list; older reports past this stay on the backend.
+const MY_REPORTS_LIMIT = 500;
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -66,10 +69,12 @@ export class ReportsService {
             originalLabel,
             reportedLabel: dto.reportedLabel,
             note,
+            groupId: dto.groupId ?? null,
             status: 'Pending',
           },
           select: {
             id: true,
+            groupId: true,
             status: true,
             originalLabel: true,
             reportedLabel: true,
@@ -94,6 +99,61 @@ export class ReportsService {
       });
   }
 
+  // Mobile: the signed-in user's own reports, newest first, shaped like an
+  // alert (GET /sms/alerts) so the phone files them on its Reported page with
+  // the same parsing. A report on a message the model called safe never had
+  // an alert, so without this it was saved but shown nowhere on the phone.
+  // No body or sender: the phone shows its own copy of the SMS (sourceId).
+  async findMine(userId: string) {
+    const reports = await this.prisma.userReport.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: MY_REPORTS_LIMIT,
+      select: {
+        id: true,
+        groupId: true,
+        reportedLabel: true,
+        status: true,
+        note: true,
+        adminNote: true,
+        createdAt: true,
+        updatedAt: true,
+        message: {
+          select: {
+            id: true,
+            sourceId: true,
+            receivedAt: true,
+            clusterId: true,
+            classification: {
+              select: { label: true, score: true, bucket: true },
+            },
+          },
+        },
+      },
+    });
+    return reports.map((report) => ({
+      id: report.id,
+      groupId: report.groupId,
+      status: 'Reported',
+      createdAt: report.createdAt,
+      message: {
+        ...report.message,
+        reports: [
+          {
+            reportedLabel: report.reportedLabel,
+            status: report.status,
+            createdAt: report.createdAt,
+            // The phone's report page: what the user wrote, and the reviewer's
+            // reason once it's been accepted or rejected (updatedAt is when).
+            note: report.note,
+            adminNote: report.adminNote,
+            reviewedAt: report.status === 'Pending' ? null : report.updatedAt,
+          },
+        ],
+      },
+    }));
+  }
+
   // Admin: list all reports, newest first.
   async findAll(actorUserId: string) {
     const reports = await this.prisma.userReport.findMany({
@@ -108,6 +168,7 @@ export class ReportsService {
         createdAt: true,
         updatedAt: true,
         note: true,
+        groupId: true,
         user: { select: { id: true } },
         message: { select: REPORT_MESSAGE_SELECT },
       },
@@ -139,6 +200,7 @@ export class ReportsService {
         createdAt: true,
         updatedAt: true,
         note: true,
+        groupId: true,
         user: { select: { id: true } },
         message: { select: REPORT_MESSAGE_SELECT },
       },

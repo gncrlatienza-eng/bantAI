@@ -30,6 +30,7 @@ import { WebCampaignAudienceGuard } from './guards/web-campaign-audience.guard';
 import { CampaignsService } from './campaigns.service';
 import { CampaignReconciliationService } from './campaign-reconciliation.service';
 import { CampaignAnalysisService } from './campaign-analysis.service';
+import { EmergingWavesService } from './emerging-waves.service';
 import {
   CorrectAssignmentDto,
   DraftEvolutionDto,
@@ -44,6 +45,7 @@ export class CampaignsController {
     private readonly campaignsService: CampaignsService,
     private readonly reconciliation: CampaignReconciliationService,
     private readonly analysis: CampaignAnalysisService,
+    private readonly emergingWaves: EmergingWavesService,
   ) {}
 
   // Recomputes the latest completed 7-day window for every live campaign and
@@ -136,6 +138,24 @@ export class CampaignsController {
     @Body() dto: CreateAdminCampaignDto,
   ) {
     return this.campaignsService.createAdmin(dto, req.user.userId);
+  }
+
+  // Archives retired clusters no message ever linked to (leftovers from
+  // offline-clustering syncs). Never deletes; safe to run repeatedly.
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @Post('admin/archive-empty')
+  @HttpCode(HttpStatus.OK)
+  archiveEmpty(@Request() req: { user: { userId: string } }) {
+    return this.campaignsService.archiveEmpty(req.user.userId);
+  }
+
+  // Groups scam texts no known campaign matched into new campaigns now,
+  // instead of waiting for the next ingest or the 30-minute run.
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @Post('admin/emerging/run')
+  @HttpCode(HttpStatus.OK)
+  runEmerging(@Request() req: { user: { userId: string } }) {
+    return this.emergingWaves.run(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard, StaffGuard)

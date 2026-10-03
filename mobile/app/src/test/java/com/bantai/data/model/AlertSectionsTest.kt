@@ -116,4 +116,40 @@ class AlertSectionsTest {
         assertEquals(alerts, unseenAlerts(alerts, initialized = true, seen = emptySet()))
         assertEquals(emptyList<SmsApi.AlertSummary>(), unseenAlerts(alerts, initialized = true, seen = setOf("1")))
     }
+
+    @Test
+    fun `a report on a text with no alert still lands on Reported`() {
+        val safeReport = alert("safe", "2026-09-29", bucket = "safe").copy(report = report, localId = 7)
+        val merged = withReportList(listOf(alert("blocked", "2026-09-29")), listOf(safeReport))
+        assertEquals(listOf("blocked", "safe"), merged.map { it.messageId })
+        assertEquals(AlertTab.REPORTED, merged.last().tab())
+    }
+
+    @Test
+    fun `a reported alert takes the report's group and isn't listed twice`() {
+        val alerted = alert("1", "2026-09-29")
+        val reported = alerted.copy(report = report, groupId = "g1")
+        val merged = withReportList(listOf(alerted), listOf(reported))
+        assertEquals(1, merged.size)
+        assertEquals("g1", merged.single().groupId)
+        assertEquals(report, merged.single().report)
+    }
+
+    @Test
+    fun `a second backend copy of the same text on the phone isn't listed twice`() {
+        val alerted = alert("copy-a", "2026-09-29").copy(localId = 42)
+        val reportedCopy = alert("copy-b", "2026-09-29").copy(localId = 42, report = report)
+        assertEquals(listOf("copy-a"), withReportList(listOf(alerted), listOf(reportedCopy)).map { it.messageId })
+    }
+
+    @Test
+    fun `messages reported together are one entry, a lone report its own`() {
+        val reports =
+            listOf(
+                alert("1", "2026-09-29").copy(groupId = "g"),
+                alert("2", "2026-09-29"),
+                alert("3", "2026-09-28").copy(groupId = "g"),
+            )
+        assertEquals(listOf(listOf("1", "3"), listOf("2")), groupReports(reports).map { g -> g.map { it.messageId } })
+    }
 }

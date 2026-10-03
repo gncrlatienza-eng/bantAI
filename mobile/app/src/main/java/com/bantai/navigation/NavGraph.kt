@@ -52,8 +52,10 @@ import com.bantai.ui.screens.main.CampaignDetailScreen
 import com.bantai.ui.screens.main.ComposeScreen
 import com.bantai.ui.screens.main.MainScreen
 import com.bantai.ui.screens.main.MessageDetailScreen
+import com.bantai.ui.screens.main.ReportDetailScreen
 import com.bantai.ui.screens.main.ReportSentScreen
 import com.bantai.ui.screens.main.ScamWaveScreen
+import com.bantai.ui.screens.main.SenderReportsScreen
 import com.bantai.ui.screens.main.SmishingAlertScreen
 import com.bantai.ui.screens.main.SuspiciousDetailScreen
 import com.bantai.ui.screens.main.TakeActionScreen
@@ -111,9 +113,11 @@ sealed class Screen(
     // caller already knows which one the user picked (the thread's menu).
     // canBlock=false hides Block: a trusted sender name (blocking "BDO" would
     // also block the real bank -- names are spoofable) or an already-blocked one.
+    // localIds: several device SMS rows from one thread, selected and reported
+    // together (one groupId); takes the place of localId when set.
     data object TakeAction : Screen(
         "take_action?messageId={messageId}&sender={sender}&localId={localId}&label={label}&action={action}" +
-            "&canBlock={canBlock}",
+            "&canBlock={canBlock}&localIds={localIds}",
     ) {
         @Suppress("LongParameterList") // one per route argument, all optional
         fun createRoute(
@@ -123,9 +127,10 @@ sealed class Screen(
             currentLabel: String = "",
             action: String = "",
             canBlock: Boolean = true,
+            localIds: Collection<Long> = emptyList(),
         ) = "take_action?messageId=${Uri.encode(messageId)}&sender=${Uri.encode(sender)}" +
             "&localId=${localId ?: ""}&label=${Uri.encode(currentLabel)}&action=${Uri.encode(action)}" +
-            "&canBlock=$canBlock"
+            "&canBlock=$canBlock&localIds=${localIds.joinToString(",")}"
     }
 
     data object ReportSent : Screen("report_sent/{type}") {
@@ -138,12 +143,27 @@ sealed class Screen(
         fun createRoute(campaignId: String) = "campaign_detail/${Uri.encode(campaignId)}"
     }
 
-    data object ScamWave : Screen("scam_wave/{waveKey}") {
+    data object ScamWave : Screen("scam_wave/{waveKey}?tip={tip}") {
+        fun createRoute(
+            waveKey: String,
+            tip: String?,
+        ) = "scam_wave/${Uri.encode(waveKey)}" + (tip?.let { "?tip=${Uri.encode(it)}" } ?: "")
+
         fun createRoute(waveKey: String) = "scam_wave/${Uri.encode(waveKey)}"
     }
 
     data object SmishingAlert : Screen("smishing_alert/{messageId}") {
         fun createRoute(messageId: String) = "smishing_alert/${Uri.encode(messageId)}"
+    }
+
+    /** One report from Alerts -> Reported; [key] is its groupId, or its message id. */
+    data object ReportDetail : Screen("report_detail/{key}") {
+        fun createRoute(key: String) = "report_detail/${Uri.encode(key)}"
+    }
+
+    /** Every report about one sender under Reported's current filter; [key] is AlertSections.senderKey. */
+    data object SenderReports : Screen("sender_reports/{key}") {
+        fun createRoute(key: String) = "sender_reports/${Uri.encode(key)}"
     }
 
     data object Compose : Screen("compose?recipient={recipient}&body={body}") {
@@ -155,7 +175,9 @@ sealed class Screen(
 
     data object SettingsNotifications : Screen("settings/notifications")
 
-    data object SettingsScamAwareness : Screen("settings/scam_awareness")
+    data object SettingsScamAwareness : Screen("settings/scam_awareness?tip={tip}") {
+        fun createRoute(tip: String? = null) = "settings/scam_awareness" + (tip?.let { "?tip=${Uri.encode(it)}" } ?: "")
+    }
 
     data object SettingsTipDetail : Screen("settings/tip/{tip}") {
         fun createRoute(tip: String) = "settings/tip/$tip"
@@ -189,11 +211,14 @@ sealed class Screen(
 
     // view is optional: notifications and Compose open the full thread, while
     // the inbox chips open only their slice (see ConversationView).
-    data object Detail : Screen("detail/{sender}?view={view}") {
+    // highlight: device SMS row ids to scroll to and glow -- the messages a
+    // Reported entry stands for, or the ones just reported.
+    data object Detail : Screen("detail/{sender}?view={view}&highlight={highlight}") {
         fun createRoute(
             sender: String,
             view: ConversationView = ConversationView.ALL,
-        ) = "detail/${Uri.encode(sender)}?view=${view.routeValue}"
+            highlight: Collection<Long> = emptyList(),
+        ) = "detail/${Uri.encode(sender)}?view=${view.routeValue}&highlight=${highlight.joinToString(",")}"
     }
 }
 
@@ -220,6 +245,8 @@ private val BOTTOM_BAR_ROUTES =
     setOf(
         "main",
         Screen.SmishingAlert.route,
+        Screen.ReportDetail.route,
+        Screen.SenderReports.route,
         Screen.ScamWave.route,
         Screen.CampaignDetail.route,
         Screen.SettingsNotifications.route,
@@ -258,13 +285,28 @@ private val takeActionArguments =
             type = NavType.BoolType
             defaultValue = true
         },
+        navArgument("localIds") {
+            type = NavType.StringType
+            defaultValue = ""
+        },
     )
+
+// "12,15,19" -> [12, 15, 19]; the list route arguments above.
+
+/** A safety tip to open from its notification; [waveKey] set for a campaign tip. */
+data class RequestedTip(
+    val tipId: String,
+    val waveKey: String?,
+)
+
+private fun idList(raw: String?): List<Long> = raw.orEmpty().split(",").mapNotNull { it.trim().toLongOrNull() }
 
 @Composable
 @Suppress("LongMethod", "CyclomaticComplexMethod") // the app's one route table, kept in one place
 fun NavGraph(
     requestedTab: Int? = null,
     requestedConversationSender: String? = null,
+    requestedTip: RequestedTip? = null,
     requestedComposeRecipient: String? = null,
     requestedComposeBody: String = "",
 ) {
@@ -537,6 +579,7 @@ fun NavGraph(
                             currentLabel = backStackEntry.arguments?.getString("label") ?: "",
                             preselect = backStackEntry.arguments?.getString("action") ?: "",
                             canBlock = backStackEntry.arguments?.getBoolean("canBlock") ?: true,
+                            localMessageIds = idList(backStackEntry.arguments?.getString("localIds")),
                         )
                     }
                     composable(
@@ -556,10 +599,22 @@ fun NavGraph(
                     }
                     composable(
                         route = Screen.ScamWave.route,
-                        arguments = listOf(navArgument("waveKey") { type = NavType.StringType }),
+                        arguments =
+                            listOf(
+                                navArgument("waveKey") { type = NavType.StringType },
+                                navArgument("tip") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                },
+                            ),
                     ) { backStackEntry ->
                         val waveKey = backStackEntry.arguments?.getString("waveKey") ?: return@composable
-                        ScamWaveScreen(waveKey = waveKey, navController = navController)
+                        ScamWaveScreen(
+                            waveKey = waveKey,
+                            navController = navController,
+                            openTipId = backStackEntry.arguments?.getString("tip"),
+                        )
                     }
                     composable(
                         route = Screen.SmishingAlert.route,
@@ -567,6 +622,28 @@ fun NavGraph(
                     ) { backStackEntry ->
                         val messageId = backStackEntry.arguments?.getString("messageId") ?: return@composable
                         SmishingAlertScreen(messageId = messageId, navController = navController)
+                    }
+                    composable(
+                        route = Screen.ReportDetail.route,
+                        arguments = listOf(navArgument("key") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val key = backStackEntry.arguments?.getString("key") ?: return@composable
+                        ReportDetailScreen(
+                            reportKey = key,
+                            navController = navController,
+                            alertsViewModel = alertsViewModel,
+                        )
+                    }
+                    composable(
+                        route = Screen.SenderReports.route,
+                        arguments = listOf(navArgument("key") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val key = backStackEntry.arguments?.getString("key") ?: return@composable
+                        SenderReportsScreen(
+                            senderKey = key,
+                            navController = navController,
+                            alertsViewModel = alertsViewModel,
+                        )
                     }
                     composable(
                         route = Screen.Compose.route,
@@ -596,7 +673,19 @@ fun NavGraph(
                     }
                     composable(Screen.SettingsEditProfile.route) { EditProfileScreen(navController, settingsViewModel) }
                     composable(Screen.SettingsHowItWorks.route) { HowItWorksScreen(navController) }
-                    composable(Screen.SettingsScamAwareness.route) { ScamAwarenessScreen(navController) }
+                    composable(
+                        route = Screen.SettingsScamAwareness.route,
+                        arguments =
+                            listOf(
+                                navArgument("tip") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                },
+                            ),
+                    ) { entry ->
+                        ScamAwarenessScreen(navController, openTipId = entry.arguments?.getString("tip"))
+                    }
                     composable(
                         route = Screen.SettingsTipDetail.route,
                         arguments = listOf(navArgument("tip") { type = NavType.StringType }),
@@ -604,7 +693,7 @@ fun NavGraph(
                         val tip = backStackEntry.arguments?.getString("tip") ?: ""
                         TipDetailScreen(tip = tip, navController = navController)
                     }
-                    composable(Screen.SettingsPrivacy.route) { PrivacyDataScreen(navController) }
+                    composable(Screen.SettingsPrivacy.route) { PrivacyDataScreen(navController, settingsViewModel) }
                     composable(
                         route = Screen.Detail.route,
                         arguments =
@@ -614,6 +703,10 @@ fun NavGraph(
                                     type = NavType.StringType
                                     defaultValue = ConversationView.ALL.routeValue
                                 },
+                                navArgument("highlight") {
+                                    type = NavType.StringType
+                                    defaultValue = ""
+                                },
                             ),
                     ) { backStackEntry ->
                         val sender = backStackEntry.arguments?.getString("sender") ?: return@composable
@@ -621,6 +714,7 @@ fun NavGraph(
                             sender = sender,
                             navController = navController,
                             initialView = ConversationView.fromRoute(backStackEntry.arguments?.getString("view")),
+                            highlightIds = idList(backStackEntry.arguments?.getString("highlight")).toSet(),
                         )
                     }
                 }
@@ -687,6 +781,16 @@ fun NavGraph(
     // conversation actually exists before navigating, rather than trusting it
     // blindly and opening an arbitrary/empty thread a malicious co-installed app
     // asked for.
+    // A tapped safety-tip notification (trusted by MainActivity) opens the tip:
+    // in its Scam Wave for a campaign tip, else in Scam Awareness.
+    LaunchedEffect(requestedTip) {
+        val tip = requestedTip ?: return@LaunchedEffect
+        navController.navigate(
+            tip.waveKey?.let { Screen.ScamWave.createRoute(it, tip.tipId) }
+                ?: Screen.SettingsScamAwareness.createRoute(tip.tipId),
+        )
+    }
+
     LaunchedEffect(requestedConversationSender) {
         val sender = requestedConversationSender ?: return@LaunchedEffect
         val conversationExists =

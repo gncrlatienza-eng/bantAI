@@ -14,9 +14,11 @@ import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.model.Classification
 import com.bantai.data.model.ConversationView
+import com.bantai.data.model.SCAN_PERIOD_ALL
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
+import com.bantai.data.model.scanCutoffMillis
 import com.bantai.util.BlockHelper
 import com.bantai.util.ContactNames
 import kotlinx.coroutines.CancellationException
@@ -165,7 +167,7 @@ class MessagesViewModel(
     private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
 
-    private var scanPeriod = "daily"
+    private var scanPeriod = SCAN_PERIOD_ALL
 
     companion object {
         // Real SMS provider row ids are always positive autoincrement values, so
@@ -364,10 +366,14 @@ class MessagesViewModel(
                 // MESSAGE_LIST_CAP): any row without a model verdict falls back
                 // to the offline heuristic when its conversation is opened.
                 val stored = classificationStore.classifications.first()
+                // Settings -> Scan period: how far back the AI checks. Older
+                // texts keep the on-device check until the user widens it.
+                val cutoff = scanCutoffMillis(scanPeriod)
                 val pending =
                     allMessages.value
                         .filter { msg ->
                             !msg.isOutgoing &&
+                                msg.timestamp >= cutoff &&
                                 msg.id > 0 &&
                                 msg.id !in scanAttempted &&
                                 (stored[msg.id] == null || stored[msg.id] == Classification.UNVERIFIED)

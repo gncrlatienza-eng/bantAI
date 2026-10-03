@@ -11,6 +11,7 @@ import {
 import {
   exportCampaignIntelligence,
   getActiveCampaigns,
+  getInactiveCampaigns,
   type CampaignCluster,
 } from '../../services/campaignsService';
 import { logout } from '../../services/authService';
@@ -33,7 +34,15 @@ export function ExportPage() {
     setLoading(true);
     setError(null);
     try {
-      const items = await getActiveCampaigns();
+      // Every published campaign can be exported, active or inactive.
+      const [active, inactive] = await Promise.all([
+        getActiveCampaigns(),
+        getInactiveCampaigns(),
+      ]);
+      const seen = new Set<string>();
+      const items = [...active, ...inactive].filter((c) =>
+        seen.has(c.id) ? false : (seen.add(c.id), true),
+      );
       setCampaigns(items);
       setCampaignId((value) => value || items[0]?.id || '');
     } catch (caught) {
@@ -122,7 +131,9 @@ export function ExportPage() {
             onChange={(event) => setCampaignId(event.target.value)}
             options={campaigns.map((campaign) => ({
               value: campaign.id,
-              label: `${campaign.label || 'Published campaign'} (${campaign.id})`,
+              label: `${campaign.label || 'Published campaign'}${
+                campaign.status === 'DORMANT' ? ' · Inactive' : ''
+              } (${campaign.id})`,
             }))}
           />
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>

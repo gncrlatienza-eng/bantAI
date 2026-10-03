@@ -24,6 +24,23 @@ describe('maskSmsBody', () => {
     ['Your MPIN is 4821', 'Your MPIN is [OTP]'],
     ['Enter passcode 9911 now', 'Enter passcode [OTP] now'],
     ['Security number: 4455', 'Security number: [OTP]'],
+    // Transaction references, however they're written:
+    ['Ref. No. 1234 567 890123.', 'Ref. No. [NUMBER].'],
+    ['RefNo1234567890123', 'RefNo[NUMBER]'],
+    ['Ref. No. 1234  567  890123', 'Ref. No. [NUMBER]'],
+    ['Reference: 7B3K9Q2X1M', 'Reference: [NUMBER]'],
+    ['Transaction ID 12345', 'Transaction ID [NUMBER]'],
+    ['Txn 9F3A22', 'Txn [NUMBER]'],
+    // ...but not the same words in ordinary text:
+    [
+      'For your reference, please call us.',
+      'For your reference, please call us.',
+    ],
+    [
+      'We will transfer your refund tomorrow.',
+      'We will transfer your refund tomorrow.',
+    ],
+    ['Your transaction was successful.', 'Your transaction was successful.'],
     // Server-only strictness beyond the phone masker:
     ['Open bit.ly/3xYz now', 'Open [URL] now'],
     ['Go to secure.gcash-help.com', 'Go to [URL]'],

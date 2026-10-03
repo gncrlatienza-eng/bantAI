@@ -59,6 +59,15 @@ object SmsApi {
         val senderBlocked: Boolean = false,
         /** The user's own report on this message, if they filed one. */
         val report: AlertReport? = null,
+        /**
+         * Shared by messages the user selected and reported together (GET
+         * /reports/mine), so Reported lists them as one entry. Null otherwise.
+         */
+        val groupId: String? = null,
+        /** Set on the phone: this SMS's row on the device, to open its bubble. */
+        val localId: Long? = null,
+        /** Set on the phone: the saved contact name for [sender], if any. */
+        val senderName: String? = null,
     )
 
     /**
@@ -68,6 +77,13 @@ object SmsApi {
     data class AlertReport(
         val reportedLabel: String,
         val status: String,
+        // For the report page: when it was filed, the user's own note, and
+        // once reviewed, when and the reviewer's reason. Null when not sent
+        // (a report filed on this phone that the backend hasn't returned yet).
+        val createdAt: String? = null,
+        val note: String? = null,
+        val adminNote: String? = null,
+        val reviewedAt: String? = null,
     )
 
     data class IndicatorTag(
@@ -178,7 +194,10 @@ object SmsApi {
             .get("/sms/${encodePathSegment(messageId)}/indicators", token)
             .mapCatching { body -> parseIndicators(JSONObject(body)) }
 
-    private fun parseAlerts(json: JSONArray): List<AlertSummary> = List(json.length()) { i -> parseAlert(json.getJSONObject(i)) }
+    internal fun parseAlerts(json: JSONArray): List<AlertSummary> {
+        val count = json.length()
+        return List(count) { i -> parseAlert(json.getJSONObject(i)) }
+    }
 
     private fun parseAlert(json: JSONObject): AlertSummary {
         val message = json.getJSONObject("message")
@@ -199,8 +218,21 @@ object SmsApi {
             clusterId = message.optNullableString("clusterId"),
             report =
                 message.optJSONArray("reports")?.optJSONObject(0)?.let {
-                    AlertReport(reportedLabel = it.optString("reportedLabel"), status = it.optString("status"))
+                    val status = it.optString("status")
+                    AlertReport(
+                        reportedLabel = it.optString("reportedLabel"),
+                        status = status,
+                        createdAt = it.optNullableString("createdAt"),
+                        note = it.optNullableString("note"),
+                        adminNote = it.optNullableString("adminNote"),
+                        // /reports/mine sends reviewedAt; the alerts list sends
+                        // updatedAt, which is the review time once it's left Pending.
+                        reviewedAt =
+                            it.optNullableString("reviewedAt")
+                                ?: it.optNullableString("updatedAt").takeIf { status != "Pending" },
+                    )
                 },
+            groupId = json.optNullableString("groupId"),
         )
     }
     // optNullableString moved to JsonExtensions.kt -- CampaignsApi needed the

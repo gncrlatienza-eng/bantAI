@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.bantai.BuildConfig
 import com.bantai.container
 import com.bantai.data.GroupThreads
+import com.bantai.data.MessageReports
 import com.bantai.data.OutgoingSms
 import com.bantai.data.PENDING_MMS_ID_OFFSET
 import com.bantai.data.db.BantaiDatabase
@@ -397,6 +398,39 @@ class MessageDetailViewModel(
             getApplication<Application>().container.campaignMatchStore.remove(ids)
             exitSelectionMode()
             currentSender?.let { loadConversation(it) }
+        }
+    }
+
+    private val _flagging = MutableStateFlow(false)
+    val flagging: StateFlow<Boolean> = _flagging.asStateFlow()
+
+    /**
+     * The user's answer to an Unknown verdict: "Ham" (a real message) or "Spam".
+     * The messages move on the phone first -- that's the promise the button
+     * makes, so it holds offline too -- then the correction is filed as one
+     * (grouped) report so the AI and BantAI's team learn from it.
+     * [onDone] gets whether the report reached the backend.
+     */
+    fun flagMessages(
+        sender: String,
+        ids: List<Long>,
+        reportedLabel: String,
+        onDone: (reported: Boolean) -> Unit,
+    ) {
+        if (ids.isEmpty() || _flagging.value) return
+        _flagging.value = true
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            ids.forEach { MessageReports.refile(app, it, reportedLabel) }
+            val result =
+                MessageReports.submit(
+                    context = app,
+                    sender = sender,
+                    reportedLabel = reportedLabel,
+                    targets = ids.map { MessageReports.Target(messageId = "", localMessageId = it) },
+                )
+            _flagging.value = false
+            onDone(result.isSuccess || with(MessageReports) { result.isAlreadyReported() })
         }
     }
 }

@@ -48,6 +48,7 @@ import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
+import com.bantai.util.BlockHelper
 
 @Composable
 fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
@@ -133,6 +134,11 @@ fun OnboardingDefaultSmsScreen(onNext: () -> Unit) {
                     } else {
                         navigateForward()
                     }
+                } else if (!BlockHelper.isDefaultSmsApp(context)) {
+                    // Android 8-9 has no RoleManager; this is the system's own
+                    // "change default SMS app" prompt for those versions. It used
+                    // to skip ahead here, so those phones were never asked.
+                    roleRequestLauncher.launch(BlockHelper.defaultSmsAppIntent(context))
                 } else {
                     navigateForward()
                 }

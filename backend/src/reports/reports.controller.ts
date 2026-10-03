@@ -38,6 +38,18 @@ export class ReportsController {
     return this.reportsService.submit(req.user.userId, dto);
   }
 
+  // Mobile: the signed-in user's own reports, for the app's Reported page.
+  // Declared before the admin routes; 'mine' is a fixed path, not an :id.
+  @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
+  @Get('mine')
+  findMine(@Request() req: { user: { userId: string } }) {
+    return this.reportsService.findMine(req.user.userId);
+  }
+
   // Admin: list all reports.
   @UseGuards(JwtAuthGuard, StaffGuard)
   @RequirePermissions('reports:read')

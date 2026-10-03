@@ -13,8 +13,10 @@ const mockPrisma = {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   shieldCampaignMessage: { create: jest.fn(), findMany: jest.fn() },
+  smsMessage: { groupBy: jest.fn().mockResolvedValue([]) },
 };
 const mockAudit = { record: jest.fn() };
 
@@ -82,6 +84,59 @@ describe('CampaignsService', () => {
       expect(JSON.stringify(result)).not.toContain('"attacker.example"');
       expect(result[0].urlDomains).toEqual(['attacker[.]example']);
       expect(result[0]).toMatchObject({ id: 'c1', observedDomainCount: 1 });
+    });
+
+    it('marks a campaign ACTIVE from its texts in the last 30 days, not the matcher flag', async () => {
+      const day = 24 * 60 * 60 * 1000;
+      const base = {
+        label: 'Reward lure',
+        risk: 'HIGH',
+        category: 'Rewards / prize claim',
+        createdAt: new Date('2026-01-01'),
+        updatedAt: new Date('2026-01-02'),
+        summary: 's',
+        mitigation: 'm',
+        urlDomains: [],
+      };
+      mockPrisma.campaignCluster.findMany.mockResolvedValue([
+        // Retired by the matcher, but texts still arriving.
+        {
+          ...base,
+          id: 'recent',
+          isActive: false,
+          publishedAt: new Date('2026-01-03'),
+        },
+        // Matcher still on, but nothing received for months.
+        {
+          ...base,
+          id: 'quiet',
+          isActive: true,
+          publishedAt: new Date('2026-01-03'),
+        },
+      ]);
+      const lastSeen = new Date(Date.now() - 2 * day);
+      mockPrisma.smsMessage.groupBy.mockResolvedValueOnce([
+        {
+          clusterId: 'recent',
+          _min: { receivedAt: new Date('2026-08-01') },
+          _max: { receivedAt: lastSeen },
+        },
+        {
+          clusterId: 'quiet',
+          _min: { receivedAt: new Date('2026-01-05') },
+          _max: { receivedAt: new Date(Date.now() - 90 * day) },
+        },
+      ]);
+
+      const [recent, quiet] = await service.findShieldAll();
+
+      expect(recent).toMatchObject({
+        status: 'ACTIVE',
+        isActive: true,
+        lastObserved: lastSeen,
+        firstObserved: new Date('2026-08-01'),
+      });
+      expect(quiet).toMatchObject({ status: 'DORMANT', isActive: false });
     });
   });
 
@@ -307,7 +362,12 @@ describe('CampaignsService', () => {
       await service.findAllCentroids();
 
       expect(mockPrisma.campaignCluster.findMany).toHaveBeenCalledWith({
-        where: { isActive: true, archivedAt: null },
+        // Emerging waves are left out so the AI sync never retires them.
+        where: {
+          isActive: true,
+          archivedAt: null,
+          OR: [{ origin: null }, { origin: { not: 'EMERGING' } }],
+        },
         select: {
           id: true,
           centroid: true,
@@ -526,6 +586,96 @@ describe('CampaignsService', () => {
     it('returns an empty array when no inactive clusters exist', async () => {
       mockPrisma.campaignCluster.findMany.mockResolvedValue([]);
       await expect(service.findAllInactive()).resolves.toEqual([]);
+    });
+  });
+
+  describe('admin list activity', () => {
+    it('adds linked message count and last-seen from every linked message', async () => {
+      const lastSeen = new Date('2026-09-04T08:00:00Z');
+      mockPrisma.campaignCluster.findMany.mockResolvedValue([
+        { id: 'c1', summary: null, publishedAt: null, messageCount: 0 },
+        { id: 'c2', summary: null, publishedAt: null, messageCount: 0 },
+      ]);
+      mockPrisma.smsMessage.groupBy.mockResolvedValueOnce([
+        {
+          clusterId: 'c1',
+          _count: { _all: 16 },
+          _max: { receivedAt: lastSeen },
+        },
+      ]);
+
+      const rows = await service.findAllInactive();
+
+      expect(mockPrisma.smsMessage.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['clusterId'],
+          where: { clusterId: { in: ['c1', 'c2'] } },
+        }),
+      );
+      expect(rows).toEqual([
+        expect.objectContaining({
+          id: 'c1',
+          messageCount: 0,
+          linkedMessageCount: 16,
+          lastSeenAt: lastSeen,
+        }),
+        expect.objectContaining({
+          id: 'c2',
+          linkedMessageCount: 0,
+          lastSeenAt: null,
+        }),
+      ]);
+    });
+
+    it('skips the activity query for an empty list', async () => {
+      mockPrisma.campaignCluster.findMany.mockResolvedValue([]);
+      await service.findArchived();
+      expect(mockPrisma.smsMessage.groupBy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('archiveEmpty', () => {
+    it('archives only retired clusters with no linked messages, and audits once', async () => {
+      mockPrisma.campaignCluster.findMany.mockResolvedValue([
+        { id: 'c1' },
+        { id: 'c2' },
+      ]);
+      mockPrisma.campaignCluster.updateMany.mockResolvedValue({ count: 2 });
+
+      await expect(service.archiveEmpty('admin-1')).resolves.toEqual({
+        archived: 2,
+      });
+
+      expect(mockPrisma.campaignCluster.findMany).toHaveBeenCalledWith({
+        where: {
+          isActive: false,
+          archivedAt: null,
+          messages: { none: {} },
+          shieldMessages: { none: {} },
+        },
+        select: { id: true },
+      });
+      expect(mockPrisma.campaignCluster.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['c1', 'c2'] }, isActive: false, archivedAt: null },
+        data: { archivedAt: expect.any(Date), publishedAt: null },
+      });
+      expect(mockAudit.record).toHaveBeenCalledTimes(1);
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorUserId: 'admin-1',
+          metadata: { action: 'ARCHIVED_EMPTY_BULK', archivedCount: 2 },
+        }),
+        mockPrisma,
+      );
+    });
+
+    it('does nothing when there is nothing to archive', async () => {
+      mockPrisma.campaignCluster.findMany.mockResolvedValue([]);
+      await expect(service.archiveEmpty('admin-1')).resolves.toEqual({
+        archived: 0,
+      });
+      expect(mockPrisma.campaignCluster.updateMany).not.toHaveBeenCalled();
+      expect(mockAudit.record).not.toHaveBeenCalled();
     });
   });
 

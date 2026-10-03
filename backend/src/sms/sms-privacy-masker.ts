@@ -42,8 +42,18 @@ const OTP = new RegExp(
   `\\b(otp|code|pin|mpin|passcode|password|tac|security\\s+(?:code|number)|verification\\s+number)(\\D{0,${OTP_KEYWORD_GAP}})\\d{4,8}\\b`,
   'gi',
 );
+// A transaction reference after its label: "Ref No. 1234 567 890123",
+// "RefNo1234567890123", "Reference: 7B3K9Q2X1M", "Transaction ID 12345". The
+// generic run below misses these when the digits touch the label, mix in
+// letters, or are under six digits. The code must hold a digit and be 4+
+// characters, so "for your reference" or "transfer" are left alone. Masked as
+// [NUMBER], the placeholder the AI service and dashboard already know.
+const REFERENCE =
+  /\b(ref(?:erence)?|txn|trans(?:action)?|trace)(\.?\s*(?:no|num|number|id|code)?\.?\s*[:#]?\s*)(?=[a-z0-9-]*\d)(?=[a-z0-9-]{4})[a-z0-9][a-z0-9-]*(?:\s+\d[a-z0-9-]*)*/gi;
+// Up to two spaces/hyphens between digits, so a double-spaced
+// "1234  567  890123" is one run rather than a tail with its head left behind.
 const GENERIC_DIGIT_RUN = new RegExp(
-  `(?<!\\w)\\d(?:[\\s-]?\\d){${MIN_GENERIC_DIGIT_RUN - 1},}(?!\\w)`,
+  `(?<!\\w)\\d(?:[\\s-]{0,2}\\d){${MIN_GENERIC_DIGIT_RUN - 1},}(?!\\w)`,
   'g',
 );
 
@@ -60,6 +70,7 @@ export function maskSmsBody(body: string): string {
       .replace(MONEY, '[AMOUNT]')
       .replace(PESO_P, '[AMOUNT]')
       .replace(OTP, '$1$2[OTP]')
+      .replace(REFERENCE, '$1$2[NUMBER]')
       .replace(GENERIC_DIGIT_RUN, '[NUMBER]')
       .replace(/\s+/g, ' ')
       .trim()

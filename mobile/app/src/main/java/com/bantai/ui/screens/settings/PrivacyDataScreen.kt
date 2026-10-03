@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.data.DataExport
+import com.bantai.navigation.Screen
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
@@ -50,12 +53,43 @@ import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 @Suppress("LongMethod", "MaxLineLength")
-fun PrivacyDataScreen(navController: NavController) {
+fun PrivacyDataScreen(
+    navController: NavController,
+    settingsViewModel: SettingsViewModel,
+) {
     val context = LocalContext.current
+    var confirmDelete by remember { mutableStateOf(false) }
+    val deleting by settingsViewModel.deletingAccount.collectAsState()
+    if (confirmDelete) {
+        DeleteAccountDialog(
+            deleting = deleting,
+            onConfirm = {
+                settingsViewModel.deleteAccount(
+                    onDeleted = {
+                        confirmDelete = false
+                        Toast.makeText(context, R.string.delete_account_done, Toast.LENGTH_LONG).show()
+                        navController.navigate(Screen.Welcome.route) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                        }
+                    },
+                    onFailed = {
+                        Toast
+                            .makeText(
+                                context,
+                                context.getString(R.string.delete_account_failed, SUPPORT_EMAIL),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                    },
+                )
+            },
+            onDismiss = { if (!deleting) confirmDelete = false },
+        )
+    }
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
     // System "Save as" screen; the user picks where the JSON file goes.
@@ -162,6 +196,12 @@ fun PrivacyDataScreen(navController: NavController) {
                         modifier = Modifier.size(14.dp),
                     )
                 }
+            }
+            // Kept apart from Download, and red, so it's never tapped by
+            // mistake; the dialog asks the user to type DELETE as well.
+            item {
+                Spacer(Modifier.height(16.dp))
+                DeleteAccountRow(onClick = { confirmDelete = true })
             }
         }
     }

@@ -24,6 +24,22 @@ import {
 } from '../../services/tipsService';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
+// The campaign categories the AI and the app use (ai/service/campaign_naming.py,
+// mobile LocalCampaigns.kt). A tip tagged with one shows on every scam wave of
+// that kind in the app.
+const TIP_CAMPAIGN_CATEGORIES = [
+  'Bank phishing',
+  'E-wallet phishing',
+  'Parcel / delivery scam',
+  'Loan / credit offer',
+  'Online gambling / casino',
+  'Rewards / prize claim',
+  'Job / task offer',
+  'OTP / account update',
+  'Government / ID request',
+  'Other scam',
+];
+
 const EMPTY_DRAFT: SafetyTipInput = {
   title: '',
   body: '',
@@ -171,9 +187,11 @@ export function TipsPage() {
     },
     {
       key: 'audience',
-      header: 'Targeting',
+      header: 'Shown to',
       render: (tip) =>
-        [tip.region, tip.campaign].filter(Boolean).join(' · ') || 'All clients',
+        tip.campaign
+          ? `Scam waves: ${tip.campaign}`
+          : 'Everyone (Latest warnings)',
       width: '20%',
       truncate: true,
     },
@@ -226,7 +244,7 @@ export function TipsPage() {
     >
       <PageHeader
         title="Safety tips"
-        description="Publish practical smishing-safety guidance to mobile clients. These records never include message bodies, model details, or training data."
+        description="Published tips appear in the BantAI app under Settings → Scam awareness → Latest warnings. A tip with a campaign also appears on that scam wave in the app. Tips never include message bodies, model details, or training data."
         actions={<Button onClick={openCreate}>Create tip</Button>}
       />
       {error && !loading ? (
@@ -307,6 +325,7 @@ export function TipsPage() {
           </label>
           <Input
             label="Region (optional)"
+            helpText="For your own records. The app does not filter tips by region yet."
             value={draft.region ?? ''}
             onChange={(event) =>
               setDraft((current) => ({
@@ -317,6 +336,8 @@ export function TipsPage() {
           />
           <Input
             label="Campaign (optional)"
+            helpText="Leave empty for a general tip. Otherwise type a campaign category (pick one from the list), the campaign's name, or its ID. The tip then also shows on matching scam waves in the app."
+            list="tip-campaign-categories"
             value={draft.campaign ?? ''}
             onChange={(event) =>
               setDraft((current) => ({
@@ -325,6 +346,11 @@ export function TipsPage() {
               }))
             }
           />
+          <datalist id="tip-campaign-categories">
+            {TIP_CAMPAIGN_CATEGORIES.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
               type="checkbox"
@@ -336,7 +362,7 @@ export function TipsPage() {
                 }))
               }
             />
-            Publish this guidance to mobile clients
+            Publish to the app (shows under Latest warnings)
           </label>
           {actionError && (
             <p

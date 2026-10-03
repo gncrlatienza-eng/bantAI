@@ -1,5 +1,6 @@
 package com.bantai.ui.screens.main
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +25,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -35,13 +35,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,19 +54,21 @@ import com.bantai.R
 import com.bantai.container
 import com.bantai.data.local.AlertState
 import com.bantai.data.model.AlertKind
-import com.bantai.data.model.REPORT_REJECTED
-import com.bantai.data.model.REPORT_VALIDATED
 import com.bantai.data.model.isScamVerdict
 import com.bantai.data.model.kind
 import com.bantai.data.model.withLocalReports
 import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
+import com.bantai.navigation.rememberSafePopBack
 import com.bantai.ui.components.DetailSkeleton
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.components.SecondaryButton
 import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.StateMessage
+import com.bantai.ui.components.UnblockConfirmDialog
+import com.bantai.ui.components.reportReview
+import com.bantai.ui.components.reportedAsRes
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
@@ -100,8 +105,10 @@ fun SmishingAlertScreen(
     val resolvedSender by viewModel.resolvedSender.collectAsState()
     val isTrustedSender by viewModel.isTrustedSender.collectAsState()
     val waveSize by viewModel.waveSize.collectAsState()
+    val unblocking by viewModel.unblocking.collectAsState()
 
     val context = LocalContext.current
+    val popBack = rememberSafePopBack(navController)
     val alertStateStore = remember { context.container.alertStateStore }
     val alertState by alertStateStore.state.collectAsState(initial = AlertState())
     LaunchedEffect(messageId) {
@@ -125,7 +132,7 @@ fun SmishingAlertScreen(
                 Modifier
                     .statusBarsPadding()
                     .padding(top = 6.dp)
-                    .clickable { navController.popBackStack() }
+                    .clickable(onClick = popBack)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -166,6 +173,18 @@ fun SmishingAlertScreen(
                     waveSize = waveSize,
                     indicators = indicators,
                     navController = navController,
+                    unblocking = unblocking,
+                    onUnblock = {
+                        viewModel.unblockSender(resolvedSender) { synced ->
+                            val message =
+                                if (synced) {
+                                    context.getString(R.string.alerts_unblocked, resolvedSender)
+                                } else {
+                                    context.getString(R.string.alerts_unblocked_not_synced)
+                                }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                        }
+                    },
                 )
         }
     }
@@ -196,8 +215,22 @@ private fun SmishingAlertContent(
     waveSize: Int?,
     indicators: List<SmsApi.IndicatorTag>,
     navController: NavController,
+    unblocking: Boolean,
+    onUnblock: () -> Unit,
 ) {
     val isScam = alert.isScamVerdict()
+    var confirmUnblock by remember { mutableStateOf(false) }
+    if (confirmUnblock) {
+        UnblockConfirmDialog(
+            sender = resolvedSender,
+            detail = stringResource(R.string.unblock_confirm_alert_detail),
+            onConfirm = {
+                confirmUnblock = false
+                onUnblock()
+            },
+            onDismiss = { confirmUnblock = false },
+        )
+    }
     // The phone's own row for this alert, so a report can re-file the message
     // under the label the user picked (TakeActionScreen.refileReported).
     val localId = SmsSourceId.localRowId(LocalContext.current, alert.sourceId)
@@ -276,7 +309,15 @@ private fun SmishingAlertContent(
                 }
             }
             alert.kind() == AlertKind.BLOCKED ->
-                item { AutoBlockedNote(onReportMistake = { openTakeAction("report", canBlock = false) }) }
+                item {
+                    AutoBlockedNote(
+                        onReportMistake = { openTakeAction("report", canBlock = false) },
+                        // Without the sender's number (an alert from another
+                        // phone on this account) there's nothing to unblock here.
+                        onUnblock = if (resolvedSender.isNotEmpty()) ({ confirmUnblock = true }) else null,
+                        unblocking = unblocking,
+                    )
+                }
             else -> {
                 item { NotBlockedNote(isScam) }
                 // Report is the review: Ham, Spam or Scam files the text there
@@ -316,7 +357,7 @@ private fun AlertHeader(
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(2.dp))
-        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = TextSize.Footnote)
+        Text(formatAlertTimestamp(alert.receivedAt), color = TextSecondary, fontSize = TextSize.Footnote)
         Spacer(Modifier.height(12.dp))
         // Same rule everywhere: red = likely scam, orange = suspicious.
         val isScam = alert.isScamVerdict()
@@ -344,7 +385,7 @@ private fun AlertHeader(
 }
 
 @Composable
-private fun MessageBubble(alert: SmsApi.AlertSummary) {
+internal fun MessageBubble(alert: SmsApi.AlertSummary) {
     Text(
         alert.body,
         color = White,
@@ -429,7 +470,7 @@ private fun SpoofWarningCard(warning: String) {
 }
 
 @Composable
-private fun InfoCard(
+internal fun DetailCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     iconTint: androidx.compose.ui.graphics.Color,
     title: String,
@@ -446,28 +487,38 @@ private fun InfoCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
-            Text(title, color = White, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
+            Text(
+                title,
+                color = White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = TextSize.Body,
+                modifier = Modifier.weight(1f),
+            )
         }
         content()
     }
 }
 
 @Composable
-private fun CardBody(text: String) {
+internal fun DetailCardBody(text: String) {
     Text(text, color = TextSecondary, fontSize = TextSize.Subhead, lineHeight = 20.sp)
 }
 
 @Composable
 private fun TrustedSenderNote(senderName: String) {
-    InfoCard(Icons.Outlined.VerifiedUser, IosBlue, stringResource(R.string.alert_trusted_title)) {
-        CardBody(stringResource(R.string.alert_trusted_detail, senderName))
+    DetailCard(Icons.Outlined.VerifiedUser, IosBlue, stringResource(R.string.alert_trusted_title)) {
+        DetailCardBody(stringResource(R.string.alert_trusted_detail, senderName))
     }
 }
 
 @Composable
-private fun AutoBlockedNote(onReportMistake: () -> Unit) {
-    InfoCard(Icons.Default.Shield, Safe, stringResource(R.string.alert_blocked_title)) {
-        CardBody(stringResource(R.string.alert_blocked_detail))
+private fun AutoBlockedNote(
+    onReportMistake: () -> Unit,
+    onUnblock: (() -> Unit)?,
+    unblocking: Boolean,
+) {
+    DetailCard(Icons.Default.Shield, Safe, stringResource(R.string.alert_blocked_title)) {
+        DetailCardBody(stringResource(R.string.alert_blocked_detail))
         Text(
             stringResource(R.string.alert_report_mistake),
             color = Indigo,
@@ -475,32 +526,45 @@ private fun AutoBlockedNote(onReportMistake: () -> Unit) {
             fontSize = TextSize.Subhead,
             modifier = Modifier.clickable(onClick = onReportMistake).padding(vertical = 10.dp),
         )
+        // Here, a deliberate step inside the alert, rather than on the Blocked
+        // list where a stray tap could let a scammer back in. Confirmed first.
+        if (onUnblock != null) {
+            HorizontalDivider(color = Hairline)
+            Text(
+                stringResource(if (unblocking) R.string.alert_unblocking else R.string.alert_unblock_sender),
+                color = Danger,
+                fontWeight = FontWeight.Medium,
+                fontSize = TextSize.Subhead,
+                textDecoration = TextDecoration.Underline,
+                modifier =
+                    Modifier
+                        .clickable(enabled = !unblocking, onClick = onUnblock)
+                        .padding(top = 6.dp, bottom = 2.dp),
+            )
+        }
     }
 }
 
 @Composable
 private fun ReportedNote(report: SmsApi.AlertReport) {
-    val (status, detail) =
-        when (report.status) {
-            REPORT_VALIDATED -> R.string.alerts_report_accepted to R.string.alert_reported_accepted_detail
-            REPORT_REJECTED -> R.string.alerts_report_rejected to R.string.alert_reported_rejected_detail
-            else -> R.string.alerts_report_pending to R.string.alert_reported_pending_detail
-        }
-    InfoCard(Icons.Outlined.Flag, Indigo, stringResource(R.string.alert_reported_title)) {
+    // Same card as the report page's review card: the outcome is the title,
+    // with its own glyph and color, so it never shares a line with anything.
+    val review = reportReview(report)
+    DetailCard(review.icon, review.color, stringResource(review.label)) {
         Text(
-            stringResource(reportedAsRes(report.reportedLabel)) + " · " + stringResource(status),
+            stringResource(reportedAsRes(report.reportedLabel)),
             color = White,
             fontSize = TextSize.Subhead,
             fontWeight = FontWeight.Medium,
         )
-        CardBody(stringResource(detail))
+        DetailCardBody(stringResource(review.detail))
     }
 }
 
 @Composable
 private fun NotBlockedNote(isScam: Boolean) {
-    InfoCard(Icons.Outlined.WarningAmber, Suspicious, stringResource(R.string.alert_not_blocked_title)) {
-        CardBody(
+    DetailCard(Icons.Outlined.WarningAmber, Suspicious, stringResource(R.string.alert_not_blocked_title)) {
+        DetailCardBody(
             stringResource(
                 if (isScam) R.string.alert_not_blocked_scam_detail else R.string.alert_not_blocked_suspicious_detail,
             ),
@@ -547,7 +611,7 @@ private fun CampaignRow(
     }
 }
 
-private fun formatFullTimestamp(iso: String): String =
+internal fun formatAlertTimestamp(iso: String): String =
     try {
         Instant
             .parse(iso)

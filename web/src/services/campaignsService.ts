@@ -15,6 +15,12 @@ export interface CampaignCluster {
   isActive: boolean;
   /** Admin only. */
   messageCount?: number;
+  /** Admin only: "EMERGING" when grouped on the server from unmatched scam texts. */
+  origin?: string | null;
+  /** Admin only: every message linked to this cluster, whatever its match source. */
+  linkedMessageCount?: number;
+  /** Admin only: when the newest linked message arrived; null if none ever did. */
+  lastSeenAt?: string | null;
   countVerified?: boolean;
   revision?: number;
   createdAt: string;
@@ -94,6 +100,22 @@ export async function archiveCampaign(id: string): Promise<void> {
   await fetchApi(`/campaigns/${encodeURIComponent(id)}/archive`, {
     method: 'PATCH',
   });
+}
+
+/** Archives retired clusters no message was ever linked to. Never deletes. */
+export async function archiveEmptyCampaigns(): Promise<{ archived: number }> {
+  return fetchApi<{ archived: number }>('/campaigns/admin/archive-empty', {
+    method: 'POST',
+  });
+}
+
+/** Groups recent scam texts no known campaign matched into new campaigns. */
+export async function runEmergingWaves(): Promise<{
+  candidates: number;
+  attached: number;
+  newWaves: number;
+}> {
+  return fetchApi('/campaigns/admin/emerging/run', { method: 'POST' });
 }
 
 export async function reactivateCampaign(id: string): Promise<void> {

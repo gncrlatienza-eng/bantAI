@@ -54,4 +54,15 @@ object AuthApi {
         if (lastName.isNotEmpty()) body.put("lastName", lastName)
         return HttpClient.put("/users/me", body, token = token).map { }
     }
+
+    /**
+     * DELETE /users/me: permanently removes the account and every record the
+     * backend holds for it (UsersService.deleteMe). Only ever called from the
+     * Delete account confirmation, never from Sign out. A 404 means it's
+     * already gone, which is the outcome the user asked for.
+     */
+    suspend fun deleteAccount(token: String): Result<Unit> {
+        val path = "/users/me"
+        return HttpClient.delete(path, token, treat404AsSuccess = true)
+    }
 }

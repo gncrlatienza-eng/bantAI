@@ -81,7 +81,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
+      # A production build must name its backend (vite.config.ts); CI only
+      # checks that it compiles, so any HTTPS placeholder will do.
       - run: npm run build
+        env:
+          VITE_API_URL: https://api.ci.invalid/api
       - run: npm audit --audit-level=high
 
   mobile:

@@ -4,8 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { AuditEventType } from '@prisma/client';
 
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { maskSmsBody } from '../sms/sms-privacy-masker';
 import { fingerprintSender, normalizeSender } from '../auth/phone';
 import { CreateTrustedOrganizationDto } from './dto/create-trusted-organization.dto';
 import { SenderReputationService } from './sender-reputation.service';
@@ -13,12 +16,15 @@ import { SenderReputationService } from './sender-reputation.service';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for unknown
 const FRAUD_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for fraud records
 const MINIMUM_CORROBORATING_REPORTS = 2;
+// Newest texts from a reported number shown to the reviewing Admin.
+const SENDER_DETAIL_MESSAGES = 20;
 
 @Injectable()
 export class VerificationService {
   constructor(
     private prisma: PrismaService,
     private senderReputation: SenderReputationService,
+    private audit: AuditService,
   ) {}
 
   // Familiarity and fraud risk deliberately remain separate. Being in one
@@ -256,6 +262,74 @@ export class VerificationService {
       take: 100,
       select: { id: true, sender: true, createdAt: true, reportWindow: true },
     });
+  }
+
+  /**
+   * What an Admin needs to judge a reported number before confirming it:
+   * who reported it (count only), and what that number has actually sent,
+   * as the masked texts stored for every user it reached. The sender is
+   * still only its HMAC pseudonym; the phone number is never available.
+   */
+  async findSenderReportDetail(reportId: string, actorUserId: string) {
+    const selected = await this.prisma.senderReport.findUnique({
+      where: { id: reportId },
+      select: { sender: true, reportWindow: true },
+    });
+    if (!selected) throw new NotFoundException('Sender report not found.');
+    const { sender, reportWindow } = selected;
+
+    const [reports, messages, messageTotal, recipients, labels] =
+      await Promise.all([
+        this.prisma.senderReport.findMany({
+          where: { sender, reportWindow },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, status: true, createdAt: true },
+        }),
+        this.prisma.smsMessage.findMany({
+          where: { sender },
+          orderBy: { receivedAt: 'desc' },
+          take: SENDER_DETAIL_MESSAGES,
+          select: {
+            id: true,
+            body: true,
+            receivedAt: true,
+            classification: { select: { label: true, score: true } },
+            cluster: { select: { id: true, label: true, category: true } },
+          },
+        }),
+        this.prisma.smsMessage.count({ where: { sender } }),
+        this.prisma.smsMessage.groupBy({ by: ['userId'], where: { sender } }),
+        this.prisma.classification.groupBy({
+          by: ['label'],
+          where: { message: { sender } },
+          _count: { _all: true },
+        }),
+      ]);
+
+    if (messages.length) {
+      await this.audit.record({
+        type: AuditEventType.RESTRICTED_MESSAGE_ACCESSED,
+        actorUserId,
+        metadata: {
+          source: 'admin-sender-report-detail',
+          reportId,
+          count: messages.length,
+        },
+      });
+    }
+
+    return {
+      reportWindow,
+      reporterCount: reports.filter((r) => r.status === 'Pending').length,
+      requiredReports: MINIMUM_CORROBORATING_REPORTS,
+      reports,
+      messageTotal,
+      recipientCount: recipients.length,
+      labelCounts: Object.fromEntries(
+        labels.map((l) => [l.label, l._count._all]),
+      ) as Record<string, number>,
+      messages: messages.map((m) => ({ ...m, body: maskSmsBody(m.body) })),
+    };
   }
 
   async confirmFraud(reportId: string, reviewerId: string, reason: string) {

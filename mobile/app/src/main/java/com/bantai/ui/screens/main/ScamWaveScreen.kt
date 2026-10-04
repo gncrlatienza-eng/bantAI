@@ -28,7 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,11 +46,14 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.data.PublishedTips
 import com.bantai.data.model.LocalCampaign
 import com.bantai.data.model.LocalScamMessage
 import com.bantai.data.model.linkDomains
+import com.bantai.data.remote.TipsApi
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.components.StateMessage
+import com.bantai.ui.screens.settings.PublishedTipCard
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
@@ -74,6 +81,8 @@ import com.bantai.viewmodel.CampaignsViewModel
 fun ScamWaveScreen(
     waveKey: String,
     navController: NavController,
+    /** Team tip to show opened, e.g. from its notification. */
+    openTipId: String? = null,
 ) {
     // The Scam Waves tab's own ViewModel (scoped to "main"), so the wave is
     // already loaded; a fresh one only if "main" is somehow gone.
@@ -97,6 +106,7 @@ fun ScamWaveScreen(
             wave != null ->
                 WaveContent(
                     wave = wave,
+                    openTipId = openTipId,
                     onOpenMessage = { message ->
                         viewModel.resolveOpenTarget(message) { target -> openTarget(target, navController) }
                     },
@@ -137,10 +147,21 @@ private fun BackRow(onBack: () -> Unit) {
 @Composable
 private fun WaveContent(
     wave: LocalCampaign,
+    openTipId: String?,
     onOpenMessage: (LocalScamMessage) -> Unit,
 ) {
     val domains = remember(wave) { wave.messages.flatMap { linkDomains(it.body) }.distinct() }
     val isActive = wave.isActive(System.currentTimeMillis())
+    // Tips the BantAI team published for this kind of scam (Admin -> Tips,
+    // "Campaign" field), matched on any of the wave's names.
+    val teamTips by produceState(initialValue = emptyList<TipsApi.PublishedTip>(), wave.key) {
+        value =
+            PublishedTips.forWave(
+                PublishedTips.load(),
+                waveNames(wave),
+            )
+    }
+    var expandedTip by rememberSaveable { mutableStateOf(openTipId) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
@@ -158,6 +179,11 @@ private fun WaveContent(
                 }
             }
         }
+        if (teamTips.isNotEmpty()) {
+            item {
+                TeamTips(teamTips, expandedTip, onToggle = { id -> expandedTip = if (expandedTip == id) null else id })
+            }
+        }
         item {
             Section(stringResource(R.string.waves_your_texts)) {
                 Column {
@@ -166,6 +192,33 @@ private fun WaveContent(
                         TextRow(message, onClick = { onOpenMessage(message) })
                     }
                 }
+            }
+        }
+    }
+}
+
+// The team's published tips for this wave, each opening in place.
+@Composable
+private fun TeamTips(
+    tips: List<TipsApi.PublishedTip>,
+    expandedTip: String?,
+    onToggle: (String) -> Unit,
+) {
+    Column {
+        Text(
+            stringResource(R.string.wave_team_tips),
+            color = TextSecondary,
+            fontSize = TextSize.Footnote,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tips.forEach { tip ->
+                PublishedTipCard(
+                    title = tip.title,
+                    body = tip.body,
+                    isExpanded = expandedTip == tip.id,
+                    onToggle = { onToggle(tip.id) },
+                )
             }
         }
     }

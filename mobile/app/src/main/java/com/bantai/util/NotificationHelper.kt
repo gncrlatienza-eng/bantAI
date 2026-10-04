@@ -18,6 +18,7 @@ import com.bantai.MainActivity
 import com.bantai.R
 import com.bantai.data.model.isGroupKey
 import com.bantai.data.model.normalizeSenderKey
+import com.bantai.data.remote.TipsApi
 import com.bantai.receiver.NotificationActionReceiver
 
 @Suppress("TooManyFunctions") // one builder per notification kind
@@ -28,6 +29,10 @@ object NotificationHelper {
     const val EXTRA_NAVIGATE_TO = "navigate_to"
     const val TARGET_ALERTS = "alerts"
     const val TARGET_MESSAGES = "messages"
+
+    /** Safety tip to open from its notification, and (for a campaign tip) the wave it belongs to. */
+    const val EXTRA_TIP_ID = "tip_id"
+    const val EXTRA_TIP_WAVE_KEY = "tip_wave_key"
 
     /** Intent extra read by MainActivity/NavGraph to jump straight into one thread. */
     const val EXTRA_CONVERSATION_SENDER = "conversation_sender"
@@ -48,6 +53,8 @@ object NotificationHelper {
     private const val SPAM_CHANNEL_NAME = "Spam Alerts"
     private const val MESSAGE_CHANNEL_NAME = "Messages"
     private const val SEND_STATUS_CHANNEL_NAME = "Send Status"
+    private const val TIPS_CHANNEL_ID = "bantai_tips"
+    private const val TIPS_CHANNEL_NAME = "Safety tips"
 
     /** Derives a stable-ish notification id from a sender, same formula used across the app. */
     fun notifIdFor(sender: String): Int = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
@@ -150,6 +157,50 @@ object NotificationHelper {
         manager.createNotificationChannel(spamChannel)
         manager.createNotificationChannel(messageChannel)
         manager.createNotificationChannel(sendStatusChannel)
+        manager.createNotificationChannel(
+            NotificationChannel(TIPS_CHANNEL_ID, TIPS_CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "New scam warnings and safety tips from the BantAI team"
+            },
+        )
+    }
+
+    /**
+     * A safety tip the BantAI team just published. Tapping it opens the tip:
+     * in its Scam Wave for a campaign tip ([waveKey]), else in Scam Awareness.
+     */
+    fun sendSafetyTip(
+        context: Context,
+        tip: TipsApi.PublishedTip,
+        waveKey: String?,
+    ) {
+        val notifId = ("tip:" + tip.id).hashCode() and Int.MAX_VALUE
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_TIP_ID, tip.id)
+                waveKey?.let { putExtra(EXTRA_TIP_WAVE_KEY, it) }
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                notifId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(context, TIPS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle(tip.title)
+                .setContentText(tip.body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(tip.body))
+                .setSubText(context.getString(R.string.tip_notification_subtext))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+        notifySafely(context, notifId, notification)
     }
 
     /**

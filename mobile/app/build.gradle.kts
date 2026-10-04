@@ -160,6 +160,17 @@ android {
             // check below refuses to package a release APK with it.
             buildConfigField("String", "BACKEND_BASE_URL", "\"$releaseBackendUrl\"")
         }
+        // Release's R8-optimized, non-debuggable code against the dev backend,
+        // signed with the debug key: for judging smoothness on a phone (debug
+        // builds of Compose run several times slower than what testers get)
+        // and for in-person UAT on the dev laptop's backend.
+        //   ./gradlew installUat -PbantaiBackendUrl=http://localhost:3000/api
+        create("uat") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"$debugBackendUrl\"")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {
@@ -178,7 +189,14 @@ android {
 }
 
 androidComponents {
+    // uat talks to the same dev backend over plain http, so it needs the same allowlist.
     onVariants(selector().withBuildType("debug")) { variant ->
+        variant.sources.res?.addGeneratedSourceDirectory(
+            generateDebugNetworkSecurityConfig,
+            GenerateNetworkSecurityConfig::outputDir,
+        )
+    }
+    onVariants(selector().withBuildType("uat")) { variant ->
         variant.sources.res?.addGeneratedSourceDirectory(
             generateDebugNetworkSecurityConfig,
             GenerateNetworkSecurityConfig::outputDir,
@@ -249,13 +267,15 @@ dependencies {
     // settings — see OnnxBenchmark.kt. Not debugImplementation because a release
     // build target doesn't exist yet (WBS 6.3.2); revisit when it does so this
     // doesn't ship in a real release APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
     // Real backdrop blur for the nav bar's selection pill (2026-09-16) -- glass
     // that actually blurs the screen content behind it, not just a translucent
     // tint. dev.chrisbanes.haze, stable since 1.2.0's hazeSource/hazeEffect API.
     implementation("dev.chrisbanes.haze:haze:1.5.3")
     // Local message/classification storage (replaced JSON-file and single-key
     // DataStore blobs that were rewritten whole on every change).
+    // Background check for newly published safety tips (TipCheckWorker).
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

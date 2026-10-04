@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../database/prisma.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { VerificationService } from '../verification/verification.service';
+import { EmergingWavesService } from '../campaigns/emerging-waves.service';
 import { AiService } from '../ai/ai.service';
 import { SmsService } from './sms.service';
 
@@ -46,6 +47,7 @@ describe('SmsService', () => {
     verifySender: jest.fn(),
   };
   const ai = { classifyMasked: jest.fn() };
+  const emergingWaves = { schedule: jest.fn() };
   let service: SmsService;
   const dto = {
     sender: '09171234567',
@@ -81,6 +83,7 @@ describe('SmsService', () => {
         { provide: CampaignsService, useValue: campaigns },
         { provide: VerificationService, useValue: verification },
         { provide: AiService, useValue: ai },
+        { provide: EmergingWavesService, useValue: emergingWaves },
       ],
     }).compile();
     service = module.get(SmsService);
@@ -292,6 +295,29 @@ describe('SmsService', () => {
     await expect(service.ingest('u1', dto)).resolves.toMatchObject({
       campaign: null,
     });
+  });
+
+  it('schedules emerging-wave grouping for a scam no campaign matched', async () => {
+    await service.ingest('u1', dto);
+    expect(emergingWaves.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not schedule grouping for a matched scam or a non-scam', async () => {
+    ai.classifyMasked.mockResolvedValue({
+      label: 'Scam',
+      score: 0.97,
+      bucket: 'blocked',
+      indicators: [],
+      campaign: aiMatch('k1'),
+    });
+    campaigns.findActiveById.mockResolvedValue({ id: 'k1' });
+    prisma.$queryRaw.mockResolvedValue([{ id: 'k1' }]);
+    await service.ingest('u1', dto);
+
+    ai.classifyMasked.mockResolvedValue(null);
+    await service.ingest('u1', { ...dto, sourceId: 'device:2', label: 'Ham' });
+
+    expect(emergingWaves.schedule).not.toHaveBeenCalled();
   });
 
   it('upgrades a historical device fallback when the model becomes available', async () => {
@@ -629,7 +655,14 @@ describe('SmsService', () => {
     const args = prisma.alert.findMany.mock.calls[0][0];
     expect(args.select.message.select.reports).toEqual({
       where: { userId: 'u1' },
-      select: { reportedLabel: true, status: true, createdAt: true },
+      select: {
+        reportedLabel: true,
+        status: true,
+        createdAt: true,
+        note: true,
+        adminNote: true,
+        updatedAt: true,
+      },
       take: 1,
     });
   });

@@ -293,23 +293,53 @@ class SettingsViewModel(
     // one.
     fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
-            userPreferences.clearAll()
-            // Per-message local stores are keyed by device SMS provider row id,
-            // not by account -- without this, whatever the previous account had
-            // classified/soft-deleted/drafted stays attached to the same local
-            // ids and silently reappears (wrong classifications, "deleted"
-            // messages back in the inbox, stale reply drafts) for the next
-            // account that signs in on this device.
-            getApplication<Application>().container.classificationStore.clear()
-            getApplication<Application>().container.deletedMessagesStore.clearAll()
-            getApplication<Application>().container.draftsStore.clearAll()
-            getApplication<Application>().container.backendMessageIdStore.clear()
-            getApplication<Application>().container.campaignMatchStore.clear()
-            getApplication<Application>().container.alertStateStore.clearAll()
-            OutgoingSms.clearAll(getApplication())
-            getApplication<Application>().container.blockedSendersStore.clearBlocked()
+            clearLocalSession()
             onComplete()
         }
+    }
+
+    private val _deletingAccount = MutableStateFlow(false)
+    val deletingAccount: StateFlow<Boolean> = _deletingAccount.asStateFlow()
+
+    /**
+     * Privacy & data -> Delete account, after its typed confirmation: deletes
+     * the account on the backend first, and only then clears this phone, so a
+     * failed request (offline, server down) leaves the user signed in and able
+     * to retry rather than signed out with their data still on the server.
+     */
+    fun deleteAccount(
+        onDeleted: () -> Unit,
+        onFailed: () -> Unit,
+    ) {
+        if (_deletingAccount.value) return
+        _deletingAccount.value = true
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val deleted = token.isNotEmpty() && AuthApi.deleteAccount(token).isSuccess
+            if (deleted) clearLocalSession()
+            _deletingAccount.value = false
+            if (deleted) onDeleted() else onFailed()
+        }
+    }
+
+    // Everything this phone keeps for the signed-in account. Shared by Sign out
+    // and Delete account so the two can't drift apart.
+    private suspend fun clearLocalSession() {
+        userPreferences.clearAll()
+        // Per-message local stores are keyed by device SMS provider row id,
+        // not by account -- without this, whatever the previous account had
+        // classified/soft-deleted/drafted stays attached to the same local
+        // ids and silently reappears (wrong classifications, "deleted"
+        // messages back in the inbox, stale reply drafts) for the next
+        // account that signs in on this device.
+        getApplication<Application>().container.classificationStore.clear()
+        getApplication<Application>().container.deletedMessagesStore.clearAll()
+        getApplication<Application>().container.draftsStore.clearAll()
+        getApplication<Application>().container.backendMessageIdStore.clear()
+        getApplication<Application>().container.campaignMatchStore.clear()
+        getApplication<Application>().container.alertStateStore.clearAll()
+        OutgoingSms.clearAll(getApplication())
+        getApplication<Application>().container.blockedSendersStore.clearBlocked()
     }
 
     // Feeds a synthetic message through the same pipeline SmsReceiver uses for a
@@ -395,4 +425,26 @@ class SettingsViewModel(
     fun clearBackendCheckStatus() {
         _backendCheckStatus.value = null
     }
+
+    private val _serverStatus = MutableStateFlow(ServerStatus.CHECKING)
+    val serverStatus: StateFlow<ServerStatus> = _serverStatus.asStateFlow()
+
+    /**
+     * Settings' Server connection row, in every build (the detailed check above
+     * is debug-only): lets a tester see at a glance whether the app reaches
+     * BantAI's server, e.g. with Tailscale off or the laptop asleep.
+     */
+    fun checkServer() {
+        if (_serverStatus.value == ServerStatus.CHECKING && serverCheckRunning) return
+        serverCheckRunning = true
+        _serverStatus.value = ServerStatus.CHECKING
+        viewModelScope.launch {
+            _serverStatus.value = if (HealthApi.check().isSuccess) ServerStatus.CONNECTED else ServerStatus.OFFLINE
+            serverCheckRunning = false
+        }
+    }
+
+    private var serverCheckRunning = false
 }
+
+enum class ServerStatus { CHECKING, CONNECTED, OFFLINE }

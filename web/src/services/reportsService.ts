@@ -10,6 +10,11 @@ export interface UserReportItem {
   adminNote?: string | null;
   /** Reporter's own note from the mobile Take Action sheet, masked server-side. */
   note?: string | null;
+  /**
+   * Shared by messages the user selected and reported together on the phone;
+   * null for a single-message report. Each message is still reviewed alone.
+   */
+  groupId?: string | null;
   validatedAt?: string | null;
   createdAt: string;
   updatedAt?: string;

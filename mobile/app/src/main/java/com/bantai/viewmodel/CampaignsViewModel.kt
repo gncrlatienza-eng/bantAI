@@ -1,6 +1,10 @@
 package com.bantai.viewmodel
 
 import android.app.Application
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Telephony
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.AndroidViewModel
@@ -17,6 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,7 +81,36 @@ class CampaignsViewModel(
      */
     val expanded = mutableStateMapOf<String, Boolean>()
 
+    // Whether the inbox or a verdict changed since the last load. Building the
+    // tab reads every SMS and re-runs the classifier rules on each, which used
+    // to happen on every visit and made switching to Scam Waves stutter; now
+    // a visit reuses the last result unless something actually changed.
+    @Volatile private var stale = true
+
+    private val smsObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                stale = true
+            }
+        }
+
     init {
+        application.contentResolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, smsObserver)
+        viewModelScope.launch {
+            // drop(1): the first emission is the current state, not a change.
+            classificationStore.classifications.drop(1).collect { stale = true }
+        }
+        refreshIfStale()
+    }
+
+    override fun onCleared() {
+        getApplication<Application>().contentResolver.unregisterContentObserver(smsObserver)
+    }
+
+    /** For each visit to the tab: reload only when the inbox or a verdict changed since the last load. */
+    fun refreshIfStale() {
+        if (!stale && _state.value.overview != null) return
+        stale = false
         loadCampaigns()
     }
 

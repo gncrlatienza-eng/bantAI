@@ -33,6 +33,7 @@ import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.ListSkeleton
 import com.bantai.ui.components.LocalBottomBarClearance
+import com.bantai.ui.components.UnblockConfirmDialog
 import com.bantai.ui.theme.*
 import com.bantai.util.BlockHelper
 import com.bantai.viewmodel.BlockedNumbersViewModel
@@ -64,38 +65,15 @@ fun BlockedNumbersScreen(
         }
     }
 
-    // Unblock confirmation dialog
     numberToUnblock?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { numberToUnblock = null },
-            containerColor = Surface,
-            title = {
-                Text(
-                    stringResource(R.string.blocked_numbers_unblock_number),
-                    color = White,
-                    fontWeight = FontWeight.Bold,
-                )
+        UnblockConfirmDialog(
+            sender = entry.number,
+            detail = stringResource(R.string.blocked_numbers_unblock_detail, entry.number),
+            onConfirm = {
+                viewModel.unblockNumber(entry)
+                numberToUnblock = null
             },
-            text = {
-                Text(
-                    stringResource(R.string.blocked_numbers_unblock_detail, entry.number),
-                    color = TextSecondary,
-                    fontSize = TextSize.Footnote,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.unblockNumber(entry)
-                    numberToUnblock = null
-                }) {
-                    Text(stringResource(R.string.blocked_numbers_unblock), color = Indigo, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { numberToUnblock = null }) {
-                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
-                }
-            },
+            onDismiss = { numberToUnblock = null },
         )
     }
 

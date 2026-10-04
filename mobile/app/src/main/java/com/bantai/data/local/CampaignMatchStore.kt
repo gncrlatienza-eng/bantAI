@@ -6,9 +6,11 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.bantai.data.remote.SmsApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import org.json.JSONObject
 import java.io.IOException
@@ -34,6 +36,9 @@ class CampaignMatchStore(
             .catch { exception ->
                 if (exception is IOException) emit(emptyPreferences()) else throw exception
             }.map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "{}") }
+            // Parsing every stored match is JSON work proportional to the inbox;
+            // it ran on the caller's (main) thread each time Scam Waves opened.
+            .flowOn(Dispatchers.Default)
 
     suspend fun set(
         localMessageId: Long,

@@ -105,9 +105,12 @@ fun CampaignsScreen(
     val state by viewModel.state.collectAsState()
     var showEnded by rememberSaveable { mutableStateOf(false) }
 
-    // The ViewModel outlives this tab; re-reading on each visit picks up new
-    // messages. It refreshes in place -- the skeleton only shows before the first load.
-    LaunchedEffect(Unit) { viewModel.loadCampaigns() }
+    // The ViewModel outlives this tab. Each time the tab comes on screen it
+    // refreshes only if a text arrived or a verdict changed since the last
+    // load (the tab itself stays composed in the background, see MainScreen).
+    // It refreshes in place -- the skeleton only shows before the first load.
+    val tabActive = LocalTabActive.current
+    LaunchedEffect(tabActive) { if (tabActive) viewModel.refreshIfStale() }
 
     val now = System.currentTimeMillis()
     val waves =
@@ -144,13 +147,17 @@ fun CampaignsScreen(
         }
         Spacer(Modifier.height(12.dp))
         WaveChips(showEnded = showEnded, onSelect = { showEnded = it })
+        // A fixed gap outside the scrolling list: contentPadding's top only
+        // applies at rest, so scrolled cards used to run right up against the
+        // bottom edge of the Active / Inactive chips.
+        Spacer(Modifier.height(10.dp))
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding =
                 PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
-                    top = 12.dp,
+                    top = 4.dp,
                     bottom = innerPadding.calculateBottomPadding() + 24.dp,
                 ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -344,6 +351,15 @@ internal fun countAndAge(wave: LocalCampaign): String =
     pluralStringResource(R.plurals.campaigns_messages, wave.messages.size, wave.messages.size) +
         " · " +
         stringResource(R.string.waves_last_seen, MessageTime.listLabel(LocalContext.current, wave.latestTimestamp))
+
+/**
+ * Every name a published safety tip may use for this wave in its Campaign
+ * field: the backend cluster id, the raw and friendly category, and the title.
+ */
+internal fun waveNames(wave: LocalCampaign): List<String> {
+    val friendly = friendlyCategory(wave.category).label
+    return listOfNotNull(wave.clusterId, wave.category, friendly, waveTitle(wave))
+}
 
 /** Still arriving: the newest text is under [ACTIVE_WINDOW_MS] old. */
 internal fun LocalCampaign.isActive(now: Long): Boolean = now - latestTimestamp < ACTIVE_WINDOW_MS

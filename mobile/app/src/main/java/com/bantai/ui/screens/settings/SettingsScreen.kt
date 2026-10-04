@@ -43,6 +43,9 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Layers
@@ -82,8 +85,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.BuildConfig
 import com.bantai.R
+import com.bantai.data.model.SCAN_PERIODS
+import com.bantai.data.model.SCAN_PERIOD_DAILY
+import com.bantai.data.model.SCAN_PERIOD_MONTHLY
+import com.bantai.data.model.SCAN_PERIOD_WEEKLY
 import com.bantai.data.remote.ApiConfig
 import com.bantai.navigation.Screen
+import com.bantai.ui.screens.main.LocalTabActive
 import com.bantai.ui.theme.AvatarTeal
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
@@ -92,6 +100,7 @@ import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.OnIndigo
+import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TabTitleTopSpacing
 import com.bantai.ui.theme.TextScale
@@ -100,7 +109,11 @@ import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.ThemeMode
 import com.bantai.ui.theme.White
+import com.bantai.viewmodel.ServerStatus
 import com.bantai.viewmodel.SettingsViewModel
+
+/** Where Contact support (and the Delete account fallback) send people. */
+const val SUPPORT_EMAIL = "bantAI.ph@gmail.com"
 
 @Composable
 fun SettingsScreen(
@@ -137,6 +150,9 @@ fun SettingsScreen(
     var showSimulateSmsDialog by remember { mutableStateOf(false) }
     var showOnnxBenchmarkDialog by remember { mutableStateOf(false) }
     var showBackendCheckDialog by remember { mutableStateOf(false) }
+    val serverStatus by viewModel.serverStatus.collectAsState()
+    val tabActive = LocalTabActive.current
+    LaunchedEffect(tabActive) { if (tabActive) viewModel.checkServer() }
     var developerOptionsExpanded by rememberSaveable { mutableStateOf(false) }
     // Theme, accent and text size took most of the screen as three always-open
     // segmented controls; one row with the current choices opens them.
@@ -197,7 +213,7 @@ fun SettingsScreen(
                         fontSize = TextSize.Footnote,
                     )
                     Spacer(Modifier.height(8.dp))
-                    listOf("daily", "weekly", "monthly").forEach { value ->
+                    SCAN_PERIODS.forEach { value ->
                         val label = stringResource(scanPeriodLabel(value))
                         Row(
                             modifier =
@@ -220,7 +236,7 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        if (value != "monthly") {
+                        if (value != SCAN_PERIODS.last()) {
                             HorizontalDivider(color = Hairline)
                         }
                     }
@@ -541,7 +557,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = Icons.AutoMirrored.Filled.Article,
                         title = stringResource(R.string.settings_scam_awareness_tips),
-                        onClick = { navController.navigate(Screen.SettingsScamAwareness.route) },
+                        onClick = { navController.navigate(Screen.SettingsScamAwareness.createRoute()) },
                     )
                     RowDivider()
                     SettingsRow(
@@ -554,6 +570,8 @@ fun SettingsScreen(
 
             item {
                 SettingsGroup("Privacy & Support") {
+                    ServerConnectionRow(status = serverStatus, onCheck = viewModel::checkServer)
+                    RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Lock,
                         title = stringResource(R.string.privacy_data_privacy_data),
@@ -565,7 +583,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_contact_support),
                         onClick = {
                             val intent =
-                                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bantai.ph")).apply {
+                                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$SUPPORT_EMAIL")).apply {
                                     putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_support_subject))
                                 }
                             runCatching { context.startActivity(intent) }
@@ -664,6 +682,7 @@ private fun SettingsRow(
     value: String? = null,
     trailingIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
     indented: Boolean = false,
+    valueColor: Color = TextSecondary,
 ) {
     Row(
         modifier =
@@ -687,7 +706,7 @@ private fun SettingsRow(
             // Default") used to squeeze the title into a one-word-per-line column.
             Text(
                 value,
-                color = TextSecondary,
+                color = valueColor,
                 fontSize = TextSize.Footnote,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -878,7 +897,29 @@ private fun themeLabel(mode: ThemeMode): Int =
 
 private fun scanPeriodLabel(period: String): Int =
     when (period) {
-        "weekly" -> R.string.settings_scan_week
-        "monthly" -> R.string.settings_scan_month
-        else -> R.string.settings_scan_today
+        SCAN_PERIOD_DAILY -> R.string.settings_scan_today
+        SCAN_PERIOD_WEEKLY -> R.string.settings_scan_week
+        SCAN_PERIOD_MONTHLY -> R.string.settings_scan_month
+        else -> R.string.settings_scan_all
     }
+
+// Whether the app reaches BantAI's server right now. Tap to check again.
+@Composable
+private fun ServerConnectionRow(
+    status: ServerStatus,
+    onCheck: () -> Unit,
+) {
+    val (label, color, icon) =
+        when (status) {
+            ServerStatus.CHECKING -> Triple(R.string.settings_server_checking, TextSecondary, Icons.Outlined.Cloud)
+            ServerStatus.CONNECTED -> Triple(R.string.settings_server_connected, Safe, Icons.Outlined.CloudDone)
+            ServerStatus.OFFLINE -> Triple(R.string.settings_server_offline, Danger, Icons.Outlined.CloudOff)
+        }
+    SettingsRow(
+        icon = icon,
+        title = stringResource(R.string.settings_server_connection),
+        value = stringResource(label),
+        valueColor = color,
+        onClick = onCheck,
+    )
+}

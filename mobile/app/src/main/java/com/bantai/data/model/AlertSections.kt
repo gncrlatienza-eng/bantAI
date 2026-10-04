@@ -72,6 +72,31 @@ fun withLocalReports(
         }
     }
 
+/**
+ * [alerts] plus the user's own reports from GET /reports/mine ([reports]).
+ * An alert that was reported takes the report's groupId; a report with no
+ * alert (the model called the text safe, so none was made) is added as its
+ * own entry, which [tab] files under Reported. One entry per text on the
+ * phone, even when the backend holds two copies of the same SMS.
+ */
+fun withReportList(
+    alerts: List<SmsApi.AlertSummary>,
+    reports: List<SmsApi.AlertSummary>,
+): List<SmsApi.AlertSummary> {
+    val reportByMessage = reports.associateBy { it.messageId }
+    val reportByLocal = reports.filter { it.localId != null }.associateBy { it.localId }
+    val merged =
+        alerts.map { alert ->
+            val report = reportByMessage[alert.messageId] ?: alert.localId?.let(reportByLocal::get)
+            if (report == null) alert else alert.copy(report = alert.report ?: report.report, groupId = report.groupId)
+        }
+    val shownMessages = alerts.mapTo(HashSet()) { it.messageId }
+    val shownLocal = alerts.mapNotNullTo(HashSet()) { it.localId }
+    val reportOnly =
+        reports.filter { it.messageId !in shownMessages && (it.localId == null || it.localId !in shownLocal) }
+    return merged + reportOnly
+}
+
 const val REPORT_PENDING = "Pending"
 const val REPORT_VALIDATED = "Validated"
 const val REPORT_REJECTED = "Rejected"
@@ -110,20 +135,20 @@ fun sectionAlerts(
     return AGE_BUCKETS.mapNotNull { bucket -> byAge[bucket]?.let { AlertSection(bucket, it) } }
 }
 
-private const val TODAY = "Today"
-private const val THIS_WEEK = "This Week"
-private const val EARLIER = "Earlier"
-private val AGE_BUCKETS = listOf(TODAY, THIS_WEEK, EARLIER)
+internal const val TODAY = "Today"
+internal const val THIS_WEEK = "This Week"
+internal const val EARLIER = "Earlier"
+internal val AGE_BUCKETS = listOf(TODAY, THIS_WEEK, EARLIER)
 private const val WEEK_DAYS = 7L
 
-private fun receivedMillis(iso: String): Long =
+internal fun receivedMillis(iso: String): Long =
     try {
         Instant.parse(iso).toEpochMilli()
     } catch (_: Exception) {
         0L
     }
 
-private fun ageBucket(
+internal fun ageBucket(
     iso: String,
     today: LocalDate,
     zone: ZoneId,

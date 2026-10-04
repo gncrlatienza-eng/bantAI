@@ -12,7 +12,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import com.bantai.data.TipCheckWorker
 import com.bantai.navigation.NavGraph
+import com.bantai.navigation.RequestedTip
 import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.theme.BantAITheme
 import com.bantai.ui.theme.TextScale
@@ -46,6 +48,10 @@ class MainActivity : ComponentActivity() {
     // intent shape; without it, tapping "Message" for a contact just opened
     // BantAI's Inbox with no indication of who to message.
     private val requestedComposeRecipient = mutableStateOf<String?>(null)
+
+    // Set when a safety-tip notification is tapped: the tip, and the Scam Wave
+    // it belongs to when it's a campaign tip.
+    private val requestedTip = mutableStateOf<RequestedTip?>(null)
     private val requestedComposeBody = mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +66,7 @@ class MainActivity : ComponentActivity() {
         window.decorView.filterTouchesWhenObscured = true
         enableEdgeToEdge()
         NotificationHelper.createNotificationChannels(this)
+        TipCheckWorker.schedule(this)
         applyIntent(intent)
         val themeModeFlow = this.container.userPreferences.themeMode
         val textScaleFlow = this.container.userPreferences.textScale
@@ -89,6 +96,7 @@ class MainActivity : ComponentActivity() {
                 NavGraph(
                     requestedTab = requestedTab.value,
                     requestedConversationSender = requestedConversationSender.value,
+                    requestedTip = requestedTip.value,
                     requestedComposeRecipient = requestedComposeRecipient.value,
                     requestedComposeBody = requestedComposeBody.value,
                 )
@@ -111,6 +119,11 @@ class MainActivity : ComponentActivity() {
         requestedTab.value = if (trusted) resolveTabIndex(intent) else null
         requestedConversationSender.value =
             if (trusted) intent.getStringExtra(NotificationHelper.EXTRA_CONVERSATION_SENDER) else null
+        requestedTip.value =
+            intent
+                .getStringExtra(NotificationHelper.EXTRA_TIP_ID)
+                ?.takeIf { trusted }
+                ?.let { RequestedTip(it, intent.getStringExtra(NotificationHelper.EXTRA_TIP_WAVE_KEY)) }
         val compose = resolveComposeRequest(intent)
         requestedComposeRecipient.value = compose?.first
         requestedComposeBody.value = compose?.second.orEmpty()

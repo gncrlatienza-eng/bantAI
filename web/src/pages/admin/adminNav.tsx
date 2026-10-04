@@ -9,12 +9,19 @@ import type { NavGroupDef } from '../../components/appshell/AppShell';
 import {
   NavOverviewIcon,
   NavCampaignsIcon,
-  NavReportsIcon,
   NavUsersIcon,
   NavModelIcon,
   NavMessagesIcon,
   NavSystemIcon,
   NotificationsIcon,
+  NavFlaggedMessagesIcon,
+  NavReportedNumbersIcon,
+  NavAccessRequestsIcon,
+  NavApiKeysIcon,
+  NavAuditIcon,
+  NavTipsIcon,
+  NavExportIcon,
+  NavInfrastructureIcon,
 } from '../../components/primitives';
 
 export const ADMIN_SIDEBAR_GROUPS: NavGroupDef[] = [
@@ -38,11 +45,15 @@ export const ADMIN_SIDEBAR_GROUPS: NavGroupDef[] = [
         icon: <NavCampaignsIcon />,
       },
       { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
-      { label: 'Reports', path: '/admin/reports', icon: <NavReportsIcon /> },
+      {
+        label: 'Reports',
+        path: '/admin/reports',
+        icon: <NavFlaggedMessagesIcon />,
+      },
       {
         label: 'Sender reports',
         path: '/admin/sender-reports',
-        icon: <NavReportsIcon />,
+        icon: <NavReportedNumbersIcon />,
       },
     ],
   },
@@ -52,18 +63,22 @@ export const ADMIN_SIDEBAR_GROUPS: NavGroupDef[] = [
       {
         label: 'Access requests',
         path: '/admin/access-requests',
-        icon: <NavUsersIcon />,
+        icon: <NavAccessRequestsIcon />,
       },
       { label: 'Users', path: '/admin/users', icon: <NavUsersIcon /> },
       {
         label: 'Shield API',
         path: '/admin/shield-api',
-        icon: <NavSystemIcon />,
+        icon: <NavApiKeysIcon />,
       },
-      { label: 'Audit events', path: '/admin/audit', icon: <NavSystemIcon /> },
-      { label: 'Tips', path: '/admin/tips', icon: <NavReportsIcon /> },
-      { label: 'Export', path: '/admin/export', icon: <NavReportsIcon /> },
-      { label: 'System', path: '/admin/system', icon: <NavSystemIcon /> },
+      { label: 'Audit events', path: '/admin/audit', icon: <NavAuditIcon /> },
+      { label: 'Tips', path: '/admin/tips', icon: <NavTipsIcon /> },
+      { label: 'Export', path: '/admin/export', icon: <NavExportIcon /> },
+      {
+        label: 'System',
+        path: '/admin/system',
+        icon: <NavInfrastructureIcon />,
+      },
       {
         label: 'Notifications',
         path: '/admin/notifications',

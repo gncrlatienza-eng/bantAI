@@ -473,17 +473,67 @@ export class SmsService {
             result.cloudJob.id,
           )) ?? result.cloudJob);
 
+    // A repeat sync must return the durable model verdict once its pinned job
+    // completes, even when production deliberately skips request-time AI.
+    const storedClassification =
+      publishedJob.status === 'verified'
+        ? await this.prisma.classification.findFirst({
+            where: {
+              messageId: result.id,
+              message: { userId, trusted: true },
+            },
+            select: { label: true, score: true, bucket: true },
+          })
+        : null;
+    const verifiedClassification =
+      storedClassification &&
+      ['Ham', 'Spam', 'Scam'].includes(storedClassification.label) &&
+      Number.isFinite(storedClassification.score) &&
+      storedClassification.score >= 0 &&
+      storedClassification.score <= 1
+        ? {
+            label: storedClassification.label as 'Ham' | 'Spam' | 'Scam',
+            score: storedClassification.score,
+            bucket:
+              storedClassification.bucket &&
+              ['safe', 'unknown', 'spam', 'blocked'].includes(
+                storedClassification.bucket,
+              )
+                ? (storedClassification.bucket as
+                    'safe' | 'unknown' | 'spam' | 'blocked')
+                : undefined,
+          }
+        : null;
+    const responseClassification = verifiedClassification ?? {
+      label,
+      score,
+      bucket,
+    };
+    const verifiedAction = verifiedClassification
+      ? verifiedClassification.bucket
+        ? this.routeFromBucket(verifiedClassification.bucket)
+        : this.routeFromLabel(
+            verifiedClassification.label,
+            verifiedClassification.score,
+          )
+      : effectiveAction;
+    const responseAction =
+      confirmedFraud || verifiedAction === 'blocked' ? 'alert' : verifiedAction;
+
     // A scam no known campaign matched may be part of a new blast; group it
     // with similar unmatched texts shortly, off the request path.
-    if (label === 'Scam' && !result.campaignId) this.emergingWaves.schedule();
+    if (responseClassification.label === 'Scam' && !result.campaignId)
+      this.emergingWaves.schedule();
 
     return {
       suppressed: Boolean(blocked),
       ...(blocked ? { reason: 'blocked_sender' } : {}),
       messageId: result.id,
-      classification: { label, score, bucket },
-      classificationSource,
-      action: effectiveAction,
+      classification: responseClassification,
+      classificationSource: verifiedClassification
+        ? 'model'
+        : classificationSource,
+      action: responseAction,
       senderStatus: senderVerification.familiarity,
       senderVerification,
       suppressedLinks,

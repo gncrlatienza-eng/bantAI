@@ -221,6 +221,67 @@ describe('SmsService', () => {
     expect(prisma.smsMessage.create).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { label: 'Ham', score: 0.99, bucket: 'safe', action: 'inbox' },
+    { label: 'Scam', score: 0.98, bucket: 'blocked', action: 'alert' },
+  ])(
+    'returns the stored verified $label verdict on an asynchronous resync',
+    async (saved) => {
+      const previous = process.env.CLOUD_VERIFY_ASYNC_ONLY;
+      process.env.CLOUD_VERIFY_ASYNC_ONLY = 'true';
+      try {
+        prisma.smsMessage.findUnique.mockResolvedValue({
+          id: 'existing',
+          trusted: true,
+          clusterId: null,
+          campaignMatchSource: null,
+          classification: { id: 'c1' },
+          alerts: [],
+        });
+        cloudVerification.createJobInTransaction.mockResolvedValueOnce({
+          ...cloudVerificationJob,
+          status: 'verified',
+        });
+        prisma.classification.findFirst.mockResolvedValueOnce(saved);
+
+        await expect(
+          service.ingest('u1', { ...dto, label: 'Spam', score: 0.6 }),
+        ).resolves.toMatchObject({
+          duplicate: true,
+          classificationSource: 'model',
+          classification: {
+            label: saved.label,
+            score: saved.score,
+            bucket: saved.bucket,
+          },
+          action: saved.action,
+          cloudVerification: { status: 'verified' },
+        });
+        expect(prisma.classification.findFirst).toHaveBeenCalledWith({
+          where: {
+            messageId: 'existing',
+            message: { userId: 'u1', trusted: true },
+          },
+          select: { label: true, score: true, bucket: true },
+        });
+        expect(ai.classifyMasked).not.toHaveBeenCalled();
+        expect(prisma.classification.update).not.toHaveBeenCalled();
+        expect(prisma.smsMessage.create).not.toHaveBeenCalled();
+      } finally {
+        if (previous === undefined) delete process.env.CLOUD_VERIFY_ASYNC_ONLY;
+        else process.env.CLOUD_VERIFY_ASYNC_ONLY = previous;
+      }
+    },
+  );
+
+  it('keeps a pending verification response as device fallback', async () => {
+    await expect(service.ingest('u1', dto)).resolves.toMatchObject({
+      classificationSource: 'device_fallback',
+      cloudVerification: { status: 'pending' },
+    });
+    expect(prisma.classification.findFirst).not.toHaveBeenCalled();
+  });
+
   const aiMatch = (clusterId: string, matchReason = 'embedding') => ({
     clusterId,
     similarity: 0.999,

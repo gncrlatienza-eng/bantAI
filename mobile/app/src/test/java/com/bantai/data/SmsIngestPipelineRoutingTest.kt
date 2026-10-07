@@ -101,4 +101,17 @@ class SmsIngestPipelineRoutingTest {
         assertEquals(ClassificationRoute(Classification.UNKNOWN, AlertKind.SUSPICIOUS), flagged)
         assertEquals(ClassificationRoute(Classification.UNVERIFIED, AlertKind.MESSAGE), clean)
     }
+
+    @Test
+    fun `only a real cloud model result blocks local Model C follow-up`() {
+        val model = ingestResult(SmsApi.Action.INBOX, "Ham", 0.99, source = "model")
+        val fallback = ingestResult(SmsApi.Action.INBOX, "Ham", 0.0, source = "device_fallback")
+        val pending = ingestResult(SmsApi.Action.INBOX, "Ham", 0.0, source = "pending_cloud_verification")
+        val blocked = ingestResult(SmsApi.Action.BLOCKED, "Blocked", 1.0, source = null)
+
+        assertEquals(ServerClassificationEvidence("cloud_model", false), serverClassificationEvidence(model))
+        assertEquals(ServerClassificationEvidence("heuristic", true), serverClassificationEvidence(fallback))
+        assertEquals(ServerClassificationEvidence("heuristic", true), serverClassificationEvidence(pending))
+        assertEquals(ServerClassificationEvidence("server_blocklist", false), serverClassificationEvidence(blocked))
+    }
 }

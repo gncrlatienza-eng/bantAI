@@ -178,6 +178,9 @@ fun MessageDetailScreen(
     val replyQuotes by viewModel.replyQuotes.collectAsState()
     val clipboard = LocalClipboardManager.current
     val senderVerification by viewModel.senderVerification.collectAsState()
+    val cloudVerification by viewModel.cloudVerification.collectAsState()
+    val cloudVerificationNote by viewModel.cloudVerificationNote.collectAsState()
+    val cloudVerificationBusy by viewModel.cloudVerificationBusy.collectAsState()
     val flaggedMessageId by viewModel.flaggedMessageId.collectAsState()
     val contactName by viewModel.contactName.collectAsState()
     val memberNames by viewModel.memberNames.collectAsState()
@@ -809,6 +812,33 @@ fun MessageDetailScreen(
             }
 
             // Conversation thread
+            if (!deletedView && (cloudVerification != null || cloudVerificationNote != null)) {
+                ThreadVerdictCard(
+                    headline = cloudVerification?.title ?: "Cloud status unavailable",
+                    detail =
+                        "Latest synced message: " +
+                            (cloudVerificationNote ?: cloudVerification?.description.orEmpty()),
+                    tint = IosBlue,
+                    busy = cloudVerificationBusy,
+                    actions =
+                        if (cloudVerificationBusy || cloudVerification?.state == "verified") {
+                            emptyList()
+                        } else {
+                            listOf(
+                                VerdictAction(
+                                    if (cloudVerification?.retryable == true) {
+                                        "Retry cloud check"
+                                    } else {
+                                        "Check cloud status"
+                                    },
+                                    IosBlue,
+                                ) {
+                                    viewModel.refreshCloudVerification()
+                                },
+                            )
+                        },
+                )
+            }
             if (isLoading) {
                 ChatThreadSkeleton(modifier = Modifier.weight(1f).fillMaxWidth())
             } else if (errorMessage != null) {

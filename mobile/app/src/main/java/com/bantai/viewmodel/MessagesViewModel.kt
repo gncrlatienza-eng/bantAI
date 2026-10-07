@@ -361,10 +361,9 @@ class MessagesViewModel(
         scanJob =
             viewModelScope.launch(Dispatchers.IO) {
                 val token = runCatching { userPreferences.userData.first().authToken }.getOrDefault("")
-                if (token.isEmpty()) return@launch
                 // The whole history (the list holds every message, see
-                // MESSAGE_LIST_CAP): any row without a model verdict falls back
-                // to the offline heuristic when its conversation is opened.
+                // MESSAGE_LIST_CAP): the bundled model can classify every row
+                // even before sign-in or while the backend is unreachable.
                 val stored = classificationStore.classifications.first()
                 // Settings -> Scan period: how far back the AI checks. Older
                 // texts keep the on-device check until the user widens it.
@@ -374,9 +373,10 @@ class MessagesViewModel(
                         .filter { msg ->
                             !msg.isOutgoing &&
                                 msg.timestamp >= cutoff &&
-                                msg.id > 0 &&
+                                msg.id != 0L &&
+                                msg.id != Long.MIN_VALUE &&
                                 msg.id !in scanAttempted &&
-                                (stored[msg.id] == null || stored[msg.id] == Classification.UNVERIFIED)
+                                needsModelScan(msg.id, stored[msg.id])
                         }.sortedByDescending { it.timestamp }
                 for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
                     if (!isActive) return@launch
@@ -404,12 +404,25 @@ class MessagesViewModel(
                         }
                         if (modelUnavailable) break
                     }
-                    classificationStore.setClassifications(results)
+                    // classifyExisting persists each cloud/local result with
+                    // provenance before returning. Keep this map only for the
+                    // immediate in-memory re-sort; rewriting it here would erase
+                    // the local model hash/version or a concurrent cloud result.
                     if (results.isNotEmpty()) applyScanResults(results)
                     if (modelUnavailable) return@launch
                 }
             }
     }
+
+    private suspend fun needsModelScan(
+        messageId: Long,
+        stored: Classification?,
+    ): Boolean =
+        // Retry known heuristic verdicts after a failed background model job.
+        // Older rows without provenance keep their existing decisions.
+        stored == null ||
+            stored == Classification.UNVERIFIED ||
+            classificationStore.provenanceFor(messageId)?.source == "heuristic"
 
     private suspend fun classifyForScan(
         token: String,

@@ -15,6 +15,11 @@
 -keep class com.bantai.receiver.** { *; }
 
 # Standard Android rules
+# ONNX Runtime JNI resolves these classes, constructors and fields by name.
+# R8 cannot infer those native references; shrinking TensorInfo aborts the VM
+# when real release inference starts, even though debug inference succeeds.
+-keep class ai.onnxruntime.** { *; }
+
 -keepclassmembers enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);

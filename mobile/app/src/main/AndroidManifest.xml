@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_SMS" />
@@ -48,6 +49,14 @@
              type (true for debug, false for release by default without any
              manual flag) — hardcoding false here fought the debug variant's
              own value and could leave assembleDebug/installDebug non-debuggable. -->
+
+        <!-- Official ONNX Runtime Android builds enable Microsoft 1DS telemetry
+             by default. Remove its eager ContentProvider so it cannot read the
+             device id or construct an HTTP uploader before Application.onCreate.
+             ModelCRuntime also disables ORT telemetry through the runtime API. -->
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            tools:node="remove" />
 
         <activity
             android:name=".MainActivity"

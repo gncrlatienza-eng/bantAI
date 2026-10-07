@@ -6,6 +6,9 @@ import com.bantai.container
 import com.bantai.data.local.UserData
 import com.bantai.data.model.Classification
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.offline.ModelCClassificationWorker
+import com.bantai.data.offline.ModelCResult
+import com.bantai.data.offline.ModelCRuntime
 import com.bantai.data.remote.ApiConfig
 import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.SmsApi
@@ -16,6 +19,7 @@ import com.bantai.util.SmsPrivacyMasker
 import com.bantai.util.SmsSourceId
 import com.bantai.util.TransactionalMessage
 import com.bantai.util.TrustedSenders
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -63,6 +67,20 @@ internal data class ClassificationRoute(
     val classification: Classification,
     val alertKind: AlertKind,
 )
+
+internal data class ServerClassificationEvidence(
+    val provenance: String,
+    val queueOnDeviceModel: Boolean,
+)
+
+/** Keeps a backend heuristic echo/pending result separate from a real cloud-model verdict. */
+internal fun serverClassificationEvidence(result: SmsApi.IngestResult): ServerClassificationEvidence =
+    when {
+        result.suppressed || result.action == SmsApi.Action.BLOCKED ->
+            ServerClassificationEvidence("server_blocklist", false)
+        result.classificationSource == "model" -> ServerClassificationEvidence("cloud_model", false)
+        else -> ServerClassificationEvidence("heuristic", true)
+    }
 
 /**
  * Pure decision function for what a backend ingest result should mean locally
@@ -255,39 +273,49 @@ object SmsIngestPipeline {
             if (outcome == null) {
                 Log.w(TAG, "Classification timed out; showing local caution only")
                 applyOfflineCaution(context, notification)
+                ModelCClassificationWorker.enqueue(context, messageId)
             } else {
                 outcome
                     .onSuccess { result ->
                         applyServerClassification(context, token, notification, result)
+                        if (serverClassificationEvidence(result).queueOnDeviceModel) {
+                            ModelCClassificationWorker.enqueue(context, messageId)
+                        }
                     }.onFailure {
                         Log.w(TAG, "Model classification unavailable; showing local caution only", it)
                         applyOfflineCaution(context, notification)
+                        ModelCClassificationWorker.enqueue(context, messageId)
                     }
             }
         } else {
             applyOfflineCaution(context, notification)
+            ModelCClassificationWorker.enqueue(context, messageId)
         }
     }
 
     sealed interface ScanOutcome {
         data class Classified(
             val classification: Classification,
+            /** False when Model C completed locally but no campaign match was obtained. */
+            val matchedRemotely: Boolean,
         ) : ScanOutcome
 
         /** The backend rejected this one message; the scan should move on. */
         data object Skipped : ScanOutcome
 
-        /** The model, backend, or session is unavailable; the scan should stop. */
+        /** Both the cloud and bundled model are unavailable; the scan should stop. */
         data object Unavailable : ScanOutcome
     }
 
     /**
      * Classifies a message that is already in the inbox (history from before
      * install, or one that arrived while the model was unreachable) without
-     * notifying. Uses the same masked ingest path and sourceId as a live SMS, so
-     * the backend treats a repeat as idempotent. A device-fallback echo counts
-     * as Unavailable: it must not overwrite the on-device result with something
-     * that only looks like a model verdict.
+     * notifying. A real cloud-model answer also records the idempotent backend
+     * message/campaign ids. When the cloud is unavailable or only echoes its
+     * heuristic fallback, the bundled Model C completes the classification and
+     * stores its immutable version/hash through the same atomic write used by
+     * the live worker. That local result is marked as not remotely matched so
+     * Campaigns can truthfully keep its offline note.
      */
     @Suppress("ReturnCount") // each early return is a distinct scan outcome
     suspend fun classifyExisting(
@@ -295,18 +323,22 @@ object SmsIngestPipeline {
         token: String,
         message: SmsMessage,
     ): ScanOutcome {
-        val outcome = SmsApi.ingest(token, existingMessageRequest(context, message))
+        var backendFailure: Throwable? = null
         val result =
-            outcome.getOrElse { error ->
-                val status = (error as? ApiException)?.status
-                return if (status != null && status in HTTP_CLIENT_ERRORS && status !in RETRYABLE_CLIENT_STATUSES) {
-                    Log.w(TAG, "Backend rejected message ${message.id} during inbox scan (HTTP $status)")
-                    ScanOutcome.Skipped
-                } else {
-                    ScanOutcome.Unavailable
-                }
+            if (token.isEmpty()) {
+                null
+            } else {
+                SmsApi.ingest(token, existingMessageRequest(context, message)).fold(
+                    onSuccess = { it },
+                    onFailure = {
+                        backendFailure = it
+                        null
+                    },
+                )
             }
-        if (!result.suppressed && result.classificationSource != "model") return ScanOutcome.Unavailable
+        if (result == null || (!result.suppressed && result.classificationSource != "model")) {
+            return classifyExistingOnDevice(context, message, backendFailure)
+        }
         persistBackendMessageId(context, message.id, result.messageId)
         persistCampaignMatch(context, message.id, result)
         val route = routeServerClassification(result)
@@ -320,11 +352,73 @@ object SmsIngestPipeline {
             if (TrustedSenders.neverAutoBlock(message.sender, result.senderStatus) ||
                 userUnblocked(context, message.sender)
             ) {
-                return ScanOutcome.Classified(Classification.UNKNOWN)
+                persistHistoricalCloudResult(context, message.id, Classification.UNKNOWN, result)
+                return ScanOutcome.Classified(Classification.UNKNOWN, matchedRemotely = true)
             }
             autoBlockSender(context, token, message.sender)
         }
-        return ScanOutcome.Classified(route.classification)
+        persistHistoricalCloudResult(context, message.id, route.classification, result)
+        return ScanOutcome.Classified(route.classification, matchedRemotely = true)
+    }
+
+    @Suppress(
+        "CyclomaticComplexMethod",
+        "RethrowCaughtException",
+        "TooGenericExceptionCaught",
+    ) // Preserve cancellation while classifying every local-model runtime failure by retryability.
+    private suspend fun classifyExistingOnDevice(
+        context: Context,
+        message: SmsMessage,
+        backendFailure: Throwable?,
+    ): ScanOutcome =
+        try {
+            val result = ModelCRuntime.classify(context, message.body)
+            context.container.classificationStore.setOnDeviceClassificationIfNoCloud(
+                messageId = message.id,
+                classification = result.decision.classification,
+                modelVersion = result.modelVersion,
+                modelSha256 = result.modelSha256,
+                score = result.decision.score,
+            )
+            // A cloud verdict or existing scam/user block may have won the race.
+            val effective =
+                context.container.classificationStore.snapshotFor(message.id)
+                    ?: result.decision.classification
+            ScanOutcome.Classified(effective, matchedRemotely = false)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (modelFailure: Exception) {
+            val status = (backendFailure as? ApiException)?.status
+            if (status != null && status in HTTP_CLIENT_ERRORS && status !in RETRYABLE_CLIENT_STATUSES) {
+                Log.w(
+                    TAG,
+                    "Backend rejected message ${message.id} and local Model C failed (HTTP $status)",
+                    modelFailure,
+                )
+                ScanOutcome.Skipped
+            } else {
+                Log.w(TAG, "Cloud and local Model C unavailable for message ${message.id}", modelFailure)
+                ScanOutcome.Unavailable
+            }
+        }
+
+    private suspend fun persistHistoricalCloudResult(
+        context: Context,
+        messageId: Long,
+        classification: Classification,
+        result: SmsApi.IngestResult,
+    ) {
+        // Campaign matching revisits already-blocked rows. Keep that stronger
+        // local/user decision and its provenance while still recording the
+        // backend message and campaign ids above.
+        if (context.container.classificationStore.snapshotFor(messageId) == Classification.SCAM) return
+        persistClassification(
+            context = context,
+            messageId = messageId,
+            classification = classification,
+            source = serverClassificationEvidence(result).provenance,
+            score = result.score,
+        )
     }
 
     /**
@@ -374,14 +468,24 @@ object SmsIngestPipeline {
     }
 
     // Persist the result that actually drove the local protection decision.
+    @Suppress("LongParameterList") // This is the shared persistence boundary for a verdict and its provenance.
     private suspend fun persistClassification(
         context: Context,
         messageId: Long?,
         classification: Classification,
+        source: String? = null,
+        modelVersion: String? = null,
+        score: Double? = null,
     ) {
         if (messageId == null) return
         try {
-            context.container.classificationStore.setClassification(messageId, classification)
+            context.container.classificationStore.setClassification(
+                messageId = messageId,
+                classification = classification,
+                source = source,
+                modelVersion = modelVersion,
+                score = score,
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist classification for $messageId", e)
         }
@@ -421,13 +525,25 @@ object SmsIngestPipeline {
         if (TrustedSenders.neverAutoBlock(target.sender, result.senderStatus) ||
             userUnblocked(context, target.sender)
         ) {
-            persistClassification(context, target.messageId, Classification.UNKNOWN)
+            persistClassification(
+                context,
+                target.messageId,
+                Classification.UNKNOWN,
+                source = serverClassificationEvidence(result).provenance,
+                score = result.score,
+            )
             notifyHighRiskOrFallback(context, target, { it.smishingAlerts }) {
                 NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)
             }
             return true
         }
-        persistClassification(context, target.messageId, Classification.SCAM)
+        persistClassification(
+            context,
+            target.messageId,
+            Classification.SCAM,
+            source = serverClassificationEvidence(result).provenance,
+            score = result.score,
+        )
         autoBlockSender(context, token, target.sender)
         // Settings → Notifications → "Auto-block notice". It used to read the
         // smishing toggle, so the auto-block switch did nothing.
@@ -539,12 +655,19 @@ object SmsIngestPipeline {
         target: NotificationTarget,
         result: SmsApi.IngestResult,
     ) {
+        val evidence = serverClassificationEvidence(result)
         persistBackendMessageId(context, target.messageId, result.messageId)
         persistCampaignMatch(context, target.messageId, result)
 
         val route = routeServerClassification(result)
         if (handledAsScam(context, token, target, result, route)) return
-        persistClassification(context, target.messageId, route.classification)
+        persistClassification(
+            context,
+            target.messageId,
+            route.classification,
+            source = evidence.provenance,
+            score = result.score,
+        )
         // A receipt/confirmation the model called Spam is shown as a normal
         // message (see TransactionalMessage), so it must not notify as spam.
         val alertKind =
@@ -600,7 +723,7 @@ object SmsIngestPipeline {
         // all treat the two differently (review bucket + warning banner vs. a
         // neutral badge), so collapsing them here would misclassify every clean
         // offline message as reviewable.
-        persistClassification(context, target.messageId, classification)
+        persistClassification(context, target.messageId, classification, source = "heuristic")
         when (classification) {
             Classification.UNKNOWN -> {
                 notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
@@ -616,6 +739,52 @@ object SmsIngestPipeline {
                     target.notificationId,
                     target.conversationKey,
                 )
+        }
+    }
+
+    /** Applies a durable local Model C result after WorkManager finishes inference. */
+    internal suspend fun applyOnDeviceModelResult(
+        context: Context,
+        message: SmsMessage,
+        result: ModelCResult,
+    ) {
+        val decision = result.decision
+        val written =
+            context.container.classificationStore.setOnDeviceClassificationIfNoCloud(
+                messageId = message.id,
+                classification = decision.classification,
+                modelVersion = result.modelVersion,
+                modelSha256 = result.modelSha256,
+                score = decision.score,
+            )
+        if (!written) return
+        // Record model provenance without sender, message ID or message content.
+        Log.i(
+            TAG,
+            "Local Model C verdict saved; version=${result.modelVersion}; sha256=${result.modelSha256}; " +
+                "label=${decision.modelLabel}; score=${decision.score}",
+        )
+        val target =
+            NotificationTarget(
+                sender = message.sender,
+                body = message.body,
+                notificationId = (message.sender.hashCode() xor (message.timestamp ushr 10).toInt()) and Int.MAX_VALUE,
+                messageId = message.id,
+            )
+        when {
+            decision.highRisk ->
+                notifyHighRiskOrFallback(context, target, { it.smishingAlerts }) {
+                    NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)
+                }
+            decision.classification == Classification.SPAM ->
+                if (alertEnabled(context) { it.spamAlerts } && !TransactionalMessage.isTransactional(message.body)) {
+                    NotificationHelper.sendSpamAlert(context, target.sender, target.notificationId)
+                }
+            decision.requiresReview ->
+                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
+                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
+                }
+            else -> Unit
         }
     }
 }

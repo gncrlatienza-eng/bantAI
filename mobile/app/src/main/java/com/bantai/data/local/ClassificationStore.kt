@@ -39,10 +39,50 @@ class ClassificationStore(
     /** One message's stored verdict, or null. */
     suspend fun snapshotFor(messageId: Long): Classification? = classifications.first()[messageId]
 
+    @Suppress("LongParameterList")
+    // Classification and immutable provenance arrive together at this persistence boundary.
     suspend fun setClassification(
         messageId: Long,
         classification: Classification,
-    ) = dao.upsert(listOf(ClassificationEntity(messageId, classification.storage)))
+        source: String? = null,
+        modelVersion: String? = null,
+        modelSha256: String? = null,
+        score: Double? = null,
+    ) =
+        dao.upsert(
+            listOf(
+                ClassificationEntity(
+                    messageId = messageId,
+                    label = classification.storage,
+                    source = source,
+                    modelVersion = modelVersion,
+                    modelSha256 = modelSha256,
+                    score = score,
+                    classifiedAt = System.currentTimeMillis(),
+                ),
+            ),
+        )
+
+    suspend fun provenanceFor(messageId: Long): ClassificationProvenance? =
+        dao.byMessageId(messageId)?.let { row ->
+            ClassificationProvenance(row.source, row.modelVersion, row.modelSha256, row.score, row.classifiedAt)
+        }
+
+    suspend fun setOnDeviceClassificationIfNoCloud(
+        messageId: Long,
+        classification: Classification,
+        modelVersion: String,
+        modelSha256: String,
+        score: Double,
+    ): Boolean =
+        dao.writeOnDeviceUnlessCloud(
+            messageId,
+            classification.storage,
+            modelVersion,
+            modelSha256,
+            score,
+            System.currentTimeMillis(),
+        ) > 0
 
     suspend fun setClassifications(entries: Map<Long, Classification>) {
         if (entries.isEmpty()) return
@@ -62,3 +102,11 @@ class ClassificationStore(
             Classification.fromStorage(row.label)?.let { row.messageId to it }
         }.toMap()
 }
+
+data class ClassificationProvenance(
+    val source: String?,
+    val modelVersion: String?,
+    val modelSha256: String?,
+    val score: Double?,
+    val classifiedAt: Long?,
+)

@@ -22,6 +22,7 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.isGroupKey
 import com.bantai.data.model.matchReplyQuotes
 import com.bantai.data.model.normalizeSenderKey
+import com.bantai.data.remote.CloudVerificationApi
 import com.bantai.data.remote.VerificationApi
 import com.bantai.util.ContactNames
 import com.bantai.util.NotificationHelper
@@ -31,11 +32,14 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -56,6 +60,10 @@ private const val PAGE_SIZE = 300
 
 // How long provider changes must go quiet before the thread reloads.
 private const val THREAD_RELOAD_DEBOUNCE_MS = 200L
+private const val CLOUD_STATUS_DEADLINE_MS = 180_000L
+private const val CLOUD_STATUS_INITIAL_WAIT_MS = 5_000L
+private const val CLOUD_STATUS_BACKOFF_MULTIPLIER = 2
+private const val CLOUD_STATUS_MAX_WAIT_MS = 30_000L
 
 @Suppress("TooManyFunctions") // one thread: load, read, drafts, selection, delete/recover
 class MessageDetailViewModel(
@@ -203,8 +211,108 @@ class MessageDetailViewModel(
     // are then marked read as they arrive (they used to stay unread).
     @Volatile private var visible = false
 
+    private val verificationVisible = MutableStateFlow(false)
+    private val verificationRefresh = MutableStateFlow(0)
+    private val _cloudVerification = MutableStateFlow<CloudVerificationApi.Status?>(null)
+    val cloudVerification = _cloudVerification.asStateFlow()
+    private val _cloudVerificationNote = MutableStateFlow<String?>(null)
+    val cloudVerificationNote = _cloudVerificationNote.asStateFlow()
+    private val _cloudVerificationBusy = MutableStateFlow(false)
+    val cloudVerificationBusy = _cloudVerificationBusy.asStateFlow()
+    private var verificationMessageId: String? = null
+    private var verificationRetryJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            val target =
+                combine(
+                    conversation,
+                    backendMessageIdStore.entries,
+                    userPreferences.userData,
+                    verificationVisible,
+                ) { messages, ids, user, shown ->
+                    val id =
+                        messages
+                            .lastOrNull { !it.isOutgoing && ids.containsKey(it.id) }
+                            ?.id
+                            ?.let(ids::get)
+                    if (shown && user.authToken.isNotBlank()) id?.let { it to user.authToken } else null
+                }.distinctUntilChanged()
+            combine(target, verificationRefresh) { value, _ -> value }.collectLatest { value ->
+                verificationRetryJob?.cancel()
+                verificationMessageId = value?.first
+                _cloudVerification.value = null
+                _cloudVerificationNote.value = null
+                _cloudVerificationBusy.value = false
+                if (value == null) return@collectLatest
+                val (messageId, token) = value
+                val deadline = android.os.SystemClock.elapsedRealtime() + CLOUD_STATUS_DEADLINE_MS
+                var waitMs = CLOUD_STATUS_INITIAL_WAIT_MS
+                while (isActive && android.os.SystemClock.elapsedRealtime() < deadline) {
+                    _cloudVerificationBusy.value = true
+                    val result = CloudVerificationApi.get(token, messageId)
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    _cloudVerificationBusy.value = false
+                    val status = result.getOrNull()
+                    if (status == null) {
+                        _cloudVerificationNote.value =
+                            "Cloud status is unavailable. Your on-device result is unchanged."
+                        return@collectLatest
+                    }
+                    _cloudVerification.value = status
+                    if (!status.pending) return@collectLatest
+                    delay(waitMs)
+                    waitMs =
+                        (waitMs * CLOUD_STATUS_BACKOFF_MULTIPLIER)
+                            .coerceAtMost(CLOUD_STATUS_MAX_WAIT_MS)
+                }
+                _cloudVerificationNote.value =
+                    "Cloud verification is still pending. Check again later; processing continues without this screen."
+            }
+        }
+    }
+
+    fun refreshCloudVerification() {
+        if (!visible || _cloudVerificationBusy.value) return
+        val messageId = verificationMessageId ?: return
+        val status = _cloudVerification.value
+        if (status?.retryable != true) {
+            verificationRefresh.value += 1
+            return
+        }
+        val retryAt =
+            runCatching {
+                java.time.Instant
+                    .parse(status.retryAfter)
+                    .toEpochMilli()
+            }.getOrNull()
+        if (retryAt != null && retryAt > System.currentTimeMillis()) {
+            _cloudVerificationNote.value = "A retry is already scheduled. Please check again later."
+            return
+        }
+        _cloudVerificationBusy.value = true
+        verificationRetryJob =
+            viewModelScope.launch {
+                val token = userPreferences.userData.first().authToken
+                if (token.isBlank()) {
+                    _cloudVerificationBusy.value = false
+                    _cloudVerificationNote.value = "Cloud verification requires an active session."
+                    return@launch
+                }
+                val result = CloudVerificationApi.retry(token, messageId)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                _cloudVerificationBusy.value = false
+                if (result.isSuccess) {
+                    verificationRefresh.value += 1
+                } else {
+                    _cloudVerificationNote.value = "Cloud verification could not be retried. Please try again later."
+                }
+            }
+    }
+
     fun setVisible(isVisible: Boolean) {
         visible = isVisible
+        verificationVisible.value = isVisible && !deletedOnly
         // Off the main thread like markAsRead: marking read writes the SMS
         // provider and, for BantAI's own rows, Room -- which throws on the main
         // thread (crashed opening an unread conversation from Unread).

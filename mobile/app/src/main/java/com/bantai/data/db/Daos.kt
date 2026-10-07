@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -104,8 +105,67 @@ interface ClassificationDao {
     @Query("SELECT * FROM classifications")
     fun observeAll(): Flow<List<ClassificationEntity>>
 
+    @Query("SELECT * FROM classifications WHERE message_id = :messageId LIMIT 1")
+    suspend fun byMessageId(messageId: Long): ClassificationEntity?
+
     @Upsert
     suspend fun upsert(rows: List<ClassificationEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(row: ClassificationEntity): Long
+
+    @Query(
+        """
+        UPDATE classifications SET
+            label = :label,
+            source = 'on_device_model_c',
+            model_version = :modelVersion,
+            model_sha256 = :modelSha256,
+            score = :score,
+            classified_at = :classifiedAt
+        WHERE message_id = :messageId
+          AND label != 'blocked'
+          AND (source IS NULL OR source != 'cloud_model')
+        """,
+    )
+    @Suppress("LongParameterList") // Room SQL binds immutable Model C provenance atomically.
+    suspend fun updateOnDeviceUnlessCloud(
+        messageId: Long,
+        label: String,
+        modelVersion: String,
+        modelSha256: String,
+        score: Double,
+        classifiedAt: Long,
+    ): Int
+
+    @Transaction
+    @Suppress("LongParameterList") // Keep the insert/update race boundary and its provenance in one transaction.
+    suspend fun writeOnDeviceUnlessCloud(
+        messageId: Long,
+        label: String,
+        modelVersion: String,
+        modelSha256: String,
+        score: Double,
+        classifiedAt: Long,
+    ): Int {
+        val inserted =
+            insertIfAbsent(
+                ClassificationEntity(
+                    messageId = messageId,
+                    label = label,
+                    source = "on_device_model_c",
+                    modelVersion = modelVersion,
+                    modelSha256 = modelSha256,
+                    score = score,
+                    classifiedAt = classifiedAt,
+                ),
+            )
+        return if (inserted != -1L) {
+            1
+        } else {
+            updateOnDeviceUnlessCloud(messageId, label, modelVersion, modelSha256, score, classifiedAt)
+        }
+    }
 
     @Query("DELETE FROM classifications WHERE message_id IN (:ids)")
     suspend fun delete(ids: List<Long>)

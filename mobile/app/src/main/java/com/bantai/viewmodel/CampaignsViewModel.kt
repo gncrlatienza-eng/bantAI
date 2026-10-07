@@ -205,9 +205,12 @@ class CampaignsViewModel(
                 runCatching { SmsIngestPipeline.classifyExisting(getApplication(), token, message) }
                     .onFailure { Log.w(TAG, "Campaign match failed for ${message.id}", it) }
                     .getOrNull()
-            if (outcome is SmsIngestPipeline.ScanOutcome.Classified) {
-                classificationStore.setClassification(message.id, outcome.classification)
-            } else if (outcome != SmsIngestPipeline.ScanOutcome.Skipped) {
+            // classifyExisting already persists the verdict with truthful
+            // provenance. A local verdict still means campaign matching was
+            // unavailable, so stop the remote backfill and retain that note.
+            if ((outcome !is SmsIngestPipeline.ScanOutcome.Classified || !outcome.matchedRemotely) &&
+                outcome != SmsIngestPipeline.ScanOutcome.Skipped
+            ) {
                 unavailable = true
                 break
             }

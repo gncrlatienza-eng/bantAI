@@ -93,4 +93,9 @@ data class PendingMmsEntity(
 data class ClassificationEntity(
     @PrimaryKey @ColumnInfo(name = "message_id") val messageId: Long,
     val label: String,
+    val source: String? = null,
+    @ColumnInfo(name = "model_version") val modelVersion: String? = null,
+    @ColumnInfo(name = "model_sha256") val modelSha256: String? = null,
+    val score: Double? = null,
+    @ColumnInfo(name = "classified_at") val classifiedAt: Long? = null,
 )

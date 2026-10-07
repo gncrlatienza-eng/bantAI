@@ -27,6 +27,8 @@ export interface ClassifyResult {
   indicators: { tag: string; weight: number }[];
   explanationMethod: 'shap' | 'keyword-fallback';
   campaign: CampaignMatchResult | null;
+  modelVersion?: string;
+  artifactDigest?: string;
 }
 
 export interface CampaignMatchResult {
@@ -46,7 +48,16 @@ interface AiClassifyResponse {
   indicators?: { tag?: unknown; weight?: unknown }[];
   explanation_method?: unknown;
   campaign?: unknown;
+  version_tag?: unknown;
+  bundle_digest?: unknown;
 }
+
+export type PinnedModelReadiness = {
+  ready: boolean;
+  modelVersion: string | null;
+  artifactDigest: string | null;
+  matchesExpected: boolean;
+};
 
 const CAMPAIGN_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -133,6 +144,7 @@ export class AiService {
   private readonly baseUrl =
     process.env.AI_SERVICE_URL ?? 'http://localhost:8001';
   private readonly apiKey = process.env.AI_SERVICE_API_KEY ?? '';
+  private wakeAttempt: Promise<PinnedModelReadiness> | null = null;
 
   /**
    * Shared header set for AI-service calls. The `x-api-key` header is only
@@ -208,6 +220,12 @@ export class AiService {
         indicators,
         explanationMethod,
         campaign,
+        ...(typeof data.version_tag === 'string'
+          ? { modelVersion: data.version_tag }
+          : {}),
+        ...(typeof data.bundle_digest === 'string'
+          ? { artifactDigest: data.bundle_digest.toLowerCase() }
+          : {}),
       };
     } catch (err) {
       this.logger.warn(
@@ -215,6 +233,118 @@ export class AiService {
       );
       return null;
     }
+  }
+
+  /**
+   * Wait for the one release-approved model identity. Concurrent callers share
+   * one wake loop so a burst of clients cannot multiply cold-start traffic.
+   */
+  waitForPinnedReadiness(
+    expectedVersion: string,
+    expectedDigest: string,
+    timeoutMs = Number(process.env.CLOUD_VERIFY_WAKE_TIMEOUT_MS ?? 180_000),
+  ): Promise<PinnedModelReadiness> {
+    if (!this.wakeAttempt) {
+      this.wakeAttempt = this.pollPinnedReadiness(
+        expectedVersion,
+        expectedDigest.toLowerCase(),
+        timeoutMs,
+      ).finally(() => {
+        this.wakeAttempt = null;
+      });
+    }
+    return this.wakeAttempt;
+  }
+
+  async classifyPinned(
+    message: string,
+    domains: string[],
+    expectedVersion: string,
+    expectedDigest: string,
+  ): Promise<ClassifyResult | null> {
+    const readiness = await this.readPinnedReadiness(
+      expectedVersion,
+      expectedDigest,
+    );
+    if (!readiness.matchesExpected) return null;
+    const result = await this.classifyMasked(message, domains);
+    if (!result) return null;
+    if (
+      result.modelVersion !== expectedVersion ||
+      result.artifactDigest !== expectedDigest.toLowerCase()
+    ) {
+      this.logger.warn('AI classification identity did not match pinned model');
+      return null;
+    }
+    // Protect against an image revision changing between readiness and result.
+    const after = await this.readPinnedReadiness(
+      expectedVersion,
+      expectedDigest,
+    );
+    return after.matchesExpected ? result : null;
+  }
+
+  async readPinnedReadiness(
+    expectedVersion: string,
+    expectedDigest: string,
+  ): Promise<PinnedModelReadiness> {
+    const unavailable: PinnedModelReadiness = {
+      ready: false,
+      modelVersion: null,
+      artifactDigest: null,
+      matchesExpected: false,
+    };
+    try {
+      const response = await fetch(`${this.baseUrl}/health`, {
+        headers: this.authHeaders(),
+        signal: AbortSignal.timeout(3_500),
+      });
+      if (!response.ok) return unavailable;
+      const payload = (await response.json()) as {
+        model_ready?: unknown;
+        version_tag?: unknown;
+        bundle_digest?: unknown;
+      };
+      const modelVersion =
+        typeof payload.version_tag === 'string' ? payload.version_tag : null;
+      const artifactDigest =
+        typeof payload.bundle_digest === 'string'
+          ? payload.bundle_digest.toLowerCase()
+          : null;
+      const ready = payload.model_ready === true;
+      return {
+        ready,
+        modelVersion,
+        artifactDigest,
+        matchesExpected:
+          ready &&
+          modelVersion === expectedVersion &&
+          artifactDigest === expectedDigest.toLowerCase(),
+      };
+    } catch {
+      return unavailable;
+    }
+  }
+
+  private async pollPinnedReadiness(
+    expectedVersion: string,
+    expectedDigest: string,
+    timeoutMs: number,
+  ): Promise<PinnedModelReadiness> {
+    const deadline = Date.now() + Math.max(1_000, timeoutMs);
+    let last: PinnedModelReadiness = {
+      ready: false,
+      modelVersion: null,
+      artifactDigest: null,
+      matchesExpected: false,
+    };
+    do {
+      last = await this.readPinnedReadiness(expectedVersion, expectedDigest);
+      if (last.matchesExpected) return last;
+      if (last.ready && !last.matchesExpected) return last;
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    } while (Date.now() < deadline);
+    return last;
   }
 
   /**

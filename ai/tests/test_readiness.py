@@ -92,6 +92,19 @@ def test_ready_only_after_approval_integrity_load_and_probe(tmp_path):
     assert health["bundle_digest"] == report.bundle_digest
 
 
+def test_classification_carries_verified_bundle_identity(tmp_path, monkeypatch):
+    from service.routers import classify as classify_router
+
+    model_dir = _model_bundle(tmp_path)
+    classifier = _GoodClassifier()
+    report = prepare_model_readiness(classifier, str(model_dir), str(_approval(model_dir, tmp_path)))
+    monkeypatch.setattr(classify_router, "classifier", classifier)
+    response = client.post("/classify", json={"message": "Hello, see you later"})
+    assert response.status_code == 200
+    assert response.json()["version_tag"] == "v-test"
+    assert response.json()["bundle_digest"] == report.bundle_digest
+
+
 def test_missing_approval_fails_before_model_load(tmp_path):
     model_dir = _model_bundle(tmp_path)
     classifier = _GoodClassifier()

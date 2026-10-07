@@ -14,6 +14,7 @@ import { VerificationService } from '../verification/verification.service';
 import { AiService } from '../ai/ai.service';
 import { IngestSmsDto } from './dto/ingest-sms.dto';
 import { maskSmsBody } from './sms-privacy-masker';
+import { CloudVerificationService } from '../cloud-verification/cloud-verification.service';
 
 // Shortened URL services whose domains trigger caution regardless of content.
 const SHORTENED_URL_HOSTS = new Set<string>([
@@ -49,6 +50,11 @@ const ADMIN_CLASSIFICATION_SELECT = {
         take: 1,
         select: { status: true },
       },
+      cloudVerifications: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { status: true },
+      },
     },
   },
 } as const satisfies Prisma.ClassificationSelect;
@@ -65,6 +71,7 @@ function toAdminClassification({
     ...classification,
     receivedAt: message.receivedAt,
     alertStatus: message.alerts[0]?.status ?? null,
+    verificationStatus: message.cloudVerifications[0]?.status ?? null,
   };
 }
 
@@ -90,6 +97,7 @@ export class SmsService {
     private verificationService: VerificationService,
     private aiService: AiService,
     private emergingWaves: EmergingWavesService,
+    private cloudVerification: CloudVerificationService,
   ) {}
 
   async ingest(userId: string, dto: IngestSmsDto) {
@@ -121,10 +129,22 @@ export class SmsService {
     // bare hostname (a full URL with a path, an address) is dropped here so
     // it can reach neither the AI service nor campaign lookups.
     const domains = normalizeDomains(dto.domains);
-    const modelResult = await this.aiService.classifyMasked(
-      maskedBody,
-      domains,
-    );
+    // Production ingest is durable and request-independent. It never holds the
+    // mobile request open for a cold model: the transaction below creates an
+    // outbox job and the queue worker promotes the device result later. Local
+    // development may keep the warm fast path for compatibility testing.
+    const asyncOnly =
+      process.env.CLOUD_VERIFY_ASYNC_ONLY === 'true' ||
+      process.env.NODE_ENV === 'production';
+    const pinned = this.cloudVerification.identity();
+    const modelResult = asyncOnly
+      ? null
+      : await this.aiService.classifyPinned(
+          maskedBody,
+          domains,
+          pinned.modelVersion,
+          pinned.approvedArtifactDigest,
+        );
     const classificationSource = modelResult ? 'model' : 'device_fallback';
     const label = modelResult?.label ?? dto.label ?? 'Ham';
     const score = modelResult?.score ?? dto.score ?? 0;
@@ -205,9 +225,25 @@ export class SmsService {
       duplicate: boolean;
       campaignId: string | null;
       campaignMatchSource: string | null;
+      cloudJob: Awaited<
+        ReturnType<CloudVerificationService['createJobInTransaction']>
+      >;
     };
     try {
       result = await this.prisma.$transaction(async (tx) => {
+        const withCloudJob = async <T extends object>(
+          value: T,
+          messageId: string,
+          verified: boolean,
+        ) => ({
+          ...value,
+          cloudJob: await this.cloudVerification.createJobInTransaction(
+            tx,
+            userId,
+            messageId,
+            verified,
+          ),
+        });
         const existing = await tx.smsMessage.findUnique({
           where: { userId_sourceId: { userId, sourceId: dto.sourceId } },
           select: {
@@ -307,20 +343,28 @@ export class SmsService {
                 where: { id: existing.id },
                 data: { clusterId: linkedId, campaignMatchSource },
               });
-              return {
-                id: existing.id,
-                duplicate: true,
-                campaignId: linkedId,
-                campaignMatchSource,
-              };
+              return withCloudJob(
+                {
+                  id: existing.id,
+                  duplicate: true,
+                  campaignId: linkedId,
+                  campaignMatchSource,
+                },
+                existing.id,
+                !existing.trusted && Boolean(modelResult),
+              );
             }
           }
-          return {
-            id: existing.id,
-            duplicate: true,
-            campaignId: existing.clusterId,
-            campaignMatchSource: existing.campaignMatchSource,
-          };
+          return withCloudJob(
+            {
+              id: existing.id,
+              duplicate: true,
+              campaignId: existing.clusterId,
+              campaignMatchSource: existing.campaignMatchSource,
+            },
+            existing.id,
+            !existing.trusted && Boolean(modelResult),
+          );
         }
 
         const campaignId = cluster
@@ -382,12 +426,16 @@ export class SmsService {
             },
           });
         }
-        return {
-          id: message.id,
-          duplicate: false,
-          campaignId,
-          campaignMatchSource: persistedMatchSource,
-        };
+        return withCloudJob(
+          {
+            id: message.id,
+            duplicate: false,
+            campaignId,
+            campaignMatchSource: persistedMatchSource,
+          },
+          message.id,
+          Boolean(modelResult),
+        );
       });
     } catch (error) {
       // A concurrent retry can win between the lookup and insert. The unique
@@ -398,25 +446,94 @@ export class SmsService {
         select: { id: true, clusterId: true, campaignMatchSource: true },
       });
       if (!existing) throw error;
+      const identity = this.cloudVerification.identity();
+      const cloudJob = await this.prisma.cloudVerificationJob.findUnique({
+        where: {
+          messageId_modelVersion_approvedArtifactDigest: {
+            messageId: existing.id,
+            modelVersion: identity.modelVersion,
+            approvedArtifactDigest: identity.approvedArtifactDigest,
+          },
+        },
+      });
+      if (!cloudJob) throw error;
       result = {
         id: existing.id,
         duplicate: true,
         campaignId: existing.clusterId,
         campaignMatchSource: existing.campaignMatchSource,
+        cloudJob,
       };
     }
 
+    const publishedJob =
+      result.cloudJob.status === 'verified'
+        ? result.cloudJob
+        : ((await this.cloudVerification.publishAfterCommit(
+            result.cloudJob.id,
+          )) ?? result.cloudJob);
+
+    // A repeat sync must return the durable model verdict once its pinned job
+    // completes, even when production deliberately skips request-time AI.
+    const storedClassification =
+      publishedJob.status === 'verified'
+        ? await this.prisma.classification.findFirst({
+            where: {
+              messageId: result.id,
+              message: { userId, trusted: true },
+            },
+            select: { label: true, score: true, bucket: true },
+          })
+        : null;
+    const verifiedClassification =
+      storedClassification &&
+      ['Ham', 'Spam', 'Scam'].includes(storedClassification.label) &&
+      Number.isFinite(storedClassification.score) &&
+      storedClassification.score >= 0 &&
+      storedClassification.score <= 1
+        ? {
+            label: storedClassification.label as 'Ham' | 'Spam' | 'Scam',
+            score: storedClassification.score,
+            bucket:
+              storedClassification.bucket &&
+              ['safe', 'unknown', 'spam', 'blocked'].includes(
+                storedClassification.bucket,
+              )
+                ? (storedClassification.bucket as
+                    'safe' | 'unknown' | 'spam' | 'blocked')
+                : undefined,
+          }
+        : null;
+    const responseClassification = verifiedClassification ?? {
+      label,
+      score,
+      bucket,
+    };
+    const verifiedAction = verifiedClassification
+      ? verifiedClassification.bucket
+        ? this.routeFromBucket(verifiedClassification.bucket)
+        : this.routeFromLabel(
+            verifiedClassification.label,
+            verifiedClassification.score,
+          )
+      : effectiveAction;
+    const responseAction =
+      confirmedFraud || verifiedAction === 'blocked' ? 'alert' : verifiedAction;
+
     // A scam no known campaign matched may be part of a new blast; group it
     // with similar unmatched texts shortly, off the request path.
-    if (label === 'Scam' && !result.campaignId) this.emergingWaves.schedule();
+    if (responseClassification.label === 'Scam' && !result.campaignId)
+      this.emergingWaves.schedule();
 
     return {
       suppressed: Boolean(blocked),
       ...(blocked ? { reason: 'blocked_sender' } : {}),
       messageId: result.id,
-      classification: { label, score, bucket },
-      classificationSource,
-      action: effectiveAction,
+      classification: responseClassification,
+      classificationSource: verifiedClassification
+        ? 'model'
+        : classificationSource,
+      action: responseAction,
       senderStatus: senderVerification.familiarity,
       senderVerification,
       suppressedLinks,
@@ -428,6 +545,7 @@ export class SmsService {
       campaignId: result.campaignId,
       campaignMatchSource: result.campaignMatchSource,
       duplicate: result.duplicate,
+      cloudVerification: this.cloudVerification.present(publishedJob),
     };
   }
 

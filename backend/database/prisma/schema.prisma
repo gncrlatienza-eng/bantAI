@@ -51,6 +51,7 @@ model User {
   createdShieldApiKeys     ShieldApiKey[]           @relation("ShieldApiKeyCreator")
   notificationPreference   NotificationPreference?
   portalNotifications      PortalNotification[]
+  cloudVerificationAdmissions CloudVerificationAdmission[]
 }
 
 enum UserRole {
@@ -236,10 +237,59 @@ model SmsMessage {
   feature        MessageFeature?
   alerts         Alert[]
   reports        UserReport[]
+  cloudVerifications CloudVerificationJob[]
 
   @@unique([userId, sourceId])
   @@index([userId, receivedAt])
   @@index([clusterId, receivedAt])
+}
+
+enum CloudVerificationStatus {
+  pending
+  processing
+  verified
+  retryable_failure
+  failed
+}
+
+// Durable cloud-model verification. The queue carries only this row's id;
+// masked content and tenant ownership are recovered from PostgreSQL.
+model CloudVerificationJob {
+  id                     String                  @id @default(uuid())
+  messageId              String
+  message                SmsMessage              @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  modelVersion           String
+  approvedArtifactDigest String
+  status                 CloudVerificationStatus @default(pending)
+  attempts               Int                     @default(0)
+  maxAttempts            Int                     @default(5)
+  publishedAt            DateTime?
+  availableAt            DateTime                @default(now())
+  leaseOwner             String?
+  leaseExpiresAt         DateTime?
+  retryAfter             DateTime?
+  lastError              String?
+  resultCommittedAt      DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@unique([messageId, modelVersion, approvedArtifactDigest])
+  @@index([status, availableAt])
+  @@index([leaseExpiresAt])
+}
+
+// Persisted admission ledger shared by HTTP and queue-triggered replicas.
+// `admissionKey` makes retries and coalesced wake calls idempotent.
+model CloudVerificationAdmission {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admissionKey String   @unique
+  kind         String
+  admittedAt   DateTime @default(now())
+
+  @@index([admittedAt])
+  @@index([userId, admittedAt])
 }
 
 model MessageFeature {

@@ -6,12 +6,13 @@ export default defineConfig(({ command, mode }) => {
   // src/api/apiClient.ts falls back to http://localhost:3000/api when
   // VITE_API_URL is unset. That's right for `npm run dev`, but a deployed
   // build with the fallback calls each visitor's own machine and every page
-  // fails. A production build therefore has to name the deployed backend.
+  // fails. A production build must name the HTTPS backend, or use the
+  // exact /api path when the hosting server proxies it to that backend.
   if (command === 'build' && mode === 'production') {
     const apiUrl = loadEnv(mode, process.cwd(), 'VITE_').VITE_API_URL ?? '';
-    if (!/^https:\/\/[^/]+\/api$/.test(apiUrl)) {
+    if (apiUrl !== '/api' && !/^https:\/\/[^/]+\/api$/.test(apiUrl)) {
       throw new Error(
-        'Set VITE_API_URL to the deployed backend, e.g. VITE_API_URL=https://api.example.com/api npm run build (see web/.env.example).',
+        'Set VITE_API_URL to the HTTPS backend ending in /api, or /api with a same-origin backend proxy (see web/.env.example).',
       );
     }
   }

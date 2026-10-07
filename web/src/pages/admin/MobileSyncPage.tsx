@@ -16,6 +16,7 @@ import {
 } from '../../components/primitives';
 import {
   getAdminClassificationHistory,
+  cloudVerificationLabel,
   getAdminMobileSync,
   type AdminClassificationItem,
   type AdminClassificationHistory,
@@ -121,6 +122,11 @@ export function MobileSyncPage() {
   };
 
   const columns: Column<AdminClassificationItem>[] = [
+    {
+      key: 'verificationStatus',
+      header: 'Cloud verification',
+      render: (row) => cloudVerificationLabel(row.verificationStatus),
+    },
     {
       key: 'receivedAt',
       header: 'Received on phone',

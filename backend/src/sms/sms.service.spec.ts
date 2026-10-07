@@ -6,6 +6,7 @@ import { VerificationService } from '../verification/verification.service';
 import { EmergingWavesService } from '../campaigns/emerging-waves.service';
 import { AiService } from '../ai/ai.service';
 import { SmsService } from './sms.service';
+import { CloudVerificationService } from '../cloud-verification/cloud-verification.service';
 
 describe('SmsService', () => {
   const prisma = {
@@ -46,7 +47,33 @@ describe('SmsService', () => {
     isConfirmedFraud: jest.fn(),
     verifySender: jest.fn(),
   };
-  const ai = { classifyMasked: jest.fn() };
+  const ai = {
+    classifyMasked: jest.fn(),
+    classifyPinned: jest.fn((message: string, domains: string[]) =>
+      ai.classifyMasked(message, domains),
+    ),
+  };
+  const cloudVerificationJob = {
+    id: '11111111-1111-4111-8111-111111111111',
+    status: 'pending',
+    attempts: 0,
+    lastError: null,
+    retryAfter: null,
+    modelVersion: 'v-test',
+    approvedArtifactDigest: 'a'.repeat(64),
+    updatedAt: new Date('2026-10-05T00:00:00.000Z'),
+  };
+  const cloudVerification = {
+    identity: jest.fn(() => ({
+      modelVersion: 'v-test',
+      approvedArtifactDigest: 'a'.repeat(64),
+    })),
+    createJobInTransaction: jest.fn(() =>
+      Promise.resolve(cloudVerificationJob),
+    ),
+    publishAfterCommit: jest.fn(() => Promise.resolve(cloudVerificationJob)),
+    present: jest.fn((job: typeof cloudVerificationJob) => job),
+  };
   const emergingWaves = { schedule: jest.fn() };
   let service: SmsService;
   const dto = {
@@ -84,6 +111,7 @@ describe('SmsService', () => {
         { provide: VerificationService, useValue: verification },
         { provide: AiService, useValue: ai },
         { provide: EmergingWavesService, useValue: emergingWaves },
+        { provide: CloudVerificationService, useValue: cloudVerification },
       ],
     }).compile();
     service = module.get(SmsService);
@@ -191,6 +219,67 @@ describe('SmsService', () => {
       duplicate: true,
     });
     expect(prisma.smsMessage.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'Ham', score: 0.99, bucket: 'safe', action: 'inbox' },
+    { label: 'Scam', score: 0.98, bucket: 'blocked', action: 'alert' },
+  ])(
+    'returns the stored verified $label verdict on an asynchronous resync',
+    async (saved) => {
+      const previous = process.env.CLOUD_VERIFY_ASYNC_ONLY;
+      process.env.CLOUD_VERIFY_ASYNC_ONLY = 'true';
+      try {
+        prisma.smsMessage.findUnique.mockResolvedValue({
+          id: 'existing',
+          trusted: true,
+          clusterId: null,
+          campaignMatchSource: null,
+          classification: { id: 'c1' },
+          alerts: [],
+        });
+        cloudVerification.createJobInTransaction.mockResolvedValueOnce({
+          ...cloudVerificationJob,
+          status: 'verified',
+        });
+        prisma.classification.findFirst.mockResolvedValueOnce(saved);
+
+        await expect(
+          service.ingest('u1', { ...dto, label: 'Spam', score: 0.6 }),
+        ).resolves.toMatchObject({
+          duplicate: true,
+          classificationSource: 'model',
+          classification: {
+            label: saved.label,
+            score: saved.score,
+            bucket: saved.bucket,
+          },
+          action: saved.action,
+          cloudVerification: { status: 'verified' },
+        });
+        expect(prisma.classification.findFirst).toHaveBeenCalledWith({
+          where: {
+            messageId: 'existing',
+            message: { userId: 'u1', trusted: true },
+          },
+          select: { label: true, score: true, bucket: true },
+        });
+        expect(ai.classifyMasked).not.toHaveBeenCalled();
+        expect(prisma.classification.update).not.toHaveBeenCalled();
+        expect(prisma.smsMessage.create).not.toHaveBeenCalled();
+      } finally {
+        if (previous === undefined) delete process.env.CLOUD_VERIFY_ASYNC_ONLY;
+        else process.env.CLOUD_VERIFY_ASYNC_ONLY = previous;
+      }
+    },
+  );
+
+  it('keeps a pending verification response as device fallback', async () => {
+    await expect(service.ingest('u1', dto)).resolves.toMatchObject({
+      classificationSource: 'device_fallback',
+      cloudVerification: { status: 'pending' },
+    });
+    expect(prisma.classification.findFirst).not.toHaveBeenCalled();
   });
 
   const aiMatch = (clusterId: string, matchReason = 'embedding') => ({
@@ -762,6 +851,7 @@ describe('SmsService', () => {
         message: {
           receivedAt,
           alerts: [{ status: 'Pending' }],
+          cloudVerifications: [{ status: 'pending' as const }],
         },
       },
     ]);
@@ -776,6 +866,7 @@ describe('SmsService', () => {
         createdAt,
         receivedAt,
         alertStatus: 'Pending',
+        verificationStatus: 'pending',
       },
     ]);
     expect(prisma.classification.findMany).toHaveBeenCalledWith(
@@ -801,7 +892,11 @@ describe('SmsService', () => {
       score: 0.9,
       bucket: 'blocked',
       createdAt,
-      message: { receivedAt, alerts: [{ status: 'Pending' }] },
+      message: {
+        receivedAt,
+        alerts: [{ status: 'Pending' }],
+        cloudVerifications: [],
+      },
     }));
     prisma.classification.findMany.mockResolvedValue(records);
 
@@ -812,7 +907,12 @@ describe('SmsService', () => {
       items: records.slice(0, 2).map((row) => {
         const record: Partial<typeof row> = { ...row };
         delete record.message;
-        return { ...record, receivedAt, alertStatus: 'Pending' };
+        return {
+          ...record,
+          receivedAt,
+          alertStatus: 'Pending',
+          verificationStatus: null,
+        };
       }),
       nextCursor: 'c2',
     });

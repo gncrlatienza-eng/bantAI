@@ -572,9 +572,13 @@ export class PaymentsService {
         'STRIPE_CHECKOUT_MODE must be either test or live.',
       );
     }
-    if (process.env.NODE_ENV === 'production' && mode !== 'live') {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      mode !== 'live' &&
+      process.env.STRIPE_TEST_PILOT !== 'true'
+    ) {
       throw new InternalServerErrorException(
-        'Stripe test checkout is disabled in production.',
+        'Stripe test checkout in production requires STRIPE_TEST_PILOT=true.',
       );
     }
     return mode;

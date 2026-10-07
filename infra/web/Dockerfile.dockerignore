@@ -1,0 +1,14 @@
+*
+!web
+!web/**
+!infra
+!infra/web
+!infra/web/default.conf.template
+web/node_modules
+web/dist
+web/.env*
+web/tsconfig.tsbuildinfo
+web/src/.claude-flow
+web/src/**/bash.exe.stackdump
+web/**/coverage
+web/**/*.log

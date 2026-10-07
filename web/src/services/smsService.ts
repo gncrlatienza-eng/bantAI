@@ -1,5 +1,28 @@
 import { fetchApi } from '../api/apiClient';
 
+export type CloudVerificationStatus =
+  'pending' | 'processing' | 'verified' | 'retryable_failure' | 'failed';
+
+/** A device classification is not evidence of a completed cloud check. */
+export function cloudVerificationLabel(
+  status?: CloudVerificationStatus | null,
+): string {
+  switch (status) {
+    case 'pending':
+      return 'Cloud check queued';
+    case 'processing':
+      return 'Cloud check in progress';
+    case 'verified':
+      return 'Cloud check complete';
+    case 'retryable_failure':
+      return 'Cloud check waiting to retry';
+    case 'failed':
+      return 'Cloud check unavailable';
+    default:
+      return 'Cloud check not recorded';
+  }
+}
+
 export interface ClassificationResult {
   id: string;
   messageId: string;
@@ -15,6 +38,7 @@ export interface ClassificationResult {
  * sender identities intentionally remain out of the portal contract.
  */
 export interface AdminClassificationItem {
+  verificationStatus?: CloudVerificationStatus | null;
   id: string;
   messageId: string;
   receivedAt: string;

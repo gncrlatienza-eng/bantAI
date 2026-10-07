@@ -98,6 +98,10 @@ class CampaignMatch(BaseModel):
 
 
 class ClassifyResponse(BaseModel):
+    version_tag: Optional[str] = Field(None, description="Verified serving checkpoint version for this inference")
+    bundle_digest: Optional[str] = Field(
+        None, description="Verified approved artifact bundle SHA-256 for this inference"
+    )
     label: Label = Field(..., description="Predicted class (Ham/Spam/Scam)")
     score: float = Field(..., ge=0.0, le=1.0, description="Confidence of the predicted class")
     scores: Dict[Label, float] = Field(..., description="Full softmax distribution over all classes")

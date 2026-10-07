@@ -6,6 +6,7 @@ import { VerificationService } from '../verification/verification.service';
 import { EmergingWavesService } from '../campaigns/emerging-waves.service';
 import { AiService } from '../ai/ai.service';
 import { SmsService } from './sms.service';
+import { CloudVerificationService } from '../cloud-verification/cloud-verification.service';
 
 describe('SmsService', () => {
   const prisma = {
@@ -46,7 +47,33 @@ describe('SmsService', () => {
     isConfirmedFraud: jest.fn(),
     verifySender: jest.fn(),
   };
-  const ai = { classifyMasked: jest.fn() };
+  const ai = {
+    classifyMasked: jest.fn(),
+    classifyPinned: jest.fn((message: string, domains: string[]) =>
+      ai.classifyMasked(message, domains),
+    ),
+  };
+  const cloudVerificationJob = {
+    id: '11111111-1111-4111-8111-111111111111',
+    status: 'pending',
+    attempts: 0,
+    lastError: null,
+    retryAfter: null,
+    modelVersion: 'v-test',
+    approvedArtifactDigest: 'a'.repeat(64),
+    updatedAt: new Date('2026-10-05T00:00:00.000Z'),
+  };
+  const cloudVerification = {
+    identity: jest.fn(() => ({
+      modelVersion: 'v-test',
+      approvedArtifactDigest: 'a'.repeat(64),
+    })),
+    createJobInTransaction: jest.fn(() =>
+      Promise.resolve(cloudVerificationJob),
+    ),
+    publishAfterCommit: jest.fn(() => Promise.resolve(cloudVerificationJob)),
+    present: jest.fn((job: typeof cloudVerificationJob) => job),
+  };
   const emergingWaves = { schedule: jest.fn() };
   let service: SmsService;
   const dto = {
@@ -84,6 +111,7 @@ describe('SmsService', () => {
         { provide: VerificationService, useValue: verification },
         { provide: AiService, useValue: ai },
         { provide: EmergingWavesService, useValue: emergingWaves },
+        { provide: CloudVerificationService, useValue: cloudVerification },
       ],
     }).compile();
     service = module.get(SmsService);
@@ -762,6 +790,7 @@ describe('SmsService', () => {
         message: {
           receivedAt,
           alerts: [{ status: 'Pending' }],
+          cloudVerifications: [{ status: 'pending' as const }],
         },
       },
     ]);
@@ -776,6 +805,7 @@ describe('SmsService', () => {
         createdAt,
         receivedAt,
         alertStatus: 'Pending',
+        verificationStatus: 'pending',
       },
     ]);
     expect(prisma.classification.findMany).toHaveBeenCalledWith(
@@ -801,7 +831,11 @@ describe('SmsService', () => {
       score: 0.9,
       bucket: 'blocked',
       createdAt,
-      message: { receivedAt, alerts: [{ status: 'Pending' }] },
+      message: {
+        receivedAt,
+        alerts: [{ status: 'Pending' }],
+        cloudVerifications: [],
+      },
     }));
     prisma.classification.findMany.mockResolvedValue(records);
 
@@ -812,7 +846,12 @@ describe('SmsService', () => {
       items: records.slice(0, 2).map((row) => {
         const record: Partial<typeof row> = { ...row };
         delete record.message;
-        return { ...record, receivedAt, alertStatus: 'Pending' };
+        return {
+          ...record,
+          receivedAt,
+          alertStatus: 'Pending',
+          verificationStatus: null,
+        };
       }),
       nextCursor: 'c2',
     });

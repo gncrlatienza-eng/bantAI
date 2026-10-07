@@ -19,7 +19,7 @@ from ..campaign import CampaignMatcher
 from ..classifier import ModelNotReadyError, classifier, route
 from ..explainer import explain
 from ..language import is_supported_language
-from ..readiness import require_model_ready
+from ..readiness import readiness, require_model_ready
 from ..schemas import CampaignMatch, ClassifyRequest, ClassifyResponse
 
 router = APIRouter(tags=["classification"])
@@ -33,6 +33,7 @@ matcher = CampaignMatcher()
 @router.post("/classify", response_model=ClassifyResponse)
 def classify(req: ClassifyRequest) -> ClassifyResponse:
     require_model_ready()
+    identity = readiness.snapshot()
     try:
         result = classifier.classify_full(req.message)
     except ModelNotReadyError as exc:
@@ -78,6 +79,8 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         bucket = "unknown"
 
     return ClassifyResponse(
+        version_tag=identity.version_tag,
+        bundle_digest=identity.bundle_digest if identity.ready else None,
         label=result.label,
         score=result.score,
         scores=result.scores,

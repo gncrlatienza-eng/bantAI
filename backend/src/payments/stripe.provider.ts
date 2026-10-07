@@ -31,8 +31,14 @@ export const stripeClientProvider: Provider = {
     if (mode === 'live' && !key.startsWith('sk_live_')) {
       throw new Error('Stripe live checkout requires an sk_live_ secret key.');
     }
-    if (process.env.NODE_ENV === 'production' && mode !== 'live') {
-      throw new Error('Stripe test checkout is disabled in production.');
+    if (
+      process.env.NODE_ENV === 'production' &&
+      mode !== 'live' &&
+      process.env.STRIPE_TEST_PILOT !== 'true'
+    ) {
+      throw new Error(
+        'Stripe test checkout in production requires STRIPE_TEST_PILOT=true.',
+      );
     }
     return new Stripe(key, {
       // Pin the API version so a Stripe-side release cannot silently change

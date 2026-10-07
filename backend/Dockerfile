@@ -4,7 +4,11 @@ FROM node:24.15.0-bookworm-slim AS build
 
 WORKDIR /app
 
-COPY backend/package.json backend/package-lock.json ./
+RUN apt-get update \
+  && apt-get install --yes --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY backend/package.json backend/package-lock.json backend/.npmrc ./
 RUN npm ci
 
 COPY backend/database ./database
@@ -24,7 +28,7 @@ RUN apt-get update \
   && apt-get install --yes --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
 
-COPY backend/package.json backend/package-lock.json ./
+COPY backend/package.json backend/package-lock.json backend/.npmrc ./
 RUN npm ci --omit=dev \
   && npm cache clean --force
 
@@ -38,4 +42,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main.js"]

@@ -31,6 +31,7 @@ import {
 } from '../../services/reportsService';
 import {
   getAdminClassificationHistory,
+  cloudVerificationLabel,
   type AdminClassificationItem,
 } from '../../services/smsService';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
@@ -368,6 +369,11 @@ function ClassificationLogTab() {
       header: 'Risk bucket',
       render: (r) => r.bucket ?? '—',
       width: '14%',
+    },
+    {
+      key: 'verificationStatus',
+      header: 'Cloud verification',
+      render: (r) => cloudVerificationLabel(r.verificationStatus),
     },
     {
       key: 'alertStatus',

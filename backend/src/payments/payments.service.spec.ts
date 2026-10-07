@@ -32,6 +32,7 @@ describe('PaymentsService checkout idempotency', () => {
     process.env.NODE_ENV = 'test';
     process.env.FRONTEND_URL = 'http://localhost:5173';
     process.env.STRIPE_CHECKOUT_MODE = 'test';
+    delete process.env.STRIPE_TEST_PILOT;
     process.env.STRIPE_PRICE_SHIELD_ANNUAL = 'price_shield_annual';
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
     accessRequests.consumeApprovalToken.mockResolvedValue({
@@ -194,6 +195,29 @@ describe('PaymentsService checkout idempotency', () => {
       service.reconcileTestCheckout('cs_test_paid_1'),
     ).rejects.toThrow('not available');
     expect(stripe.checkout.sessions.retrieve).not.toHaveBeenCalled();
+  });
+
+  it('requires an explicit pilot flag for test checkout in production', async () => {
+    process.env.NODE_ENV = 'production';
+    await expect(
+      service.createCheckoutSession({
+        token: 'a'.repeat(32),
+        billingPeriod: 'ANNUAL',
+      }),
+    ).rejects.toThrow('STRIPE_TEST_PILOT=true');
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+
+    process.env.STRIPE_TEST_PILOT = 'true';
+    stripe.checkout.sessions.create.mockResolvedValue({
+      id: 'cs_test_pilot',
+      url: 'https://checkout.stripe.test/pilot',
+    });
+    await expect(
+      service.createCheckoutSession({
+        token: 'a'.repeat(32),
+        billingPeriod: 'ANNUAL',
+      }),
+    ).resolves.toEqual({ url: 'https://checkout.stripe.test/pilot' });
   });
 
   it('reconciles a selected pending request through its server-stored session', async () => {

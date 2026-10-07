@@ -439,10 +439,10 @@ fun NavGraph(
                     },
                 ) {
                     // Onboarding order: Terms first (consent before any data is
-                    // collected), then email + code, then the phone permissions
+                    // collected), then phone + code, then the phone permissions
                     // once the user knows what BantAI is, then the profile. It used
                     // to open on "make BantAI your default SMS app" before anything
-                    // was explained, with Terms only after SMS access and email.
+                    // was explained, with Terms only after SMS access and sign-in.
                     composable("splash") {
                         SplashScreen(onFinished = {
                             navController.navigate(Screen.Welcome.route) {

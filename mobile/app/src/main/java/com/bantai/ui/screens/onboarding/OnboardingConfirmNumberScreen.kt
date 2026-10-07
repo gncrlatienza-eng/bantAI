@@ -47,7 +47,7 @@ fun OnboardingConfirmNumberScreen(
     signIn: Boolean = false,
     onCreateAccount: (() -> Unit)? = null,
 ) {
-    var emailAddress by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
 
     Column(
@@ -68,26 +68,26 @@ fun OnboardingConfirmNumberScreen(
             eyebrow = if (signIn) null else stringResource(R.string.onboarding_confirm_number_step_2_of_5),
             title =
                 stringResource(
-                    if (signIn) R.string.sign_in_title else R.string.onboarding_confirm_number_enter_your_email,
+                    if (signIn) R.string.sign_in_title else R.string.onboarding_confirm_number_enter_your_phone,
                 ),
             subtitle =
                 stringResource(
-                    if (signIn) R.string.sign_in_subtitle else R.string.onboarding_confirm_number_we_ll_email_you_a,
+                    if (signIn) R.string.sign_in_subtitle else R.string.onboarding_confirm_number_we_ll_text_you_a,
                 ),
         )
         Spacer(Modifier.height(32.dp))
 
-        SectionLabel(stringResource(R.string.onboarding_confirm_number_email_address))
+        SectionLabel(stringResource(R.string.onboarding_confirm_number_phone_number))
         Spacer(Modifier.height(8.dp))
         PillTextField(
-            value = emailAddress,
-            onValueChange = { emailAddress = it },
-            placeholder = stringResource(R.string.onboarding_confirm_number_you_gmail_com),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            value = phoneNumber,
+            onValueChange = { phoneNumber = it },
+            placeholder = stringResource(R.string.onboarding_confirm_number_phone_example),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            stringResource(R.string.onboarding_confirm_number_use_an_inbox_you_can),
+            stringResource(R.string.onboarding_confirm_number_sms_notice),
             fontSize = TextSize.Caption,
             color = TextSecondary,
         )
@@ -102,11 +102,11 @@ fun OnboardingConfirmNumberScreen(
         PrimaryButton(
             text = stringResource(R.string.onboarding_confirm_number_send_verification_code),
             onClick = {
-                viewModel.requestVerificationCode(emailAddress) {
+                viewModel.requestVerificationCode(phoneNumber) {
                     navController.navigate(Screen.OnboardingEnterCode.route)
                 }
             },
-            enabled = !state.isLoading && emailAddress.isNotBlank(),
+            enabled = !state.isLoading && phoneNumber.isNotBlank(),
             isLoading = state.isLoading,
         )
         if (onCreateAccount != null) {

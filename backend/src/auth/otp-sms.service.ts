@@ -4,6 +4,27 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
+const ACCEPTED_SEMAPHORE_STATUSES = new Set(['queued', 'pending', 'sent']);
+
+function isAcceptedSemaphoreResponse(payload: unknown): boolean {
+  if (!Array.isArray(payload) || payload.length === 0) return false;
+
+  return payload.every((item) => {
+    if (!item || typeof item !== 'object') return false;
+    const message = item as Record<string, unknown>;
+    const status =
+      typeof message.status === 'string'
+        ? message.status.trim().toLowerCase()
+        : '';
+    const hasMessageId =
+      (typeof message.message_id === 'number' &&
+        Number.isFinite(message.message_id)) ||
+      (typeof message.message_id === 'string' &&
+        message.message_id.trim().length > 0);
+    return hasMessageId && ACCEPTED_SEMAPHORE_STATUSES.has(status);
+  });
+}
+
 /**
  * Delivers OTP codes via Semaphore PH SMS gateway.
  * Requires SEMAPHORE_API_KEY in the environment. Delivery failures are surfaced
@@ -37,6 +58,14 @@ export class OtpSmsService {
         this.logger.error(
           `Semaphore SMS delivery failed (HTTP ${res.status}).`,
         );
+        throw new ServiceUnavailableException('OTP delivery failed.');
+      }
+
+      const payload: unknown = await res.json();
+      if (!isAcceptedSemaphoreResponse(payload)) {
+        // A 200 response can still describe a rejected/refunded message or an
+        // API error. Never log the body because it can echo the OTP and phone.
+        this.logger.error('Semaphore SMS delivery was not accepted.');
         throw new ServiceUnavailableException('OTP delivery failed.');
       }
     } catch (error) {

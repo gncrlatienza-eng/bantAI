@@ -54,14 +54,20 @@ The backend base URL is injected at build time (`BACKEND_BASE_URL` in
 
 ## Authentication and optional Firebase configuration
 
-Current onboarding uses backend email OTP through `/auth/mobile/request-email-otp`
-and `/auth/mobile/verify-email-otp`. `OnboardingViewModel` and `AuthApi` do not use
-Firebase Phone Authentication. The web administrator uses a separate portal session;
-its successful web sign-in does not prove Android onboarding or SMS permissions.
+Mobile onboarding uses a Philippine number and a six-digit Semaphore SMS code through
+`/auth/request-otp` and `/auth/verify-otp`, including resend. Numbers are normalized to
+`+63` format. Successful verification stores the JWT and verified phone number and
+clears the previous mobile email identity. The app contains no provider API key.
+
+Configure the backend with `MOBILE_OTP_DELIVERY=sms`, `SEMAPHORE_API_KEY`,
+`SEMAPHORE_SENDER_NAME` (approved sender: `BANTAIPH`), and `OTP_HASH_SECRET`.
+The Semaphore account needs credits and an active sender. Web/admin email OTP remains
+separate; its Gmail configuration is retained. Phone sign-in does not automatically
+transfer an existing email-only account's server data.
 
 The Google Services and Crashlytics plugins are applied only when
 `mobile/app/google-services.json` exists. Obtain that project configuration from the
-team if enabling crash reporting; it remains gitignored. The current email OTP
+team if enabling crash reporting; it remains gitignored. The current SMS OTP
 flow does not require a Firebase phone-auth certificate registration.
 
 ---

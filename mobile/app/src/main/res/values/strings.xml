@@ -341,15 +341,15 @@
     <string name="welcome_create_account">Create account</string>
     <string name="welcome_sign_in">I already have an account</string>
     <string name="sign_in_title">Sign in</string>
-    <string name="sign_in_subtitle">Enter the email you used for BantAI. We\'ll send you a 6-digit code.</string>
+    <string name="sign_in_subtitle">Enter the mobile number you used for BantAI. We\'ll text you a 6-digit code.</string>
     <string name="sign_in_create_account">New to BantAI? Create an account</string>
-    <string name="onboarding_confirm_number_email_address">Email address</string>
-    <string name="onboarding_confirm_number_enter_your_email">Enter your email</string>
+    <string name="onboarding_confirm_number_phone_number">Mobile number</string>
+    <string name="onboarding_confirm_number_enter_your_phone">Enter your mobile number</string>
     <string name="onboarding_confirm_number_send_verification_code">Send verification code</string>
     <string name="onboarding_confirm_number_step_2_of_5">Step 2 of 5</string>
-    <string name="onboarding_confirm_number_use_an_inbox_you_can">Use an inbox you can open now.</string>
-    <string name="onboarding_confirm_number_we_ll_email_you_a">We\'ll email you a 6-digit code to confirm it\'s you.</string>
-    <string name="onboarding_confirm_number_you_gmail_com">you@gmail.com</string>
+    <string name="onboarding_confirm_number_sms_notice">Use a Philippine mobile number that can receive texts.</string>
+    <string name="onboarding_confirm_number_we_ll_text_you_a">We\'ll text you a 6-digit code to confirm it\'s you.</string>
+    <string name="onboarding_confirm_number_phone_example">0917 123 4567</string>
     <string name="onboarding_default_sms_bantai_needs_to_be_your">BantAI needs to be your default messaging app to read and protect your SMS messages from phishing threats.</string>
     <string name="onboarding_default_sms_receive_and_read">Receive and read</string>
     <string name="onboarding_default_sms_receive_and_read_all_sms">Receive and read all SMS messages</string>
@@ -436,7 +436,7 @@
     <string name="settings_sign_out_3">Sign Out</string>
     <string name="settings_simulate">Simulate</string>
     <string name="settings_simulate_incoming_sms">Simulate incoming SMS</string>
-    <string name="settings_you_ll_need_to_verify">You\'ll need to verify your email again to sign back in.</string>
+    <string name="settings_you_ll_need_to_verify">You\'ll need to verify your mobile number again to sign back in.</string>
     <!-- splash -->
     <string name="splash_powered_by_ai_built_for">Powered by AI · Built for the Philippines</string>
     <string name="splash_sms_threat_intelligence">SMS threat intelligence</string>

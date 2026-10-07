@@ -87,7 +87,7 @@ fun OnboardingEnterCodeScreen(
                     popUpTo(0) { inclusive = true }
                 }
             } else {
-                // Signed in now, so Back shouldn't lead to the email/code screens again.
+                // Signed in now, so Back shouldn't lead to the phone/code screens again.
                 navController.navigate(Screen.OnboardingDefaultSms.route) {
                     popUpTo(0) { inclusive = true }
                 }
@@ -134,7 +134,7 @@ fun OnboardingEnterCodeScreen(
         OnboardingHeader(
             eyebrow = stringResource(R.string.onboarding_enter_code_step_3_of_5),
             title = stringResource(R.string.onboarding_enter_code_enter_the_code),
-            subtitle = stringResource(R.string.onboarding_code_sent_to, state.emailAddress),
+            subtitle = stringResource(R.string.onboarding_code_sent_to, state.phoneNumber),
         )
         Spacer(Modifier.height(32.dp))
 

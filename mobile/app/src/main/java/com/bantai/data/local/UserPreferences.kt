@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.bantai.data.model.SCAN_PERIODS
 import com.bantai.data.model.SCAN_PERIOD_ALL
-import com.bantai.util.MAX_EMAIL_ADDRESS_LENGTH
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -93,17 +92,16 @@ class UserPreferences(
             )
         }
 
-    suspend fun saveAuth(
+    suspend fun savePhoneAuth(
         token: String,
-        emailAddress: String,
+        phoneNumber: String,
     ) {
         secureTokenStore.saveToken(token)
         context.dataStore.edit { prefs ->
-            prefs[Keys.EMAIL_ADDRESS] =
-                emailAddress.trim().lowercase().take(MAX_EMAIL_ADDRESS_LENGTH)
-            // Prevent stale UI from presenting the previous SMS identity as
-            // the identity that authenticated this new email-backed session.
-            prefs.remove(Keys.PHONE_NUMBER)
+            prefs[Keys.PHONE_NUMBER] = phoneNumber
+            // A mobile session has one authoritative sign-in identity. Remove
+            // the old email-backed value when upgrading an App 1.1 install.
+            prefs.remove(Keys.EMAIL_ADDRESS)
         }
     }
 

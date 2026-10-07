@@ -31,7 +31,7 @@ import com.bantai.ui.theme.White
 /**
  * The landing page whenever nobody is signed in: first launch, after signing
  * out, or when the session expired. Create an account (the full setup) or
- * sign in to an existing one (email + code, then only the phone permissions
+ * sign in to an existing one (phone + code, then only the phone permissions
  * this phone still needs).
  */
 @Composable

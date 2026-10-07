@@ -4,6 +4,12 @@ import { OtpSmsService } from './otp-sms.service';
 describe('OtpSmsService', () => {
   const originalApiKey = process.env.SEMAPHORE_API_KEY;
   const originalSenderName = process.env.SEMAPHORE_SENDER_NAME;
+  const acceptedResponse = (status = 'Queued') =>
+    ({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue([{ message_id: 42, status }]),
+    }) as unknown as Response;
 
   beforeEach(() => {
     process.env.SEMAPHORE_API_KEY = 'test-api-key';
@@ -30,7 +36,7 @@ describe('OtpSmsService', () => {
     process.env.SEMAPHORE_SENDER_NAME = 'BANTAIPH';
     const fetchMock = jest
       .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, status: 200 } as Response);
+      .mockResolvedValue(acceptedResponse());
 
     await new OtpSmsService().send('+639171234567', '123456');
 
@@ -53,7 +59,7 @@ describe('OtpSmsService', () => {
   it('defaults to BANTAIPH when no sender name is configured', async () => {
     const fetchMock = jest
       .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, status: 200 } as Response);
+      .mockResolvedValue(acceptedResponse('Pending'));
 
     await new OtpSmsService().send('+639171234567', '123456');
 
@@ -77,6 +83,29 @@ describe('OtpSmsService', () => {
     jest
       .spyOn(global, 'fetch')
       .mockResolvedValue({ ok: false, status: 401 } as Response);
+
+    await expect(
+      new OtpSmsService().send('+639171234567', '123456'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it.each(['Failed', 'Refunded'])(
+    'fails closed when Semaphore returns HTTP 200 with %s status',
+    async (status) => {
+      jest.spyOn(global, 'fetch').mockResolvedValue(acceptedResponse(status));
+
+      await expect(
+        new OtpSmsService().send('+639171234567', '123456'),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    },
+  );
+
+  it('fails closed when Semaphore returns malformed success JSON', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ message: 'invalid request' }),
+    } as unknown as Response);
 
     await expect(
       new OtpSmsService().send('+639171234567', '123456'),

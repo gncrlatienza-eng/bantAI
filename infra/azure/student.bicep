@@ -652,8 +652,8 @@ resource backend 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
             { name: 'AZURE_STORAGE_QUEUE_URL', value: '${queueStorage.properties.primaryEndpoints.queue}${verificationQueue.name}' }
             { name: 'CLOUD_VERIFY_MODEL_VERSION', value: 'candidate-2026-09-21-colab-C-local' }
             { name: 'CLOUD_VERIFY_ARTIFACT_DIGEST', value: '2ee84d99a8da734f803e9b20677231879c8e52089d4d407c44a9abff45a817e8' }
-            { name: 'CLOUD_VERIFY_ADMISSION_DAILY', value: '10' }
-            { name: 'CLOUD_VERIFY_ADMISSION_MONTHLY', value: '120' }
+            { name: 'CLOUD_VERIFY_ADMISSION_DAILY', value: '1000' }
+            { name: 'CLOUD_VERIFY_ADMISSION_MONTHLY', value: '20000' }
             { name: 'CLOUD_VERIFY_MAX_ATTEMPTS', value: '5' }
             { name: 'CLOUD_VERIFY_LEASE_SECONDS', value: '210' }
             { name: 'CLOUD_VERIFY_VISIBILITY_SECONDS', value: '240' }

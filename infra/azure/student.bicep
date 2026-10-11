@@ -56,7 +56,7 @@ param deployApps bool = false
 param deployFoundation bool = !deployJobs && !deployApps
 
 @description('Enable campaign matching only when an approved campaign_space.json and compatible centroids are present in the Model-C bundle.')
-param enableCampaignMatching bool = false
+param enableCampaignMatching bool = true
 
 @description('Exact proxy count in front of NestJS. Verify against observed Container Apps headers before wider release.')
 @minValue(0)
@@ -69,7 +69,7 @@ var tags = {
   environment: 'student-test'
   sourceSha: 'b5dd8707f55d27314e1ed780ab619448d435f063'
   reviewAfter: reviewAfter
-  costCeilingUsd: '25'
+  costCeilingUsd: '60'
   managedBy: 'bantai-student-pr112'
   resourcePrefix: prefix
   pilotOperator: pilotOperator
@@ -201,7 +201,7 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (depl
   location: location
   tags: tags
   sku: {
-    name: 'Standard'
+    name: 'Basic'
   }
   properties: {
     adminUserEnabled: false
@@ -536,8 +536,8 @@ resource ai 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
           name: 'ai'
           image: aiImage
           resources: {
-            cpu: json('4.0')
-            memory: '8Gi'
+            cpu: json('1.0')
+            memory: '2Gi'
           }
           env: [
             { name: 'BANTAI_AI_ENVIRONMENT', value: 'production' }
@@ -545,7 +545,7 @@ resource ai 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
             { name: 'BANTAI_AI_MODEL_APPROVAL_PATH', value: '/run/bantai/model-approval.json' }
             { name: 'BANTAI_AI_CENTROID_SOURCE', value: enableCampaignMatching ? 'backend' : 'none' }
             { name: 'BANTAI_AI_BACKEND_URL', value: 'https://${backendName}.${appsEnvironment.properties.defaultDomain}/api' }
-            { name: 'BANTAI_AI_CAMPAIGN_REFRESH_SECONDS', value: enableCampaignMatching ? '600' : '0' }
+            { name: 'BANTAI_AI_CAMPAIGN_REFRESH_SECONDS', value: enableCampaignMatching ? '3600' : '0' }
             { name: 'BANTAI_AI_MAX_CONCURRENT_OPERATIONS', value: '1' }
             { name: 'BANTAI_AI_SERVICE_API_KEY', secretRef: 'service-api-key' }
             { name: 'BANTAI_AI_CAMPAIGNS_API_KEY', secretRef: 'campaigns-api-key' }

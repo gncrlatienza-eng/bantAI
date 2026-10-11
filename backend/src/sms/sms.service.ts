@@ -129,21 +129,25 @@ export class SmsService {
     // bare hostname (a full URL with a path, an address) is dropped here so
     // it can reach neither the AI service nor campaign lookups.
     const domains = normalizeDomains(dto.domains);
-    // Production ingest is durable and request-independent. It never holds the
-    // mobile request open for a cold model: the transaction below creates an
-    // outbox job and the queue worker promotes the device result later. Local
-    // development may keep the warm fast path for compatibility testing.
-    const asyncOnly =
-      process.env.CLOUD_VERIFY_ASYNC_ONLY === 'true' ||
-      process.env.NODE_ENV === 'production';
+    // Ingest stays durable and request-independent: the transaction below
+    // always creates an outbox job the queue worker can complete later. A warm
+    // model is still asked live, but only within a short budget, so a cold one
+    // never holds the phone's 5 s request open. Skipping the live call in all
+    // of production returned only the phone's keyword guess for every SMS, so
+    // no live message ever received a model verdict.
+    // CLOUD_VERIFY_ASYNC_ONLY=true restores queue-only ingest.
+    const asyncOnly = process.env.CLOUD_VERIFY_ASYNC_ONLY === 'true';
     const pinned = this.cloudVerification.identity();
     const modelResult = asyncOnly
       ? null
-      : await this.aiService.classifyPinned(
-          maskedBody,
-          domains,
-          pinned.modelVersion,
-          pinned.approvedArtifactDigest,
+      : await withinBudget(
+          this.aiService.classifyPinned(
+            maskedBody,
+            domains,
+            pinned.modelVersion,
+            pinned.approvedArtifactDigest,
+          ),
+          Number(process.env.CLOUD_VERIFY_SYNC_BUDGET_MS ?? 2_500),
         );
     const classificationSource = modelResult ? 'model' : 'device_fallback';
     const label = modelResult?.label ?? dto.label ?? 'Ham';
@@ -782,6 +786,24 @@ export class SmsService {
     score: number,
   ): 'blocked' | 'inbox' {
     return label === 'Scam' && score >= 0.9 ? 'blocked' : 'inbox';
+  }
+}
+
+/** Resolves to null when `work` takes longer than `budgetMs`; the work itself keeps running. */
+async function withinBudget<T>(
+  work: Promise<T | null>,
+  budgetMs: number,
+): Promise<T | null> {
+  let timer: NodeJS.Timeout | undefined;
+  // A rejection after the budget expired must not surface as unhandled.
+  work.catch(() => undefined);
+  const expired = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), budgetMs);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

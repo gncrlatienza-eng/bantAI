@@ -27,8 +27,8 @@ class ConversationViewTest {
     }
 
     @Test
-    fun `unknown view keeps messages needing review`() {
-        assertEquals(listOf(4L, 6L), ids(ConversationView.UNKNOWN))
+    fun `unknown view keeps messages needing review, including unblocked scams`() {
+        assertEquals(listOf(4L, 5L, 6L), ids(ConversationView.UNKNOWN))
     }
 
     @Test

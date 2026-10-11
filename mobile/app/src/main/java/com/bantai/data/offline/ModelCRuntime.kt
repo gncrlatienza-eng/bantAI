@@ -206,7 +206,13 @@ internal object ModelCRuntime {
         directory: File,
     ): File {
         val destination = File(directory, name)
-        if (destination.isFile && sha256(destination) == expectedSha256) return destination
+        // Re-hashing the 266 MB model on every cold process start (each SMS
+        // that wakes the app in the background) cost seconds per message. The
+        // marker records the digest plus the size and mtime it was verified at,
+        // so an unchanged private copy is trusted and any rewrite re-hashes.
+        val marker = File(directory, "$name.verified")
+        if (alreadyVerified(destination, marker, expectedSha256)) return destination
+        if (marker.exists()) check(marker.delete()) { "Could not clear stale $name verification marker" }
         val temporary = File(directory, "$name.tmp")
         if (temporary.exists()) check(temporary.delete()) { "Could not replace stale $name temporary file" }
         val digest = MessageDigest.getInstance("SHA-256")
@@ -225,8 +231,29 @@ internal object ModelCRuntime {
         check(actual == expectedSha256) { "Bundled $name digest mismatch" }
         if (destination.exists()) check(destination.delete()) { "Could not replace invalid $name" }
         check(temporary.renameTo(destination)) { "Could not install verified $name" }
+        marker.writeText(verificationStamp(destination, expectedSha256))
         return destination
     }
+
+    // True when the private copy is intact: its marker still matches, or (no
+    // usable marker yet) a full re-hash matches and the marker is rewritten.
+    private fun alreadyVerified(
+        destination: File,
+        marker: File,
+        expectedSha256: String,
+    ): Boolean {
+        if (!destination.isFile) return false
+        val stamp = verificationStamp(destination, expectedSha256)
+        if (marker.isFile && marker.readText() == stamp) return true
+        val intact = sha256(destination) == expectedSha256
+        if (intact) marker.writeText(stamp)
+        return intact
+    }
+
+    private fun verificationStamp(
+        file: File,
+        sha256: String,
+    ): String = "$sha256:${file.length()}:${file.lastModified()}"
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")

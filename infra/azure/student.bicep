@@ -580,7 +580,7 @@ resource ai 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 1
         rules: [
           { name: 'http', http: { metadata: { concurrentRequests: '1' } } }
@@ -713,7 +713,7 @@ resource backend 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 1
         rules: [
           { name: 'http', http: { metadata: { concurrentRequests: '1' } } }

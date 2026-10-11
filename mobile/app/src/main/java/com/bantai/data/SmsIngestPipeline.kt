@@ -373,9 +373,10 @@ object SmsIngestPipeline {
     ): ScanOutcome =
         try {
             val result = ModelCRuntime.classify(context, message.body)
+            val classification = onDeviceClassificationFor(context, message.sender, result.decision.classification)
             context.container.classificationStore.setOnDeviceClassificationIfNoCloud(
                 messageId = message.id,
-                classification = result.decision.classification,
+                classification = classification,
                 modelVersion = result.modelVersion,
                 modelSha256 = result.modelSha256,
                 score = result.decision.score,
@@ -383,7 +384,7 @@ object SmsIngestPipeline {
             // A cloud verdict or existing scam/user block may have won the race.
             val effective =
                 context.container.classificationStore.snapshotFor(message.id)
-                    ?: result.decision.classification
+                    ?: classification
             ScanOutcome.Classified(effective, matchedRemotely = false)
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -565,6 +566,21 @@ object SmsIngestPipeline {
         val outcome = BlockHelper.blockSender(context, token, sender, automatic = true)
         if (!outcome.blocked) Log.w(TAG, "Auto-block didn't land on the device or the server")
     }
+
+    // Same trusted/user-unblocked rule as handledAsScam, for a Model C verdict:
+    // those senders' scam verdicts are kept for review rather than filed as Scam.
+    private suspend fun onDeviceClassificationFor(
+        context: Context,
+        sender: String,
+        classification: Classification,
+    ): Classification =
+        if (classification == Classification.SCAM &&
+            (TrustedSenders.neverAutoBlock(sender) || userUnblocked(context, sender))
+        ) {
+            Classification.UNKNOWN
+        } else {
+            classification
+        }
 
     // A sender the user unblocked stays unblocked: a later scam verdict from it
     // is surfaced for review instead of silently re-blocking it.
@@ -752,7 +768,7 @@ object SmsIngestPipeline {
         val written =
             context.container.classificationStore.setOnDeviceClassificationIfNoCloud(
                 messageId = message.id,
-                classification = decision.classification,
+                classification = onDeviceClassificationFor(context, message.sender, decision.classification),
                 modelVersion = result.modelVersion,
                 modelSha256 = result.modelSha256,
                 score = decision.score,

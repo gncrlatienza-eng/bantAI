@@ -20,12 +20,19 @@ class ModelCDecisionTest {
     }
 
     @Test
-    fun `confident scam is high risk review without claiming blocked`() {
+    fun `confident scam is labelled scam and stays high risk`() {
         val decision = routeModelCProbabilities(doubleArrayOf(0.01, 0.02, 0.97))
         assertEquals("Scam", decision.modelLabel)
-        assertEquals(Classification.UNKNOWN, decision.classification)
+        assertEquals(Classification.SCAM, decision.classification)
         assertTrue(decision.highRisk)
         assertTrue(decision.requiresReview)
+    }
+
+    @Test
+    fun `scam below its threshold stays reviewable`() {
+        val decision = routeModelCProbabilities(doubleArrayOf(0.02, 0.10, 0.88))
+        assertEquals(Classification.UNKNOWN, decision.classification)
+        assertFalse(decision.highRisk)
     }
 
     @Test

@@ -541,24 +541,20 @@ class MessagesViewModel(
 
         _inboxMessages.value = filtered
 
-        // A scam blocks its sender (see SmsIngestPipeline.autoBlockSender), so
-        // none of that sender's messages stay in Messages/Spam/Review -- the
-        // scam lives in Alerts. Trusted senders never read as "blocked" (see
-        // SmsRepository.resolveClassification), so they're never hidden here.
-        val scamSenders =
-            filtered
-                .filter { it.classification == Classification.SCAM }
-                .map { normalizeSenderKey(it.sender) }
-                .toSet()
-        // Blocked senders are hidden the same way (see blockedKeys).
-        val hiddenSenders = scamSenders + blockedKeys
+        // A cloud scam blocks its sender (see SmsIngestPipeline.autoBlockSender),
+        // so none of that sender's messages stay in Messages/Spam/Review -- the
+        // scam lives in Alerts. Only actually blocked senders are hidden: a
+        // SCAM label without a block (an on-device Model C verdict, or an
+        // auto-block that didn't land) has no server Alert row, so hiding it
+        // made the message vanish everywhere. It stays in Review instead.
+        val hiddenSenders = blockedKeys
         val inbox = filtered.filterNot { normalizeSenderKey(it.sender) in hiddenSenders }
 
         val spam = inbox.filter { it.classification == Classification.SPAM }
         _suspiciousMessages.value = spam
         _suspiciousTodayCount.value = spam.count { isToday(it.timestamp) }
 
-        val unknown = inbox.filter { it.classification == Classification.UNKNOWN }
+        val unknown = inbox.filter { ConversationView.UNKNOWN.includes(it) && !it.isOutgoing }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
 

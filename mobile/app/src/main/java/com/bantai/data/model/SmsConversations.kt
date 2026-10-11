@@ -89,7 +89,9 @@ enum class ConversationView(
             ALL -> true
             MESSAGES -> message.isOutgoing || message.classification !in HIDDEN_FROM_MESSAGES
             SPAM -> message.isOutgoing || message.classification == Classification.SPAM
-            UNKNOWN -> message.isOutgoing || message.classification == Classification.UNKNOWN
+            // Review also holds Scam-labelled messages whose sender isn't blocked
+            // (an on-device verdict): they have no server Alert to live in.
+            UNKNOWN -> message.isOutgoing || message.classification.isFlagged
             DELETED -> true
         }
 

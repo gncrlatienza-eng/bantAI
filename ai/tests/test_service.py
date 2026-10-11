@@ -138,6 +138,22 @@ def test_classify_returns_keyword_indicators(monkeypatch):
     assert body["indicators"], "a prize-bait scam should carry at least one indicator tag"
 
 
+def test_classify_feeds_the_model_training_placeholders(monkeypatch):
+    """The phone and backend mask with [URL]-style placeholders, but the model
+    was trained on preprocess()'s <URL> form. The model must see <URL>."""
+    seen = []
+
+    class _Spy(_StubClassifier):
+        def classify_full(self, message):
+            seen.append(message)
+            return super().classify_full(message)
+
+    monkeypatch.setattr(routers.classify, "classifier", _Spy())
+    monkeypatch.setattr(routers.classify, "matcher", CampaignMatcher([]))
+    client.post("/classify", json={"message": "Claim [AMOUNT] at [URL] or call [PHONE]"})
+    assert seen == ["Claim <AMOUNT> at <URL> or call <PHONE>"]
+
+
 def test_campaign_is_null_at_cold_start(monkeypatch):
     """No centroids loaded yet -- report nothing rather than a misleading
     'no match', and stay backward-compatible for callers ignoring the field."""

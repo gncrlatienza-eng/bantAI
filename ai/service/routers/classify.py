@@ -19,6 +19,7 @@ from ..campaign import CampaignMatcher
 from ..classifier import ModelNotReadyError, classifier, route
 from ..explainer import explain
 from ..language import is_supported_language
+from ..lexical import normalize_placeholders
 from ..readiness import readiness, require_model_ready
 from ..schemas import CampaignMatch, ClassifyRequest, ClassifyResponse
 
@@ -35,7 +36,9 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     require_model_ready()
     identity = readiness.snapshot()
     try:
-        result = classifier.classify_full(req.message)
+        # The phone/backend send [URL]-style placeholders; the model learned
+        # preprocess()'s <URL> tokens, so translate before inference.
+        result = classifier.classify_full(normalize_placeholders(req.message))
     except ModelNotReadyError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 

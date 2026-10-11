@@ -47,7 +47,9 @@ fun StatusBadge(type: BadgeType) {
         BadgeType.UNVERIFIED -> BadgePill("Unverified", Surface, TextSecondary, TextSecondary)
         BadgeType.SPAM -> BadgePill("Spam", Suspicious.copy(alpha = 0.18f), Suspicious, Suspicious)
         BadgeType.UNKNOWN -> BadgePill("Unknown", Surface, TextSecondary, null)
-        BadgeType.BLOCKED -> BadgePill("Blocked", Danger.copy(alpha = 0.18f), Danger, Danger)
+        // "Scam", not "Blocked": an on-device Model C verdict sets this label
+        // without blocking the sender, so "Blocked" would overstate it.
+        BadgeType.BLOCKED -> BadgePill("Scam", Danger.copy(alpha = 0.18f), Danger, Danger)
     }
 }
 

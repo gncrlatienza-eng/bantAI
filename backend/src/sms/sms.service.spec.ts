@@ -274,6 +274,46 @@ describe('SmsService', () => {
     },
   );
 
+  describe('live model check in production', () => {
+    const scamVerdict = {
+      label: 'Scam',
+      score: 0.99,
+      bucket: 'blocked',
+      scores: { Ham: 0.0, Spam: 0.01, Scam: 0.99 },
+      indicators: [],
+      explanationMethod: 'keyword-fallback',
+      campaign: null,
+    };
+    const saved = {
+      nodeEnv: process.env.NODE_ENV,
+      budget: process.env.CLOUD_VERIFY_SYNC_BUDGET_MS,
+    };
+    afterEach(() => {
+      process.env.NODE_ENV = saved.nodeEnv;
+      if (saved.budget === undefined)
+        delete process.env.CLOUD_VERIFY_SYNC_BUDGET_MS;
+      else process.env.CLOUD_VERIFY_SYNC_BUDGET_MS = saved.budget;
+    });
+
+    it('returns the model verdict when the model answers within the budget', async () => {
+      process.env.NODE_ENV = 'production';
+      ai.classifyMasked.mockResolvedValue(scamVerdict);
+      await expect(service.ingest('u1', dto)).resolves.toMatchObject({
+        classificationSource: 'model',
+        classification: { label: 'Scam' },
+      });
+    });
+
+    it('falls back to the device result when the model misses the budget', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.CLOUD_VERIFY_SYNC_BUDGET_MS = '10';
+      ai.classifyPinned.mockImplementationOnce(() => new Promise(() => {}));
+      await expect(service.ingest('u1', dto)).resolves.toMatchObject({
+        classificationSource: 'device_fallback',
+      });
+    });
+  });
+
   it('keeps a pending verification response as device fallback', async () => {
     await expect(service.ingest('u1', dto)).resolves.toMatchObject({
       classificationSource: 'device_fallback',

@@ -33,9 +33,12 @@ internal fun routeModelCProbabilities(probabilities: DoubleArray): ModelCDecisio
             review -> Classification.UNKNOWN
             winner == 0 -> Classification.SAFE
             winner == 1 -> Classification.SPAM
-            // A local verdict must not claim the sender was blocked. Surface a
-            // high-priority review; cloud/device block state remains separate.
-            else -> Classification.UNKNOWN
+            // A confident local Scam is labelled Scam. Filing it as UNKNOWN put
+            // every certain on-device scam in the same pile as genuinely unsure
+            // messages. The label alone blocks nobody: blocking stays a cloud
+            // or user action, and trusted/unblocked senders are downgraded to
+            // UNKNOWN by SmsIngestPipeline.onDeviceClassificationFor.
+            else -> Classification.SCAM
         }
     return ModelCDecision(
         modelLabel = MODEL_C_LABELS[winner],

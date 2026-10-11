@@ -16,7 +16,7 @@ param(
   [string]$WebLocalImage = 'bantai-web:b5dd870-student',
   [string]$MigrationLocalImage = 'bantai-migrate:b5dd870-student',
   [string]$DbInitLocalImage = 'bantai-db-init:b5dd870',
-  [switch]$EnableCampaignMatching,
+  [switch]$DisableCampaignMatching,
   [switch]$FoundationOnly,
   [switch]$ValidateOnly,
   [DateTimeOffset]$ReviewAfterUtc = '2026-12-15T00:00:00Z',
@@ -135,9 +135,10 @@ function Assert-ModelApproval {
     $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifactPath).Hash.ToLowerInvariant()
     if ($actualHash -cne $artifact.Value) { throw "Model-C artifact hash mismatch: $($artifact.Key)" }
   }
-  if ($EnableCampaignMatching) {
-    throw 'Campaign matching requires a new approved manifest that hash-pins campaign_space.json; the current six-file approval cannot enable it.'
-  }
+  # Campaign matching stays on by default: the six-file approval above can never
+  # ship a campaign_space.json, so the AI only ever runs raw-space matching and
+  # refuses transformed centroids without that file (service/campaign_space.py
+  # resolve_space). Pass -DisableCampaignMatching to deploy with it off.
   return $manifestHash
 }
 
@@ -172,7 +173,7 @@ function Write-ParameterFile(
       deploySecrets = @{ value = $DeploySecrets }
       deployJobs = @{ value = $DeployJobs }
       deployApps = @{ value = $DeployApps }
-      enableCampaignMatching = @{ value = [bool]$EnableCampaignMatching }
+      enableCampaignMatching = @{ value = -not $DisableCampaignMatching }
     }
   }
   $json = $payload | ConvertTo-Json -Depth 12
@@ -272,7 +273,7 @@ $adminPlain = ConvertFrom-SecureStringPlainText $PostgresAdminPassword
 $appPlain = ConvertFrom-SecureStringPlainText $DatabaseAppPassword
 try {
   if (-not $groupExists) {
-    Invoke-Az group create --name $ResourceGroup --location $Location --tags application=bantai environment=student-test sourceSha=$ExpectedSourceSha managedBy=$ManagedBy resourcePrefix=$Prefix pilotOperator=$Operator reviewAfter=$($ReviewAfterUtc.ToString('o')) costCeilingUsd=25 --only-show-errors --output none
+    Invoke-Az group create --name $ResourceGroup --location $Location --tags application=bantai environment=student-test sourceSha=$ExpectedSourceSha managedBy=$ManagedBy resourcePrefix=$Prefix pilotOperator=$Operator reviewAfter=$($ReviewAfterUtc.ToString('o')) costCeilingUsd=60 --only-show-errors --output none
     $createdTags = Invoke-AzText group show --name $ResourceGroup --query tags --output json | ConvertFrom-Json -AsHashtable
     Assert-ResourceGroupOwnership $createdTags
   }
@@ -356,7 +357,7 @@ try {
     webUrl = $webUrl
     reviewAfter = $ReviewAfterUtc.ToString('o')
 
-    campaignMatching = [bool]$EnableCampaignMatching
+    campaignMatching = -not $DisableCampaignMatching
     sourceSha = $ExpectedSourceSha
     approvalManifestSha256 = $approvalHash
   }

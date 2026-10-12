@@ -36,16 +36,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -101,6 +106,25 @@ private val ROW_TEXT_INSET = 52.dp
 // they sit in the visible middle rather than behind the floating tab bar.
 private const val EMPTY_STATE_HEIGHT = 0.7f
 
+// The Reported page's Waiting / Accepted / Declined control with its top gap.
+private val REPORT_FILTER_HEIGHT_ESTIMATE = 56.dp
+
+// An empty/error state, centered in EMPTY_STATE_HEIGHT of the list. On pages
+// without the Reported filter it drops by [inset] * (1 - EMPTY_STATE_HEIGHT / 2):
+// exactly what keeps its center level with Reported's, whose list is [inset]
+// shorter and starts [inset] lower.
+private fun LazyListScope.centeredState(
+    inset: Dp,
+    content: @Composable (Modifier) -> Unit,
+) {
+    item {
+        Column {
+            Spacer(Modifier.height(inset * (1 - EMPTY_STATE_HEIGHT / 2)))
+            content(Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT))
+        }
+    }
+}
+
 /**
  * Alerts tab, as four pages picked with chips like the Messages tab's
  * filters (see AlertTab): To review, Reviewed, Reported, Blocked. Every alert
@@ -134,6 +158,10 @@ fun AlertsScreen(
     val reportFilter by viewModel.reportFilter.collectAsState()
     val reportSections = remember(alerts, reportFilter) { reportSections(alerts, reportFilter) }
     val reportCounts = remember(alerts) { reportCounts(alerts) }
+    val density = LocalDensity.current
+    // Measured once the Reported page shows its filter; the estimate is its
+    // height at the default font size.
+    var reportFilterHeight by remember { mutableStateOf(REPORT_FILTER_HEIGHT_ESTIMATE) }
 
     // Every alert routes to SmishingAlertScreen -- the alert-detail screen.
     fun onAlertClick(alert: SmsApi.AlertSummary) {
@@ -169,18 +197,29 @@ fun AlertsScreen(
             AlertsTitle(hasUnseen = unseen.isNotEmpty(), onMarkAllSeen = viewModel::markAllSeen)
             Spacer(Modifier.height(10.dp))
             AlertTabChips(selected = tab, tabsWithNew = tabsWithNew, onSelect = viewModel::setTab)
-            Text(
-                stringResource(tab.aboutRes()),
-                color = TextSecondary,
-                fontSize = TextSize.Footnote,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp),
-            )
-            if (tab == AlertTab.REPORTED && reportCounts.isNotEmpty()) {
+            // Every page's blurb is laid out and only the selected one shown, so
+            // this block is as tall as the longest at any width or font size:
+            // switching pages never moves the list (or its empty state) below.
+            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp)) {
+                AlertTab.entries.forEach { page ->
+                    Text(
+                        stringResource(page.aboutRes()),
+                        color = TextSecondary,
+                        fontSize = TextSize.Footnote,
+                        lineHeight = 18.sp,
+                        modifier = if (page == tab) Modifier else Modifier.alpha(0f).clearAndSetSemantics {},
+                    )
+                }
+            }
+            val showReportFilter = reportCounts.isNotEmpty()
+            if (tab == AlertTab.REPORTED && showReportFilter) {
                 ReportFilterControl(
                     selected = reportFilter,
                     onSelect = viewModel::setReportFilter,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp),
+                    modifier =
+                        Modifier
+                            .onSizeChanged { reportFilterHeight = with(density) { it.height.toDp() } }
+                            .padding(start = 20.dp, end = 20.dp, top = 14.dp),
                 )
             }
             // A fixed gap outside the scrolling list: the section headers' own
@@ -197,6 +236,7 @@ fun AlertsScreen(
                         unseen = unseen,
                         reportSections = reportSections,
                         reportFilter = reportFilter,
+                        stateInset = if (tab != AlertTab.REPORTED && showReportFilter) reportFilterHeight else 0.dp,
                     ),
                 bottomPadding = innerPadding.calculateBottomPadding() + 24.dp,
                 onClick = ::onAlertClick,
@@ -215,6 +255,8 @@ private data class AlertsListState(
     val unseen: Set<String>,
     val reportSections: List<ReportSection>,
     val reportFilter: ReportFilter,
+    // The Reported page's filter height when it's showing there; see centeredState.
+    val stateInset: Dp,
 )
 
 // Waiting / Accepted / Declined.
@@ -335,18 +377,18 @@ private fun ColumnScope.AlertsList(
             state.isLoading ->
                 item { ListSkeleton(rows = 5) }
             errorMessage != null ->
-                item {
+                centeredState(state.stateInset) { modifier ->
                     StateMessage(
                         icon = Icons.Outlined.CloudOff,
                         title = stringResource(R.string.alerts_load_failed),
                         detail = errorMessage,
                         actionLabel = stringResource(R.string.action_retry),
                         onAction = onRetry,
-                        modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                        modifier = modifier,
                     )
                 }
             state.sections.isEmpty() ->
-                item { EmptyAlerts(state.tab, Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT)) }
+                centeredState(state.stateInset) { modifier -> EmptyAlerts(state.tab, modifier) }
             state.tab == AlertTab.REPORTED && state.reportSections.isEmpty() ->
                 item {
                     StateMessage(

@@ -33,18 +33,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -64,6 +67,7 @@ import kotlinx.coroutines.delay
 
 private const val COUNTDOWN_TICK_MS = 1000L
 private const val MS_PER_SECOND = 1000L
+private const val OTP_LENGTH = 6
 
 @Composable
 fun OnboardingEnterCodeScreen(
@@ -71,8 +75,8 @@ fun OnboardingEnterCodeScreen(
     viewModel: OnboardingViewModel,
 ) {
     val state by viewModel.state.collectAsState()
-    val digits = remember { mutableStateListOf("", "", "", "", "", "") }
-    val focusRequesters = remember { List(6) { FocusRequester() } }
+    var code by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
 
     // Fires after the backend accepts the typed OTP and the JWT is persisted.
     // This phone already finished setup (a sign-out, or a 401 from
@@ -108,7 +112,7 @@ fun OnboardingEnterCodeScreen(
     val resendRemainingSec = ((state.resendAvailableAtMs - nowMs) / MS_PER_SECOND).coerceAtLeast(0)
     val verifyLockedRemainingSec = ((state.verifyLockedUntilMs - nowMs) / MS_PER_SECOND).coerceAtLeast(0)
 
-    LaunchedEffect(Unit) { focusRequesters[0].requestFocus() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     Column(
         modifier =
@@ -138,32 +142,14 @@ fun OnboardingEnterCodeScreen(
         )
         Spacer(Modifier.height(32.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            repeat(6) { i ->
-                OtpBox(
-                    value = digits[i],
-                    focusRequester = focusRequesters[i],
-                    onValueChange = { new ->
-                        val filtered = new.filter { it.isDigit() }
-                        when {
-                            filtered.isEmpty() -> {
-                                digits[i] = ""
-                                if (i > 0) focusRequesters[i - 1].requestFocus()
-                            }
-                            else -> {
-                                digits[i] = filtered.last().toString()
-                                if (i < 5) focusRequesters[i + 1].requestFocus()
-                            }
-                        }
-                        viewModel.updateOtpCode(digits.joinToString(""))
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
+        OtpField(
+            code = code,
+            focusRequester = focusRequester,
+            onCodeChange = { new ->
+                code = otpFrom(code, new)
+                viewModel.updateOtpCode(code)
+            },
+        )
 
         if (state.errorMessage != null) {
             Spacer(Modifier.height(16.dp))
@@ -213,53 +199,75 @@ fun OnboardingEnterCodeScreen(
     }
 }
 
+// A paste (e.g. the whole "Your BantAI code is 123456" from the notification)
+// takes the 6-digit run out of what was inserted; typing and backspace just
+// keep the digits.
+private fun otpFrom(
+    old: String,
+    new: String,
+): String {
+    val inserted = if (new.length - old.length > 1 && new.startsWith(old)) new.substring(old.length) else null
+    val source = inserted?.let { Regex("\\d{$OTP_LENGTH}").find(it)?.value } ?: new
+    return source.filter(Char::isDigit).take(OTP_LENGTH)
+}
+
+// One real text field drawn as six boxes: paste, long-press, and backspace
+// behave like any field instead of hopping focus between six separate ones.
 @Composable
-private fun OtpBox(
-    value: String,
+private fun OtpField(
+    code: String,
     focusRequester: FocusRequester,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    onCodeChange: (String) -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier =
-            modifier
-                .heightIn(min = 52.dp)
-                .focusRequester(focusRequester),
-        textStyle =
-            TextStyle(
-                color = White,
-                fontSize = TextSize.Title,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-            ),
-        cursorBrush = SolidColor(Indigo),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        // Cursor pinned to the end so input always fills the next box.
+        value = TextFieldValue(code, TextRange(code.length)),
+        onValueChange = { onCodeChange(it.text) },
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+        textStyle = TextStyle(color = Color.Transparent),
+        cursorBrush = SolidColor(Color.Transparent),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         singleLine = true,
         interactionSource = interactionSource,
         decorationBox = { innerTextField ->
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(SurfaceElevated, RoundedCornerShape(12.dp))
-                        .then(
-                            if (isFocused) {
-                                Modifier.border(
-                                    width = 1.dp,
-                                    color = Indigo.copy(alpha = 0.6f),
-                                    shape = RoundedCornerShape(12.dp),
-                                )
-                            } else {
+            Box {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(OTP_LENGTH) { i ->
+                        val active = isFocused && i == code.length.coerceAtMost(OTP_LENGTH - 1)
+                        Box(
+                            modifier =
                                 Modifier
-                            },
-                        ),
-                contentAlignment = Alignment.Center,
-            ) { innerTextField() }
+                                    .weight(1f)
+                                    .heightIn(min = 52.dp)
+                                    .background(SurfaceElevated, RoundedCornerShape(12.dp))
+                                    .then(
+                                        if (active) {
+                                            Modifier.border(
+                                                width = 1.dp,
+                                                color = Indigo.copy(alpha = 0.6f),
+                                                shape = RoundedCornerShape(12.dp),
+                                            )
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                code.getOrNull(i)?.toString().orEmpty(),
+                                color = White,
+                                fontSize = TextSize.Title,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+                Box(Modifier.matchParentSize()) { innerTextField() }
+            }
         },
     )
 }

@@ -359,7 +359,7 @@
     <string name="onboarding_default_sms_send_sms_messages_on_your">Send SMS messages on your behalf</string>
     <string name="onboarding_default_sms_set_as_your_sms_app">Set as your SMS app</string>
     <string name="onboarding_default_sms_step_4_of_5">Step 4 of 5</string>
-    <string name="onboarding_enter_code_didn_t_get_it">Didn\'t get it? </string>
+    <string name="onboarding_enter_code_didn_t_get_it">"Didn\'t get it? "</string>
     <string name="onboarding_enter_code_enter_the_code">Enter the code</string>
     <string name="onboarding_enter_code_resend_code">Resend code</string>
     <string name="onboarding_enter_code_step_3_of_5">Step 3 of 5</string>

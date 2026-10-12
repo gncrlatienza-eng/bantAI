@@ -174,6 +174,10 @@ fun AlertsScreen(
                 color = TextSecondary,
                 fontSize = TextSize.Footnote,
                 lineHeight = 18.sp,
+                // The three blurbs wrap to different line counts; a fixed height
+                // keeps the list (and its centered empty state) from jumping
+                // when switching tabs.
+                minLines = 3,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp),
             )
             if (tab == AlertTab.REPORTED && reportCounts.isNotEmpty()) {

@@ -37,7 +37,10 @@ import kotlinx.coroutines.withContext
 // up to ALERTS_MAX_PAGES pages of 100 via the backend's cursor), so this trades
 // alert-badge freshness against bandwidth/battery: long enough to not hammer
 // the backend, short enough that a new threat still shows up promptly.
+// Only while the Alerts tab is on screen; elsewhere the badge refreshes on the
+// slower interval so low-end phones and weak signal aren't hit every 20s.
 private const val ALERTS_POLL_INTERVAL_MS = 20_000L
+private const val ALERTS_BACKGROUND_POLL_INTERVAL_MS = 60_000L
 private const val ALERTS_MAX_PAGES = 5
 private const val TAG = "AlertsViewModel"
 
@@ -119,6 +122,10 @@ class AlertsViewModel(
         viewModelScope.launch { alertStateStore.markSeen(ids) }
     }
 
+    // Set by AlertsScreen while it's composed; picks the faster poll interval.
+    @Volatile
+    var isScreenVisible = false
+
     /**
      * Unblocks [alert]'s sender from the Blocked page. Its alerts move to To
      * review straight away (the next poll agrees: BlockedSendersStore now
@@ -126,6 +133,7 @@ class AlertsViewModel(
      * [onDone] gets false when only the phone half worked -- the backend may
      * still be filtering this sender.
      */
+
     init {
         loadAlerts()
         // Polling lives here (viewModelScope) rather than in AlertsScreen's own
@@ -134,7 +142,7 @@ class AlertsViewModel(
         // happens to be on screen.
         viewModelScope.launch {
             while (isActive) {
-                delay(ALERTS_POLL_INTERVAL_MS)
+                delay(if (isScreenVisible) ALERTS_POLL_INTERVAL_MS else ALERTS_BACKGROUND_POLL_INTERVAL_MS)
                 // Skip while the app is backgrounded -- this ViewModel is scoped to
                 // MainScreen's back stack entry (see AlertsScreen.kt), not to Activity
                 // foreground state, so without this it keeps polling indefinitely even

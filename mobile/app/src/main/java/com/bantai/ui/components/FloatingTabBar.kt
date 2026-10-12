@@ -73,6 +73,7 @@ import com.bantai.ui.theme.GlassFill
 import com.bantai.ui.theme.GlassStroke
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.White
+import com.bantai.util.rememberIsLowRamDevice
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -263,6 +264,7 @@ private fun TabSelectionPill(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "pillWidth",
     )
+    val lowRam = rememberIsLowRamDevice()
     Box(
         modifier =
             Modifier
@@ -280,24 +282,31 @@ private fun TabSelectionPill(
                 // first frame of the main screen (seen on a Galaxy S24 FE,
                 // Android 16). Android 10 and older use a fallback path that
                 // never reads it, which is why the Huawei was unaffected.
-                .hazeEffect(
-                    state = hazeState,
-                    style =
-                        HazeStyle(
-                            backgroundColor = Black,
-                            // Clear frosted glass, not purple: a faint label-color
-                            // tint plus the hairline edge below keeps the selection
-                            // visible in both themes without a solid fill.
-                            tint = HazeTint(White.copy(alpha = 0.06f)),
-                            blurRadius = 18.dp,
-                        ),
-                ) {
-                    // Blur a downscaled copy of the content: visually the same
-                    // behind a small tinted pill, far cheaper per frame. The
-                    // full-resolution blur made tab switches stutter on
-                    // Android 12+ (real RenderEffect blur), e.g. the Galaxy S24 FE.
-                    inputScale = HazeInputScale.Auto
-                },
+                .then(
+                    if (lowRam) {
+                        // Low-RAM phones: a flat frosted tint instead of a live blur pass every frame.
+                        Modifier.background(White.copy(alpha = 0.14f))
+                    } else {
+                        Modifier.hazeEffect(
+                            state = hazeState,
+                            style =
+                                HazeStyle(
+                                    backgroundColor = Black,
+                                    // Clear frosted glass, not purple: a faint label-color
+                                    // tint plus the hairline edge below keeps the selection
+                                    // visible in both themes without a solid fill.
+                                    tint = HazeTint(White.copy(alpha = 0.06f)),
+                                    blurRadius = 18.dp,
+                                ),
+                        ) {
+                            // Blur a downscaled copy of the content: visually the same
+                            // behind a small tinted pill, far cheaper per frame. The
+                            // full-resolution blur made tab switches stutter on
+                            // Android 12+ (real RenderEffect blur), e.g. the Galaxy S24 FE.
+                            inputScale = HazeInputScale.Auto
+                        }
+                    },
+                ),
     )
 }
 

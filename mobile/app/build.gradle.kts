@@ -350,6 +350,10 @@ android {
             // The placeholder only keeps non-release tasks configurable; the
             // check below refuses to package a release APK with it.
             buildConfigField("String", "BACKEND_BASE_URL", "\"$releaseBackendUrl\"")
+            // Phones only: ONNX Runtime's x86/x86_64 libraries were ~43 MB of the
+            // tester APK, a slow sideload on weak signal. Debug keeps every ABI
+            // so emulators still work.
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         }
         // Release's R8-optimized, non-debuggable code against the dev backend,
         // signed with the debug key: for judging smoothness on a phone (debug

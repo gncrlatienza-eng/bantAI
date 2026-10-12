@@ -9,7 +9,6 @@ import com.bantai.data.db.BantaiDatabase
 import com.bantai.data.db.ClassificationEntity
 import com.bantai.data.model.Classification
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 // Where classifications lived before the Room table; kept only so
@@ -37,7 +36,13 @@ class ClassificationStore(
     fun snapshot(): Map<Long, Classification> = dao.all().toMap()
 
     /** One message's stored verdict, or null. */
-    suspend fun snapshotFor(messageId: Long): Classification? = classifications.first()[messageId]
+    suspend fun snapshotFor(messageId: Long): Classification? {
+        val row = dao.byMessageId(messageId) ?: return null
+        return Classification.fromStorage(row.label)
+    }
+
+    /** Ids whose stored verdict came from [source] -- one query instead of one per message. */
+    suspend fun idsWithSource(source: String): Set<Long> = dao.idsWithSource(source).toSet()
 
     @Suppress("LongParameterList")
     // Classification and immutable provenance arrive together at this persistence boundary.

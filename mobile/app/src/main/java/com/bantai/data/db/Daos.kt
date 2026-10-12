@@ -108,6 +108,9 @@ interface ClassificationDao {
     @Query("SELECT * FROM classifications WHERE message_id = :messageId LIMIT 1")
     suspend fun byMessageId(messageId: Long): ClassificationEntity?
 
+    @Query("SELECT message_id FROM classifications WHERE source = :source")
+    suspend fun idsWithSource(source: String): List<Long>
+
     @Upsert
     suspend fun upsert(rows: List<ClassificationEntity>)
 

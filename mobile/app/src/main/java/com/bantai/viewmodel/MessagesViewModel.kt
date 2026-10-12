@@ -56,6 +56,13 @@ private const val MESSAGE_LIST_CAP = 20_000
 // How long provider changes must go quiet before the list reloads.
 private const val RELOAD_DEBOUNCE_MS = 300L
 
+// The history scan writes one verdict every SCAN_PACING_MS; collapsing those
+// writes keeps low-end phones from re-mapping the whole inbox on each one.
+private const val CLASSIFICATION_DEBOUNCE_MS = 1_500L
+
+// Typing in search regroups every filter; wait for a pause in typing first.
+private const val SEARCH_DEBOUNCE_MS = 250L
+
 enum class MessageFilter(
     val label: String,
 ) {
@@ -246,7 +253,10 @@ class MessagesViewModel(
         // with no provider change to trigger a reload, so without this an unread
         // spam text stayed under Unread and never reached Spam.
         viewModelScope.launch {
-            classificationStore.classifications.collect { stored -> applyStoredClassifications(stored) }
+            @OptIn(FlowPreview::class)
+            classificationStore.classifications
+                .debounce(CLASSIFICATION_DEBOUNCE_MS)
+                .collect { stored -> applyStoredClassifications(stored) }
         }
         // Every block/unblock BantAI makes goes through BlockedSendersStore, so
         // this re-filters the moment the user blocks someone from a thread.
@@ -365,6 +375,7 @@ class MessagesViewModel(
                 // MESSAGE_LIST_CAP): the bundled model can classify every row
                 // even before sign-in or while the backend is unreachable.
                 val stored = classificationStore.classifications.first()
+                val heuristicIds = classificationStore.idsWithSource("heuristic")
                 // Settings -> Scan period: how far back the AI checks. Older
                 // texts keep the on-device check until the user widens it.
                 val cutoff = scanCutoffMillis(scanPeriod)
@@ -376,7 +387,7 @@ class MessagesViewModel(
                                 msg.id != 0L &&
                                 msg.id != Long.MIN_VALUE &&
                                 msg.id !in scanAttempted &&
-                                needsModelScan(msg.id, stored[msg.id])
+                                needsModelScan(msg.id, stored[msg.id], heuristicIds)
                         }.sortedByDescending { it.timestamp }
                 for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
                     if (!isActive) return@launch
@@ -414,15 +425,16 @@ class MessagesViewModel(
             }
     }
 
-    private suspend fun needsModelScan(
+    private fun needsModelScan(
         messageId: Long,
         stored: Classification?,
+        heuristicIds: Set<Long>,
     ): Boolean =
         // Retry known heuristic verdicts after a failed background model job.
         // Older rows without provenance keep their existing decisions.
         stored == null ||
             stored == Classification.UNVERIFIED ||
-            classificationStore.provenanceFor(messageId)?.source == "heuristic"
+            messageId in heuristicIds
 
     private suspend fun classifyForScan(
         token: String,
@@ -472,7 +484,12 @@ class MessagesViewModel(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        filterMessages(query)
+        filterJob?.cancel()
+        filterJob =
+            viewModelScope.launch(Dispatchers.Default) {
+                if (query.isNotEmpty()) delay(SEARCH_DEBOUNCE_MS)
+                recomputeFilters(query) { isActive }
+            }
     }
 
     fun setFilter(filter: MessageFilter) {

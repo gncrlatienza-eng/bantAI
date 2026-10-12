@@ -78,6 +78,7 @@ import com.bantai.ui.screens.settings.ScamAwarenessScreen
 import com.bantai.ui.screens.settings.TipDetailScreen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.GlassFill
+import com.bantai.util.rememberIsLowRamDevice
 import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.OnboardingViewModel
 import com.bantai.viewmodel.SettingsViewModel
@@ -328,6 +329,7 @@ fun NavGraph(
     // just the four main tabs themselves.
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = remember { HazeState() }
+    val lowRam = rememberIsLowRamDevice()
 
     // Settings → "Show Scam Waves tab". Turning it off while on that tab
     // falls back to Messages rather than leaving a tab with no button.
@@ -408,7 +410,7 @@ fun NavGraph(
             // source(s) each frame the pill is on top of them. Wraps the whole
             // NavHost (not just one screen) so the pill glassifies whatever
             // browsing screen happens to be behind it.
-            Box(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
+            Box(modifier = Modifier.fillMaxSize().then(if (lowRam) Modifier else Modifier.hazeSource(hazeState))) {
                 NavHost(
                     navController = navController,
                     startDestination = startDestination!!,

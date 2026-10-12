@@ -31,8 +31,9 @@ object OwnNumber {
                     val changed = saved.isNotEmpty() || number.isNotEmpty()
                     saved = number
                     // Group member lists are cached with the old answer; reload them.
-                    if (changed) {
-                        MmsReader.invalidate()
+                    // At cold start nothing has been read yet, so there's nothing stale
+                    // to refresh -- notifying anyway made the inbox load twice at launch.
+                    if (changed && MmsReader.invalidate()) {
                         runCatching { appContext.contentResolver.notifyChange(Telephony.Mms.CONTENT_URI, null) }
                     }
                 }

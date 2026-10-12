@@ -276,9 +276,13 @@ object MmsReader {
     /**
      * Forgets the cached list. It's only rebuilt when the MMS count or newest id
      * changes, which a send moving from Sending to Sent doesn't do.
+     *
+     * @return whether a list had been built (and so may be showing stale data).
      */
-    fun invalidate() {
+    fun invalidate(): Boolean {
+        val hadCache = cache != null
         cache = null
+        return hadCache
     }
 
     fun markRead(

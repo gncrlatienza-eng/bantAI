@@ -113,8 +113,14 @@ internal object HttpClient {
                             .orEmpty()
                     if (!isOk) throw ApiException(status, parseErrorMessage(text, status))
                     text
-                } finally {
+                } catch (e: java.io.IOException) {
+                    // Only tear the socket down on a transport failure. On success the
+                    // body stream was fully read and closed above, which hands the
+                    // keep-alive socket back to the pool -- disconnect() would discard it
+                    // and make the next call pay a fresh TCP+TLS handshake (several round
+                    // trips on weak cellular signal).
                     connection.disconnect()
+                    throw e
                 }
             }
         }

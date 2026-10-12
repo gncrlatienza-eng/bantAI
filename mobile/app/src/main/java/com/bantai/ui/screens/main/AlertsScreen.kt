@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -140,6 +141,10 @@ fun AlertsScreen(
     innerPadding: PaddingValues,
     viewModel: AlertsViewModel = viewModel(),
 ) {
+    DisposableEffect(viewModel) {
+        viewModel.isScreenVisible = true
+        onDispose { viewModel.isScreenVisible = false }
+    }
     val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()

@@ -1,8 +1,8 @@
 import { fetchApi } from '../api/apiClient';
 import type { CurrentUser } from './authService';
 
+// Display names only — the backend rejects login-email changes here.
 export interface UpdateMyProfileInput {
-  email?: string;
   firstName?: string;
   lastName?: string;
 }

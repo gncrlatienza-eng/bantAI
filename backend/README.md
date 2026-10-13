@@ -156,7 +156,7 @@ set an explicit `CORS_ORIGINS` list. There is no production fallback secret.
 
 ### Users
 
-- ✅ JWT-guarded `PUT /users/me` profile update (firstName / lastName / email) — used by the Android onboarding Profile screen
+- ✅ JWT-guarded `PUT /users/me` profile update (firstName / lastName; the login email is not editable here) — used by the Android onboarding Profile screen
 
 ---
 

@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { UsersService } from './users.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PrismaService } from '../../database/prisma.service';
 
 const mockPrisma = {
@@ -45,7 +46,6 @@ describe('UsersService', () => {
       const dto = {
         firstName: 'Reymark',
         lastName: 'De Castro',
-        email: 'r@example.com',
       };
       const updated = { id: userId, phone: '+639171234567', ...dto };
       mockPrisma.user.update.mockResolvedValue(updated);
@@ -58,11 +58,25 @@ describe('UsersService', () => {
           data: {
             firstName: dto.firstName,
             lastName: dto.lastName,
-            email: dto.email,
           },
         }),
       );
       expect(result).toEqual(updated);
+    });
+
+    // Audit AUTH-02 (2026-10-13): even if a caller bypasses DTO validation,
+    // the service must never write the login email.
+    it('never writes the login email, even if one reaches the service', async () => {
+      mockPrisma.user.update.mockResolvedValue(existingUser);
+      const smuggled = {
+        firstName: 'Reymark',
+        email: 'attacker@example.com',
+      } as unknown as UpdateProfileDto;
+
+      await service.updateMe(userId, smuggled);
+
+      const { data } = mockPrisma.user.update.mock.calls[0][0];
+      expect(data).not.toHaveProperty('email');
     });
 
     it('updates with only firstName when other fields are omitted', async () => {
@@ -80,7 +94,7 @@ describe('UsersService', () => {
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { firstName: 'Reymark', lastName: undefined, email: undefined },
+          data: { firstName: 'Reymark', lastName: undefined },
         }),
       );
       expect(result).toEqual(updated);

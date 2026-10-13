@@ -13,10 +13,11 @@ export class UsersService {
 
     return this.prisma.user.update({
       where: { id: userId },
+      // Explicit field list: never spread the DTO, so the login email (and
+      // any other identity field) cannot be written through this route.
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
-        email: dto.email,
       },
       select: {
         id: true,

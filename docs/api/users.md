@@ -20,12 +20,13 @@ Content-Type: application/json
 ```json
 {
   "firstName": "Juan",
-  "lastName": "Dela Cruz",
-  "email": "user@example.com"
+  "lastName": "Dela Cruz"
 }
 ```
 
-Constraints: `firstName`/`lastName` max 50 chars; `email` must be a valid email. Unknown fields are rejected (400).
+Constraints: `firstName`/`lastName` max 50 chars. Unknown fields are rejected (400).
+
+The sign-in email **cannot** be changed here — a body containing `email` is rejected with `400`. This route used to accept it, which let any valid session re-point the account's login identity to another inbox without re-authentication or verifying the new inbox (security audit AUTH-02, 2026-10-13). Changing a login email will need its own verified flow.
 
 **Responses**
 
@@ -43,4 +44,5 @@ Constraints: `firstName`/`lastName` max 50 chars; `email` must be a valid email.
 }
 ```
 
+- `400` — validation failed, including any attempt to send `email`.
 - `401` — missing/invalid/expired token.

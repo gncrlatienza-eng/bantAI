@@ -93,18 +93,14 @@ export class AuthController {
     return { message: result.message };
   }
 
-  @Throttle({ global: { ttl: 60_000, limit: 5 } })
-  @HttpCode(HttpStatus.ACCEPTED)
-  @Post('client/request-email-otp')
-  requestClientEmailOtp(@Body() dto: RequestEmailOtpDto) {
-    return this.authService.requestClientEmailOtp(dto);
-  }
-
   /*
-   * Unified portal sign-in — the web calls only this pair. The service picks
+   * Unified portal sign-in — the only web sign-in pair. The service picks
    * the correct audience (ADMIN vs CLIENT) from the user record so we never
-   * expose an admin-specific endpoint publicly. The response is generic and
-   * identical for eligible, ineligible, and unknown addresses.
+   * expose an admin-specific endpoint publicly. The former client/* and
+   * admin/* email-OTP routes were removed: they issued sign-in challenges
+   * without the password check, so the portal factor could be skipped
+   * (audit AUTH-01, 2026-10-13). Do not re-add sign-in routes that bypass
+   * `requestPortalEmailOtp`.
    */
   @Throttle({ global: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.ACCEPTED)
@@ -125,18 +121,6 @@ export class AuthController {
     return { message: result.message };
   }
 
-  @Throttle({ global: { ttl: 60_000, limit: 10 } })
-  @HttpCode(HttpStatus.OK)
-  @Post('client/verify-email-otp')
-  async verifyClientEmailOtp(
-    @Body() dto: VerifyEmailOtpDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const result = await this.authService.verifyClientEmailOtp(dto);
-    this.setSessionCookie(response, result.access_token, AuthAudience.CLIENT);
-    return { message: result.message };
-  }
-
   @Throttle({ global: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.ACCEPTED)
   @Post('client/claim/request-email-otp')
@@ -153,25 +137,6 @@ export class AuthController {
   ) {
     const result = await this.authService.verifyClientClaimEmailOtp(dto);
     this.setSessionCookie(response, result.access_token, AuthAudience.CLIENT);
-    return { message: result.message };
-  }
-
-  @Throttle({ global: { ttl: 60_000, limit: 5 } })
-  @HttpCode(HttpStatus.ACCEPTED)
-  @Post('admin/request-email-otp')
-  requestAdminEmailOtp(@Body() dto: RequestEmailOtpDto) {
-    return this.authService.requestAdminEmailOtp(dto);
-  }
-
-  @Throttle({ global: { ttl: 60_000, limit: 10 } })
-  @HttpCode(HttpStatus.OK)
-  @Post('admin/verify-email-otp')
-  async verifyAdminEmailOtp(
-    @Body() dto: VerifyEmailOtpDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const result = await this.authService.verifyAdminEmailOtp(dto);
-    this.setSessionCookie(response, result.access_token, AuthAudience.ADMIN);
     return { message: result.message };
   }
 

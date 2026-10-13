@@ -326,14 +326,6 @@ export class AuthService {
     return orphans.length;
   }
 
-  requestClientEmailOtp(dto: RequestEmailOtpDto) {
-    return this.requestEmailOtp(dto.email, EmailOtpPurpose.CLIENT_SIGN_IN);
-  }
-
-  requestAdminEmailOtp(dto: RequestEmailOtpDto) {
-    return this.requestEmailOtp(dto.email, EmailOtpPurpose.ADMIN_SIGN_IN);
-  }
-
   /*
    * Unified web sign-in — email + password + Gmail OTP (3-factor).
    *
@@ -521,7 +513,7 @@ export class AuthService {
     return this.issueToken(user.id, user.role, AuthAudience.MOBILE);
   }
 
-  async verifyClientEmailOtp(dto: VerifyEmailOtpDto) {
+  private async verifyClientEmailOtp(dto: VerifyEmailOtpDto) {
     const email = this.normalizeEmail(dto.email);
     await this.consumePortalEmailOtp(
       email,
@@ -535,7 +527,7 @@ export class AuthService {
     return this.issueToken(user.id, user.role, AuthAudience.CLIENT);
   }
 
-  async verifyAdminEmailOtp(dto: VerifyEmailOtpDto) {
+  private async verifyAdminEmailOtp(dto: VerifyEmailOtpDto) {
     const email = this.normalizeEmail(dto.email);
     await this.consumePortalEmailOtp(
       email,

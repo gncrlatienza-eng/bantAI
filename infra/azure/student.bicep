@@ -58,6 +58,21 @@ param deployFoundation bool = !deployJobs && !deployApps
 @description('Enable campaign matching only when an approved campaign_space.json and compatible centroids are present in the Model-C bundle.')
 param enableCampaignMatching bool = true
 
+@description('Full SHA of the reviewed commit these images were built from. Recorded as the sourceSha tag on every resource.')
+@minLength(40)
+@maxLength(40)
+param sourceSha string
+
+@description('Backend minimum replicas. 1 keeps it warm (no cold start, billed while idle); 0 lets it sleep. See README "Replicas and cost".')
+@minValue(0)
+@maxValue(1)
+param backendMinReplicas int = 1
+
+@description('AI minimum replicas. 1 keeps the model loaded (no cold start, billed while idle); 0 lets it sleep. See README "Replicas and cost".')
+@minValue(0)
+@maxValue(1)
+param aiMinReplicas int = 1
+
 @description('Exact proxy count in front of NestJS. Verify against observed Container Apps headers before wider release.')
 @minValue(0)
 @maxValue(3)
@@ -67,7 +82,7 @@ var suffix = take(uniqueString(resourceGroup().id), 8)
 var tags = {
   application: 'bantai'
   environment: 'student-test'
-  sourceSha: 'b5dd8707f55d27314e1ed780ab619448d435f063'
+  sourceSha: sourceSha
   reviewAfter: reviewAfter
   costCeilingUsd: '60'
   managedBy: 'bantai-student-pr112'
@@ -580,7 +595,7 @@ resource ai 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
         }
       ]
       scale: {
-        minReplicas: 1
+        minReplicas: aiMinReplicas
         maxReplicas: 1
         rules: [
           { name: 'http', http: { metadata: { concurrentRequests: '1' } } }
@@ -713,7 +728,7 @@ resource backend 'Microsoft.App/containerApps@2025-01-01' = if (deployApps) {
         }
       ]
       scale: {
-        minReplicas: 1
+        minReplicas: backendMinReplicas
         maxReplicas: 1
         rules: [
           { name: 'http', http: { metadata: { concurrentRequests: '1' } } }

@@ -1,3 +1,6 @@
+#Requires -Version 7.0
+# PowerShell 7 is required (ConvertFrom-Json -AsHashtable).
+
 [CmdletBinding()]
 param(
   [string]$SubscriptionId = 'ebaf0ea0-102e-4e89-a445-fc4c4fd9c5da',
@@ -11,11 +14,14 @@ param(
   [Parameter(Mandatory)][SecureString]$DatabaseAppPassword,
   [Parameter(Mandatory)][string]$ModelDirectory,
   [Parameter(Mandatory)][string]$ApprovalManifestPath,
-  [string]$BackendLocalImage = 'bantai-backend:b5dd870-student',
-  [string]$AiBaseLocalImage = 'bantai-ai:b5dd870-student',
-  [string]$WebLocalImage = 'bantai-web:b5dd870-student',
-  [string]$MigrationLocalImage = 'bantai-migrate:b5dd870-student',
-  [string]$DbInitLocalImage = 'bantai-db-init:b5dd870',
+  # The reviewed commit to release: full 40-character SHA of a commit already
+  # merged to origin/develop or origin/main. The checkout must be exactly this
+  # commit with no local changes; every image is built here from it.
+  [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$SourceSha,
+  # Warm replicas (1) avoid cold starts; 0 lets the app sleep when idle. See
+  # README.md "Replicas and cost" before lowering either to 0.
+  [ValidateRange(0, 1)][int]$BackendMinReplicas = 1,
+  [ValidateRange(0, 1)][int]$AiMinReplicas = 1,
   [switch]$DisableCampaignMatching,
   [switch]$FoundationOnly,
   [switch]$ValidateOnly,
@@ -28,7 +34,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$ExpectedSourceSha = 'b5dd8707f55d27314e1ed780ab619448d435f063'
+$ShortSha = $SourceSha.Substring(0, 7)
+$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$RevisionLabel = 'org.opencontainers.image.revision'
 $ExpectedApprovalSha256 = '4ca09e210aa42c7b0c180e79d3fb46dd336455c02120d4503119829a5d6ed78b'
 $ExpectedModelVersion = 'candidate-2026-09-21-colab-C-local'
 $ManagedBy = 'bantai-student-pr112'
@@ -78,9 +86,49 @@ function Publish-Image([string]$Image) {
     Start-Sleep -Seconds (10 * $attempt)
   }
 }
-function Assert-ImagePresent([string]$Image) {
-  docker image inspect $Image *> $null
-  if ($LASTEXITCODE -ne 0) { throw "Required local image is missing: $Image" }
+# The release source is an input, not a constant baked into this script: the
+# operator names the reviewed commit, and the script refuses anything that is
+# not exactly that commit, clean, and already merged to a protected branch.
+function Assert-ApprovedSource {
+  $head = (git -C $RepoRoot rev-parse HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $head -cne $SourceSha) {
+    throw "Release checkout HEAD ($head) is not -SourceSha $SourceSha. Check out the approved commit first."
+  }
+  $changes = git -C $RepoRoot status --porcelain
+  if ($LASTEXITCODE -ne 0 -or $changes) {
+    throw 'Release checkout has uncommitted or untracked changes. Build only from a clean checkout of the approved commit.'
+  }
+  git -C $RepoRoot fetch --quiet origin develop main
+  if ($LASTEXITCODE -ne 0) { throw 'Unable to fetch origin/develop and origin/main to confirm the release commit was merged.' }
+  foreach ($branch in @('origin/main', 'origin/develop')) {
+    git -C $RepoRoot merge-base --is-ancestor $SourceSha $branch
+    if ($LASTEXITCODE -eq 0) { return $branch }
+  }
+  throw "Commit $SourceSha is not merged to origin/develop or origin/main. Release only reviewed, merged commits."
+}
+
+# Images are built from the verified checkout and labelled with the source
+# commit, instead of trusting pre-existing local tags whose provenance the
+# script cannot establish.
+function Build-ReleaseImage([string]$Tag, [string]$Dockerfile, [string]$Context, [string]$Target) {
+  $buildArgs = @('buildx', 'build', '--load',
+    '--file', (Join-Path $RepoRoot $Dockerfile),
+    '--label', "$RevisionLabel=$SourceSha",
+    '--tag', $Tag)
+  if ($Target) { $buildArgs += @('--target', $Target) }
+  Invoke-Native docker ($buildArgs + (Join-Path $RepoRoot $Context))
+}
+
+function Assert-ImageRevision([string]$Image) {
+  # Read labels as JSON: an inline `index ... "label"` Go template loses its
+  # inner quotes when passed to docker.exe and silently returns nothing.
+  $labelsJson = docker image inspect --format '{{json .Config.Labels}}' $Image
+  if ($LASTEXITCODE -ne 0) { throw "Image $Image is not available locally." }
+  $labels = $labelsJson | ConvertFrom-Json
+  $revision = if ($labels) { [string]$labels.$RevisionLabel } else { '' }
+  if ($revision -cne $SourceSha) {
+    throw "Image $Image is labelled with source '$revision', not $SourceSha."
+  }
 }
 
 function Assert-SecretObject([System.Collections.IDictionary]$Object, [string[]]$RequiredNames) {
@@ -174,6 +222,9 @@ function Write-ParameterFile(
       deployJobs = @{ value = $DeployJobs }
       deployApps = @{ value = $DeployApps }
       enableCampaignMatching = @{ value = -not $DisableCampaignMatching }
+      sourceSha = @{ value = $SourceSha }
+      backendMinReplicas = @{ value = $BackendMinReplicas }
+      aiMinReplicas = @{ value = $AiMinReplicas }
     }
   }
   $json = $payload | ConvertTo-Json -Depth 12
@@ -196,11 +247,12 @@ function Wait-Job([string]$JobName, [string]$ExecutionName, [int]$TimeoutSeconds
   throw "$JobName did not complete within $TimeoutSeconds seconds."
 }
 
+# Ownership is about which deployment manages the group, not which commit it
+# runs: the sourceSha tag records the last release and changes every release.
 function Assert-ResourceGroupOwnership([System.Collections.IDictionary]$Tags) {
   $required = [ordered]@{
     application = 'bantai'
     environment = 'student-test'
-    sourceSha = $ExpectedSourceSha
     managedBy = $ManagedBy
     resourcePrefix = $Prefix
     pilotOperator = $Operator
@@ -218,8 +270,7 @@ foreach ($path in @($TemplatePath, $ApprovalManifestPath)) {
 if (-not (Test-Path -LiteralPath $ModelDirectory -PathType Container)) { throw "Model directory not found: $ModelDirectory" }
 if (-not (Test-Path -LiteralPath $AzPath -PathType Leaf)) { throw "Azure CLI not found: $AzPath" }
 
-$repoSha = (git -C (Join-Path $PSScriptRoot '..\..') rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0 -or $repoSha -ne $ExpectedSourceSha) { throw "Release checkout must remain at $ExpectedSourceSha." }
+$approvedOn = Assert-ApprovedSource
 $approvalHash = Assert-ModelApproval
 
 $account = Invoke-AzText account show --query '{id:id,state:state}' --output json | ConvertFrom-Json -AsHashtable
@@ -232,9 +283,6 @@ if ($groupExists) {
   Assert-ResourceGroupOwnership $groupTags
 }
 if ($ReviewAfterUtc -le [DateTimeOffset]::UtcNow) { throw 'The student budget review date must be in the future.' }
-
-$allLocalImages = @($BackendLocalImage, $AiBaseLocalImage, $WebLocalImage, $MigrationLocalImage, $DbInitLocalImage)
-foreach ($image in $allLocalImages) { Assert-ImagePresent $image }
 
 if (-not $FoundationOnly) {
   foreach ($path in @($BackendSecretsPath, $AiSecretsPath)) {
@@ -259,12 +307,15 @@ if (-not $FoundationOnly) {
 if ($ValidateOnly) {
   [pscustomobject]@{
     validated = $true
-    sourceSha = $ExpectedSourceSha
+    sourceSha = $SourceSha
+    sourceMergedTo = $approvedOn
+    backendMinReplicas = $BackendMinReplicas
+    aiMinReplicas = $AiMinReplicas
     approvalManifestSha256 = $approvalHash
     modelVersion = $ExpectedModelVersion
     resourceGroupExists = $groupExists
     reviewAfter = $ReviewAfterUtc.ToString('o')
-    phase = $FoundationOnly ? 'foundation' : 'complete'
+    phase = if ($FoundationOnly) { 'foundation' } else { 'complete' }
   }
   return
 }
@@ -273,7 +324,7 @@ $adminPlain = ConvertFrom-SecureStringPlainText $PostgresAdminPassword
 $appPlain = ConvertFrom-SecureStringPlainText $DatabaseAppPassword
 try {
   if (-not $groupExists) {
-    Invoke-Az group create --name $ResourceGroup --location $Location --tags application=bantai environment=student-test sourceSha=$ExpectedSourceSha managedBy=$ManagedBy resourcePrefix=$Prefix pilotOperator=$Operator reviewAfter=$($ReviewAfterUtc.ToString('o')) costCeilingUsd=60 --only-show-errors --output none
+    Invoke-Az group create --name $ResourceGroup --location $Location --tags application=bantai environment=student-test sourceSha=$SourceSha managedBy=$ManagedBy resourcePrefix=$Prefix pilotOperator=$Operator reviewAfter=$($ReviewAfterUtc.ToString('o')) costCeilingUsd=60 --only-show-errors --output none
     $createdTags = Invoke-AzText group show --name $ResourceGroup --query tags --output json | ConvertFrom-Json -AsHashtable
     Assert-ResourceGroupOwnership $createdTags
   }
@@ -313,21 +364,30 @@ try {
 
   Invoke-Az acr login --name ($acr.Split('.')[0]) --only-show-errors --output none
 
-  $aiReleaseLocal = 'bantai-ai:b5dd870-student-release'
+  $builtImages = [ordered]@{
+    backend = @{ tag = "bantai-backend:$ShortSha-student"; file = 'backend/Dockerfile'; context = '.'; target = 'runtime' }
+    migration = @{ tag = "bantai-migrate:$ShortSha-student"; file = 'backend/Dockerfile'; context = '.'; target = 'build' }
+    web = @{ tag = "bantai-web:$ShortSha-student"; file = 'infra/web/Dockerfile'; context = '.'; target = $null }
+    aiBase = @{ tag = "bantai-ai:$ShortSha-student"; file = 'ai/Dockerfile'; context = 'ai'; target = $null }
+    dbInit = @{ tag = "bantai-db-init:$ShortSha-student"; file = 'infra/azure/db-init.Dockerfile'; context = '.'; target = $null }
+  }
+  foreach ($image in $builtImages.Values) { Build-ReleaseImage $image.tag $image.file $image.context $image.target }
+
+  $aiReleaseLocal = "bantai-ai:$ShortSha-student-release"
   New-Item -ItemType Directory -Path $ApprovalContext | Out-Null
   Copy-Item -LiteralPath $ApprovalManifestPath -Destination (Join-Path $ApprovalContext 'model-approval.json')
-  Invoke-Native docker @('buildx','build','--load','--file',(Join-Path $PSScriptRoot 'ai-release.Dockerfile'),'--build-arg',"BASE_IMAGE=$AiBaseLocalImage",'--build-context',"model=$ModelDirectory",'--build-context',"approval=$ApprovalContext",'--tag',$aiReleaseLocal,(Join-Path $PSScriptRoot '..\..'))
+  Invoke-Native docker @('buildx','build','--load','--file',(Join-Path $PSScriptRoot 'ai-release.Dockerfile'),'--build-arg',"BASE_IMAGE=$($builtImages.aiBase.tag)",'--build-context',"model=$ModelDirectory",'--build-context',"approval=$ApprovalContext",'--tag',$aiReleaseLocal,(Join-Path $PSScriptRoot '..\..'))
 
-  $localImages = [ordered]@{ backend=$BackendLocalImage; ai=$aiReleaseLocal; web=$WebLocalImage; migration=$MigrationLocalImage; dbInit=$DbInitLocalImage }
+  $localImages = [ordered]@{ backend=$builtImages.backend.tag; ai=$aiReleaseLocal; web=$builtImages.web.tag; migration=$builtImages.migration.tag; dbInit=$builtImages.dbInit.tag }
   $remoteImages = @{}
   foreach ($entry in $localImages.GetEnumerator()) {
-
+    Assert-ImageRevision ([string]$entry.Value)
     $repoName = if ($entry.Key -eq 'dbInit') { 'bantai-db-init' } else { "bantai-$($entry.Key)" }
-    $remote = "$acr/${repoName}:student-b5dd870"
+    $remote = "$acr/${repoName}:student-$ShortSha"
     Invoke-Native docker @('tag', [string]$entry.Value, $remote)
     Publish-Image $remote
 
-    $digest = Invoke-AzText acr repository show --name ($acr.Split('.')[0]) --image "$repoName`:student-b5dd870" --query digest --output tsv
+    $digest = Invoke-AzText acr repository show --name ($acr.Split('.')[0]) --image "$repoName`:student-$ShortSha" --query digest --output tsv
     if (-not $digest.StartsWith('sha256:')) { throw "Unable to resolve immutable digest for $repoName." }
     $remoteImages[$entry.Key] = "$acr/$repoName@$digest"
   }
@@ -349,6 +409,7 @@ try {
   if ((Invoke-WebRequest -UseBasicParsing -Uri "$backendUrl/api/health/ready" -TimeoutSec 240).StatusCode -ne 200) { throw 'Backend readiness check failed.' }
   if ((Invoke-WebRequest -UseBasicParsing -Uri "$webUrl/healthz" -TimeoutSec 240).StatusCode -ne 200) { throw 'Web readiness check failed.' }
   if ((Invoke-WebRequest -UseBasicParsing -Uri "$webUrl/api/health/ready" -TimeoutSec 240).StatusCode -ne 200) { throw 'Web-to-backend proxy readiness check failed.' }
+  Invoke-Az group update --name $ResourceGroup --set "tags.sourceSha=$SourceSha" --only-show-errors --output none
 
   [pscustomobject]@{
     phase = 'complete'
@@ -358,7 +419,8 @@ try {
     reviewAfter = $ReviewAfterUtc.ToString('o')
 
     campaignMatching = -not $DisableCampaignMatching
-    sourceSha = $ExpectedSourceSha
+    sourceSha = $SourceSha
+    images = $remoteImages
     approvalManifestSha256 = $approvalHash
   }
 }

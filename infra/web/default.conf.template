@@ -9,8 +9,17 @@ server {
     server_tokens off;
     access_log /dev/stdout bantai_status;
 
+    # Security headers. nginx only inherits add_header from this level into a
+    # location that declares NO add_header of its own, so any location that
+    # adds a header (e.g. Cache-Control below) must repeat this whole set
+    # (audit WEB-01, 2026-10-13: the SPA HTML was served without them).
+    # frame-ancestors / X-Frame-Options: the portal is never meant to be
+    # embedded, so refuse all framing (clickjacking).
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     location = /healthz {
         access_log off;
@@ -38,5 +47,11 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
         add_header Cache-Control 'no-cache';
+        # Repeated from server level — see the note there.
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options DENY always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
     }
 }

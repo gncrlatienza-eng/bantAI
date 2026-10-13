@@ -385,7 +385,7 @@
     <string name="onboarding_terms_step_1_of_5">STEP 1 OF 5</string>
     <string name="onboarding_terms_terms_privacy">Terms &amp; Privacy</string>
     <!-- privacy -->
-    <string name="privacy_data_a_server_side_pseudonymous_sender">The masked message text, its classification result, timestamp and link domains, and a fingerprint of the sender (the server keeps the fingerprint, not the number). Your full messages and contact names are not sent.</string>
+    <string name="privacy_data_a_server_side_pseudonymous_sender">The masked message text, its classification result, timestamp and link domains, and a fingerprint of the sender (the server keeps the fingerprint, not the number). Each message also carries a reference number made on this phone so it isn\'t stored twice; it is created for your account, isn\'t based on your phone\'s hardware ID, and isn\'t shared with other accounts used on this phone. Your full messages and contact names are not sent.</string>
     <string name="privacy_data_data_supports_privacy_minimized_campaign">Each message is masked on your phone (links, phone numbers, emails, amounts and codes removed) and the masked text is sent to BantAI\'s server, where our AI classifies it. The masked text and the result are stored to improve detection and track scam campaigns. Names or other details written in a message may still be included.</string>
     <string name="privacy_data_data_we_collect">Data we collect</string>
     <string name="privacy_data_download_my_data">Download my data</string>

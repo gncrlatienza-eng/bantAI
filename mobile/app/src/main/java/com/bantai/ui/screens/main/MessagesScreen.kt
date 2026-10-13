@@ -256,10 +256,12 @@ fun MessagesScreen(
         // One list for every filter, switched in place like Mail. It used to
         // cross-fade between two lists, but both halves read the new filter's
         // rows, so each switch built and drew the same list twice for nothing.
-        // A fresh scroll state per filter starts each one at the top.
+        // A fresh scroll state per filter starts each one at the top. Saveable,
+        // so opening a conversation and coming back keeps the place in the list
+        // (plain remember was dropped with the screen and reset it to the top).
         run {
             val tabMessages = visibleMessages
-            val listState = remember(selectedFilter) { LazyListState() }
+            val listState = rememberSaveable(selectedFilter, saver = LazyListState.Saver) { LazyListState() }
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),

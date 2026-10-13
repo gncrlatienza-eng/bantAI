@@ -202,7 +202,9 @@ object MmsSender {
                 PendingIntent.FLAG_UPDATE_CURRENT or
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
             val sentIntent = PendingIntent.getBroadcast(context, rowId.toInt(), intent, flags)
-            SmsSender.smsManagerFor(context, subId).sendMultimediaMessage(context, uri, null, null, sentIntent)
+            SmsSender
+                .smsManagerFor(context, SmsSender.sendingSubId(context, subId))
+                .sendMultimediaMessage(context, uri, null, null, sentIntent)
         }.onSuccess {
             val attempt = System.nanoTime()
             attempts[rowId] = attempt

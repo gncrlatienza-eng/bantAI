@@ -389,10 +389,8 @@ object NotificationHelper {
 
         // A public version stands in on the lock screen / when the notification is
         // otherwise not private -- without it, VISIBILITY_PRIVATE just hides the
-        // whole notification there, and the app-wide FLAG_SECURE lock-screen
-        // protection (MainActivity) would be undone the moment an SMS body
-        // (which can be a forwarded OTP) shows up in a heads-up/lock-screen
-        // notification instead.
+        // whole notification there, and an SMS body (which can be a forwarded
+        // OTP) would show on the lock screen to anyone holding the phone.
         val publicVersion =
             NotificationCompat
                 .Builder(context, MESSAGE_CHANNEL_ID)

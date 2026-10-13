@@ -110,7 +110,7 @@ fun ComposeScreen(
     val chips = remember { mutableStateListOf<String>() }
     val photos = remember { mutableStateListOf<Uri>() }
     // Dual-SIM: which SIM the new message goes out on (see SimChoice).
-    val sims = remember { SimChoice.activeSims(context) }
+    val sims = remember { SimChoice.selectableSims(context) }
     var chosenSub by remember { mutableStateOf(SimChoice.pick(sims, null, -1, SimChoice.defaultSmsSub())) }
     val scope = rememberCoroutineScope()
     val pickPhotos =

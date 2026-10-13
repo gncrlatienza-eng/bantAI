@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,12 +69,16 @@ internal data class VerdictAction(
  * sender until the user asks for more.
  */
 @Composable
+@Suppress("LongParameterList", "LongMethod") // one card for every verdict: content + optional icon/close; one layout
 internal fun ThreadVerdictCard(
     headline: String,
     tint: Color,
     actions: List<VerdictAction>,
     detail: String? = null,
     busy: Boolean = false,
+    icon: ImageVector = Icons.Outlined.WarningAmber,
+    // Shows an X that hides the card; for status-only cards like the cloud check.
+    onDismiss: (() -> Unit)? = null,
 ) {
     var expanded by rememberSaveable(detail) { mutableStateOf(false) }
     Column(
@@ -89,7 +95,7 @@ internal fun ThreadVerdictCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
             Text(
                 headline,
                 color = White,
@@ -114,6 +120,19 @@ internal fun ThreadVerdictCard(
                             .padding(horizontal = 4.dp, vertical = 2.dp),
                 )
             }
+            if (onDismiss != null) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.action_close),
+                    tint = TextSecondary,
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(onClick = onDismiss)
+                            .padding(4.dp)
+                            .size(16.dp),
+                )
+            }
         }
         if (expanded && detail != null) {
             Text(
@@ -124,11 +143,14 @@ internal fun ThreadVerdictCard(
                 modifier = Modifier.padding(start = 40.dp, end = 14.dp, bottom = 12.dp),
             )
         }
-        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
-        Row(Modifier.height(IntrinsicSize.Min).alpha(if (busy) DISABLED_ALPHA else 1f)) {
-            actions.forEachIndexed { index, action ->
-                if (index > 0) VerticalDivider(color = Hairline, thickness = 0.5.dp)
-                VerdictActionCell(action, enabled = !busy)
+        // No actions, no empty bar under the headline.
+        if (actions.isNotEmpty()) {
+            HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+            Row(Modifier.height(IntrinsicSize.Min).alpha(if (busy) DISABLED_ALPHA else 1f)) {
+                actions.forEachIndexed { index, action ->
+                    if (index > 0) VerticalDivider(color = Hairline, thickness = 0.5.dp)
+                    VerdictActionCell(action, enabled = !busy)
+                }
             }
         }
     }

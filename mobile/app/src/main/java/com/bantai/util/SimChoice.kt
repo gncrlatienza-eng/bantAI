@@ -2,10 +2,13 @@ package com.bantai.util
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.SharedPreferences
 import android.telephony.SubscriptionManager
 import com.bantai.data.model.normalizeSenderKey
 
 private const val PREFS = "sim_choice"
+private const val SETTINGS_PREFS = "sim_settings"
+private const val KEY_SEND_SLOT = "send_slot"
 
 /** One active SIM, labelled the way the phone's own dialer does ("SIM 1 · Globe"). */
 data class Sim(
@@ -52,6 +55,36 @@ object SimChoice {
             ?: sims.firstOrNull()?.subId
     }
 
+    /**
+     * The SIMs a thread or Compose may offer: every active one, or only the
+     * Settings → Sending SIM pick when one is set (the switch then hides).
+     */
+    fun selectableSims(context: Context): List<Sim> {
+        val sims = activeSims(context)
+        val slot = sendSlot(context) ?: return sims
+        return sims.filter { it.slot == slot }.ifEmpty { sims }
+    }
+
+    /**
+     * Settings → Sending SIM: the slot (0 = SIM 1) every message goes out on,
+     * or null for the per-conversation choice above. A slot rather than a
+     * subscription id, so swapping the card in that slot keeps the setting.
+     */
+    fun sendSlot(context: Context): Int? = settings(context).getInt(KEY_SEND_SLOT, -1).takeIf { it >= 0 }
+
+    fun setSendSlot(
+        context: Context,
+        slot: Int?,
+    ) {
+        settings(context).edit().putInt(KEY_SEND_SLOT, slot ?: -1).apply()
+    }
+
+    /** The active SIM in the Sending SIM slot; null when unset or that slot is empty. */
+    fun fixedSendSub(context: Context): Int? {
+        val slot = sendSlot(context) ?: return null
+        return activeSims(context).firstOrNull { it.slot == slot }?.subId
+    }
+
     fun defaultSmsSub(): Int = SubscriptionManager.getDefaultSmsSubscriptionId()
 
     fun remembered(
@@ -71,4 +104,10 @@ object SimChoice {
     }
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    // Separate from PREFS, whose keys are conversation keys.
+    private fun settings(context: Context): SharedPreferences {
+        val app = context.applicationContext
+        return app.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+    }
 }

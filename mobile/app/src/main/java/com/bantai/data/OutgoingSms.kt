@@ -70,7 +70,15 @@ object OutgoingSms {
         to: String,
         body: String,
         subId: Int = -1,
-    ) = start(context.applicationContext, to, body, subId, retryOf = null)
+    ) = start(context.applicationContext, to, body, sendingSub(context, subId), retryOf = null)
+
+    // Settings → Sending SIM, resolved before the row is saved, so the bubble and
+    // later replies record the SIM the text really went out on. (SmsSender and
+    // MmsSender apply it too, for sends that don't come through here.)
+    private fun sendingSub(
+        context: Context,
+        subId: Int,
+    ): Int = SmsSender.sendingSubId(context, subId)
 
     /**
      * A picture or group message (see needsMms). The photos are shrunk to the
@@ -86,16 +94,17 @@ object OutgoingSms {
         subId: Int = -1,
     ) {
         val appContext = context.applicationContext
+        val sendSub = sendingSub(appContext, subId)
         scope.launch {
             val budget =
-                MmsImageCompressor.budgetPerImage(MmsImageCompressor.maxMessageBytes(appContext, subId), photos.size)
+                MmsImageCompressor.budgetPerImage(MmsImageCompressor.maxMessageBytes(appContext, sendSub), photos.size)
             val attachments = photos.mapNotNull { MmsImageCompressor.compress(appContext, it, budget) }
             if (attachments.size < photos.size) {
                 mainHandler.post { Toast.makeText(appContext, R.string.mms_photo_failed, Toast.LENGTH_LONG).show() }
                 return@launch
             }
             val start =
-                runCatching { MmsSender.send(appContext, recipients, body, attachments, subId) }
+                runCatching { MmsSender.send(appContext, recipients, body, attachments, sendSub) }
                     .onFailure { Log.w(TAG, "MMS send failed to start", it) }
                     .getOrDefault(MmsSender.Start.NOT_SAVED)
             showMmsUnavailable(appContext, start)
@@ -116,7 +125,8 @@ object OutgoingSms {
             }
             return
         }
-        start(context.applicationContext, message.sender, message.body, message.subId, retryOf = message)
+        val subId = sendingSub(context, message.subId)
+        start(context.applicationContext, message.sender, message.body, subId, retryOf = message)
     }
 
     // Why an MMS didn't start; nothing is shown when it did.

@@ -1,5 +1,8 @@
 package com.bantai.ui.screens.onboarding
 
+import android.app.Activity
+import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,6 +46,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -113,6 +118,21 @@ fun OnboardingEnterCodeScreen(
     val verifyLockedRemainingSec = ((state.verifyLockedUntilMs - nowMs) / MS_PER_SECOND).coerceAtLeast(0)
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    // The one screen showing BantAI's own sign-in code: no screenshots, screen
+    // recording, or Recents thumbnail while it's open (the rest of the app allows them).
+    val context = LocalContext.current
+    val window =
+        remember(context) {
+            generateSequence(context) { (it as? ContextWrapper)?.baseContext }
+                .filterIsInstance<Activity>()
+                .firstOrNull()
+                ?.window
+        }
+    DisposableEffect(window) {
+        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
 
     Column(
         modifier =

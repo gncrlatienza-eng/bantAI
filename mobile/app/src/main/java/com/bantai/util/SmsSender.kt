@@ -64,7 +64,7 @@ object SmsSender {
         onResult: (success: Boolean, error: String?) -> Unit,
     ) {
         val appContext = context.applicationContext
-        val smsManager = smsManagerFor(appContext, subId)
+        val smsManager = smsManagerFor(appContext, sendingSubId(appContext, subId))
 
         val parts = smsManager.divideMessage(body)
         val action = "com.bantai.SMS_SENT_${requestCodeCounter.incrementAndGet()}_${System.currentTimeMillis()}"
@@ -141,6 +141,16 @@ object SmsSender {
             smsManager.sendMultipartTextMessage(to, null, parts, sentIntents, deliveryIntents?.let(::ArrayList))
         }
     }
+
+    /**
+     * The SIM a message the user sends goes out on: Settings → Sending SIM when
+     * set, else [subId]. Applied to sends only (SMS here, MMS in MmsSender) --
+     * never to downloading an incoming MMS, which must use the SIM it came in on.
+     */
+    internal fun sendingSubId(
+        context: Context,
+        subId: Int,
+    ): Int = SimChoice.fixedSendSub(context) ?: subId
 
     // The SIM the conversation came in on, when it's still in the phone (dual-SIM
     // phones used to always reply from the default SIM); otherwise the phone's

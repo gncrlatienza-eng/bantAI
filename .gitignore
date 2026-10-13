@@ -45,6 +45,19 @@ mobile/keystore.properties
 mobile/app/google-services.json
 **/firebase-service-account*.json
 
+# ─── Android release signing / handoff (never commit) ─────────────────────────
+# Local release kit: signing envelope, Model C bundle, build scripts, APKs.
+release-kit/
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.clixml
+*.envelope.json
+**/*transfer-password*
+*.apk
+*.aab
+
 # ─── Python / ML ───────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]

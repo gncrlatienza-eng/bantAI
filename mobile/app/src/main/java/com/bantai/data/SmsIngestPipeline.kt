@@ -243,10 +243,9 @@ object SmsIngestPipeline {
             // under the limit but then reads slowly could otherwise take up to
             // ~2x timeoutMs, which for the receiver's 5s budget can eat the
             // entire goAsync() window before the offline fallback ever runs and
-            // leave the message with no notification at all. The underlying
-            // blocking HttpURLConnection call isn't itself interrupted -- it
-            // keeps running on its IO thread until its own timeout -- but the
-            // pipeline moves on immediately rather than waiting for it.
+            // leave the message with no notification at all. On timeout,
+            // HttpClient disconnects the blocked HttpURLConnection, so this
+            // returns promptly instead of waiting out the blocking I/O.
             val outcome =
                 withTimeoutOrNull(timeoutMs.toLong()) {
                     SmsApi.ingest(

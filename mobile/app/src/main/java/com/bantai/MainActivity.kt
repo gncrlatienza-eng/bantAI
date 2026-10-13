@@ -3,7 +3,6 @@ package com.bantai
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -56,10 +55,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The whole app renders SMS content (including forwarded OTPs) and, on the
-        // OTP-entry screen, the code itself — FLAG_SECURE blocks screenshots, screen
-        // recording, and the Recents/App-Switcher thumbnail for the entire window.
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // Screenshots are allowed: users screenshot scam texts to report or warn
+        // others. Only the sign-in code screen sets FLAG_SECURE (see
+        // OnboardingEnterCodeScreen), so BantAI's own OTP can't be captured.
         // Tapjacking protection: Compose has no reliable per-composable equivalent
         // to View.filterTouchesWhenObscured, so it's set on the decor view instead —
         // covers every screen (OTP entry included) rather than just one.

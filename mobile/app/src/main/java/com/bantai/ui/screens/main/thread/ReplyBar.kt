@@ -88,7 +88,7 @@ internal fun ReplyBar(
     var scamReplyConfirmed by remember(sender) { mutableStateOf(false) }
     val photos = remember(sender) { mutableStateListOf<Uri>() }
     // Dual-SIM: which SIM this reply goes out on (see SimChoice).
-    val sims = remember { SimChoice.activeSims(context) }
+    val sims = remember { SimChoice.selectableSims(context) }
     var chosenSub by remember(sender, subId) {
         mutableStateOf(SimChoice.pick(sims, SimChoice.remembered(context, sender), subId, SimChoice.defaultSmsSub()))
     }

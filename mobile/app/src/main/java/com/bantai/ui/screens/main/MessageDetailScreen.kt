@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inbox
@@ -41,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -131,6 +133,9 @@ private const val MAX_AI_SUMMARY_SOURCE_MESSAGES = 50
 // bottom -- and its "Not delivered · Tap to retry" line -- below the reply bar.
 // The list clamps the offset at its end.
 private const val SCROLL_TO_END_PX = 100_000
+
+// Cloud check states with nothing for the user to do (see the cloud card).
+private val CLOUD_QUIET_STATES = setOf("pending", "processing", "verified")
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -811,8 +816,15 @@ fun MessageDetailScreen(
                 )
             }
 
-            // Conversation thread
-            if (!deletedView && (cloudVerification != null || cloudVerificationNote != null)) {
+            // Cloud check status, only when there's something to act on: a failed
+            // check (Retry) or a note (unreachable, still pending after the
+            // wait). Queued/running/finished say nothing new -- the verdict above
+            // is the result -- and showing them flashed a card that vanished a
+            // second later. It can be closed, and comes back only on a new status.
+            var cloudCardClosed by rememberSaveable(sender, cloudVerification?.state) { mutableStateOf(false) }
+            val cloudDone = cloudVerification?.state in CLOUD_QUIET_STATES && cloudVerificationNote == null
+            val hasCloudStatus = (cloudVerification != null || cloudVerificationNote != null) && !cloudDone
+            if (hasCloudStatus && !deletedView && !cloudCardClosed) {
                 ThreadVerdictCard(
                     headline = cloudVerification?.title ?: "Cloud status unavailable",
                     detail =
@@ -820,6 +832,8 @@ fun MessageDetailScreen(
                             (cloudVerificationNote ?: cloudVerification?.description.orEmpty()),
                     tint = IosBlue,
                     busy = cloudVerificationBusy,
+                    icon = Icons.Outlined.Cloud,
+                    onDismiss = { cloudCardClosed = true },
                     actions =
                         if (cloudVerificationBusy || cloudVerification?.state == "verified") {
                             emptyList()

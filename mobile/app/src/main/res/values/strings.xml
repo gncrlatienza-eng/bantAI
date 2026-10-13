@@ -429,6 +429,9 @@
     <string name="settings_run">Run</string>
     <string name="settings_scam_awareness_tips">Scam awareness tips</string>
     <string name="settings_scan_period">Scan period</string>
+    <string name="settings_sending_sim">Sending SIM</string>
+    <string name="settings_sending_sim_auto">Automatic</string>
+    <string name="settings_sending_sim_detail">Every text and picture message goes out on this SIM. Automatic replies on the SIM each conversation came in on.</string>
     <string name="settings_sender">Sender</string>
     <string name="settings_settings">Settings</string>
     <string name="settings_sign_out">Sign out?</string>

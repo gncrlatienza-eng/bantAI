@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Cloud
@@ -109,6 +110,8 @@ import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.ThemeMode
 import com.bantai.ui.theme.White
+import com.bantai.util.Sim
+import com.bantai.util.SimChoice
 import com.bantai.viewmodel.ServerStatus
 import com.bantai.viewmodel.SettingsViewModel
 
@@ -157,6 +160,25 @@ fun SettingsScreen(
     // Theme, accent and text size took most of the screen as three always-open
     // segmented controls; one row with the current choices opens them.
     var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
+    // Dual-SIM only: the SIM every message goes out on (see SimChoice.sendSlot).
+    // Re-read each time the tab comes back (it stays composed), so a SIM put
+    // in or taken out since shows up.
+    val sims = remember(tabActive) { SimChoice.activeSims(context) }
+    var sendSlot by remember(tabActive) { mutableStateOf(SimChoice.sendSlot(context)) }
+    var showSendSimDialog by remember { mutableStateOf(false) }
+
+    if (showSendSimDialog) {
+        SendSimDialog(
+            sims = sims,
+            selectedSlot = sendSlot,
+            onSelect = { slot ->
+                SimChoice.setSendSlot(context, slot)
+                sendSlot = slot
+                showSendSimDialog = false
+            },
+            onDismiss = { showSendSimDialog = false },
+        )
+    }
 
     if (showSignOutDialog) {
         AlertDialog(
@@ -507,6 +529,17 @@ fun SettingsScreen(
                         value = stringResource(scanPeriodLabel(scanPeriod)),
                         onClick = { showScanPeriodDialog = true },
                     )
+                    if (sims.size > 1) {
+                        RowDivider()
+                        SettingsRow(
+                            icon = Icons.Filled.SimCard,
+                            title = stringResource(R.string.settings_sending_sim),
+                            value =
+                                sendSlot?.let { slot -> sims.firstOrNull { it.slot == slot }?.label }
+                                    ?: stringResource(R.string.settings_sending_sim_auto),
+                            onClick = { showSendSimDialog = true },
+                        )
+                    }
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Filled.Block,
@@ -902,6 +935,52 @@ private fun scanPeriodLabel(period: String): Int =
         SCAN_PERIOD_MONTHLY -> R.string.settings_scan_month
         else -> R.string.settings_scan_all
     }
+
+// Automatic (null) or one SIM slot, styled like the Scan period picker.
+@Composable
+private fun SendSimDialog(
+    sims: List<Sim>,
+    selectedSlot: Int?,
+    onSelect: (Int?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val automatic = stringResource(R.string.settings_sending_sim_auto)
+    val options = listOf<Pair<Int?, String>>(null to automatic) + sims.map { it.slot to it.label }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceElevated,
+        title = { Text(stringResource(R.string.settings_sending_sim), color = White, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.settings_sending_sim_detail),
+                    color = TextSecondary,
+                    fontSize = TextSize.Footnote,
+                )
+                Spacer(Modifier.height(8.dp))
+                options.forEachIndexed { index, (slot, label) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onSelect(slot) }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(label, color = White, fontSize = TextSize.Subhead)
+                        if (slot == selectedSlot) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Indigo,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    if (index != options.lastIndex) HorizontalDivider(color = Hairline)
+                }
+            }
+        },
+        confirmButton = {},
+    )
+}
 
 // Whether the app reaches BantAI's server right now. Tap to check again.
 @Composable

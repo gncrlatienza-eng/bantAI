@@ -1,3 +1,4 @@
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AuthController } from './auth.controller';
@@ -8,12 +9,10 @@ const mockAuthService = {
   register: jest.fn(),
   registerPortal: jest.fn(),
   login: jest.fn(),
-  requestClientEmailOtp: jest.fn(),
-  verifyClientEmailOtp: jest.fn(),
+  requestPortalEmailOtp: jest.fn(),
+  verifyPortalEmailOtp: jest.fn(),
   requestClientClaimEmailOtp: jest.fn(),
   verifyClientClaimEmailOtp: jest.fn(),
-  requestAdminEmailOtp: jest.fn(),
-  verifyAdminEmailOtp: jest.fn(),
   requestMobileEmailOtp: jest.fn(),
   verifyMobileEmailOtp: jest.fn(),
   requestOtp: jest.fn(),
@@ -111,12 +110,13 @@ describe('AuthController', () => {
 
   it('sets a client-only cookie after web email OTP verification', async () => {
     const dto = { email: 'client@example.com', otp: '123456' };
-    mockAuthService.verifyClientEmailOtp.mockResolvedValue({
+    mockAuthService.verifyPortalEmailOtp.mockResolvedValue({
       message: 'Authentication successful.',
       access_token: 'client-token',
+      audience: 'bantai-client-api',
     });
 
-    await controller.verifyClientEmailOtp(dto, response);
+    await controller.verifyPortalEmailOtp(dto, response);
 
     expect(response.cookie).toHaveBeenCalledWith(
       'bantai_client_session',
@@ -131,6 +131,29 @@ describe('AuthController', () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  // Audit AUTH-01 (2026-10-13): these routes issued portal sign-in
+  // challenges without the password check. Web sign-in must only go
+  // through portal/request-email-otp, which verifies the password first.
+  it('exposes no password-less portal sign-in OTP routes', () => {
+    const proto = AuthController.prototype as unknown as Record<
+      string,
+      unknown
+    >;
+    const routes = Object.getOwnPropertyNames(proto)
+      .map((name) => Reflect.getMetadata(PATH_METADATA, proto[name]))
+      .filter((path): path is string => typeof path === 'string');
+
+    expect(routes).toContain('portal/request-email-otp');
+    for (const removed of [
+      'client/request-email-otp',
+      'client/verify-email-otp',
+      'admin/request-email-otp',
+      'admin/verify-email-otp',
+    ]) {
+      expect(routes).not.toContain(removed);
+    }
   });
 
   it('delegates verifyOtp to AuthService', async () => {

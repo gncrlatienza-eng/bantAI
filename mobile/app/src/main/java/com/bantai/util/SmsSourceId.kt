@@ -73,15 +73,22 @@ object SmsSourceId {
         // A token without a readable subject still gets a key that cannot be
         // linked to any other account; it just won't be stable across sign-ins.
         val accountId = jwtSubject(accessToken) ?: randomHex(INSTALL_SECRET_BYTES)
-        val key = accountKey(installSecret(context), accountId)
-        prefs(context).edit().putString(PREF_ACCOUNT_KEY, key).apply()
-        cachedKey = key
+        // Same lock as deviceKey(): otherwise a lookup already running on an SMS
+        // thread could finish after this and overwrite the new account's key with
+        // the ANDROID_ID-based fallback, re-linking accounts for the session.
+        synchronized(this) {
+            val key = accountKey(installSecret(context), accountId)
+            prefs(context).edit().putString(PREF_ACCOUNT_KEY, key).apply()
+            cachedKey = key
+        }
     }
 
     /** Sign-out / account deletion: the next account on this phone gets an unrelated key. */
     fun clearAccount(context: Context) {
-        prefs(context).edit().remove(PREF_ACCOUNT_KEY).apply()
-        cachedKey = null
+        synchronized(this) {
+            prefs(context).edit().remove(PREF_ACCOUNT_KEY).apply()
+            cachedKey = null
+        }
     }
 
     internal fun accountKey(

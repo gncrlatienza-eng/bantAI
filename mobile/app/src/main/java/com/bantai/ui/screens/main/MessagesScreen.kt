@@ -47,6 +47,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -106,6 +107,7 @@ import com.bantai.ui.theme.White
 import com.bantai.util.MessageTime
 import com.bantai.util.SmsLinkSafety
 import com.bantai.util.SmsWriteAccess
+import com.bantai.viewmodel.CheckProgress
 import com.bantai.viewmodel.MessageFilter
 import com.bantai.viewmodel.MessagesViewModel
 import com.bantai.viewmodel.conversationViewFor
@@ -162,6 +164,8 @@ fun MessagesScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val selectionMode by viewModel.selectionMode.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
+    val checkingIds by viewModel.checkingIds.collectAsState()
+    val checkProgress by viewModel.checkProgress.collectAsState()
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showPermanentDeleteConfirm by remember { mutableStateOf(false) }
@@ -341,6 +345,9 @@ fun MessagesScreen(
                     }
                 } else {
                     val isDraftsFilter = selectedFilter == MessageFilter.DRAFTS
+                    checkProgress?.let { progress ->
+                        item(key = "checking-banner", contentType = "checking-banner") { CheckingBanner(progress) }
+                    }
                     // Stable keys: a new message or a read receipt updates its own
                     // row instead of recomposing every row below it.
                     items(tabMessages, key = { "${it.sender}|${it.id}" }, contentType = { "conversation" }) { msg ->
@@ -349,14 +356,30 @@ fun MessagesScreen(
                         // Remembered per row: building it runs the link/spoof regexes
                         // and date formatting, which used to repeat for every row on
                         // every recomposition (each filter switch, each new message).
+                        // Not classified yet but on its way: queued in the scan,
+                        // waiting on a live verdict, or in the history sort.
+                        val awaitingHistorySort =
+                            checkProgress?.sortingHistory == true && msg.classification == Classification.UNVERIFIED
+                        val checking =
+                            !isDraftsFilter && !msg.isOutgoing && (msg.id in checkingIds || awaitingHistorySort)
                         val item =
-                            remember(msg, isDraftsFilter) {
-                                msg.toDisplayItem(
-                                    context = context,
-                                    isDraft = isDraftsFilter,
-                                    draftPrefix = draftPrefix,
-                                    unreadSummaryPrefix = unreadSummaryPrefix,
-                                )
+                            remember(msg, isDraftsFilter, checking) {
+                                msg
+                                    .toDisplayItem(
+                                        context = context,
+                                        isDraft = isDraftsFilter,
+                                        draftPrefix = draftPrefix,
+                                        unreadSummaryPrefix = unreadSummaryPrefix,
+                                    ).let {
+                                        // Only a row with no verdict yet becomes "Checking…".
+                                        // A re-check of a row already marked Scam/Suspicious
+                                        // must keep showing that warning until it changes.
+                                        if (checking && it.badge == BadgeType.UNVERIFIED) {
+                                            it.copy(badge = BadgeType.CHECKING)
+                                        } else {
+                                            it
+                                        }
+                                    }
                             }
                         MessageListRow(
                             item = item,
@@ -841,5 +864,31 @@ private fun SmsWriteBlockedBanner() {
             fontSize = TextSize.Footnote,
             modifier = Modifier.padding(top = 6.dp),
         )
+    }
+}
+
+/** "Checking your messages… 120 of 900" while history is sorted or the inbox is scanned. */
+@Composable
+private fun CheckingBanner(progress: CheckProgress) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            text =
+                if (progress.total > 0) {
+                    stringResource(R.string.messages_checking_progress, progress.done, progress.total)
+                } else {
+                    stringResource(R.string.messages_checking)
+                },
+            color = TextSecondary,
+            fontSize = TextSize.Caption,
+        )
+        Spacer(Modifier.height(6.dp))
+        if (progress.total > 0) {
+            LinearProgressIndicator(
+                progress = { progress.done.toFloat() / progress.total },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
     }
 }

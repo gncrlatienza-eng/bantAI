@@ -531,6 +531,8 @@
     <string name="cd_mms_photo">Photo</string>
     <string name="cd_mms_photo_unavailable">Photo unavailable</string>
     <string name="cd_not_selected">Not selected</string>
+    <string name="messages_checking">Checking your messages…</string>
+    <string name="messages_checking_progress">Checking your messages… %1$d of %2$d</string>
     <string name="messages_draft_prefix">Draft:</string>
     <string name="messages_unread_summary_prefix">Unread summary:</string>
     <string name="thread_summary_too_short">Not enough content to summarize this conversation.</string>

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
+import com.bantai.data.LocalAccountData
 import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.local.UserData
@@ -302,7 +303,11 @@ class SettingsViewModel(
     // one.
     fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
-            clearLocalSession()
+            // Keeps the inbox's labels, alert marks and finished sort for the
+            // same account signing back in; a different account wipes them at
+            // sign-in (UserPreferences.savePhoneAuth / LocalAccountData).
+            userPreferences.clearAll(keepLocalData = true)
+            OutgoingSms.clearAll(getApplication())
             onComplete()
         }
     }
@@ -331,24 +336,11 @@ class SettingsViewModel(
         }
     }
 
-    // Everything this phone keeps for the signed-in account. Shared by Sign out
-    // and Delete account so the two can't drift apart.
+    // Delete account: everything this phone keeps for the account, including
+    // the per-message state sign-out keeps (see LocalAccountData).
     private suspend fun clearLocalSession() {
         userPreferences.clearAll()
-        // Per-message local stores are keyed by device SMS provider row id,
-        // not by account -- without this, whatever the previous account had
-        // classified/soft-deleted/drafted stays attached to the same local
-        // ids and silently reappears (wrong classifications, "deleted"
-        // messages back in the inbox, stale reply drafts) for the next
-        // account that signs in on this device.
-        getApplication<Application>().container.classificationStore.clear()
-        getApplication<Application>().container.deletedMessagesStore.clearAll()
-        getApplication<Application>().container.draftsStore.clearAll()
-        getApplication<Application>().container.backendMessageIdStore.clear()
-        getApplication<Application>().container.campaignMatchStore.clear()
-        getApplication<Application>().container.alertStateStore.clearAll()
-        OutgoingSms.clearAll(getApplication())
-        getApplication<Application>().container.blockedSendersStore.clearBlocked()
+        LocalAccountData.wipe(getApplication())
     }
 
     // Feeds a synthetic message through the same pipeline SmsReceiver uses for a

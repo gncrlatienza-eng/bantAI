@@ -73,6 +73,10 @@ class UserPreferences(
         val TEXT_SCALE = stringPreferencesKey("text_scale")
         val MY_NUMBER = stringPreferencesKey("my_number")
         val SHOW_SCAM_WAVES_TAB = booleanPreferencesKey("show_scam_waves_tab")
+
+        // The account whose local state (labels, alert marks, finished sort)
+        // this phone holds; kept across sign-out. See LocalAccountData.
+        val LOCAL_DATA_ACCOUNT = stringPreferencesKey("local_data_account")
     }
 
     // The JWT is a bearer credential, not just text, so it's kept out of
@@ -114,19 +118,31 @@ class UserPreferences(
             )
         }
 
+    /**
+     * Returns true when a different account than the one this phone's local
+     * data belongs to just signed in: the caller wipes that data
+     * (LocalAccountData) and Setup sorts the inbox again for the new account.
+     */
     suspend fun savePhoneAuth(
         token: String,
         phoneNumber: String,
-    ) {
+    ): Boolean {
         secureTokenStore.saveToken(token)
         // Account-scoped SMS sourceId key for whoever just signed in.
         SmsSourceId.bindAccount(context, token)
+        val account = SmsSourceId.jwtSubject(token) ?: phoneNumber
+        var accountChanged = false
         context.dataStore.edit { prefs ->
+            val previous = prefs[Keys.LOCAL_DATA_ACCOUNT]
+            accountChanged = previous != null && previous != account
+            prefs[Keys.LOCAL_DATA_ACCOUNT] = account
+            if (accountChanged) prefs[Keys.HISTORY_SORTED_AT] = 0L
             prefs[Keys.PHONE_NUMBER] = phoneNumber
             // A mobile session has one authoritative sign-in identity. Remove
             // the old email-backed value when upgrading an App 1.1 install.
             prefs.remove(Keys.EMAIL_ADDRESS)
         }
+        return accountChanged
     }
 
     /** Clears only the session token — used when the backend rejects it (401), not a full sign-out. */
@@ -267,20 +283,40 @@ class UserPreferences(
     // Appearance and the finished device setup (default SMS app, permissions,
     // terms) belong to the phone, not the account -- signing out shouldn't reset
     // the theme or send the user through setup again, only back to sign-in.
-    suspend fun clearAll() {
+    // [keepLocalData] (sign-out) also keeps the finished inbox sort and whose
+    // it is, so the same account signing back in isn't re-sorted; Delete
+    // account passes false.
+    suspend fun clearAll(keepLocalData: Boolean = false) {
+        // Sessions signed in before 1.6 never recorded an owner: record it now,
+        // or the next sign-in couldn't tell a different account apart.
+        val token = secureTokenStore.getToken()
         secureTokenStore.clear()
         // The next account on this phone must not inherit this one's sourceId key.
         SmsSourceId.clearAccount(context)
         context.dataStore.edit { prefs ->
-            val theme = prefs[Keys.THEME_MODE]
-            val textScale = prefs[Keys.TEXT_SCALE]
-            val myNumber = prefs[Keys.MY_NUMBER]
-            val setupDone = prefs[Keys.ONBOARDING_COMPLETE]
+            if (keepLocalData && prefs[Keys.LOCAL_DATA_ACCOUNT] == null) {
+                val owner = SmsSourceId.jwtSubject(token) ?: prefs[Keys.PHONE_NUMBER]
+                if (owner != null) prefs[Keys.LOCAL_DATA_ACCOUNT] = owner
+            }
+            val keep: Set<Preferences.Key<*>> =
+                buildSet {
+                    addAll(listOf(Keys.THEME_MODE, Keys.TEXT_SCALE, Keys.MY_NUMBER, Keys.ONBOARDING_COMPLETE))
+                    if (keepLocalData) {
+                        addAll(
+                            listOf(
+                                Keys.LOCAL_DATA_ACCOUNT,
+                                Keys.HISTORY_SORTED_AT,
+                                Keys.SORT_GEN_STARTED,
+                                Keys.SORT_GEN_DONE,
+                                Keys.SORT_GEN_STARTED_AT,
+                            ),
+                        )
+                    }
+                }
+            val kept = prefs.asMap().filterKeys { it in keep }
             prefs.clear()
-            if (myNumber != null) prefs[Keys.MY_NUMBER] = myNumber
-            if (theme != null) prefs[Keys.THEME_MODE] = theme
-            if (textScale != null) prefs[Keys.TEXT_SCALE] = textScale
-            if (setupDone != null) prefs[Keys.ONBOARDING_COMPLETE] = setupDone
+            @Suppress("UNCHECKED_CAST")
+            kept.forEach { (key, value) -> prefs[key as Preferences.Key<Any>] = value }
         }
     }
 }

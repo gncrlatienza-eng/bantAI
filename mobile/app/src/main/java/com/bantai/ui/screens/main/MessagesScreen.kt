@@ -370,7 +370,16 @@ fun MessagesScreen(
                                         isDraft = isDraftsFilter,
                                         draftPrefix = draftPrefix,
                                         unreadSummaryPrefix = unreadSummaryPrefix,
-                                    ).let { if (checking) it.copy(badge = BadgeType.CHECKING) else it }
+                                    ).let {
+                                        // Only a row with no verdict yet becomes "Checking…".
+                                        // A re-check of a row already marked Scam/Suspicious
+                                        // must keep showing that warning until it changes.
+                                        if (checking && it.badge == BadgeType.UNVERIFIED) {
+                                            it.copy(badge = BadgeType.CHECKING)
+                                        } else {
+                                            it
+                                        }
+                                    }
                             }
                         MessageListRow(
                             item = item,

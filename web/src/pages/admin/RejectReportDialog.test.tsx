@@ -46,6 +46,21 @@ describe('RejectReportDialog', () => {
     expect(screen.getByRole('button', { name: 'Reject 3' })).toBeDisabled();
   });
 
+  it('ignores Escape while a rejection is being sent', async () => {
+    const onCancel = vi.fn();
+    render(
+      <RejectReportDialog
+        open
+        count={1}
+        busy
+        onCancel={onCancel}
+        onConfirm={vi.fn()}
+      />,
+    );
+    await userEvent.keyboard('{Escape}');
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
   it('cancels without rejecting', async () => {
     const { onConfirm, onCancel } = renderDialog();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));

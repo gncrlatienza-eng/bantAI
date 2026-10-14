@@ -53,7 +53,8 @@ export function RejectReportDialog({
       open={open}
       title={count > 1 ? `Reject ${count} reports` : 'Reject report'}
       description="The reporter's block on this sender is lifted. Say what the text really is so their phone files it correctly."
-      onClose={onCancel}
+      // Escape/backdrop can't abandon a rejection that's already being sent.
+      onClose={busy ? () => undefined : onCancel}
       actions={
         <>
           <Button variant="ghost" disabled={busy} onClick={onCancel}>

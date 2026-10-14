@@ -102,6 +102,8 @@
     <string name="thread_action_forward">Forward</string>
     <string name="thread_action_select">Select</string>
     <string name="thread_action_retry">Send again</string>
+    <string name="thread_action_copy_diagnostics">Copy diagnostic info</string>
+    <string name="thread_diagnostics_copied">Diagnostic info copied. Paste it to the BantAI team.</string>
     <string name="thread_copied">Message copied</string>
     <string name="thread_quote_you">You</string>
     <string name="thread_replying_to">Replying to %1$s</string>
@@ -313,6 +315,8 @@
     <!-- notifications -->
     <string name="notifications_alert_for_messages_worth_a">Alert for messages worth a second look</string>
     <string name="notifications_alert_types">ALERT TYPES</string>
+    <string name="notifications_auto_block_scams">Auto-block confirmed scams</string>
+    <string name="notifications_auto_block_scams_detail">Off: scams wait in Alerts so you can block or report them. On: BantAI blocks the sender for you.</string>
     <string name="notifications_auto_block_notice">Auto-block notice</string>
     <string name="notifications_high_priority_alert_for_likely">High-priority alert for likely scam messages</string>
     <string name="notifications_managed_in_android_notification_settings">Managed in Android notification settings</string>
@@ -541,6 +545,12 @@
     <string name="report_sent_body_blocked">The number has been added to your blocked list and can no longer send you messages. You can unblock it anytime from Settings.</string>
     <string name="report_sent_body_both">Your report has been submitted and the number has been blocked. It can no longer send you messages.</string>
     <string name="report_sent_body_reported">Thank you for your report. It will be available for administrator review and can help protect other users from this threat.</string>
+    <string name="report_notif_received_title">Thank you for your report</string>
+    <string name="report_notif_received_body">Rest assured, the BantAI team will review it. If it is confirmed, it helps warn other users about this scam. We will let you know once it is reviewed.</string>
+    <string name="report_notif_accepted_title">Your report was confirmed</string>
+    <string name="report_notif_accepted_body">The BantAI team reviewed your report and agreed. It now helps BantAI catch this scam for other users. Thank you!</string>
+    <string name="report_notif_rejected_title">Your report was reviewed</string>
+    <string name="report_notif_rejected_body">The BantAI team reviewed your report and did not confirm it as a scam this time. Tap to see the details in Alerts, under Reported.</string>
     <string name="report_sent_got_it">Got it</string>
     <string name="report_sent_step_queued">Report queued for admin review</string>
     <string name="report_sent_step_kept">Kept for administrator review; SMS content is not used for retraining</string>
@@ -706,8 +716,40 @@
     <string name="alerts_tab_blocked">Blocked</string>
     <string name="alerts_tab_reported">Reported</string>
     <string name="alerts_cd_tab_has_new">%1$s, has new alerts</string>
-    <string name="alerts_about_to_review">Suspicious texts BantAI didn\'t block. Open one to block or report it, or swipe left once you\'ve checked it.</string>
-    <string name="alerts_about_blocked">Scams BantAI blocked for you. Nothing to do here; they\'re kept so you can see what was stopped.</string>
+    <string name="alerts_about_to_review">Scams and suspicious texts BantAI found. Open one to block or report it, or swipe left once you\'ve checked it.</string>
+    <string name="alerts_about_blocked">Scams from blocked senders. Nothing to do here; they\'re kept for 30 days so you can see what was stopped, then deleted.</string>
+    <string name="retention_recently_deleted">Messages here are permanently deleted after 30 days.</string>
+    <string name="retention_blocked_messages">Texts from blocked senders are kept for 30 days.</string>
+    <string name="waves_active_explainer">Active: BantAI saw a text from this scam wave in the last 30 days. Scammers are still sending it, so stay alert.</string>
+    <string name="waves_inactive_explainer">Inactive: no new texts from this wave in over 30 days. It may come back, so the warning signs still apply. Waves are cleared after 90 days.</string>
+    <string name="setup_title_sorting">Setting up your protection</string>
+    <string name="setup_title_ready">You\'re all set</string>
+    <string name="setup_subtitle_sorting">BantAI is checking your recent messages on this phone and sorting them into the right places. Please wait. This only happens once.</string>
+    <string name="setup_subtitle_ready">Your recent messages are sorted. Older ones finish quietly in the background.</string>
+    <string name="setup_progress_reading">Reading your messages…</string>
+    <plurals name="setup_progress_count">
+        <item quantity="one">Sorted %1$d of %2$d message</item>
+        <item quantity="other">Sorted %1$d of %2$d messages</item>
+    </plurals>
+    <plurals name="setup_progress_count_eta">
+        <item quantity="one">Sorted %1$d of %2$d message · %3$s</item>
+        <item quantity="other">Sorted %1$d of %2$d messages · %3$s</item>
+    </plurals>
+    <string name="setup_eta_seconds">less than a minute left</string>
+    <string name="setup_eta_minutes">about %1$d min left</string>
+    <string name="setup_next_tip">Next tip</string>
+    <string name="setup_open">Open BantAI</string>
+    <string name="setup_continue_anyway">Taking too long? Continue anyway</string>
+    <string name="setup_card_tabs_title">Your inbox, sorted</string>
+    <string name="setup_card_tabs_body">Messages holds your normal texts. Spam holds promos. Review holds texts BantAI isn\'t sure about, so check those yourself before replying or tapping links.</string>
+    <string name="setup_card_alerts_title">Scams go to Alerts</string>
+    <string name="setup_card_alerts_body">When BantAI finds a scam, it appears in the Alerts tab. Open it to block the sender or report it. You decide; BantAI won\'t block anyone on its own unless you turn on auto-block in Settings.</string>
+    <string name="setup_card_report_title">Report what BantAI missed</string>
+    <string name="setup_card_report_body">Long-press any message and tap Report. The BantAI team reviews every report, and you\'ll get a notification when yours is reviewed.</string>
+    <string name="setup_card_privacy_title">Your messages stay private</string>
+    <string name="setup_card_privacy_body">Messages are checked on this phone. When BantAI asks its online service, phone numbers, links, emails, codes and amounts are hidden first. You can see this again in Settings, How it works.</string>
+    <string name="privacy_retention_title">How long BantAI keeps data</string>
+    <string name="privacy_retention_detail">Recently Deleted: 30 days, then permanently deleted.\nTexts from blocked senders: 30 days.\nScam Waves: 90 days.</string>
     <string name="alerts_about_reported">Texts you reported. BantAI\'s team reviews each report, and accepted ones help the AI learn.</string>
     <string name="alerts_empty_reported_title">No reports yet</string>
     <string name="alerts_empty_reported_detail">When you report a message as a scam, spam, or safe, it moves here so you can follow its review.</string>

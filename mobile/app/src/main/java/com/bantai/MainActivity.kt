@@ -11,7 +11,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import com.bantai.data.ReportStatusWorker
+import com.bantai.data.RetentionWorker
 import com.bantai.data.TipCheckWorker
+import com.bantai.data.offline.HistorySortWorker
 import com.bantai.navigation.NavGraph
 import com.bantai.navigation.RequestedTip
 import com.bantai.ui.components.LaunchScreen
@@ -65,6 +68,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         NotificationHelper.createNotificationChannels(this)
         TipCheckWorker.schedule(this)
+        ReportStatusWorker.schedule(this)
+        RetentionWorker.schedule(this)
+        // Resumes the background half of first-run sorting after a restart.
+        HistorySortWorker.enqueue(this)
         applyIntent(intent)
         val themeModeFlow = this.container.userPreferences.themeMode
         val textScaleFlow = this.container.userPreferences.textScale

@@ -147,6 +147,13 @@ fun CampaignsScreen(
         }
         Spacer(Modifier.height(12.dp))
         WaveChips(showEnded = showEnded, onSelect = { showEnded = it })
+        // What Active/Inactive mean (the 30-day rule) and how long waves are kept.
+        Text(
+            stringResource(if (showEnded) R.string.waves_inactive_explainer else R.string.waves_active_explainer),
+            color = TextSecondary,
+            fontSize = TextSize.Footnote,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+        )
         // A fixed gap outside the scrolling list: contentPadding's top only
         // applies at rest, so scrolled cards used to run right up against the
         // bottom edge of the Active / Inactive chips.

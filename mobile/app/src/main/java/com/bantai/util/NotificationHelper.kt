@@ -55,6 +55,9 @@ object NotificationHelper {
     private const val SEND_STATUS_CHANNEL_NAME = "Send Status"
     private const val TIPS_CHANNEL_ID = "bantai_tips"
     private const val TIPS_CHANNEL_NAME = "Safety tips"
+    private const val REPORTS_CHANNEL_ID = "bantai_reports"
+    private const val REPORTS_CHANNEL_NAME = "Report updates"
+    private const val REPORT_RECEIVED_NOTIF_ID = 0x5245_5054 // "REPT"
 
     /** Derives a stable-ish notification id from a sender, same formula used across the app. */
     fun notifIdFor(sender: String): Int = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
@@ -162,6 +165,79 @@ object NotificationHelper {
                 description = "New scam warnings and safety tips from the BantAI team"
             },
         )
+        createReportsChannel(manager)
+    }
+
+    private fun createReportsChannel(manager: NotificationManager) {
+        manager.createNotificationChannel(
+            NotificationChannel(
+                REPORTS_CHANNEL_ID,
+                REPORTS_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "Confirms your reports and tells you when the BantAI team has reviewed them"
+            },
+        )
+    }
+
+    /** Right after a report is filed: thanks, and what happens next. */
+    fun sendReportReceived(context: Context) {
+        sendReportNotification(
+            context,
+            REPORT_RECEIVED_NOTIF_ID,
+            context.getString(R.string.report_notif_received_title),
+            context.getString(R.string.report_notif_received_body),
+        )
+    }
+
+    /** The BantAI team reviewed one of the user's reports ([key] = its message id). */
+    fun sendReportReviewed(
+        context: Context,
+        key: String,
+        accepted: Boolean,
+    ) {
+        val (title, body) =
+            if (accepted) {
+                R.string.report_notif_accepted_title to R.string.report_notif_accepted_body
+            } else {
+                R.string.report_notif_rejected_title to R.string.report_notif_rejected_body
+            }
+        val notifId = ("report:$key").hashCode() and Int.MAX_VALUE
+        sendReportNotification(context, notifId, context.getString(title), context.getString(body))
+    }
+
+    // Tapping opens Alerts, where Reported shows each report's status.
+    private fun sendReportNotification(
+        context: Context,
+        notifId: Int,
+        title: String,
+        body: String,
+    ) {
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                notifId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(context, REPORTS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+        notifySafely(context, notifId, notification)
     }
 
     /**

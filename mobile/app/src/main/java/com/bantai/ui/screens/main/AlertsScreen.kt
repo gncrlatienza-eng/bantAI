@@ -62,8 +62,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.data.LocalScamAlerts
 import com.bantai.data.model.AlertSection
 import com.bantai.data.model.AlertTab
+import com.bantai.data.model.ConversationView
 import com.bantai.data.model.ReportFilter
 import com.bantai.data.model.ReportSection
 import com.bantai.data.model.SenderReports
@@ -171,7 +173,14 @@ fun AlertsScreen(
     // Every alert routes to SmishingAlertScreen -- the alert-detail screen.
     fun onAlertClick(alert: SmsApi.AlertSummary) {
         viewModel.markSeen(alert)
-        navController.navigate(Screen.SmishingAlert.createRoute(alert.messageId))
+        // An on-device scam has no server alert to open: show it in its
+        // conversation, whose verdict banner offers Report and Block.
+        val localId = LocalScamAlerts.localIdOf(alert.messageId)
+        if (localId != null) {
+            navController.navigate(Screen.Detail.createRoute(alert.sender, ConversationView.ALL, listOf(localId)))
+        } else {
+            navController.navigate(Screen.SmishingAlert.createRoute(alert.messageId))
+        }
     }
 
     // One report opens its own page (review status, the user's note, the

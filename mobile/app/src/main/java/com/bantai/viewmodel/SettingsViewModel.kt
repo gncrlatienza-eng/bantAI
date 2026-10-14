@@ -85,6 +85,9 @@ class SettingsViewModel(
     private val _deliveryReports = MutableStateFlow(false)
     val deliveryReports: StateFlow<Boolean> = _deliveryReports.asStateFlow()
 
+    private val _autoBlockScams = MutableStateFlow(false)
+    val autoBlockScams: StateFlow<Boolean> = _autoBlockScams.asStateFlow()
+
     private val _autoBlockNotice = MutableStateFlow(true)
     val autoBlockNotice: StateFlow<Boolean> = _autoBlockNotice.asStateFlow()
 
@@ -110,6 +113,7 @@ class SettingsViewModel(
                 _suspiciousAlerts.value = data.suspiciousAlerts
                 _spamAlerts.value = data.spamAlerts
                 _autoBlockNotice.value = data.autoBlockNotice
+                _autoBlockScams.value = data.autoBlockScams
                 _deliveryReports.value = data.deliveryReports
                 _scanPeriod.value = data.scanPeriod
             }
@@ -239,6 +243,11 @@ class SettingsViewModel(
     fun toggleDeliveryReports(value: Boolean) {
         _deliveryReports.value = value
         viewModelScope.launch { userPreferences.saveDeliveryReports(value) }
+    }
+
+    fun toggleAutoBlockScams(value: Boolean) {
+        _autoBlockScams.value = value
+        viewModelScope.launch { userPreferences.saveAutoBlockScams(value) }
     }
 
     fun toggleAutoBlockNotice(value: Boolean) {

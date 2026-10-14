@@ -98,6 +98,7 @@ interface ReplyQuoteDao {
 }
 
 @Dao
+@Suppress("TooManyFunctions") // one query per read the stores need
 interface ClassificationDao {
     @Query("SELECT * FROM classifications")
     fun all(): List<ClassificationEntity>
@@ -110,6 +111,14 @@ interface ClassificationDao {
 
     @Query("SELECT message_id FROM classifications WHERE source = :source")
     suspend fun idsWithSource(source: String): List<Long>
+
+    // "safe" rows from builds that didn't record provenance: no way to tell
+    // which model (if any) made the call, so the history scan re-checks them.
+    @Query("SELECT message_id FROM classifications WHERE label = 'safe' AND source IS NULL")
+    suspend fun legacySafeIds(): List<Long>
+
+    @Query("SELECT message_id FROM classifications WHERE classified_at >= :since")
+    suspend fun idsClassifiedSince(since: Long): List<Long>
 
     @Upsert
     suspend fun upsert(rows: List<ClassificationEntity>)
@@ -128,7 +137,7 @@ interface ClassificationDao {
             classified_at = :classifiedAt
         WHERE message_id = :messageId
           AND label != 'blocked'
-          AND (source IS NULL OR source != 'cloud_model')
+          AND (source IS NULL OR source NOT IN ('cloud_model', 'user_report'))
         """,
     )
     @Suppress("LongParameterList") // Room SQL binds immutable Model C provenance atomically.

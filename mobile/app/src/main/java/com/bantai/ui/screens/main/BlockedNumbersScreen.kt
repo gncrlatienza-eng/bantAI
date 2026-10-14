@@ -145,7 +145,8 @@ fun BlockedNumbersScreen(
             ) {
                 item {
                     Text(
-                        "${blockedNumbers.size} sender${if (blockedNumbers.size != 1) "s" else ""} blocked",
+                        "${blockedNumbers.size} sender${if (blockedNumbers.size != 1) "s" else ""} blocked. " +
+                            stringResource(R.string.retention_blocked_messages),
                         color = TextSecondary,
                         fontSize = TextSize.Footnote,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),

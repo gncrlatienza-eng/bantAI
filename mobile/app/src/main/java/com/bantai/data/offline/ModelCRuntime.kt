@@ -32,6 +32,9 @@ internal data class ModelCResult(
     val decision: ModelCDecision,
     val modelVersion: String,
     val modelSha256: String,
+    // Ham, Spam, Scam -- kept for "Copy diagnostic info", which shows the raw
+    // distribution so a misfiled message can be checked against the server model.
+    val probabilities: List<Double> = emptyList(),
 )
 
 internal data class ModelCInspection(
@@ -79,9 +82,25 @@ internal object ModelCRuntime {
                     decision = routeModelCProbabilities(probabilities),
                     modelVersion = runtime.modelVersion,
                     modelSha256 = runtime.modelSha256,
+                    probabilities = probabilities.toList(),
                 )
             }
         }
+
+    /**
+     * Frees the model's native memory (~300 MB). Sessions were kept for the
+     * process lifetime, which on 2-3 GB phones pushed Android to kill the app
+     * (testers: "laggy and crashes on lower phone models"). The next classify()
+     * reloads them, a second or two. Waits for any running inference.
+     */
+    suspend fun release() {
+        mutex.withLock {
+            val current = loaded ?: return
+            loaded = null
+            current.model.close()
+            current.tokenizer.close()
+        }
+    }
 
     /** Test-only inspection surface: exercises the same cached sessions as production. */
     suspend fun inspectFixture(

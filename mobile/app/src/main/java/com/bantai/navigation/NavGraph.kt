@@ -42,6 +42,7 @@ import androidx.navigation.navArgument
 import com.bantai.container
 import com.bantai.data.AuthEventBus
 import com.bantai.data.model.ConversationView
+import com.bantai.data.offline.HistorySortWorker
 import com.bantai.ui.components.FloatingTabBar
 import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.components.LocalBottomBarClearance
@@ -68,6 +69,7 @@ import com.bantai.ui.screens.onboarding.OnboardingEnterCodeScreen
 import com.bantai.ui.screens.onboarding.OnboardingProfileScreen
 import com.bantai.ui.screens.onboarding.OnboardingProtectedScreen
 import com.bantai.ui.screens.onboarding.OnboardingTermsScreen
+import com.bantai.ui.screens.onboarding.SetupScreen
 import com.bantai.ui.screens.onboarding.SplashScreen
 import com.bantai.ui.screens.onboarding.WelcomeScreen
 import com.bantai.ui.screens.settings.EditProfileScreen
@@ -359,8 +361,22 @@ fun NavGraph(
         // Route straight back to re-authentication in that case rather than
         // rendering "main" with no valid session (which would then just 401 on
         // every call and bounce here anyway, only after a beat on a dead screen).
+        // A new HistorySortWorker.SORT_GENERATION (this update, or a fresh
+        // install) re-sorts once behind Setup; any other update opens straight in.
+        // Started here or by the worker MainActivity enqueued -- either way Setup.
+        val newGeneration =
+            userData.onboardingComplete && userData.sortGenerationStarted < HistorySortWorker.SORT_GENERATION
+        if (newGeneration) {
+            withContext(Dispatchers.IO) {
+                context.container.userPreferences.startSortGeneration(HistorySortWorker.SORT_GENERATION)
+            }
+        }
+        val needsSetup = newGeneration || userData.historySortedAt == 0L
         startDestination =
             when {
+                // Sorting not finished (first run, killed mid-way, or an update
+                // from before Setup existed): back to Setup, not half-sorted tabs.
+                userData.onboardingComplete && userData.authToken.isNotEmpty() && needsSetup -> "setup"
                 userData.onboardingComplete && userData.authToken.isNotEmpty() -> "main"
                 // Signed out on a phone that's already set up: the landing page,
                 // like Telegram/WhatsApp after logging out.
@@ -536,6 +552,18 @@ fun NavGraph(
                         OnboardingProtectedScreen(
                             viewModel = viewModel,
                             onFinish = {
+                                navController.navigate("setup") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+
+                    // First-run sorting + tutorial; the tabs stay out of reach
+                    // until recent messages are sorted (HistorySortWorker).
+                    composable("setup") {
+                        SetupScreen(
+                            onDone = {
                                 navController.navigate("main") {
                                     popUpTo(0) { inclusive = true }
                                 }

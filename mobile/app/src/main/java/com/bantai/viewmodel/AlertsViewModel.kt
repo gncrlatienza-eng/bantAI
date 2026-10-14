@@ -8,6 +8,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
 import com.bantai.data.AlertBlocking
+import com.bantai.data.LocalScamAlerts
 import com.bantai.data.local.AlertState
 import com.bantai.data.localAlertsOnly
 import com.bantai.data.model.AlertTab
@@ -19,7 +20,9 @@ import com.bantai.data.remote.ReportsApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.toUserMessage
 import com.bantai.util.ContactNames
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +30,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -43,6 +48,7 @@ private const val ALERTS_POLL_INTERVAL_MS = 20_000L
 private const val ALERTS_BACKGROUND_POLL_INTERVAL_MS = 60_000L
 private const val ALERTS_MAX_PAGES = 5
 private const val TAG = "AlertsViewModel"
+private const val LOCAL_REFRESH_DEBOUNCE_MS = 500L
 
 class AlertsViewModel(
     application: Application,
@@ -55,6 +61,9 @@ class AlertsViewModel(
     // The user's own reports (GET /reports/mine), on this phone. Reports on
     // texts the model called safe have no alert, so they only come from here.
     private val reportList = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
+
+    // Scams only the on-device model caught (no server alert behind them).
+    private val localAlerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -73,8 +82,8 @@ class AlertsViewModel(
      * from this phone already applied.
      */
     val alerts: StateFlow<List<SmsApi.AlertSummary>> =
-        combine(_alerts, reportList, alertState) { alerts, reports, state ->
-            withLocalReports(withReportList(alerts, reports), state.reported)
+        combine(_alerts, localAlerts, reportList, alertState) { alerts, local, reports, state ->
+            withLocalReports(withReportList(alerts + local, reports), state.reported)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _tab = MutableStateFlow(AlertTab.TO_REVIEW)
@@ -91,8 +100,8 @@ class AlertsViewModel(
 
     /** Alerts the user hasn't opened yet -- drives the Alerts tab's count. */
     val unseenCount: StateFlow<Int> =
-        combine(_alerts, alertState) { alerts, state ->
-            unseenAlerts(alerts, state.initialized, state.seen).size
+        combine(_alerts, localAlerts, alertState) { alerts, local, state ->
+            unseenAlerts(alerts + local, state.initialized, state.seen).size
         }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     // Keeps alerts older than a polled first page (loaded by an earlier full
@@ -118,7 +127,7 @@ class AlertsViewModel(
 
     /** "Mark all read": clears every new dot and the tab count without opening each alert. */
     fun markAllSeen() {
-        val ids = _alerts.value.map { it.messageId }
+        val ids = (_alerts.value + localAlerts.value).map { it.messageId }
         viewModelScope.launch { alertStateStore.markSeen(ids) }
     }
 
@@ -136,6 +145,19 @@ class AlertsViewModel(
 
     init {
         loadAlerts()
+        // An on-device scam verdict, or a block/unblock made from a thread,
+        // shows here right away instead of on the next 20-60 s poll. Local
+        // only: no network call.
+        @OptIn(FlowPreview::class)
+        viewModelScope.launch {
+            combine(
+                application.container.classificationStore.classifications,
+                application.container.blockedSendersStore.state,
+            ) { _, _ -> Unit }
+                .drop(1)
+                .debounce(LOCAL_REFRESH_DEBOUNCE_MS)
+                .collect { refreshLocalState() }
+        }
         // Polling lives here (viewModelScope) rather than in AlertsScreen's own
         // composition, so the Alerts tab's unread badge stays live even while
         // the user is on a different tab — not just while this screen itself
@@ -176,6 +198,8 @@ class AlertsViewModel(
 
                 val token = userPreferences.userData.first().authToken
                 if (token.isEmpty()) {
+                    // On-device scams need no account.
+                    refreshLocalAlerts(token)
                     _isLoading.value = false
                     _errorMessage.value = "Sign in to see alerts"
                     return@launch
@@ -209,6 +233,7 @@ class AlertsViewModel(
                         }
                     }
                 loadReports(token)
+                refreshLocalAlerts(token)
                 if (!silent) _isLoading.value = false
             }
     }
@@ -234,6 +259,30 @@ class AlertsViewModel(
                 )
                 reportList.value = local
             }.onFailure { error -> Log.w(TAG, "Failed to load reports", error) }
+    }
+
+    private suspend fun refreshLocalState() {
+        val token = userPreferences.userData.first().authToken
+        val server = _alerts.value
+        if (server.isNotEmpty()) {
+            _alerts.value = AlertBlocking.withBlockStatus(getApplication(), token, server, catchUp = false)
+        }
+        refreshLocalAlerts(token)
+    }
+
+    // Best-effort, like reports: a failure keeps the last list.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun refreshLocalAlerts(token: String) {
+        try {
+            val shown = (_alerts.value + reportList.value).mapNotNullTo(HashSet()) { it.localId }
+            val found = LocalScamAlerts.load(getApplication(), shown)
+            val blocked = AlertBlocking.withBlockStatus(getApplication(), token, found, catchUp = false)
+            localAlerts.value = withContext(Dispatchers.IO) { withSenderNames(blocked) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load on-device scam alerts", e)
+        }
     }
 
     // "kryshan" rather than "+639157786474", same as the Messages list.

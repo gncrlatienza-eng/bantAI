@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -185,6 +186,22 @@ class MessageDetailViewModel(
             providerChanges.debounce(THREAD_RELOAD_DEBOUNCE_MS).collect {
                 currentSender?.let { loadConversation(it) }
             }
+        }
+        // A verdict that lands while the thread is open (the cloud answers a
+        // second after the SMS), a report's refile, a re-sort, or a block made
+        // elsewhere: reload so the banner and hidden links match the label.
+        // These stores change without touching the SMS provider.
+        viewModelScope.launch {
+            getApplication<Application>()
+                .container.classificationStore.classifications
+                .drop(1)
+                .collect { providerChanges.tryEmit(Unit) }
+        }
+        viewModelScope.launch {
+            getApplication<Application>()
+                .container.blockedSendersStore.state
+                .drop(1)
+                .collect { providerChanges.tryEmit(Unit) }
         }
         getApplication<Application>().contentResolver.registerContentObserver(
             Telephony.Sms.CONTENT_URI,

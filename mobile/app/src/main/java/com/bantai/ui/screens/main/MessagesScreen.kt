@@ -218,6 +218,20 @@ fun MessagesScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // Same control as Alerts' title.
+                val hasUnread = visibleMessages.any { !it.isRead && !it.isOutgoing }
+                if (hasUnread && selectedFilter != MessageFilter.RECENTLY_DELETED) {
+                    Text(
+                        stringResource(R.string.alerts_mark_all_read),
+                        color = IosBlue,
+                        fontSize = TextSize.Body,
+                        modifier =
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.markAllRead() }
+                                .padding(8.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -248,6 +262,15 @@ fun MessagesScreen(
                 counts = filterCounts,
                 onSelect = { viewModel.setFilter(it) },
             )
+            if (selectedFilter == MessageFilter.RECENTLY_DELETED) {
+                // Retention.RECENTLY_DELETED_DAYS, so nothing vanishes unannounced.
+                Text(
+                    stringResource(R.string.retention_recently_deleted),
+                    color = TextSecondary,
+                    fontSize = TextSize.Footnote,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                )
+            }
             SmsWriteBlockedBanner()
         }
 

@@ -158,6 +158,13 @@ fun PrivacyDataScreen(
                     body = stringResource(R.string.privacy_data_pseudonymous_threat_telemetry_is_deleted),
                 )
             }
+            // On this phone (Retention / RetentionWorker).
+            item {
+                InfoCard(
+                    title = stringResource(R.string.privacy_retention_title),
+                    body = stringResource(R.string.privacy_retention_detail),
+                )
+            }
             item {
                 InfoCard(
                     title = stringResource(R.string.privacy_data_your_rights),

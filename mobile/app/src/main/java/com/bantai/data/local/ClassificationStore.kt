@@ -19,12 +19,14 @@ internal val CLASSIFICATION_ENTRIES_KEY = stringPreferencesKey("entries")
 
 // SQLite's host-parameter cap is ~999.
 private const val DELETE_CHUNK_SIZE = 900
+private val ESCALATABLE = setOf(Classification.SPAM.storage, Classification.UNVERIFIED.storage)
 
 /**
  * Persists the real backend/AI classification per message id, so screens show
  * the verdict that drove blocking/notifications instead of re-deriving it from
  * the local keyword heuristic. The SMS provider has no column for this.
  */
+@Suppress("TooManyFunctions") // one method per query its callers need
 class ClassificationStore(
     context: Context,
 ) {
@@ -43,6 +45,28 @@ class ClassificationStore(
 
     /** Ids whose stored verdict came from [source] -- one query instead of one per message. */
     suspend fun idsWithSource(source: String): Set<Long> = dao.idsWithSource(source).toSet()
+
+    suspend fun legacySafeIds(): Set<Long> = dao.legacySafeIds().toSet()
+
+    suspend fun idsClassifiedSince(since: Long): Set<Long> = dao.idsClassifiedSince(since).toSet()
+
+    /**
+     * Re-sort only: a Spam (or unchecked) label the on-device model now calls
+     * a confident Scam becomes Scam, so it reaches Alerts. Escalation only --
+     * never downgrades, and never touches the user's own report.
+     */
+    @Suppress("LongParameterList")
+    suspend fun escalateToScam(
+        messageId: Long,
+        modelVersion: String,
+        modelSha256: String,
+        score: Double,
+    ): Boolean {
+        val row = dao.byMessageId(messageId) ?: return false
+        if (row.source == "user_report" || row.label !in ESCALATABLE) return false
+        setClassification(messageId, Classification.SCAM, "on_device_model_c", modelVersion, modelSha256, score)
+        return true
+    }
 
     @Suppress("LongParameterList")
     // Classification and immutable provenance arrive together at this persistence boundary.

@@ -28,6 +28,17 @@ data class UserData(
     val suspiciousAlerts: Boolean = true,
     val spamAlerts: Boolean = true,
     val autoBlockNotice: Boolean = true,
+    // Off by default (Gio, 2026-10-14): a scam goes to Alerts first and the
+    // user decides. Testers found silent auto-blocks confusing.
+    val autoBlockScams: Boolean = false,
+    // When first-run sorting finished its blocking pass (0 = not yet). Until
+    // then the app shows the Setup screen instead of half-sorted tabs.
+    val historySortedAt: Long = 0L,
+    // HistorySortWorker.SORT_GENERATION whose sort has begun / fully finished.
+    // Bumping the generation re-sorts every phone once; other updates don't.
+    val sortGenerationStarted: Int = 0,
+    val sortGenerationDone: Int = 0,
+    val sortGenerationStartedAt: Long = 0L,
     // Off by default: asking the carrier for delivery reports is extra traffic
     // some carriers don't support, so it's the user's choice to turn on.
     val deliveryReports: Boolean = false,
@@ -50,6 +61,11 @@ class UserPreferences(
         val SUSPICIOUS_ALERTS = booleanPreferencesKey("suspicious_alerts")
         val SPAM_ALERTS = booleanPreferencesKey("spam_alerts")
         val AUTO_BLOCK_NOTICE = booleanPreferencesKey("auto_block_notice")
+        val AUTO_BLOCK_SCAMS = booleanPreferencesKey("auto_block_scams")
+        val HISTORY_SORTED_AT = longPreferencesKey("history_sorted_at")
+        val SORT_GEN_STARTED = intPreferencesKey("sort_gen_started")
+        val SORT_GEN_DONE = intPreferencesKey("sort_gen_done")
+        val SORT_GEN_STARTED_AT = longPreferencesKey("sort_gen_started_at")
         val DELIVERY_REPORTS = booleanPreferencesKey("delivery_reports")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
         val EMAIL_ADDRESS = stringPreferencesKey("email_address")
@@ -86,6 +102,11 @@ class UserPreferences(
                 suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
                 spamAlerts = prefs[Keys.SPAM_ALERTS] ?: true,
                 autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
+                autoBlockScams = prefs[Keys.AUTO_BLOCK_SCAMS] ?: false,
+                historySortedAt = prefs[Keys.HISTORY_SORTED_AT] ?: 0L,
+                sortGenerationStarted = prefs[Keys.SORT_GEN_STARTED] ?: 0,
+                sortGenerationDone = prefs[Keys.SORT_GEN_DONE] ?: 0,
+                sortGenerationStartedAt = prefs[Keys.SORT_GEN_STARTED_AT] ?: 0L,
                 deliveryReports = prefs[Keys.DELIVERY_REPORTS] ?: false,
                 phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
                 emailAddress = prefs[Keys.EMAIL_ADDRESS] ?: "",
@@ -153,6 +174,42 @@ class UserPreferences(
             prefs[Keys.SPAM_ALERTS] = spamAlerts
             prefs[Keys.AUTO_BLOCK_NOTICE] = autoBlockNotice
         }
+    }
+
+    suspend fun saveHistorySortedAt(at: Long) {
+        context.dataStore.edit { prefs -> prefs[Keys.HISTORY_SORTED_AT] = at }
+    }
+
+    /**
+     * Starts sort [generation] once: clears historySortedAt so Setup shows
+     * again. Atomic, so the worker and the start-up check can both call it.
+     * Returns true if this call started it.
+     */
+    suspend fun startSortGeneration(generation: Int): Boolean {
+        var started = false
+        context.dataStore.edit { prefs ->
+            if ((prefs[Keys.SORT_GEN_STARTED] ?: 0) < generation) {
+                prefs[Keys.SORT_GEN_STARTED] = generation
+                prefs[Keys.SORT_GEN_STARTED_AT] = System.currentTimeMillis()
+                prefs[Keys.HISTORY_SORTED_AT] = 0L
+                started = true
+            }
+        }
+        return started
+    }
+
+    suspend fun saveSortGenerationDone(generation: Int) {
+        context.dataStore.edit { prefs -> prefs[Keys.SORT_GEN_DONE] = generation }
+    }
+
+    // Read on its own so the Setup screen doesn't wait on the token store.
+    val historySortedAt: Flow<Long> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.HISTORY_SORTED_AT] ?: 0L }
+
+    suspend fun saveAutoBlockScams(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.AUTO_BLOCK_SCAMS] = enabled }
     }
 
     suspend fun saveDeliveryReports(enabled: Boolean) {

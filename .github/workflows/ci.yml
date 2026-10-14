@@ -41,6 +41,53 @@ jobs:
       # genuinely relevant CVE hides among the stale entries.
       - run: pip-audit -r requirements.txt
 
+  # The job above audits requirements.txt (training/notebooks). The production
+  # AI image installs a different set, requirements.inference.txt, with torch
+  # from the PyTorch CPU index -- and pip-audit silently skipped
+  # torch==2.14.0+cpu as "not found on PyPI", so a green build never covered
+  # what actually ships (audit AI-DEP-01, 2026-10-13). This job installs that
+  # set exactly as ai/Dockerfile does, freezes the fully resolved result, and
+  # audits every package. --strict fails the build if any package cannot be
+  # audited instead of skipping it.
+  ai-inference-deps:
+    name: AI inference image deps (pip-audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # matches python:3.12-slim-bookworm in ai/Dockerfile
+          cache: pip
+          cache-dependency-path: ai/requirements.inference.txt
+      - name: Install the production inference set as ai/Dockerfile does
+        run: |
+          python -m venv /tmp/inference
+          /tmp/inference/bin/python -m pip install --upgrade pip
+          /tmp/inference/bin/python -m pip install \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r requirements.inference.txt
+      - name: Freeze the resolved set
+        # Advisories are published against upstream versions, so the local
+        # build label (+cpu) is dropped for the audit: torch 2.14.0+cpu is
+        # audited as torch 2.14.0. The unmodified freeze is kept as the lock.
+        run: |
+          /tmp/inference/bin/python -m pip freeze > inference-lock.txt
+          sed -E 's/\+[A-Za-z0-9.]+$//' inference-lock.txt > inference-audit.txt
+          cat inference-lock.txt
+      - run: pip install pip-audit
+      - run: pip-audit --strict --disable-pip --no-deps -r inference-audit.txt
+      - name: Keep the audited lock with the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-inference-lock
+          path: |
+            ai/inference-lock.txt
+            ai/inference-audit.txt
+
   backend:
     name: Backend (eslint, prettier, jest, build)
     runs-on: ubuntu-latest

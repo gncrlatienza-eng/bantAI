@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
+import com.bantai.data.LocalAccountData
 import com.bantai.data.local.UserData
 import com.bantai.data.remote.AuthApi
 import com.bantai.data.remote.toUserMessage
@@ -256,7 +257,10 @@ class OnboardingViewModel(
             AuthApi
                 .verifyPhoneOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
-                    userPreferences.savePhoneAuth(auth.accessToken, current.phoneNumber)
+                    if (userPreferences.savePhoneAuth(auth.accessToken, current.phoneNumber)) {
+                        // Another account's labels/alert marks must not carry over.
+                        LocalAccountData.wipe(getApplication())
+                    }
                     savedState.remove<String>(SAVED_PHONE)
                     savedState.remove<Long>(SAVED_RESEND_AT)
                     restoreProfile(auth.accessToken)

@@ -24,11 +24,13 @@ import {
 import {
   getAllReports,
   rejectReport,
+  type ReviewedLabel,
   validateReport,
   type UserReportItem,
 } from '../../services/reportsService';
 import { MaskedMessage } from '../../components/masked/MaskedMessage';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { RejectReportDialog } from './RejectReportDialog';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -135,6 +137,14 @@ export function ReportsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // A pending rejection waiting for the reviewer to say what the text is.
+  // The detail dialog (if open) steps aside meanwhile: two open dialogs would
+  // both handle Escape and Tab. `returnKey` reopens it afterwards.
+  const [rejecting, setRejecting] = useState<{
+    ids: string[];
+    busyKey: string;
+    returnKey: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,18 +213,37 @@ export function ReportsPage() {
   }, [reports]);
 
   // `busyKey` is the report id, or the group's row id for "all" actions.
+  // Reject first asks what the text really is (RejectReportDialog).
   async function handle(
     action: 'validate' | 'reject',
     ids: string[],
     busyKey: string,
   ) {
+    if (action === 'reject') {
+      setRejecting({ ids, busyKey, returnKey: selectedKey });
+      setSelectedKey(null);
+      return;
+    }
+    await review(ids, busyKey, (id) => validateReport(id));
+  }
+
+  async function confirmReject(reviewedLabel: ReviewedLabel) {
+    if (!rejecting) return;
+    const { ids, busyKey, returnKey } = rejecting;
+    await review(ids, busyKey, (id) => rejectReport(id, reviewedLabel));
+    setRejecting(null);
+    setSelectedKey(returnKey);
+  }
+
+  async function review(
+    ids: string[],
+    busyKey: string,
+    act: (id: string) => Promise<unknown>,
+  ) {
     setBusyId(busyKey);
     setActionError(null);
     try {
-      for (const id of ids) {
-        if (action === 'validate') await validateReport(id);
-        else await rejectReport(id);
-      }
+      for (const id of ids) await act(id);
       await load();
     } catch (e) {
       setActionError(errorText(e));
@@ -530,6 +559,17 @@ export function ReportsPage() {
           </div>
         )}
       </Dialog>
+
+      <RejectReportDialog
+        open={rejecting !== null}
+        count={rejecting?.ids.length ?? 0}
+        busy={busyId !== null}
+        onCancel={() => {
+          setSelectedKey(rejecting?.returnKey ?? null);
+          setRejecting(null);
+        }}
+        onConfirm={(label) => void confirmReject(label)}
+      />
     </AppShell>
   );
 }
@@ -727,6 +767,15 @@ function ReportDetail({ report }: { report: UserReportItem }) {
         <div style={{ ...row, alignItems: 'flex-start' }}>
           <span style={muted}>Reporter note</span>
           <MaskedMessage text={report.note} />
+        </div>
+      )}
+      {report.status === 'Rejected' && report.reviewedLabel && (
+        <div style={row}>
+          <span style={muted}>Reviewer says</span>
+          <StatusBadge
+            kind={labelToStatusKind(report.reviewedLabel)}
+            label={report.reviewedLabel === 'Ham' ? 'Real message' : 'Spam'}
+          />
         </div>
       )}
       {report.adminNote && (

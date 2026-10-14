@@ -1,5 +1,8 @@
 import { fetchApi } from '../api/apiClient';
 
+/** What a rejected report's text really is (Ham = real message). */
+export type ReviewedLabel = 'Ham' | 'Spam';
+
 export interface UserReportItem {
   id: string;
   userId?: string;
@@ -8,6 +11,8 @@ export interface UserReportItem {
   reportedLabel: string;
   status: 'Pending' | 'Validated' | 'Rejected';
   adminNote?: string | null;
+  /** Set on reject: what the text really is. Null otherwise. */
+  reviewedLabel?: ReviewedLabel | null;
   /** Reporter's own note from the mobile Take Action sheet, masked server-side. */
   note?: string | null;
   /**
@@ -37,7 +42,12 @@ export interface UserReportItem {
 
 /** Partial row returned by the validate/reject endpoints. */
 export type ReviewedReport = Pick<UserReportItem, 'id' | 'status'> &
-  Partial<Pick<UserReportItem, 'adminNote' | 'validatedAt' | 'updatedAt'>>;
+  Partial<
+    Pick<
+      UserReportItem,
+      'adminNote' | 'reviewedLabel' | 'validatedAt' | 'updatedAt'
+    >
+  >;
 
 export async function getAllReports(): Promise<UserReportItem[]> {
   return fetchApi<UserReportItem[]>('/reports');
@@ -59,11 +69,12 @@ export async function validateReport(
 
 export async function rejectReport(
   id: string,
+  reviewedLabel: ReviewedLabel,
   adminNote?: string,
 ): Promise<ReviewedReport> {
   return fetchApi<ReviewedReport>(`/reports/${id}/reject`, {
     method: 'PATCH',
-    body: JSON.stringify({ adminNote }),
+    body: JSON.stringify({ adminNote, reviewedLabel }),
   });
 }
 

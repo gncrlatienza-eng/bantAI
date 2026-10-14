@@ -14,6 +14,7 @@ import com.bantai.container
 import com.bantai.data.model.REPORT_VALIDATED
 import com.bantai.data.remote.ReportsApi
 import com.bantai.util.NotificationHelper
+import com.bantai.util.SmsSourceId
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -56,6 +57,14 @@ class ReportStatusWorker(
         plan.notify.forEach { (key, status) ->
             NotificationHelper.sendReportReviewed(applicationContext, key, accepted = status == REPORT_VALIDATED)
         }
+        // A rejected report says what the text really is: file it there.
+        val byMessage = reports.filter { it.report != null }.associateBy { it.messageId }
+        ReportStatusNotifications
+            .refiles(plan, byMessage.mapValues { it.value.report?.reviewedLabel })
+            .forEach { (messageId, label) ->
+                val localId = SmsSourceId.localRowId(applicationContext, byMessage[messageId]?.sourceId)
+                MessageReports.refile(applicationContext, localId, label)
+            }
         prefs
             .edit()
             .putStringSet(KEY_STATUSES, plan.remember.mapTo(mutableSetOf()) { "${it.key}$SEPARATOR${it.value}" })

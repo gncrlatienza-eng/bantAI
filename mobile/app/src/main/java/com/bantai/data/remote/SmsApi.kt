@@ -84,6 +84,11 @@ object SmsApi {
         val note: String? = null,
         val adminNote: String? = null,
         val reviewedAt: String? = null,
+        /**
+         * Set when the team rejects the report: what the text really is
+         * ("Ham" or "Spam"), so the phone can file it there. Null otherwise.
+         */
+        val reviewedLabel: String? = null,
     )
 
     data class IndicatorTag(
@@ -225,6 +230,7 @@ object SmsApi {
                         createdAt = it.optNullableString("createdAt"),
                         note = it.optNullableString("note"),
                         adminNote = it.optNullableString("adminNote"),
+                        reviewedLabel = it.optNullableString("reviewedLabel"),
                         // /reports/mine sends reviewedAt; the alerts list sends
                         // updatedAt, which is the review time once it's left Pending.
                         reviewedAt =

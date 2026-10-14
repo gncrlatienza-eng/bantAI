@@ -593,6 +593,10 @@ model UserReport {
   // Pending → Validated (accepted into training set) | Rejected (discarded)
   status      String    @default("Pending")
   adminNote   String?
+  // Set on reject: what the text really is (Ham | Spam), so the phone can
+  // move it out of the scam path after lifting the report's auto-block.
+  // Null while pending, on accepted reports, and on unlabelled rejections.
+  reviewedLabel String?
   validatedAt DateTime? // set when status transitions to Validated; used by AI retraining pipeline
 
   createdAt DateTime @default(now())

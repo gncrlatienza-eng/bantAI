@@ -83,6 +83,7 @@ fun NotificationsScreen(
     val suspiciousAlerts by viewModel.suspiciousAlerts.collectAsState()
     val spamAlerts by viewModel.spamAlerts.collectAsState()
     val autoBlockNotice by viewModel.autoBlockNotice.collectAsState()
+    val autoBlockScams by viewModel.autoBlockScams.collectAsState()
     val deliveryReports by viewModel.deliveryReports.collectAsState()
     val context = LocalContext.current
 
@@ -160,11 +161,21 @@ fun NotificationsScreen(
                     )
                     HorizontalDivider(color = BorderColor, thickness = 1.dp)
                     ToggleRow(
-                        title = stringResource(R.string.notifications_auto_block_notice),
-                        subtitle = stringResource(R.string.notifications_when_a_number_is_blocked),
-                        checked = autoBlockNotice,
-                        onCheckedChange = { viewModel.toggleAutoBlockNotice(it) },
+                        title = stringResource(R.string.notifications_auto_block_scams),
+                        subtitle = stringResource(R.string.notifications_auto_block_scams_detail),
+                        checked = autoBlockScams,
+                        onCheckedChange = { viewModel.toggleAutoBlockScams(it) },
                     )
+                    // Only meaningful when BantAI blocks on its own.
+                    if (autoBlockScams) {
+                        HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                        ToggleRow(
+                            title = stringResource(R.string.notifications_auto_block_notice),
+                            subtitle = stringResource(R.string.notifications_when_a_number_is_blocked),
+                            checked = autoBlockNotice,
+                            onCheckedChange = { viewModel.toggleAutoBlockNotice(it) },
+                        )
+                    }
                 }
             }
 

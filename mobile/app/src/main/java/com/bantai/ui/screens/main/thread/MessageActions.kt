@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Forward
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
@@ -108,6 +109,7 @@ fun messageActions(
     onSelect: () -> Unit,
     onRetry: () -> Unit,
     onDelete: () -> Unit,
+    onCopyDiagnostics: () -> Unit = {},
 ): List<MessageAction> {
     val hasText = (message.mms?.text ?: message.body).isNotBlank()
     val failed = message.isOutgoing && message.sendStatus == SendStatus.FAILED
@@ -130,6 +132,10 @@ fun messageActions(
         if (canReport) {
             val icon = Icons.Outlined.ReportGmailerrorred
             add(MessageAction(R.string.message_detail_report_message, icon, onClick = onReport))
+            // Label, source, score and an on-device re-check, for misfiled
+            // messages testers send back to the team.
+            val diagnostics = R.string.thread_action_copy_diagnostics
+            add(MessageAction(diagnostics, Icons.Outlined.BugReport, onClick = onCopyDiagnostics))
         }
         add(MessageAction(R.string.thread_action_select, Icons.Outlined.CheckCircle, onClick = onSelect))
         add(MessageAction(R.string.action_delete, Icons.Outlined.Delete, danger = true, onClick = onDelete))

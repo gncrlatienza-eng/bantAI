@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -69,6 +70,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.container
+import com.bantai.data.ClassificationDiagnostics
 import com.bantai.data.OutgoingSms
 import com.bantai.data.model.Classification
 import com.bantai.data.model.ConversationView
@@ -122,6 +124,7 @@ import com.bantai.util.serviceCodeLabel
 import com.bantai.viewmodel.MessageDetailViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Caps the AI Summary's TF-IDF scoring pass to the most recent incoming
@@ -182,6 +185,7 @@ fun MessageDetailScreen(
     var replyingTo by remember(sender) { mutableStateOf<SmsMessage?>(null) }
     val replyQuotes by viewModel.replyQuotes.collectAsState()
     val clipboard = LocalClipboardManager.current
+    val diagnosticsScope = rememberCoroutineScope()
     val senderVerification by viewModel.senderVerification.collectAsState()
     val cloudVerification by viewModel.cloudVerification.collectAsState()
     val cloudVerificationNote by viewModel.cloudVerificationNote.collectAsState()
@@ -993,6 +997,13 @@ fun MessageDetailScreen(
                         onSelect = { viewModel.enterSelectionMode(msg.id) },
                         onRetry = { retryFailedMessage(msg) },
                         onDelete = { permanentDeleteIds = setOf(msg.id) },
+                        onCopyDiagnostics = {
+                            diagnosticsScope.launch {
+                                val text = ClassificationDiagnostics.build(context.applicationContext, msg)
+                                clipboard.setText(AnnotatedString(text))
+                                Toast.makeText(context, R.string.thread_diagnostics_copied, Toast.LENGTH_LONG).show()
+                            }
+                        },
                     ),
                 onDismiss = { focused = null },
             ) {

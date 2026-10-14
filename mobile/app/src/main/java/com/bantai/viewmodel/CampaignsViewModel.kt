@@ -14,6 +14,7 @@ import com.bantai.data.SmsIngestPipeline
 import com.bantai.data.model.Classification
 import com.bantai.data.model.LocalCampaignOverview
 import com.bantai.data.model.LocalScamMessage
+import com.bantai.data.model.Retention
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.buildLocalCampaigns
 import kotlinx.coroutines.Dispatchers
@@ -171,7 +172,11 @@ class CampaignsViewModel(
 
     private suspend fun loadScamMessages(): List<SmsMessage> =
         withContext(Dispatchers.IO) {
-            smsRepository.getInboxMessages().filter { !it.isOutgoing && it.classification in SCAM_CLASSIFICATIONS }
+            // Scam Waves keep a 90-day window (Retention.SCAM_WAVE_DAYS).
+            val since = Retention.cutoff(Retention.SCAM_WAVE_DAYS, System.currentTimeMillis())
+            smsRepository.getInboxMessages().filter {
+                !it.isOutgoing && it.classification in SCAM_CLASSIFICATIONS && it.timestamp >= since
+            }
         }
 
     private suspend fun publish(scamMessages: List<SmsMessage>) {

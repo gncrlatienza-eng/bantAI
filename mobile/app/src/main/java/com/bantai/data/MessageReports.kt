@@ -7,6 +7,7 @@ import com.bantai.data.model.Classification
 import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.ReportsApi
 import com.bantai.data.remote.VerificationApi
+import com.bantai.util.NotificationHelper
 import com.bantai.util.SenderReplyKind
 import com.bantai.util.replyKindFor
 import kotlinx.coroutines.flow.first
@@ -49,6 +50,7 @@ object MessageReports {
         val groupId = if (targets.size > 1) UUID.randomUUID().toString() else null
         val results = targets.map { submitOne(context, token, it, reportedLabel, notes, groupId, blocked) }
         if (results.any { it.isSuccess } && reportedLabel == "Scam") fileSenderReport(token, sender)
+        if (results.any { it.isSuccess }) NotificationHelper.sendReportReceived(context)
         val failures = results.filter { it.isFailure }
         return when {
             failures.isEmpty() -> Result.success(Unit)
@@ -118,7 +120,8 @@ object MessageReports {
                 blocked -> Classification.SCAM
                 else -> Classification.UNKNOWN
             }
-        store.setClassification(localMessageId, label)
+        // Tagged so a later model pass never overwrites the user's own call.
+        store.setClassification(localMessageId, label, source = "user_report")
     }
 
     // Corroborating evidence so several users reporting the same number can get it

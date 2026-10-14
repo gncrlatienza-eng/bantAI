@@ -32,7 +32,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -228,6 +231,17 @@ class MessagesViewModel(
         viewModelScope.launch {
             OutgoingSms.pending.collect { filterMessages(_searchQuery.value) }
         }
+        // Recently Deleted changes made anywhere -- a restore or delete from
+        // inside a conversation (MessageDetailViewModel), the daily retention
+        // cleanup -- reload the list. Only this screen's own actions used to,
+        // so a restore from a thread didn't show until the app was restarted.
+        viewModelScope.launch {
+            deletedMessagesStore.deletedEntries
+                .map { entries -> entries.mapTo(HashSet()) { it.id } }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { loadMessages() }
+        }
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
                 if (scanPeriod != data.scanPeriod) {
@@ -376,18 +390,32 @@ class MessagesViewModel(
                 // even before sign-in or while the backend is unreachable.
                 val stored = classificationStore.classifications.first()
                 val heuristicIds = classificationStore.idsWithSource("heuristic")
+                // Old "safe" labels with no provenance, minus ones the user
+                // reported themselves (those predate the "user_report" tag).
+                val reported =
+                    getApplication<Application>()
+                        .container.alertStateStore.state
+                        .first()
+                        .reportedLocal.keys
+                val recheckIds = heuristicIds + (classificationStore.legacySafeIds() - reported)
                 // Settings -> Scan period: how far back the AI checks. Older
                 // texts keep the on-device check until the user widens it.
                 val cutoff = scanCutoffMillis(scanPeriod)
+                // Once first-run sorting is done, history belongs to
+                // HistorySortWorker and its verdicts are final; this scan only
+                // catches newer texts the live path missed, so old messages
+                // never move after the Setup screen.
+                val sortedAt = runCatching { userPreferences.historySortedAt.first() }.getOrDefault(0L)
                 val pending =
                     allMessages.value
                         .filter { msg ->
                             !msg.isOutgoing &&
                                 msg.timestamp >= cutoff &&
+                                (sortedAt == 0L || msg.timestamp >= sortedAt) &&
                                 msg.id != 0L &&
                                 msg.id != Long.MIN_VALUE &&
                                 msg.id !in scanAttempted &&
-                                needsModelScan(msg.id, stored[msg.id], heuristicIds)
+                                needsModelScan(msg.id, stored[msg.id], recheckIds)
                         }.sortedByDescending { it.timestamp }
                 for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
                     if (!isActive) return@launch
@@ -428,13 +456,14 @@ class MessagesViewModel(
     private fun needsModelScan(
         messageId: Long,
         stored: Classification?,
-        heuristicIds: Set<Long>,
+        recheckIds: Set<Long>,
     ): Boolean =
-        // Retry known heuristic verdicts after a failed background model job.
-        // Older rows without provenance keep their existing decisions.
+        // Retry heuristic verdicts after a failed background model job, and
+        // legacy "safe" rows with no provenance: testers found scams sitting
+        // in Messages on labels no current model ever gave.
         stored == null ||
             stored == Classification.UNVERIFIED ||
-            messageId in heuristicIds
+            messageId in recheckIds
 
     private suspend fun classifyForScan(
         token: String,
@@ -631,6 +660,25 @@ class MessagesViewModel(
         _visibleMessages.value = grouped.getValue(_selectedFilter.value)
         // The skeleton stays until the loaded inbox's grouped list is out.
         if (inboxLoaded) _isLoading.value = false
+    }
+
+    /**
+     * "Mark all read" for the chip on screen (testers only had it in Alerts).
+     * Marks exactly that chip's unread texts, the same slice opening each
+     * conversation from it would mark.
+     */
+    fun markAllRead() {
+        val view = conversationViewFor(_selectedFilter.value)
+        val ids =
+            allMessages.value
+                .filter { !it.isOutgoing && !it.isRead && view.includes(it) }
+                .mapTo(HashSet()) { it.id }
+        if (ids.isEmpty()) return
+        allMessages.update { messages -> messages.map { if (it.id in ids) it.copy(isRead = true) else it } }
+        filterMessages(_searchQuery.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            getApplication<Application>().container.smsWriter.markMessagesRead(ids)
+        }
     }
 
     // --- Selection mode -----------------------------------------------------

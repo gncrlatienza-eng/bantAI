@@ -37,7 +37,7 @@ object AlertBlocking {
         catchUp: Boolean,
     ): List<SmsApi.AlertSummary> {
         val store = context.container.blockedSendersStore
-        if (catchUp) {
+        if (catchUp && SmsIngestPipeline.autoBlockEnabled(context)) {
             val userUnblocked = store.current().userUnblocked
             val bantaiBlocked = store.current().blocked
             val toBlock =

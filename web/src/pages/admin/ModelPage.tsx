@@ -26,6 +26,7 @@ import {
 import {
   getAllReports,
   rejectReport,
+  type ReviewedLabel,
   validateReport,
   type UserReportItem,
 } from '../../services/reportsService';
@@ -35,6 +36,7 @@ import {
   type AdminClassificationItem,
 } from '../../services/smsService';
 import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { RejectReportDialog } from './RejectReportDialog';
 import { DatasetTab } from './model/DatasetTab';
 import { DriftTab } from './model/DriftTab';
 import { ModelLifecycleTab } from './model/ModelLifecycleTab';
@@ -122,6 +124,8 @@ function FpFnTab() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Report id waiting for the reviewer to say what the text really is.
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,12 +146,21 @@ function FpFnTab() {
     void load();
   }, [load]);
 
-  async function handle(action: 'validate' | 'reject', id: string) {
+  async function handle(
+    action: 'validate' | 'reject',
+    id: string,
+    reviewedLabel?: ReviewedLabel,
+  ) {
+    // Reject first asks what the text really is (RejectReportDialog).
+    if (action === 'reject' && !reviewedLabel) {
+      setRejectingId(id);
+      return;
+    }
     setBusyId(id);
     setActionError(null);
     try {
       if (action === 'validate') await validateReport(id);
-      else await rejectReport(id);
+      else if (reviewedLabel) await rejectReport(id, reviewedLabel);
       await load();
     } catch (e) {
       setActionError(errorText(e));
@@ -275,6 +288,17 @@ function FpFnTab() {
             description="Every user correction currently matches the model's original label."
           />
         }
+      />
+      <RejectReportDialog
+        open={rejectingId !== null}
+        count={1}
+        busy={busyId !== null}
+        onCancel={() => setRejectingId(null)}
+        onConfirm={(label) => {
+          const id = rejectingId;
+          setRejectingId(null);
+          if (id) void handle('reject', id, label);
+        }}
       />
     </>
   );

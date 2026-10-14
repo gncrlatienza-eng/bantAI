@@ -1,6 +1,7 @@
 package com.bantai.data
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -14,8 +15,11 @@ import com.bantai.container
 import com.bantai.data.model.REPORT_VALIDATED
 import com.bantai.data.remote.ReportsApi
 import com.bantai.util.NotificationHelper
+import com.bantai.util.SmsSourceId
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
+
+private const val TAG = "ReportStatusWorker"
 
 /**
  * Tells the user when one of their reports has been reviewed. Polls
@@ -56,6 +60,17 @@ class ReportStatusWorker(
         plan.notify.forEach { (key, status) ->
             NotificationHelper.sendReportReviewed(applicationContext, key, accepted = status == REPORT_VALIDATED)
         }
+        // A rejected report says what the text really is: file it there.
+        val byMessage = reports.filter { it.report != null }.associateBy { it.messageId }
+        ReportStatusNotifications
+            .refiles(plan, byMessage.mapValues { it.value.report?.reviewedLabel })
+            .forEach { (messageId, label) ->
+                val localId = SmsSourceId.localRowId(applicationContext, byMessage[messageId]?.sourceId)
+                // Best effort: a failed move must not fail the worker before the
+                // statuses below are saved, or the retry would notify again.
+                runCatching { MessageReports.refile(applicationContext, localId, label) }
+                    .onFailure { Log.w(TAG, "Couldn't refile reviewed report $messageId", it) }
+            }
         prefs
             .edit()
             .putStringSet(KEY_STATUSES, plan.remember.mapTo(mutableSetOf()) { "${it.key}$SEPARATOR${it.value}" })

@@ -20,6 +20,23 @@ object ReportStatusNotifications {
     )
 
     /**
+     * Report keys to move, with where: a report that was *just* rejected and
+     * whose reviewer said what the text really is ("Ham" -> Messages,
+     * "Spam" -> Spam). Rejections without a label, and anything already seen,
+     * stay where they are.
+     */
+    fun refiles(
+        plan: Plan,
+        reviewedLabels: Map<String, String?>,
+    ): Map<String, String> =
+        plan.notify
+            .filter { (_, status) -> status == REPORT_REJECTED }
+            .mapNotNull { (key, _) -> reviewedLabels[key]?.takeIf { it in REVIEWED_LABELS }?.let { key to it } }
+            .toMap()
+
+    private val REVIEWED_LABELS = setOf("Ham", "Spam")
+
+    /**
      * [previous] is null on the first check after install or update: that
      * check only records statuses, so reports reviewed long ago don't all
      * notify at once.

@@ -1,10 +1,31 @@
 # Azure student deployment
 
-The active deployment is `student.bicep` with `deploy-student.ps1`, following [the October–December student plan](../../docs/deployment/STUDENT_ALWAYS_AVAILABLE_PLAN_2026-10-05.md). Web, backend and internal AI use zero minimum replicas and one maximum replica; requests and opaque-ID queue work wake them. PostgreSQL remains private and persistent. The daily outbox repair job recovers unpublished work. There is no fixed session shutdown; the December review date is a budget checkpoint.
+The active deployment is `student.bicep` with `deploy-student.ps1`, following [the October–December student plan](../../docs/deployment/STUDENT_ALWAYS_AVAILABLE_PLAN_2026-10-05.md). Every app has a maximum of one replica. PostgreSQL remains private and persistent. The daily outbox repair job recovers unpublished work. There is no fixed session shutdown; the December review date is a budget checkpoint.
 
-Build the student backend runtime and migration build target from `backend/Dockerfile`, the web image from `infra/web/Dockerfile`, and the AI base from `ai/Dockerfile`. The completion script packages the six hash-pinned approved model files privately, resolves immutable registry digests, runs migrations and database role initialization, then deploys the applications. Populated secret files stay outside the repository. Test Stripe keys and the verified test webhook secret are required.
+## Releasing a commit
 
-The $24 monthly budget and alerts are billing controls, not a hard spending cap. The plan depends on the account's PostgreSQL, Standard ACR and Standard Load Balancer grants and bounded test usage. Verify posted billing and actual replica hours after provisioning.
+`deploy-student.ps1` requires PowerShell 7 and takes the release commit as an input:
+
+```powershell
+git switch --detach <full-sha>        # a clean checkout of the reviewed commit
+./infra/azure/deploy-student.ps1 -SourceSha <full-sha> -ValidateOnly ...
+```
+
+Before anything else the script checks that `HEAD` is exactly `-SourceSha`, the checkout has no uncommitted or untracked changes, and the commit is already merged to `origin/develop` or `origin/main`. It then builds every image itself from that checkout: the backend runtime and migration (`build`) targets from `backend/Dockerfile`, the web image from `infra/web/Dockerfile`, the AI base from `ai/Dockerfile` and the role bootstrap from `db-init.Dockerfile`. Each image is labelled `org.opencontainers.image.revision=<sha>`, and the label is checked again before it is pushed, so a stale or hand-patched local image cannot be released under a new commit. Registry tags are `student-<short-sha>`; the deployment uses the resolved immutable digests, and the resource group's `sourceSha` tag records the last released commit. (Until 2026-10-13 the script instead pinned one hard-coded commit, `b5dd870`, and accepted pre-built local tags; see audit INFRA-01.)
+
+The completion phase packages the six hash-pinned approved model files privately, runs migrations and database role initialization, then deploys the applications. Populated secret files stay outside the repository. Test Stripe keys and the verified test webhook secret are required.
+
+## Replicas and cost
+
+| App | Min / max replicas | Size | Why |
+|---|---|---|---|
+| Web | 0 / 1 | 0.25 vCPU / 0.5 GiB | Sleeps when idle; nginx starts fast. |
+| Backend | 1 / 1 (`-BackendMinReplicas`) | 0.5 vCPU / 1 GiB | Kept warm. |
+| AI (Model C) | 1 / 1 (`-AiMinReplicas`) | 1 vCPU / 2 GiB | Kept warm: the deployed backend calls AI synchronously with a 3.5 s timeout, and Model C takes far longer than that to start, so a sleeping AI means missed cloud verdicts and campaign matches. |
+
+Keeping the backend and AI warm was a deliberate decision on 2026-10-11/12 (Reymark), trading credit for complete cloud verification. It replaces the original plan's "zero minimum replicas for all three apps": at roughly **$57/month** the $100 Azure for Students credit lasts about seven weeks, not until December, and exhausting it disables everything including the database. The `costCeilingUsd` tag is 60 to match. (Audit INFRA-02, 2026-10-13.)
+
+To let either app sleep again, pass `-AiMinReplicas 0` and/or `-BackendMinReplicas 0`. Only do that after deploying a backend that has the durable retry queue (current `develop`) and checking that queued work wakes the apps and completes, with acceptable cold-start latency. Recheck posted billing and remaining credit weekly; the budget alerts are billing controls, not a hard spending cap.
 
 ## Superseded temporary pilot
 

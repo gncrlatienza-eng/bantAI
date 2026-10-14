@@ -40,6 +40,7 @@ import { RejectReportDialog } from './RejectReportDialog';
 import { DatasetTab } from './model/DatasetTab';
 import { DriftTab } from './model/DriftTab';
 import { ModelLifecycleTab } from './model/ModelLifecycleTab';
+import { ReviewQueueTab } from './model/ReviewQueueTab';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -84,6 +85,7 @@ const TABS: TabDef[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'drift', label: 'Concept drift' },
   { id: 'dataset', label: 'Dataset' },
+  { id: 'review', label: 'Review queue' },
   { id: 'classification', label: 'Classification log' },
   { id: 'fpfn', label: 'FP / FN reviews' },
 ];
@@ -510,6 +512,7 @@ export function ModelPage() {
           {activeTab === 'overview' && <ModelLifecycleTab />}
           {activeTab === 'drift' && <DriftTab />}
           {activeTab === 'dataset' && <DatasetTab />}
+          {activeTab === 'review' && <ReviewQueueTab />}
           {activeTab === 'classification' && <ClassificationLogTab />}
           {activeTab === 'fpfn' && <FpFnTab />}
         </div>

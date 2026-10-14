@@ -11,13 +11,71 @@ import { AuditService } from '../audit/audit.service';
 import { maskSmsBody } from '../sms/sms-privacy-masker';
 import { CreateDatasetSnapshotDto } from './dto/create-dataset-snapshot.dto';
 import { CurateReportDto } from './dto/curate-report.dto';
+import { ConfirmCandidateDto, type ReviewKind } from './dto/review-queue.dto';
 import { UpdateDatasetSampleDto } from './dto/update-dataset-sample.dto';
 
 const TRAINING_LABELS = ['Ham', 'Spam', 'Scam'] as const;
 
+/** Most candidates one queue request returns. */
+const REVIEW_QUEUE_LIMIT = 50;
+/** Recent safe messages a spot-check samples from at random. */
+const SPOT_CHECK_POOL = 500;
+
+// A message is a review candidate only if it was classified by the server's
+// model (trusted), its owner opted in to training, nobody reported it (reports
+// have their own path), it isn't already a sample, and it wasn't skipped.
+// Consent time is checked per row (see consented()).
+const REVIEW_CANDIDATE_WHERE = {
+  trusted: true,
+  reviewDismissedAt: null,
+  datasetSample: { is: null },
+  reports: { none: {} },
+  user: { trainingOptIn: true },
+} satisfies Prisma.SmsMessageWhereInput;
+
+const REVIEW_CLASSIFICATION: Record<
+  ReviewKind,
+  Prisma.ClassificationWhereInput
+> = {
+  detected: { label: 'Scam' },
+  uncertain: { bucket: 'unknown' },
+  spot_check: { label: 'Ham', bucket: 'safe' },
+};
+
+/** One message offered to an admin for labelling. Masked text only. */
+export interface ReviewCandidate {
+  messageId: string;
+  kind: ReviewKind;
+  maskedText: string;
+  label: string | null;
+  score: number | null;
+  bucket: string | null;
+  clusterId: string | null;
+  receivedAt: Date;
+}
+
+/** Ingested by the server after the owner opted in -- never before. */
+function consented(message: {
+  createdAt: Date;
+  user: { trainingOptInAt: Date | null };
+}): boolean {
+  const optedInAt = message.user.trainingOptInAt;
+  return optedInAt !== null && message.createdAt >= optedInAt;
+}
+
+function shuffled<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 const SAMPLE_SELECT = {
   id: true,
   sourceReportId: true,
+  sourceMessageId: true,
   maskedText: true,
   label: true,
   language: true,
@@ -202,6 +260,142 @@ export class DatasetsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Candidates for an admin to label. Masked text only (re-masked here), never
+   * the sender. Detected scams collapse to one per campaign or identical text,
+   * so a blast doesn't flood the queue; spot-checks are a random draw.
+   */
+  async reviewQueue(kind: ReviewKind) {
+    const rows = await this.prisma.smsMessage.findMany({
+      where: {
+        ...REVIEW_CANDIDATE_WHERE,
+        classification: { is: REVIEW_CLASSIFICATION[kind] },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: kind === 'spot_check' ? SPOT_CHECK_POOL : REVIEW_QUEUE_LIMIT * 4,
+      select: {
+        id: true,
+        body: true,
+        clusterId: true,
+        receivedAt: true,
+        createdAt: true,
+        user: { select: { trainingOptInAt: true } },
+        classification: { select: { label: true, score: true, bucket: true } },
+      },
+    });
+    const pool = rows.filter(consented);
+    const seen = new Set<string>();
+    const candidates: ReviewCandidate[] = [];
+    for (const row of kind === 'spot_check' ? shuffled(pool) : pool) {
+      const maskedText = maskSmsBody(row.body);
+      if (!maskedText) continue;
+      const campaign = row.clusterId ? `campaign:${row.clusterId}` : null;
+      if (seen.has(`text:${maskedText}`) || (campaign && seen.has(campaign))) {
+        continue;
+      }
+      seen.add(`text:${maskedText}`);
+      if (campaign) seen.add(campaign);
+      candidates.push({
+        messageId: row.id,
+        kind,
+        maskedText,
+        label: row.classification?.label ?? null,
+        score: row.classification?.score ?? null,
+        bucket: row.classification?.bucket ?? null,
+        clusterId: row.clusterId,
+        receivedAt: row.receivedAt,
+      });
+      if (candidates.length >= REVIEW_QUEUE_LIMIT) break;
+    }
+    return candidates;
+  }
+
+  /** An admin's label for a queued message becomes a training sample. */
+  async confirmCandidate(
+    messageId: string,
+    dto: ConfirmCandidateDto,
+    actorUserId: string,
+  ) {
+    const message = await this.prisma.smsMessage.findFirst({
+      where: { id: messageId, ...REVIEW_CANDIDATE_WHERE },
+      select: {
+        id: true,
+        body: true,
+        createdAt: true,
+        user: { select: { trainingOptInAt: true } },
+      },
+    });
+    if (!message || !consented(message)) {
+      throw new NotFoundException('This message is not a review candidate.');
+    }
+    const maskedText = maskSmsBody(message.body);
+    if (!maskedText) {
+      throw new BadRequestException('The message has no masked text.');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const sample = await tx.datasetSample.create({
+          data: {
+            sourceMessageId: message.id,
+            maskedText,
+            label: dto.label,
+            language: dto.language ?? null,
+            split: DatasetSplit.TRAIN,
+            included: true,
+            provenance: 'reviewed_detection',
+            consentConfirmed: true,
+            reviewedByUserId: actorUserId,
+            reviewedAt: new Date(),
+          },
+          select: SAMPLE_SELECT,
+        });
+        await tx.datasetSampleRevision.create({
+          data: {
+            sampleId: sample.id,
+            version: 1,
+            action: 'CURATED',
+            maskedText: sample.maskedText,
+            label: sample.label,
+            language: sample.language,
+            included: true,
+            actorUserId,
+          },
+        });
+        await this.audit.record(
+          {
+            type: AuditEventType.DATASET_SAMPLE_CURATED,
+            actorUserId,
+            metadata: {
+              sampleId: sample.id,
+              messageId: message.id,
+              source: 'review_queue',
+            },
+          },
+          tx,
+        );
+        return sample;
+      });
+    } catch (error) {
+      if (isPrismaError(error, 'P2002')) {
+        throw new ConflictException('This message is already in the dataset.');
+      }
+      throw error;
+    }
+  }
+
+  /** Drops a message from the queue for good without adding it. */
+  async skipCandidate(messageId: string) {
+    const { count } = await this.prisma.smsMessage.updateMany({
+      where: { id: messageId, ...REVIEW_CANDIDATE_WHERE },
+      data: { reviewDismissedAt: new Date() },
+    });
+    if (count === 0) {
+      throw new NotFoundException('This message is not a review candidate.');
+    }
+    return { messageId, skipped: true };
   }
 
   async updateSample(

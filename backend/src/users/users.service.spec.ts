@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { UsersService } from './users.service';
+import { UsersService, trainingConsentUpdate } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -110,5 +110,29 @@ describe('UsersService', () => {
         expect.objectContaining({ where: { id: 'u2' } }),
       );
     });
+  });
+});
+
+describe('trainingConsentUpdate', () => {
+  it('stamps the time when a user opts in', () => {
+    const update = trainingConsentUpdate(false, true);
+    expect(update.trainingOptIn).toBe(true);
+    expect(update.trainingOptInAt).toBeInstanceOf(Date);
+  });
+
+  it('keeps the original time when an opted-in user opts in again', () => {
+    expect(trainingConsentUpdate(true, true)).toEqual({});
+  });
+
+  it('clears the time when a user opts out', () => {
+    expect(trainingConsentUpdate(true, false)).toEqual({
+      trainingOptIn: false,
+      trainingOptInAt: null,
+    });
+  });
+
+  it('leaves consent alone when the request does not mention it', () => {
+    expect(trainingConsentUpdate(true, undefined)).toEqual({});
+    expect(trainingConsentUpdate(false, undefined)).toEqual({});
   });
 });

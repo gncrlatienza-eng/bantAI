@@ -654,6 +654,29 @@ describe('SmsService', () => {
     );
   });
 
+  // A fallback row's label is the phone's heuristic ("Spam" = "looked
+  // suspicious on-device"), not a model verdict. Clients need `trusted` and the
+  // cloud re-check status to show it as Unverified/Checking instead.
+  it('returns whether each alert label is model-verified', async () => {
+    prisma.alert.findMany.mockResolvedValue([]);
+    await service.getAlerts('u1');
+    expect(prisma.alert.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          message: {
+            select: expect.objectContaining({
+              trusted: true,
+              cloudVerifications: expect.objectContaining({
+                take: 1,
+                select: { status: true },
+              }),
+            }),
+          },
+        }),
+      }),
+    );
+  });
+
   it('pages alerts with a createdAt cursor when one is given', async () => {
     prisma.alert.findMany.mockResolvedValue([]);
     const at = new Date('2026-10-01T00:00:00.000Z');

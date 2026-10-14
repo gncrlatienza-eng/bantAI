@@ -33,6 +33,7 @@ import {
   getMessageIndicators,
   type SmsAlertItem,
 } from '../../services/smsService';
+import { CHECKING_LABEL, UNVERIFIED_LABEL, alertVerdict } from './alertVerdict';
 import { submitReport } from '../../services/reportsService';
 
 function errorText(e: unknown): string {
@@ -51,20 +52,14 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function labelToStatusKind(label?: string | null): StatusKind {
-  switch (label) {
-    case 'Scam':
-      return 'threat';
-    case 'Spam':
-      return 'suspicious';
-    case 'Ham':
-      return 'verified';
-    default:
-      return 'unknown';
-  }
-}
-
-type LabelFilter = 'all' | 'Scam' | 'Spam' | 'Ham' | 'Unknown';
+type LabelFilter =
+  | 'all'
+  | 'Scam'
+  | 'Spam'
+  | 'Ham'
+  | 'Unknown'
+  | typeof UNVERIFIED_LABEL
+  | typeof CHECKING_LABEL;
 
 interface InboxRow {
   id: string;
@@ -79,18 +74,15 @@ interface InboxRow {
 }
 
 function toRow(item: SmsAlertItem): InboxRow {
-  const label = item.message.classification?.label ?? 'Unknown';
+  const verdict = alertVerdict(item.message);
   return {
     id: item.id,
     messageId: item.message.id,
     sourceId: item.message.sourceId,
     status: item.status,
-    classificationLabel: label,
-    classificationKind: labelToStatusKind(item.message.classification?.label),
-    confidence:
-      typeof item.message.classification?.score === 'number'
-        ? item.message.classification.score
-        : null,
+    classificationLabel: verdict.label,
+    classificationKind: verdict.kind,
+    confidence: verdict.confidence,
     receivedAt: item.message.receivedAt,
     original: item,
   };
@@ -269,6 +261,8 @@ export function MessagesInbox() {
               { value: 'Spam', label: 'Spam' },
               { value: 'Ham', label: 'Ham' },
               { value: 'Unknown', label: 'Unknown' },
+              { value: CHECKING_LABEL, label: CHECKING_LABEL },
+              { value: UNVERIFIED_LABEL, label: UNVERIFIED_LABEL },
             ]}
           />
         </div>

@@ -821,6 +821,17 @@ function alertSelect(userId: string) {
         classification: {
           select: { label: true, score: true, bucket: true },
         },
+        // false = the stored label is the phone's offline heuristic, kept
+        // because the model didn't answer in time. Clients must not show it as
+        // a verdict ("Spam" there only means "looked suspicious on-device").
+        trusted: true,
+        // Latest cloud re-check of a fallback row, so clients can show
+        // "Checking…" while the model's verdict is still on its way.
+        cloudVerifications: {
+          orderBy: { createdAt: 'desc' as const },
+          take: 1,
+          select: { status: true },
+        },
         // This user's own report on the message, if any (one per user per
         // message), so the phone can file it under Reported and show its
         // review status instead of offering Report again.

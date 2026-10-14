@@ -2,6 +2,7 @@ package com.bantai.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
 import com.bantai.data.local.UserData
@@ -26,6 +27,12 @@ private const val RESEND_COOLDOWN_MS = 30_000L
 private const val MAX_VERIFY_ATTEMPTS_BEFORE_LOCKOUT = 5
 private const val VERIFY_LOCKOUT_MS = 30_000L
 
+// Survive process death on the code-entry screen (audit ANDROID-03). Only the
+// number and resend deadline are kept -- never the OTP itself.
+private const val SAVED_PHONE = "onboarding_phone"
+private const val SAVED_RESEND_AT = "onboarding_resend_at_ms"
+private const val SESSION_EXPIRED_MESSAGE = "Verification session expired. Go back and enter your number again."
+
 data class OnboardingUiState(
     val phoneNumber: String = "",
     val termsAccepted: Boolean = false,
@@ -39,6 +46,7 @@ data class OnboardingUiState(
 
 class OnboardingViewModel(
     application: Application,
+    private val savedState: SavedStateHandle,
 ) : AndroidViewModel(application) {
     private val userPreferences = application.container.userPreferences
 
@@ -66,7 +74,13 @@ class OnboardingViewModel(
     private val _lastNameErrorMessage = MutableStateFlow("")
     val lastNameErrorMessage: StateFlow<String> = _lastNameErrorMessage.asStateFlow()
 
-    private val _state = MutableStateFlow(OnboardingUiState())
+    private val _state =
+        MutableStateFlow(
+            OnboardingUiState(
+                phoneNumber = savedState[SAVED_PHONE] ?: "",
+                resendAvailableAtMs = savedState[SAVED_RESEND_AT] ?: 0L,
+            ),
+        )
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
 
     /** True on the sign-in path (existing account), false when creating an account. */
@@ -190,15 +204,18 @@ class OnboardingViewModel(
             return
         }
         _state.update { it.copy(phoneNumber = phone, isLoading = true, errorMessage = null) }
+        savedState[SAVED_PHONE] = phone
         viewModelScope.launch {
             AuthApi
                 .requestPhoneOtp(phone)
                 .onSuccess {
+                    val resendAt = System.currentTimeMillis() + RESEND_COOLDOWN_MS
+                    savedState[SAVED_RESEND_AT] = resendAt
                     _state.update {
                         it.copy(
                             isLoading = false,
                             errorMessage = null,
-                            resendAvailableAtMs = System.currentTimeMillis() + RESEND_COOLDOWN_MS,
+                            resendAvailableAtMs = resendAt,
                             // A freshly sent OTP invalidates any attempt history that applied
                             // to the previous code -- without this, fixing a typo and resending
                             // could inherit a near-lockout from the old code.
@@ -217,8 +234,13 @@ class OnboardingViewModel(
 
     fun resendVerificationCode() {
         val current = _state.value
+        if (current.phoneNumber.isEmpty()) {
+            // Used to return silently, leaving a Resend button that did nothing.
+            _state.update { it.copy(errorMessage = SESSION_EXPIRED_MESSAGE) }
+            return
+        }
         val onCooldown = current.isLoading || System.currentTimeMillis() < current.resendAvailableAtMs
-        if (current.phoneNumber.isEmpty() || onCooldown) return
+        if (onCooldown) return
         requestVerificationCode(current.phoneNumber) {}
     }
 
@@ -235,6 +257,8 @@ class OnboardingViewModel(
                 .verifyPhoneOtp(current.phoneNumber, current.otpCode)
                 .onSuccess { auth ->
                     userPreferences.savePhoneAuth(auth.accessToken, current.phoneNumber)
+                    savedState.remove<String>(SAVED_PHONE)
+                    savedState.remove<Long>(SAVED_RESEND_AT)
                     restoreProfile(auth.accessToken)
                     _state.update {
                         it.copy(
@@ -267,7 +291,7 @@ class OnboardingViewModel(
             System.currentTimeMillis() < current.verifyLockedUntilMs ->
                 "Too many attempts. Please wait before trying again."
             current.otpCode.length != 6 -> "Enter the 6-digit code"
-            current.phoneNumber.isEmpty() -> "Verification session expired. Please resend the code."
+            current.phoneNumber.isEmpty() -> SESSION_EXPIRED_MESSAGE
             else -> null
         }
 

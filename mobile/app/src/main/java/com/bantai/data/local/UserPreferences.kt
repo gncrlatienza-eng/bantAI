@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.bantai.data.model.SCAN_PERIODS
 import com.bantai.data.model.SCAN_PERIOD_ALL
+import com.bantai.util.SmsSourceId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -97,6 +98,8 @@ class UserPreferences(
         phoneNumber: String,
     ) {
         secureTokenStore.saveToken(token)
+        // Account-scoped SMS sourceId key for whoever just signed in.
+        SmsSourceId.bindAccount(context, token)
         context.dataStore.edit { prefs ->
             prefs[Keys.PHONE_NUMBER] = phoneNumber
             // A mobile session has one authoritative sign-in identity. Remove
@@ -209,6 +212,8 @@ class UserPreferences(
     // the theme or send the user through setup again, only back to sign-in.
     suspend fun clearAll() {
         secureTokenStore.clear()
+        // The next account on this phone must not inherit this one's sourceId key.
+        SmsSourceId.clearAccount(context)
         context.dataStore.edit { prefs ->
             val theme = prefs[Keys.THEME_MODE]
             val textScale = prefs[Keys.TEXT_SCALE]

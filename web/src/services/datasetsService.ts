@@ -108,3 +108,43 @@ export const downloadDatasetSnapshot = (versionTag: string) =>
   fetchApiBlob(
     `/datasets/snapshots/${encodeURIComponent(versionTag)}/export.jsonl`,
   );
+
+/*
+ * Detection review queue: messages the model classified on its own, from
+ * users who opted in to training. Nothing enters the dataset until an admin
+ * labels it here.
+ */
+export type ReviewKind = 'detected' | 'uncertain' | 'spot_check';
+
+export interface ReviewCandidate {
+  messageId: string;
+  kind: ReviewKind;
+  /** Server-masked text; the sender is never sent. */
+  maskedText: string;
+  /** What the model said. */
+  label: string | null;
+  score: number | null;
+  bucket: string | null;
+  clusterId: string | null;
+  receivedAt: string;
+}
+
+export const getReviewQueue = (kind: ReviewKind) =>
+  fetchApi<ReviewCandidate[]>(
+    `/datasets/review-queue?kind=${encodeURIComponent(kind)}`,
+  );
+
+export const confirmReviewCandidate = (
+  messageId: string,
+  label: TrainingLabel,
+) =>
+  fetchApi<DatasetSample>(
+    `/datasets/review-queue/${encodeURIComponent(messageId)}`,
+    { method: 'POST', body: JSON.stringify({ label }) },
+  );
+
+export const skipReviewCandidate = (messageId: string) =>
+  fetchApi<{ messageId: string; skipped: true }>(
+    `/datasets/review-queue/${encodeURIComponent(messageId)}/skip`,
+    { method: 'POST' },
+  );

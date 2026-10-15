@@ -81,6 +81,10 @@ export interface SmsAlertItem {
       ClassificationResult,
       'label' | 'score' | 'bucket'
     > | null;
+    /** false = label is the phone's offline heuristic, not a model verdict. */
+    trusted?: boolean;
+    /** Latest cloud re-check of a fallback label, newest first. */
+    cloudVerifications?: Array<{ status: string }>;
   };
 }
 

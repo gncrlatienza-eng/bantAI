@@ -38,6 +38,9 @@ data class UserData(
     // Bumping the generation re-sorts every phone once; other updates don't.
     val sortGenerationStarted: Int = 0,
     val sortGenerationDone: Int = 0,
+    // The "Help improve scam detection" question was answered on this phone
+    // (onboarding or the one-time prompt). Cleared on sign-out with the rest.
+    val trainingConsentAsked: Boolean = false,
     val sortGenerationStartedAt: Long = 0L,
     // Off by default: asking the carrier for delivery reports is extra traffic
     // some carriers don't support, so it's the user's choice to turn on.
@@ -65,6 +68,7 @@ class UserPreferences(
         val HISTORY_SORTED_AT = longPreferencesKey("history_sorted_at")
         val SORT_GEN_STARTED = intPreferencesKey("sort_gen_started")
         val SORT_GEN_DONE = intPreferencesKey("sort_gen_done")
+        val TRAINING_CONSENT_ASKED = booleanPreferencesKey("training_consent_asked")
         val SORT_GEN_STARTED_AT = longPreferencesKey("sort_gen_started_at")
         val DELIVERY_REPORTS = booleanPreferencesKey("delivery_reports")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
@@ -74,7 +78,7 @@ class UserPreferences(
         val MY_NUMBER = stringPreferencesKey("my_number")
         val SHOW_SCAM_WAVES_TAB = booleanPreferencesKey("show_scam_waves_tab")
         val HIDE_UNKNOWN = booleanPreferencesKey("hide_unknown")
-        val SHARE_REPORTS = booleanPreferencesKey("share_reports")
+        val TRAINING_OPT_IN = booleanPreferencesKey("training_opt_in")
         val TUTORIALS_SEEN = stringSetPreferencesKey("tutorials_seen")
         val SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
         val SUMMARY_MINUTE = intPreferencesKey("daily_summary_minute")
@@ -115,6 +119,7 @@ class UserPreferences(
                 historySortedAt = prefs[Keys.HISTORY_SORTED_AT] ?: 0L,
                 sortGenerationStarted = prefs[Keys.SORT_GEN_STARTED] ?: 0,
                 sortGenerationDone = prefs[Keys.SORT_GEN_DONE] ?: 0,
+                trainingConsentAsked = prefs[Keys.TRAINING_CONSENT_ASKED] ?: false,
                 sortGenerationStartedAt = prefs[Keys.SORT_GEN_STARTED_AT] ?: 0L,
                 deliveryReports = prefs[Keys.DELIVERY_REPORTS] ?: false,
                 phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
@@ -168,6 +173,10 @@ class UserPreferences(
             prefs[Keys.LAST_NAME] = safeLast
             prefs[Keys.AVATAR_COLOR] = safeColor
         }
+    }
+
+    suspend fun setTrainingConsentAsked() {
+        context.dataStore.edit { prefs -> prefs[Keys.TRAINING_CONSENT_ASKED] = true }
     }
 
     suspend fun setOnboardingComplete() {
@@ -261,16 +270,18 @@ class UserPreferences(
         context.dataStore.edit { prefs -> prefs[Keys.HIDE_UNKNOWN] = hide }
     }
 
-    // "Help improve detection". Off: no report is ever sent to the BantAI team
-    // (reports are the only thing that can become training data), so flagged
-    // texts offer Block only and Real/Spam just moves the text on this phone.
-    val shareReports: Flow<Boolean> =
+    // This phone's copy of the account's "Help improve scam detection" choice
+    // (User.trainingOptIn on the server; Privacy & data). It also covers
+    // reports: off, no report is ever sent, so flagged texts offer Block only
+    // and Real/Spam just moves the text on this phone. Off until the server
+    // says otherwise; written whenever the choice is read or saved.
+    val trainingOptIn: Flow<Boolean> =
         context.dataStore.data
             .catch { emit(emptyPreferences()) }
-            .map { it[Keys.SHARE_REPORTS] ?: true }
+            .map { it[Keys.TRAINING_OPT_IN] ?: false }
 
-    suspend fun saveShareReports(share: Boolean) {
-        context.dataStore.edit { prefs -> prefs[Keys.SHARE_REPORTS] = share }
+    suspend fun saveTrainingOptIn(optedIn: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.TRAINING_OPT_IN] = optedIn }
     }
 
     // Walkthrough tours already shown on this phone (see CoachMarks).
@@ -371,8 +382,6 @@ class UserPreferences(
                     addAll(listOf(Keys.THEME_MODE, Keys.TEXT_SCALE, Keys.MY_NUMBER, Keys.ONBOARDING_COMPLETE))
                     // Phone-level choices, like the theme.
                     addAll(listOf(Keys.HIDE_UNKNOWN, Keys.TUTORIALS_SEEN, Keys.SUMMARY_ENABLED, Keys.SUMMARY_MINUTE))
-                    // A privacy choice: signing out must not quietly turn reports back on.
-                    add(Keys.SHARE_REPORTS)
                     if (keepLocalData) {
                         addAll(
                             listOf(

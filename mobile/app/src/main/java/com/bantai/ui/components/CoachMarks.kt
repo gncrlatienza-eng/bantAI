@@ -101,7 +101,7 @@ object CoachIds {
     const val SETTINGS_UNKNOWN = "settings_unknown"
     const val SETTINGS_TIPS = "settings_tips"
     const val SETTINGS_SUPPORT = "settings_support"
-    const val SETTINGS_SHARE_REPORTS = "settings_share_reports"
+    const val SETTINGS_PRIVACY = "settings_privacy"
 }
 
 /**

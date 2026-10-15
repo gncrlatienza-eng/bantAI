@@ -17,7 +17,7 @@ import java.util.UUID
  * Filing a user's correction (Ham/Spam/Scam) for one or more messages, shared
  * by Take Action and the thread's quick "It's a real message / It's spam"
  * buttons. Reports go to admin review (POST /reports), and validated ones can
- * become training data -- unless the user turned off "Help improve detection".
+ * become training data -- only with "Help improve scam detection" on.
  */
 object MessageReports {
     /** One message to report: its backend id when known, else the device row to resolve (or register) it from. */
@@ -47,9 +47,9 @@ object MessageReports {
             context.container.userPreferences.userData
                 .first()
                 .authToken
-        // "Help improve detection" off: nothing leaves the phone. The message
+        // "Help improve scam detection" off: nothing leaves the phone. The message
         // still moves where the user put it, just without a report behind it.
-        if (!context.container.userPreferences.shareReports
+        if (!context.container.userPreferences.trainingOptIn
                 .first()
         ) {
             targets.forEach { refile(context, it.localMessageId, reportedLabel, blocked) }

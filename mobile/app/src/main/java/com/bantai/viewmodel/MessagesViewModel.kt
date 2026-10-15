@@ -8,7 +8,10 @@ import android.provider.Telephony
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.bantai.container
+import com.bantai.data.ClassificationProgress
 import com.bantai.data.MessageClassifier
 import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
@@ -19,6 +22,7 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
 import com.bantai.data.model.scanCutoffMillis
+import com.bantai.data.offline.HistorySortWorker
 import com.bantai.util.BlockHelper
 import com.bantai.util.ContactNames
 import kotlinx.coroutines.CancellationException
@@ -26,12 +30,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -170,6 +176,35 @@ class MessagesViewModel(
 
     private var scanJob: Job? = null
 
+    // How far the inbox scan has got, for the "Checking your messages" banner.
+    private val scanProgress = MutableStateFlow<CheckProgress?>(null)
+
+    /** Message ids to show as "Checking…": queued in the scan or awaiting a live verdict. */
+    val checkingIds: StateFlow<Set<Long>> = ClassificationProgress.checking
+
+    /**
+     * First-run/older-history sorting (HistorySortWorker) or the inbox scan,
+     * whichever is running. While the history sort runs, every message without
+     * a verdict yet is still on its way to one, so it shows as "Checking…".
+     */
+    val checkProgress: StateFlow<CheckProgress?> =
+        combine(
+            WorkManager
+                .getInstance(application)
+                .getWorkInfosForUniqueWorkFlow(HistorySortWorker.UNIQUE_NAME)
+                .map { infos ->
+                    infos.firstOrNull { it.state == WorkInfo.State.RUNNING }?.progress?.let { data ->
+                        CheckProgress(
+                            done = data.getInt(HistorySortWorker.KEY_DONE, 0),
+                            total = data.getInt(HistorySortWorker.KEY_TOTAL, 0),
+                            sortingHistory = true,
+                        )
+                    }
+                },
+            scanProgress,
+        ) { sort, scan -> sort ?: scan }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+
     // Ids already sent this session, whether or not the model answered, so a
     // message that keeps failing can't stall the scan at the front of every
     // batch. Cleared with the ViewModel, so the next app session retries them.
@@ -203,6 +238,7 @@ class MessagesViewModel(
         private const val SCAN_PACING_MS = 700L
         private const val SCAN_BACKOFF_MS = 60_000L
         private const val SCAN_MAX_BACKOFFS = 3
+        private const val STOP_TIMEOUT_MS = 5_000L
 
         private const val FNV_OFFSET_BASIS = -3750763034362895579L
         private const val FNV_PRIME = 1099511628211L
@@ -428,40 +464,68 @@ class MessagesViewModel(
                                 msg.id !in scanAttempted &&
                                 needsModelScan(msg.id, stored[msg.id], recheckIds)
                         }.sortedByDescending { it.timestamp }
-                for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
-                    if (!isActive) return@launch
-                    val results = mutableMapOf<Long, Classification>()
-                    var modelUnavailable = false
-                    for (msg in batch) {
-                        var outcome = classifyForScan(token, msg)
-                        var backoffs = 0
-                        while (outcome == SmsIngestPipeline.ScanOutcome.Unavailable && backoffs < SCAN_MAX_BACKOFFS) {
-                            // Usually the throttle window; a minute clears it.
-                            delay(SCAN_BACKOFF_MS)
-                            backoffs++
-                            outcome = classifyForScan(token, msg)
-                        }
-                        delay(SCAN_PACING_MS)
-                        scanAttempted += msg.id
-                        when (outcome) {
-                            is SmsIngestPipeline.ScanOutcome.Classified -> results[msg.id] = outcome.classification
-                            SmsIngestPipeline.ScanOutcome.Skipped -> Unit
-                            SmsIngestPipeline.ScanOutcome.Unavailable -> {
-                                // Not this message's fault -- let the next session retry it.
-                                scanAttempted -= msg.id
-                                modelUnavailable = true
-                            }
-                        }
-                        if (modelUnavailable) break
+                val pendingIds = pending.map { it.id }
+                ClassificationProgress.begin(pendingIds)
+                if (pending.isNotEmpty()) scanProgress.value = CheckProgress(done = 0, total = pending.size)
+                var scanned = 0
+                try {
+                    scanBatches(token, pending) { id ->
+                        ClassificationProgress.end(listOf(id))
+                        scanned++
+                        scanProgress.value = CheckProgress(done = scanned, total = pending.size)
                     }
-                    // classifyExisting persists each cloud/local result with
-                    // provenance before returning. Keep this map only for the
-                    // immediate in-memory re-sort; rewriting it here would erase
-                    // the local model hash/version or a concurrent cloud result.
-                    if (results.isNotEmpty()) applyScanResults(results)
-                    if (modelUnavailable) return@launch
+                } finally {
+                    // Stopped early (model unavailable, screen gone): whatever is
+                    // left stays "Unverified", not a spinner that never finishes.
+                    ClassificationProgress.end(pendingIds)
+                    scanProgress.value = null
                 }
             }
+    }
+
+    /**
+     * Classifies [pending] newest-first in paced batches; [onChecked] fires as
+     * each message is done. Returns early when the model stays unavailable.
+     */
+    private suspend fun scanBatches(
+        token: String,
+        pending: List<SmsMessage>,
+        onChecked: (Long) -> Unit,
+    ) {
+        for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
+            if (!currentCoroutineContext().isActive) return
+            val results = mutableMapOf<Long, Classification>()
+            var modelUnavailable = false
+            for (msg in batch) {
+                var outcome = classifyForScan(token, msg)
+                var backoffs = 0
+                while (outcome == SmsIngestPipeline.ScanOutcome.Unavailable && backoffs < SCAN_MAX_BACKOFFS) {
+                    // Usually the throttle window; a minute clears it.
+                    delay(SCAN_BACKOFF_MS)
+                    backoffs++
+                    outcome = classifyForScan(token, msg)
+                }
+                delay(SCAN_PACING_MS)
+                scanAttempted += msg.id
+                onChecked(msg.id)
+                when (outcome) {
+                    is SmsIngestPipeline.ScanOutcome.Classified -> results[msg.id] = outcome.classification
+                    SmsIngestPipeline.ScanOutcome.Skipped -> Unit
+                    SmsIngestPipeline.ScanOutcome.Unavailable -> {
+                        // Not this message's fault -- let the next session retry it.
+                        scanAttempted -= msg.id
+                        modelUnavailable = true
+                    }
+                }
+                if (modelUnavailable) break
+            }
+            // classifyExisting persists each cloud/local result with
+            // provenance before returning. Keep this map only for the
+            // immediate in-memory re-sort; rewriting it here would erase
+            // the local model hash/version or a concurrent cloud result.
+            if (results.isNotEmpty()) applyScanResults(results)
+            if (modelUnavailable) return
+        }
     }
 
     private fun needsModelScan(
@@ -796,3 +860,10 @@ class MessagesViewModel(
         }
     }
 }
+
+/** Progress for the "Checking your messages" banner on the Messages screen. */
+data class CheckProgress(
+    val done: Int,
+    val total: Int,
+    val sortingHistory: Boolean = false,
+)

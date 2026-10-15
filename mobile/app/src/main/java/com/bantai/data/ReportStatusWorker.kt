@@ -1,6 +1,7 @@
 package com.bantai.data
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -26,6 +27,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+
+private const val TAG = "ReportStatusWorker"
 
 /**
  * Tells the user when one of their reports has been reviewed. Polls
@@ -72,9 +75,7 @@ class ReportStatusWorker(
             val alert = byMessage[key]
             val unblocked =
                 if (status == REPORT_REJECTED && alert != null) {
-                    val localId = SmsSourceId.localRowId(applicationContext, alert.sourceId)
-                    refileReviewed(localId, alert.report?.reviewedLabel)
-                    liftReportBlock(token, alert, localId)
+                    liftReportBlock(token, alert, SmsSourceId.localRowId(applicationContext, alert.sourceId))
                 } else {
                     null
                 }
@@ -85,6 +86,17 @@ class ReportStatusWorker(
                 unblocked = unblocked,
             )
         }
+        // A rejected report says what the text really is: file it there.
+        val reported = byMessage.filterValues { it.report != null }
+        ReportStatusNotifications
+            .refiles(plan, reported.mapValues { it.value.report?.reviewedLabel })
+            .forEach { (messageId, label) ->
+                val localId = SmsSourceId.localRowId(applicationContext, reported[messageId]?.sourceId)
+                // Best effort: a failed move must not fail the worker before the
+                // statuses below are saved, or the retry would notify again.
+                runCatching { MessageReports.refile(applicationContext, localId, label) }
+                    .onFailure { Log.w(TAG, "Couldn't refile reviewed report $messageId", it) }
+            }
         prefs
             .edit()
             .putStringSet(KEY_STATUSES, plan.remember.mapTo(mutableSetOf()) { "${it.key}$SEPARATOR${it.value}" })
@@ -120,18 +132,6 @@ class ReportStatusWorker(
         BlockHelper.unblockSender(applicationContext, token, sender)
         val stillBlocked = withContext(Dispatchers.IO) { BlockHelper.isBlocked(applicationContext, sender) }
         return sender.takeUnless { stillBlocked }
-    }
-
-    /**
-     * On a rejection the reviewer says what the text really is (Ham or Spam);
-     * the message moves there. Null (older backend, or no label given) leaves it.
-     */
-    private suspend fun refileReviewed(
-        localId: Long?,
-        reviewedLabel: String?,
-    ) {
-        if (reviewedLabel != "Ham" && reviewedLabel != "Spam") return
-        MessageReports.refile(applicationContext, localId, reviewedLabel)
     }
 
     companion object {

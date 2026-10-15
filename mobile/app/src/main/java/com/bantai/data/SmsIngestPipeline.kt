@@ -226,6 +226,28 @@ object SmsIngestPipeline {
         timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
         conversationKey: String = sender,
     ) {
+        // The row is already in the inbox; show it as "Checking…" until a
+        // verdict (or the offline caution) lands, not as "Unverified".
+        val tracked = listOfNotNull(messageId)
+        ClassificationProgress.begin(tracked)
+        try {
+            runClassifyAndNotify(context, token, sender, body, receivedAt, messageId, timeoutMs, conversationKey)
+        } finally {
+            ClassificationProgress.end(tracked)
+        }
+    }
+
+    @Suppress("LongParameterList") // one value per piece of the incoming SMS
+    private suspend fun runClassifyAndNotify(
+        context: Context,
+        token: String,
+        sender: String,
+        body: String,
+        receivedAt: Long,
+        messageId: Long?,
+        timeoutMs: Int,
+        conversationKey: String,
+    ) {
         // Notification ID: XOR of sender hash and truncated timestamp avoids
         // the collision caused by System.currentTimeMillis().toInt() overflow.
         val notificationId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE

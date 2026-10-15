@@ -398,6 +398,17 @@
     <string name="privacy_data_data_supports_privacy_minimized_campaign">Each message is masked on your phone (links, phone numbers, emails, amounts and codes removed) and the masked text is sent to BantAI\'s server, where our AI classifies it. The masked text and the result are stored to improve detection and track scam campaigns. Names or other details written in a message may still be included.</string>
     <string name="privacy_data_data_we_collect">Data we collect</string>
     <string name="privacy_data_download_my_data">Download my data</string>
+    <string name="training_consent_title">Help improve scam detection?</string>
+    <string name="training_consent_body">Lets you send reports to the BantAI team, and lets a person on the team review masked copies of messages the AI flagged or wasn\'t sure about, to improve detection. Not now: you can still block senders, but not send reports. Your messages are checked for scams either way.</string>
+    <string name="training_consent_point_masked">Links, numbers, amounts and codes are removed. The sender is never shown.</string>
+    <string name="training_consent_point_person">A person checks each one before it\'s used. Only messages received after you say yes.</string>
+    <string name="training_consent_point_change">You can change this any time in Settings → Privacy &amp; data.</string>
+    <string name="training_consent_yes">Yes, help improve detection</string>
+    <string name="training_consent_no">Not now</string>
+    <string name="training_consent_save_failed">Couldn\'t save your choice. You can set it later in Settings → Privacy &amp; data.</string>
+    <string name="privacy_training_title">Help improve scam detection</string>
+    <string name="privacy_training_detail">Send reports to the BantAI team, and let them review masked messages the AI flagged or wasn\'t sure about, so they can be added to its training data. A person checks every one first, and only messages received after you turn this on are used. Off: you can still block senders, but not send reports. You can change this any time.</string>
+    <string name="privacy_training_failed">Couldn\'t update this setting. Check your connection and try again.</string>
     <string name="privacy_data_how_your_data_is_used">How your data is used</string>
     <string name="privacy_data_privacy_data">Privacy &amp; data</string>
     <string name="privacy_data_pseudonymous_threat_telemetry_is_deleted">Pseudonymous threat telemetry is deleted after 90 days. OTP and request-limit records are deleted after their challenge and one-hour request window expire. Sender reports are deleted after 90 days. Contact fingerprints remain only until your next complete contact sync or account deletion; block preferences remain until account deletion.</string>
@@ -536,6 +547,8 @@
     <string name="cd_mms_photo">Photo</string>
     <string name="cd_mms_photo_unavailable">Photo unavailable</string>
     <string name="cd_not_selected">Not selected</string>
+    <string name="messages_checking">Checking your messages…</string>
+    <string name="messages_checking_progress">Checking your messages… %1$d of %2$d</string>
     <string name="messages_draft_prefix">Draft:</string>
     <string name="messages_unread_summary_prefix">Unread summary:</string>
     <string name="thread_summary_too_short">Not enough content to summarize this conversation.</string>
@@ -821,10 +834,10 @@
     <string name="coach_settings_unknown_body">Turn off to hide the Unknown tab and its alerts. Those texts still stay out of your inbox, links hidden.</string>
     <string name="coach_settings_tips_title">Tips</string>
     <string name="coach_settings_tips_body">Scam awareness tips, how BantAI works, and Replay tutorial to see this tour again.</string>
+    <string name="coach_settings_privacy_title">Privacy &amp; data</string>
+    <string name="coach_settings_privacy_body">What leaves your phone, and \"Help improve scam detection\". On: you can send reports, and the team may review masked flagged messages. Off: flagged texts offer Block only.</string>
     <string name="coach_settings_support_title">Need help?</string>
     <string name="coach_settings_support_body">Contact support emails the BantAI team.</string>
-    <string name="coach_settings_share_title">Help improve detection</string>
-    <string name="coach_settings_share_body">On: your reports go to the BantAI team and can help train the AI. Off: nothing is reported, and flagged texts offer Block only.</string>
     <string name="setup_simpler_title">Keep it simple</string>
     <string name="setup_simpler_body">Pick what to show. You\'re safe either way, and you can change it later in Settings.</string>
     <string name="setup_simpler_hide_unknown">Show Unknown</string>
@@ -855,7 +868,6 @@
     <string name="settings_group_tips">Tips</string>
     <string name="settings_group_privacy">Privacy &amp; Support</string>
     <string name="settings_group_developer">Developer</string>
-    <string name="settings_share_reports">Help improve detection</string>
     <!-- 1.7: default SMS gate -->
     <string name="gate_eyebrow">One more step</string>
     <string name="gate_title">Set BantAI as your SMS app</string>

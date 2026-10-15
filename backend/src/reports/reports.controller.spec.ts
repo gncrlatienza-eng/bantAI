@@ -75,6 +75,21 @@ describe('ReportsController', () => {
       'r1',
       'admin-1',
       'wrong report',
+      undefined,
+    );
+  });
+
+  it('reject passes the reviewed label to service', async () => {
+    mockService.reject.mockResolvedValue({ id: 'r1', status: 'Rejected' });
+    await controller.reject({ user: { userId: 'admin-1' } }, 'r1', {
+      adminNote: 'promo',
+      reviewedLabel: 'Spam',
+    });
+    expect(mockService.reject).toHaveBeenCalledWith(
+      'r1',
+      'admin-1',
+      'promo',
+      'Spam',
     );
   });
 });

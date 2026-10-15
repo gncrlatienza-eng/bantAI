@@ -18,6 +18,7 @@ export class UsersService {
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
+        ...trainingConsentUpdate(user.trainingOptIn, dto.trainingOptIn),
       },
       select: {
         id: true,
@@ -25,6 +26,7 @@ export class UsersService {
         firstName: true,
         lastName: true,
         email: true,
+        trainingOptIn: true,
       },
     });
   }
@@ -93,4 +95,20 @@ export class UsersService {
       }
     });
   }
+}
+
+/*
+ * Training consent. Opting in stamps the time: only messages the server
+ * ingests afterwards can be queued for review. Opting in again while already
+ * in keeps the original time; opting out clears it, so a later opt-in never
+ * covers messages from the opted-out period.
+ */
+export function trainingConsentUpdate(
+  current: boolean,
+  requested: boolean | undefined,
+): { trainingOptIn?: boolean; trainingOptInAt?: Date | null } {
+  if (requested === undefined || requested === current) return {};
+  return requested
+    ? { trainingOptIn: true, trainingOptInAt: new Date() }
+    : { trainingOptIn: false, trainingOptInAt: null };
 }

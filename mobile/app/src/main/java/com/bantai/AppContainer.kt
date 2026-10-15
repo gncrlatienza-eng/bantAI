@@ -41,16 +41,15 @@ class AppContainer(
     val mmsDownloader by lazy { MmsDownloader(appContext) }
 
     /**
-     * "Help improve detection", kept hot so screens can read it synchronously
-     * when deciding what to offer. Starts true until DataStore answers (a few
-     * ms after launch); MessageReports.submit reads DataStore itself, so that
-     * window can never send a report the user turned off.
+     * Whether reports may be sent: the account's "Help improve scam detection"
+     * choice, kept hot so screens can read it synchronously when deciding what
+     * to offer. False until DataStore answers (a few ms after launch).
      */
     val shareReports: StateFlow<Boolean> by lazy {
-        userPreferences.shareReports.stateIn(
+        userPreferences.trainingOptIn.stateIn(
             CoroutineScope(SupervisorJob() + Dispatchers.Default),
             SharingStarted.Eagerly,
-            true,
+            false,
         )
     }
 }

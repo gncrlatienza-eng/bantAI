@@ -1215,6 +1215,8 @@ export class AuthService {
         updatedAt: true,
         role: true,
         staffRole: true,
+        // Privacy & data toggle on the phone.
+        trainingOptIn: true,
       },
     });
 

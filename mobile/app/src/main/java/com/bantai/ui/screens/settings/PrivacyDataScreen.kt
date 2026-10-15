@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,8 +28,11 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,6 +55,7 @@ import com.bantai.navigation.Screen
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
@@ -66,6 +72,9 @@ fun PrivacyDataScreen(
     val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
     val deleting by settingsViewModel.deletingAccount.collectAsState()
+    val trainingOptIn by settingsViewModel.trainingOptIn.collectAsState()
+    val trainingSaving by settingsViewModel.trainingOptInSaving.collectAsState()
+    LaunchedEffect(Unit) { settingsViewModel.loadTrainingOptIn() }
     if (confirmDelete) {
         DeleteAccountDialog(
             deleting = deleting,
@@ -153,6 +162,20 @@ fun PrivacyDataScreen(
                     body = stringResource(R.string.privacy_data_data_supports_privacy_minimized_campaign),
                 )
             }
+            // Opt-in only (off by default): lets the team review masked messages
+            // the AI flagged or wasn't sure about as training candidates. A
+            // person labels each one; nothing is added automatically.
+            item {
+                TrainingConsentCard(
+                    checked = trainingOptIn == true,
+                    enabled = trainingOptIn != null && !trainingSaving,
+                    onCheckedChange = { enabled ->
+                        settingsViewModel.setTrainingOptIn(enabled) {
+                            Toast.makeText(context, R.string.privacy_training_failed, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                )
+            }
             item {
                 InfoCard(
                     title = stringResource(R.string.privacy_data_retention),
@@ -212,6 +235,47 @@ fun PrivacyDataScreen(
                 DeleteAccountRow(onClick = { confirmDelete = true })
             }
         }
+    }
+}
+
+@Composable
+private fun TrainingConsentCard(
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(16.dp))
+                // The whole card is the switch, so TalkBack reads the title with
+                // its on/off state as one item.
+                .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                stringResource(R.string.privacy_training_title),
+                color = White,
+                fontWeight = FontWeight.Bold,
+                fontSize = TextSize.Body,
+            )
+            Text(
+                stringResource(R.string.privacy_training_detail),
+                color = TextSecondary,
+                fontSize = TextSize.Footnote,
+                lineHeight = 20.sp,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(checkedThumbColor = OnIndigo, checkedTrackColor = Indigo),
+        )
     }
 }
 

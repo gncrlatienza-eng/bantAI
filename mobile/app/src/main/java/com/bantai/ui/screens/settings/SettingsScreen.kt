@@ -50,7 +50,6 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.School
@@ -148,7 +147,6 @@ fun SettingsScreen(
     val textScale by viewModel.textScale.collectAsState()
     val showScamWavesTab by viewModel.showScamWavesTab.collectAsState()
     val hideUnknown by viewModel.hideUnknown.collectAsState()
-    val shareReports by viewModel.shareReports.collectAsState()
     val selectTab = LocalSelectTab.current
     var showReplayConfirm by remember { mutableStateOf(false) }
     if (showReplayConfirm) {
@@ -686,6 +684,7 @@ fun SettingsScreen(
                     ServerConnectionRow(status = serverStatus, onCheck = viewModel::checkServer)
                     RowDivider()
                     SettingsRow(
+                        modifier = Modifier.coachTarget(CoachIds.SETTINGS_PRIVACY),
                         icon = Icons.Filled.Lock,
                         title = stringResource(R.string.privacy_data_privacy_data),
                         onClick = { navController.navigate(Screen.SettingsPrivacy.route) },
@@ -702,16 +701,6 @@ fun SettingsScreen(
                                 }
                             runCatching { context.startActivity(intent) }
                         },
-                    )
-                    RowDivider()
-                    // On: reports go to the team and can train the AI. Off:
-                    // nothing is reported, flagged texts offer Block only.
-                    SettingsSwitchRow(
-                        modifier = Modifier.coachTarget(CoachIds.SETTINGS_SHARE_REPORTS),
-                        icon = Icons.Outlined.Flag,
-                        title = stringResource(R.string.settings_share_reports),
-                        checked = shareReports,
-                        onCheckedChange = viewModel::setShareReports,
                     )
                 }
             }
@@ -916,7 +905,7 @@ private fun settingsCoachItem(step: String?): Int? =
         CoachIds.SETTINGS_TITLE -> ITEM_NOTIFICATIONS
         CoachIds.SETTINGS_WAVES, CoachIds.SETTINGS_UNKNOWN -> ITEM_APPEARANCE
         CoachIds.SETTINGS_TIPS -> ITEM_TIPS
-        CoachIds.SETTINGS_SUPPORT, CoachIds.SETTINGS_SHARE_REPORTS -> ITEM_PRIVACY
+        CoachIds.SETTINGS_SUPPORT, CoachIds.SETTINGS_PRIVACY -> ITEM_PRIVACY
         else -> null
     }
 

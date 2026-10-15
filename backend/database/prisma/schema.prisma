@@ -21,6 +21,11 @@ model User {
   webRole               WebRole?
   portalAccessStatus    PortalAccessStatus @default(ACTIVE)
   portalAccessReason    String?
+  // Opt-in (Privacy & data on the phone) to let the team review this user's
+  // flagged, masked messages as training candidates. Off by default. Only
+  // messages the server received after trainingOptInAt are ever eligible.
+  trainingOptIn         Boolean            @default(false)
+  trainingOptInAt       DateTime?
   portalAccessUpdatedAt DateTime?
   portalAccessUpdatedBy String?
 
@@ -232,12 +237,19 @@ model SmsMessage {
   // never trusted, so never in global metrics or the drift score stream.
   trusted    Boolean  @default(false)
   receivedAt DateTime @default(now())
+  // Server time the message was ingested. receivedAt comes from the phone, so
+  // this is what training consent (User.trainingOptInAt) is compared against.
+  createdAt  DateTime @default(now())
+  // Set when an admin skips this message in the detection review queue.
+  reviewDismissedAt DateTime?
 
   classification Classification?
   feature        MessageFeature?
   alerts         Alert[]
   reports        UserReport[]
   cloudVerifications CloudVerificationJob[]
+  // Training sample an admin confirmed from the detection review queue.
+  datasetSample  DatasetSample?
 
   @@unique([userId, sourceId])
   @@index([userId, receivedAt])
@@ -593,6 +605,10 @@ model UserReport {
   // Pending → Validated (accepted into training set) | Rejected (discarded)
   status      String    @default("Pending")
   adminNote   String?
+  // Set on reject: what the text really is (Ham | Spam), so the phone can
+  // move it out of the scam path after lifting the report's auto-block.
+  // Null while pending, on accepted reports, and on unlabelled rejections.
+  reviewedLabel String?
   validatedAt DateTime? // set when status transitions to Validated; used by AI retraining pipeline
 
   createdAt DateTime @default(now())
@@ -616,6 +632,11 @@ model DatasetSample {
   id               String       @id @default(uuid())
   sourceReportId   String?      @unique
   sourceReport     UserReport?  @relation(fields: [sourceReportId], references: [id], onDelete: Restrict)
+  // Set for provenance "reviewed_detection": the opted-in message an admin
+  // labelled from the review queue. SetNull keeps the masked sample (already
+  // copied) if the message or account is later deleted.
+  sourceMessageId  String?      @unique
+  sourceMessage    SmsMessage?  @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
   maskedText       String
   label            String // Ham | Spam | Scam; Unknown remains an unreviewed report state.
   language         String?

@@ -1,6 +1,7 @@
 package com.bantai.navigation
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -44,6 +45,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.bantai.R
 import com.bantai.container
 import com.bantai.data.AuthEventBus
 import com.bantai.data.model.ConversationView
@@ -53,6 +55,7 @@ import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.components.LocalCoachMarks
 import com.bantai.ui.components.SCAM_WAVES_TAB_ID
+import com.bantai.ui.components.TrainingConsentPrompt
 import com.bantai.ui.components.tabBarHeight
 import com.bantai.ui.screens.main.BlockedNumbersScreen
 import com.bantai.ui.screens.main.CampaignDetailScreen
@@ -78,6 +81,7 @@ import com.bantai.ui.screens.onboarding.OnboardingEnterCodeScreen
 import com.bantai.ui.screens.onboarding.OnboardingProfileScreen
 import com.bantai.ui.screens.onboarding.OnboardingProtectedScreen
 import com.bantai.ui.screens.onboarding.OnboardingTermsScreen
+import com.bantai.ui.screens.onboarding.OnboardingTrainingConsentScreen
 import com.bantai.ui.screens.onboarding.SetupScreen
 import com.bantai.ui.screens.onboarding.SplashScreen
 import com.bantai.ui.screens.onboarding.WelcomeScreen
@@ -549,7 +553,7 @@ fun NavGraph(
                             // that skips itself straight forward again.
                             val next =
                                 if (viewModel.signingIn && viewModel.firstName.value.isNotBlank()) {
-                                    "onboarding_protected"
+                                    "onboarding_training_consent"
                                 } else {
                                     "onboarding_profile"
                                 }
@@ -584,8 +588,33 @@ fun NavGraph(
                         OnboardingProfileScreen(
                             navController = navController,
                             viewModel = viewModel,
-                            onNext = { navController.navigate("onboarding_protected") },
+                            onNext = { navController.navigate("onboarding_training_consent") },
                         )
+                    }
+
+                    // Signed in by now, so the answer is saved to the account. A
+                    // failed save still moves on (the one-time prompt asks again).
+                    composable("onboarding_training_consent") {
+                        var saving by remember { mutableStateOf(false) }
+                        val toProtected = {
+                            navController.navigate("onboarding_protected") {
+                                popUpTo("onboarding_training_consent") { inclusive = true }
+                            }
+                        }
+                        OnboardingTrainingConsentScreen(saving = saving) { enabled ->
+                            saving = true
+                            settingsViewModel.answerTrainingConsent(
+                                enabled = enabled,
+                                onDone = { toProtected() },
+                                onFailed = {
+                                    saving = false
+                                    Toast
+                                        .makeText(context, R.string.training_consent_save_failed, Toast.LENGTH_LONG)
+                                        .show()
+                                    toProtected()
+                                },
+                            )
+                        }
                     }
 
                     composable("onboarding_protected") {
@@ -613,6 +642,8 @@ fun NavGraph(
 
                     composable("main") {
                         MainScreen(navController, settingsViewModel, alertsViewModel, selectedTab = selectedTab)
+                        // Asks people who onboarded before the consent step, once.
+                        TrainingConsentPrompt(settingsViewModel)
                     }
 
                     // Main app sub-screens

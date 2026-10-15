@@ -84,8 +84,10 @@ object SmsApi {
         val note: String? = null,
         val adminNote: String? = null,
         val reviewedAt: String? = null,
-        // Set by the reviewer on a rejection: what the text really is (Ham or
-        // Spam). Null while pending, when accepted, or rejected without a label.
+        /**
+         * Set when the team rejects the report: what the text really is
+         * ("Ham" or "Spam"), so the phone can file it there. Null otherwise.
+         */
         val reviewedLabel: String? = null,
     )
 

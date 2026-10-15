@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /*
  * Display-name fields only. The sign-in email is deliberately NOT editable
@@ -20,4 +20,12 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(50)
   lastName?: string;
+
+  /**
+   * Opt in/out of letting the team review this user's flagged, masked
+   * messages as training candidates (Privacy & data on the phone).
+   */
+  @IsOptional()
+  @IsBoolean()
+  trainingOptIn?: boolean;
 }

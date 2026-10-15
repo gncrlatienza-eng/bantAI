@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Request,
   Res,
   UseGuards,
@@ -17,6 +18,10 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateDatasetSnapshotDto } from './dto/create-dataset-snapshot.dto';
 import { CurateReportDto } from './dto/curate-report.dto';
+import {
+  ConfirmCandidateDto,
+  ReviewQueueQueryDto,
+} from './dto/review-queue.dto';
 import { UpdateDatasetSampleDto } from './dto/update-dataset-sample.dto';
 import { DatasetsService } from './datasets.service';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -41,6 +46,27 @@ export class DatasetsController {
     @Request() req: AuthRequest,
   ) {
     return this.datasets.curateValidatedReport(reportId, dto, req.user.userId);
+  }
+
+  // Detection review queue (see dto/review-queue.dto.ts). Only an admin's
+  // explicit label moves a message into the dataset.
+  @Get('review-queue')
+  reviewQueue(@Query() query: ReviewQueueQueryDto) {
+    return this.datasets.reviewQueue(query.kind);
+  }
+
+  @Post('review-queue/:messageId')
+  confirmCandidate(
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+    @Body() dto: ConfirmCandidateDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.datasets.confirmCandidate(messageId, dto, req.user.userId);
+  }
+
+  @Post('review-queue/:messageId/skip')
+  skipCandidate(@Param('messageId', ParseUUIDPipe) messageId: string) {
+    return this.datasets.skipCandidate(messageId);
   }
 
   @Patch('samples/:id')

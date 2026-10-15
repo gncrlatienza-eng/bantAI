@@ -315,6 +315,70 @@ class SettingsViewModel(
     private val _deletingAccount = MutableStateFlow(false)
     val deletingAccount: StateFlow<Boolean> = _deletingAccount.asStateFlow()
 
+    // Privacy & data -> "Help improve scam detection". Null until read from the
+    // server (or when signed out / offline), so the switch never shows a guess.
+    private val _trainingOptIn = MutableStateFlow<Boolean?>(null)
+    val trainingOptIn: StateFlow<Boolean?> = _trainingOptIn.asStateFlow()
+
+    private val _trainingOptInSaving = MutableStateFlow(false)
+    val trainingOptInSaving: StateFlow<Boolean> = _trainingOptInSaving.asStateFlow()
+
+    fun loadTrainingOptIn() {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) return@launch
+            AuthApi.trainingOptIn(token).onSuccess { _trainingOptIn.value = it }
+        }
+    }
+
+    /**
+     * The onboarding / one-time "Help improve scam detection" answer. Saved on
+     * the server first; only then is the question marked answered, so a failed
+     * save is asked again later instead of silently dropped.
+     */
+    fun answerTrainingConsent(
+        enabled: Boolean,
+        onDone: () -> Unit,
+        onFailed: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (saved) {
+                _trainingOptIn.value = enabled
+                userPreferences.setTrainingConsentAsked()
+                onDone()
+            } else {
+                onFailed()
+            }
+        }
+    }
+
+    /** The account was already opted in (e.g. on another phone): nothing to ask. */
+    fun markTrainingConsentAsked() {
+        viewModelScope.launch { userPreferences.setTrainingConsentAsked() }
+    }
+
+    /** Saves the choice on the server; puts the switch back and calls [onFailed] if it can't. */
+    fun setTrainingOptIn(
+        enabled: Boolean,
+        onFailed: () -> Unit,
+    ) {
+        if (_trainingOptInSaving.value) return
+        val previous = _trainingOptIn.value
+        _trainingOptIn.value = enabled
+        _trainingOptInSaving.value = true
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (!saved) {
+                _trainingOptIn.value = previous
+                onFailed()
+            }
+            _trainingOptInSaving.value = false
+        }
+    }
+
     /**
      * Privacy & data -> Delete account, after its typed confirmation: deletes
      * the account on the backend first, and only then clears this phone, so a

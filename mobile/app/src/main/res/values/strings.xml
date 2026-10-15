@@ -393,6 +393,14 @@
     <string name="privacy_data_data_supports_privacy_minimized_campaign">Each message is masked on your phone (links, phone numbers, emails, amounts and codes removed) and the masked text is sent to BantAI\'s server, where our AI classifies it. The masked text and the result are stored to improve detection and track scam campaigns. Names or other details written in a message may still be included.</string>
     <string name="privacy_data_data_we_collect">Data we collect</string>
     <string name="privacy_data_download_my_data">Download my data</string>
+    <string name="training_consent_title">Help improve scam detection?</string>
+    <string name="training_consent_body">A person on the BantAI team may review masked copies of messages the AI flagged or wasn\'t sure about, to improve detection. Your messages are checked for scams either way.</string>
+    <string name="training_consent_point_masked">Links, numbers, amounts and codes are removed. The sender is never shown.</string>
+    <string name="training_consent_point_person">A person checks each one before it\'s used. Only messages received after you say yes.</string>
+    <string name="training_consent_point_change">You can change this any time in Settings → Privacy &amp; data.</string>
+    <string name="training_consent_yes">Yes, help improve detection</string>
+    <string name="training_consent_no">Not now</string>
+    <string name="training_consent_save_failed">Couldn\'t save your choice. You can set it later in Settings → Privacy &amp; data.</string>
     <string name="privacy_training_title">Help improve scam detection</string>
     <string name="privacy_training_detail">Let the BantAI team review masked messages the AI flagged or wasn\'t sure about, so they can be added to its training data. A person checks every one first, and only messages received after you turn this on are used. Off unless you turn it on; you can turn it off any time.</string>
     <string name="privacy_training_failed">Couldn\'t update this setting. Check your connection and try again.</string>

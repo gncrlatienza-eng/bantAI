@@ -38,6 +38,9 @@ data class UserData(
     // Bumping the generation re-sorts every phone once; other updates don't.
     val sortGenerationStarted: Int = 0,
     val sortGenerationDone: Int = 0,
+    // The "Help improve scam detection" question was answered on this phone
+    // (onboarding or the one-time prompt). Cleared on sign-out with the rest.
+    val trainingConsentAsked: Boolean = false,
     val sortGenerationStartedAt: Long = 0L,
     // Off by default: asking the carrier for delivery reports is extra traffic
     // some carriers don't support, so it's the user's choice to turn on.
@@ -65,6 +68,7 @@ class UserPreferences(
         val HISTORY_SORTED_AT = longPreferencesKey("history_sorted_at")
         val SORT_GEN_STARTED = intPreferencesKey("sort_gen_started")
         val SORT_GEN_DONE = intPreferencesKey("sort_gen_done")
+        val TRAINING_CONSENT_ASKED = booleanPreferencesKey("training_consent_asked")
         val SORT_GEN_STARTED_AT = longPreferencesKey("sort_gen_started_at")
         val DELIVERY_REPORTS = booleanPreferencesKey("delivery_reports")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
@@ -110,6 +114,7 @@ class UserPreferences(
                 historySortedAt = prefs[Keys.HISTORY_SORTED_AT] ?: 0L,
                 sortGenerationStarted = prefs[Keys.SORT_GEN_STARTED] ?: 0,
                 sortGenerationDone = prefs[Keys.SORT_GEN_DONE] ?: 0,
+                trainingConsentAsked = prefs[Keys.TRAINING_CONSENT_ASKED] ?: false,
                 sortGenerationStartedAt = prefs[Keys.SORT_GEN_STARTED_AT] ?: 0L,
                 deliveryReports = prefs[Keys.DELIVERY_REPORTS] ?: false,
                 phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
@@ -163,6 +168,10 @@ class UserPreferences(
             prefs[Keys.LAST_NAME] = safeLast
             prefs[Keys.AVATAR_COLOR] = safeColor
         }
+    }
+
+    suspend fun setTrainingConsentAsked() {
+        context.dataStore.edit { prefs -> prefs[Keys.TRAINING_CONSENT_ASKED] = true }
     }
 
     suspend fun setOnboardingComplete() {

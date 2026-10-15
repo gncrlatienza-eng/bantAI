@@ -331,6 +331,34 @@ class SettingsViewModel(
         }
     }
 
+    /**
+     * The onboarding / one-time "Help improve scam detection" answer. Saved on
+     * the server first; only then is the question marked answered, so a failed
+     * save is asked again later instead of silently dropped.
+     */
+    fun answerTrainingConsent(
+        enabled: Boolean,
+        onDone: () -> Unit,
+        onFailed: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (saved) {
+                _trainingOptIn.value = enabled
+                userPreferences.setTrainingConsentAsked()
+                onDone()
+            } else {
+                onFailed()
+            }
+        }
+    }
+
+    /** The account was already opted in (e.g. on another phone): nothing to ask. */
+    fun markTrainingConsentAsked() {
+        viewModelScope.launch { userPreferences.setTrainingConsentAsked() }
+    }
+
     /** Saves the choice on the server; puts the switch back and calls [onFailed] if it can't. */
     fun setTrainingOptIn(
         enabled: Boolean,

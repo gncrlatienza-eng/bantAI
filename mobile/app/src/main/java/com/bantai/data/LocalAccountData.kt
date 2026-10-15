@@ -2,6 +2,7 @@ package com.bantai.data
 
 import android.content.Context
 import com.bantai.container
+import com.bantai.data.local.ReportBlocks
 
 /**
  * The per-message state this phone keeps for the signed-in account: labels,
@@ -25,5 +26,7 @@ object LocalAccountData {
         container.alertStateStore.clearAll()
         container.blockedSendersStore.clearBlocked()
         OutgoingSms.clearAll(context)
+        ReportStatusWorker.clearState(context)
+        ReportBlocks.clear(context)
     }
 }

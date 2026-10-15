@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.ui.theme.Black
@@ -93,7 +94,7 @@ fun UnsafeLinkScreen(navController: NavController) {
                     .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
-                onClick = { navController.popBackStack() },
+                onClick = dropUnlessResumed { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
                 Icon(
@@ -192,7 +193,7 @@ fun UnsafeLinkScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Button(
-                onClick = { navController.popBackStack() },
+                onClick = dropUnlessResumed { navController.popBackStack() },
                 modifier =
                     Modifier
                         .fillMaxWidth()

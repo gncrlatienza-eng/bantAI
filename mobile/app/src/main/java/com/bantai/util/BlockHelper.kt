@@ -11,6 +11,7 @@ import android.util.Log
 import com.bantai.BuildConfig
 import com.bantai.container
 import com.bantai.data.local.BlockedSendersStore
+import com.bantai.data.local.ReportBlocks
 import com.bantai.data.remote.BlockedNumbersApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -81,6 +82,8 @@ object BlockHelper {
     ): Boolean {
         withContext(Dispatchers.IO) { unblockNumberSystem(context, sender) }
         context.container.blockedSendersStore.markUnblocked(sender)
+        // Unblocked by hand: a later rejected report has nothing left to undo.
+        ReportBlocks.forget(context, sender)
         if (token.isEmpty()) return true
         return BlockedNumbersApi.unblock(token, sender).isSuccess
     }

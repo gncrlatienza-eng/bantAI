@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
@@ -101,7 +102,7 @@ fun ScamWaveScreen(
         }
 
     Column(Modifier.fillMaxSize().background(Black)) {
-        BackRow(onBack = { navController.popBackStack() })
+        BackRow(onBack = dropUnlessResumed { navController.popBackStack() })
         when {
             wave != null ->
                 WaveContent(
@@ -276,7 +277,7 @@ private fun SampleBubble(
 ) {
     Column {
         Text(
-            SmsLinkSafety.hideLinks(wave.messages.first().body),
+            SmsLinkSafety.maskSensitive(wave.messages.first().body),
             color = White,
             fontSize = TextSize.Body,
             lineHeight = 21.sp,
@@ -291,7 +292,7 @@ private fun SampleBubble(
             Text(
                 stringResource(
                     R.string.wave_links_line,
-                    domains.take(MAX_DOMAINS).joinToString(", ") { it.replace(".", "[.]") },
+                    domains.take(MAX_DOMAINS).joinToString(", ") { SmsLinkSafety.defang(it) },
                 ),
                 color = TextSecondary,
                 fontSize = TextSize.Footnote,
@@ -346,7 +347,7 @@ private fun TextRow(
             )
         }
         Text(
-            SmsLinkSafety.hideLinks(message.body),
+            SmsLinkSafety.maskSensitive(message.body),
             color = TextSecondary,
             fontSize = TextSize.Footnote,
             maxLines = 1,

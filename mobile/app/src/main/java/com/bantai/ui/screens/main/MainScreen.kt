@@ -9,6 +9,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.navigation.NavController
@@ -23,6 +24,9 @@ import com.bantai.viewmodel.SettingsViewModel
  * while its tab is showing -- a BackHandler, a refresh-on-open -- checks this.
  */
 val LocalTabActive = compositionLocalOf { true }
+
+/** Switches the main tab (0 Messages, 1 Alerts, ...); provided by NavGraph. */
+val LocalSelectTab = staticCompositionLocalOf<(Int) -> Unit> { {} }
 
 // The tab-switching content behind the floating bar -- the bar itself now
 // lives at the navigation root (see NavGraph) so it can persist across

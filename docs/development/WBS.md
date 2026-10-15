@@ -244,6 +244,64 @@ Track ownership: Track A — Backend (Reymark De Castro) · Track B — AI/ML (M
     - [ ] **6.3.4** Admin credentials issuance (secure) *(Track A — Backend)*
     - [ ] **6.3.5** Quick-start guide (PDF) *(All members)*
     - [ ] **6.3.6** Defense slide deck *(All members)*
+    - [-] **6.3.7** Mobile 1.7 UAT-feedback build *(Track C — Mobile)* — on `feature/mobile-1.7-ux`, uncommitted (2026-10-14). Changes: a default-SMS gate covers the app until bantAI is the default SMS app (checked on every resume); Settings → Hide Unknown (hides the tab, the alerts and the notifications); the Unknown banner's Scam button is blue and its "Why?" text is reworded; thread banners use the nav bar's glass style; Alerts pages switch with a segmented control; swipe right on To Review shows Report/Block; finished alerts drop off after 30 days; Scam Waves, campaign domains and on-device alert previews are masked (broader link regex, phone/code/account numbers); 8 PM daily summary notification (time can be changed) and a summary screen; separate Scam/Spam/Real sounds (new `_v2` channels); iOS-style filter chips; a coach-mark walkthrough on Messages/Alerts/thread plus Settings → Replay tutorial; version 1.7 (8). Second UI pass: Spam/Unknown threads in Messages also swipe right to Report/Block (shared `SwipeActionsRow`); the search field has a clear button; message rows show bold names only while unread and a two-line preview; Scam Waves cards use the shared radius. Third pass (after first install of the signed 1.7 on the Huawei): Settings rows have iOS-style colored icon tiles; Replay tutorial asks to confirm first, then opens Messages and starts the tour; the walkthrough is now one tour that opens Alerts by itself, with a gliding, glowing spotlight, a shadowed card and step dots; Hide Unknown's subtitle is shorter. Fourth pass: Messages and Alerts share one `FilterPill` style; the tour covers Scam Waves (only when that tab is on) and ends with a Settings step whose text changes with what's hidden; walkthrough targets disappear when their control does, so hiding Unknown mid-tour no longer breaks it; the "All" highlight covers the whole pill; Setup gains a last "Keep it simple" card with Hide Unknown and Show Scam Waves switches. Fifth pass:
+- **Alert detail and reports:** a single "Report & block this number" button. Take Action explains what a rejected Scam report means. A rejected Scam report now lifts the block it caused (`ReportBlocks`). Moving the message to Ham or Spam waits on Reymark adding `reviewedLabel`, per the handout.
+- **Tour:** each step drives its screen into the right state, the tour pauses while the default-SMS gate is up, and the `coachTarget` modifier-order bug is fixed.
+- **Audit:**
+  - Two regex slowdowns fixed: the link-hide host and the masker's email regex (~1 s down to a few ms on a 30k-character text, with a new regression test).
+  - A NewApi crash risk fixed: Android 8–9 in the gate.
+  - Lint is clean apart from the 7 known ProduceState false positives.
+  - A 3,000-event monkey run on an API 33 emulator found no crashes or ANRs.
+- **Still owed:** signed-in runtime and jank checks on the Huawei.
+
+Sixth pass (daily summary reliability):
+- The WorkManager job is replaced by an allow-while-idle exact alarm, plus boot/update re-arm receivers.
+- Catch-up triggers: an incoming SMS, a 15-minute worker, and opening the app (which shows the card directly).
+- A once-per-day guard (`DailySummaryScheduler.isDue`, unit-tested) keeps the triggers from doubling up.
+- "Today" now counts from midnight.
+- The summary is a card over the app, not a page.
+- Settings: on-time rows for exact alarms and OEM battery managers; label trims ("Scam Waves", "Show Unknown").
+
+Seventh pass (pre-release code audit, 2026-10-15; no device matrix, code only):
+- **Release blockers fixed:**
+  - The rejected-report unblock never ran, because the sender wasn't resolved from `sourceId`.
+  - Links ending a sentence (`scam.com.`) weren't hidden.
+  - Notifications were dropped after the update until the app was opened; channels are now created in `BantaiApp`.
+- **Reports:**
+  - `reviewedLabel` is read from `/reports/mine`. A rejected report moves the text to Messages (Ham) or Spam, and works once Reymark's backend change lands.
+  - One bad report entry no longer breaks report polling.
+  - Report checks no longer overlap.
+  - Report state is cleared when a different account signs in.
+  - "Unblocked" is only claimed when the device block is really gone.
+- **Daily summary:**
+  - The receivers can't crash the app.
+  - A recap is only marked shown once it actually posts, and the claim is atomic.
+  - The alarm is re-armed when exact-alarm access changes.
+- **Notification sounds** are referenced by name, with `res/raw/keep.xml` so shrinking keeps them.
+- **New Settings → "Help improve detection" switch** (on by default). Off means no report leaves the phone:
+  - Every Report entry point is hidden, and swipe and alert actions become Block only.
+  - Real/Spam moves the text on this phone only.
+  - The Reported page is hidden unless older reports exist.
+- **Swipe** now goes left, so it doesn't fight the back gesture:
+  - Only one row is open at a time; scrolling or tapping closes it.
+  - Added a TalkBack action.
+  - Groups no longer offer Report & block.
+- **Copy:**
+  - Alerts subheader is "Flagged messages, most likely scams."
+  - The contradictory "not used for retraining" line is fixed.
+- **UX:**
+  - The default-SMS gate scrolls, opens the system default-apps page once Android stops showing the prompt, is hidden from TalkBack, and no longer covers Setup.
+  - Back from "Report sent" no longer reopens the form, and a double tap can't pop twice.
+  - Back ends the walkthrough.
+  - Setup cards scroll, and the tab-bar labels are capped at large text.
+
+After the first install on the Huawei:
+- "Help improve detection" lost its subtitle and moved to the end of Privacy & Support. Turning it off now removes the Reported page entirely.
+- The walkthrough goes on through Settings: Scam Waves, Unknown, Tips, Contact support and Help improve detection. Each row is scrolled into view first, and the steps work with either tab hidden.
+- The first spotlight and tip card now appear in place instead of sweeping in from the top-left corner.
+- The Alerts first-row step scrolls the list to the top.
+
+ktlint, detekt and unit tests pass, and assembleDebug passes. Lint is clean apart from the 7 known ProduceState false positives. **Not yet tested on a device.** The release build needs the Model C bundle (Reymark).
 
   - [-] **6.4** Test: sprint-level unit and integration testing
     - [ ] **6.4.1** Unit testing (all modules) *(All members)*

@@ -84,7 +84,12 @@ import com.bantai.navigation.Screen
 import com.bantai.navigation.rememberSafePopBack
 import com.bantai.ui.components.AISummaryBottomSheet
 import com.bantai.ui.components.ChatThreadSkeleton
+import com.bantai.ui.components.CoachIds
+import com.bantai.ui.components.CoachStep
+import com.bantai.ui.components.CoachTour
+import com.bantai.ui.components.CoachTourLauncher
 import com.bantai.ui.components.StateMessage
+import com.bantai.ui.components.coachTarget
 import com.bantai.ui.components.rememberSmsSendPermission
 import com.bantai.ui.screens.main.thread.DayDivider
 import com.bantai.ui.screens.main.thread.DeletedActionsBar
@@ -337,6 +342,11 @@ fun MessageDetailScreen(
     // registers) the backend id from the device row, and hides the option that
     // would repeat the current label. Defaults to the flagged message, else the
     // newest incoming message in the slice being shown.
+    // "Help improve detection" off: no Report anywhere in the thread. Real/Spam
+    // still move the texts, on this phone only; a scam can still be blocked.
+    val shareReports by context.container.shareReports
+        .collectAsState()
+
     fun openReport(
         target: SmsMessage? = null,
         action: String = "",
@@ -447,11 +457,12 @@ fun MessageDetailScreen(
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false
+                // Reports off and a trusted name: Take Action would have nothing to offer.
+                if (shareReports || !isTrusted) openReport()
                 // Same reasoning as the in-thread warning banners below: Take
                 // Action is the only screen with a working Report/Block entry
                 // point, ThreatAnalysisScreen's action button is permanently
                 // disabled.
-                openReport()
             },
         )
     }
@@ -489,7 +500,14 @@ fun MessageDetailScreen(
             },
             text = {
                 Text(
-                    stringResource(if (toSpam) R.string.thread_flag_spam_detail else R.string.thread_flag_real_detail),
+                    stringResource(
+                        when {
+                            !shareReports && toSpam -> R.string.thread_flag_spam_detail_local
+                            !shareReports -> R.string.thread_flag_real_detail_local
+                            toSpam -> R.string.thread_flag_spam_detail
+                            else -> R.string.thread_flag_real_detail
+                        },
+                    ),
                     color = TextSecondary,
                     fontSize = TextSize.Subhead,
                 )
@@ -501,6 +519,8 @@ fun MessageDetailScreen(
                         val message =
                             when {
                                 !reported -> R.string.thread_flag_moved_not_sent
+                                !shareReports && toSpam -> R.string.thread_flag_moved_spam_local
+                                !shareReports -> R.string.thread_flag_moved_messages_local
                                 toSpam -> R.string.thread_flag_moved_spam
                                 else -> R.string.thread_flag_moved_messages
                             }
@@ -614,7 +634,7 @@ fun MessageDetailScreen(
                                 tint = if (selectedIds.isNotEmpty()) Danger else TextTertiary,
                             )
                         }
-                    } else {
+                    } else if (shareReports) {
                         IconButton(
                             onClick = {
                                 viewModel.exitSelectionMode()
@@ -747,15 +767,20 @@ fun MessageDetailScreen(
                             // message's long-press menu still reports its own sender.
                             if (!isGroup) {
                                 ThreadMenu(
-                                    enabled = conversation.any { !it.isOutgoing },
+                                    enabled = conversation.any { !it.isOutgoing } && (shareReports || !isTrusted),
                                     // Pick which bubbles to report rather than guessing the
                                     // newest one; the likeliest one starts selected.
-                                    onReport = {
-                                        val start =
-                                            conversation.lastOrNull { it.classification.isFlagged }
-                                                ?: conversation.lastOrNull { !it.isOutgoing }
-                                        start?.let { viewModel.enterSelectionMode(it.id) }
-                                    },
+                                    onReport =
+                                        if (shareReports) {
+                                            {
+                                                val start =
+                                                    conversation.lastOrNull { it.classification.isFlagged }
+                                                        ?: conversation.lastOrNull { !it.isOutgoing }
+                                                start?.let { viewModel.enterSelectionMode(it.id) }
+                                            }
+                                        } else {
+                                            null
+                                        },
                                     onBlock = if (isTrusted) null else ({ openReport(action = "block") }),
                                 )
                             }
@@ -780,12 +805,24 @@ fun MessageDetailScreen(
                     detail = stringResource(R.string.thread_scam_detail),
                     tint = Danger,
                     actions =
-                        listOf(
-                            VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
-                                openReport(action = "report")
-                            },
-                            VerdictAction(stringResource(R.string.thread_banner_review), Danger) { openReport() },
-                        ),
+                        when {
+                            shareReports ->
+                                listOf(
+                                    VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
+                                        openReport(action = "report")
+                                    },
+                                    VerdictAction(stringResource(R.string.thread_banner_review), Danger) {
+                                        openReport()
+                                    },
+                                )
+                            isTrusted -> emptyList()
+                            else ->
+                                listOf(
+                                    VerdictAction(stringResource(R.string.alert_block_sender), Danger) {
+                                        openReport(action = "block")
+                                    },
+                                )
+                        },
                 )
             } else if (needsAnswer) {
                 // A trusted name keeps its spoof explanation under "Why?"; Scam
@@ -801,8 +838,12 @@ fun MessageDetailScreen(
                     busy = flagging,
                     onRealMessage = { pendingFlag = "Ham" },
                     onSpam = { pendingFlag = "Spam" },
-                    onReportScam = { openReport(action = PRESELECT_REPORT_SCAM) },
+                    // Reports off: Scam is a block, which a trusted name can't take.
+                    onReportScam =
+                        if (shareReports || !isTrusted) ({ openReport(action = PRESELECT_REPORT_SCAM) }) else null,
+                    modifier = Modifier.coachTarget(CoachIds.VERDICT_ACTIONS),
                 )
+                CoachTourLauncher(THREAD_TOUR, enabled = !flagging)
             } else if (spoofWarning != null) {
                 // A trusted name whose text gives itself away (asks for an OTP,
                 // links off-site) but wasn't left Unknown: Report only --
@@ -812,11 +853,15 @@ fun MessageDetailScreen(
                     detail = spoofWarning,
                     tint = Suspicious,
                     actions =
-                        listOf(
-                            VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
-                                openReport(action = "report", canBlock = false)
-                            },
-                        ),
+                        if (shareReports) {
+                            listOf(
+                                VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
+                                    openReport(action = "report", canBlock = false)
+                                },
+                            )
+                        } else {
+                            emptyList()
+                        },
                 )
             }
 
@@ -986,7 +1031,7 @@ fun MessageDetailScreen(
                     messageActions(
                         message = msg,
                         canReply = !deletedView && (isValidSmsRecipient(sender) || isGroup),
-                        canReport = !deletedView && !msg.isOutgoing,
+                        canReport = shareReports && !deletedView && !msg.isOutgoing,
                         onReply = { replyingTo = msg },
                         onCopy = {
                             clipboard.setText(AnnotatedString(shareableText(msg)))
@@ -1019,3 +1064,10 @@ fun MessageDetailScreen(
         }
     }
 }
+
+// Shown the first time an Unknown thread opens: what the three answers do.
+private val THREAD_TOUR =
+    CoachTour(
+        key = "thread_unknown_v1",
+        steps = listOf(CoachStep(CoachIds.VERDICT_ACTIONS, R.string.coach_verdict_title, R.string.coach_verdict_body)),
+    )

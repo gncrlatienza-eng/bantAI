@@ -73,6 +73,11 @@ class UserPreferences(
         val TEXT_SCALE = stringPreferencesKey("text_scale")
         val MY_NUMBER = stringPreferencesKey("my_number")
         val SHOW_SCAM_WAVES_TAB = booleanPreferencesKey("show_scam_waves_tab")
+        val HIDE_UNKNOWN = booleanPreferencesKey("hide_unknown")
+        val SHARE_REPORTS = booleanPreferencesKey("share_reports")
+        val TUTORIALS_SEEN = stringSetPreferencesKey("tutorials_seen")
+        val SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
+        val SUMMARY_MINUTE = intPreferencesKey("daily_summary_minute")
 
         // The account whose local state (labels, alert marks, finished sort)
         // this phone holds; kept across sign-out. See LocalAccountData.
@@ -244,6 +249,69 @@ class UserPreferences(
         context.dataStore.edit { prefs -> prefs[Keys.SHOW_SCAM_WAVES_TAB] = show }
     }
 
+    // Hides the Unknown chip, Unknown alerts and their notifications for users
+    // who find them too much. Unknown texts still stay out of All with their
+    // links hidden, so hiding them doesn't make anyone less safe.
+    val hideUnknown: Flow<Boolean> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.HIDE_UNKNOWN] ?: false }
+
+    suspend fun saveHideUnknown(hide: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.HIDE_UNKNOWN] = hide }
+    }
+
+    // "Help improve detection". Off: no report is ever sent to the BantAI team
+    // (reports are the only thing that can become training data), so flagged
+    // texts offer Block only and Real/Spam just moves the text on this phone.
+    val shareReports: Flow<Boolean> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.SHARE_REPORTS] ?: true }
+
+    suspend fun saveShareReports(share: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.SHARE_REPORTS] = share }
+    }
+
+    // Walkthrough tours already shown on this phone (see CoachMarks).
+    val tutorialsSeen: Flow<Set<String>> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.TUTORIALS_SEEN] ?: emptySet() }
+
+    suspend fun markTutorialSeen(tour: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.TUTORIALS_SEEN] = (prefs[Keys.TUTORIALS_SEEN] ?: emptySet()) + tour
+        }
+    }
+
+    // Settings → Replay tutorial: every tour shows again on its screen.
+    suspend fun resetTutorials() {
+        context.dataStore.edit { prefs -> prefs.remove(Keys.TUTORIALS_SEEN) }
+    }
+
+    // The evening recap notification: on by default, at 8:00 PM unless changed.
+    val dailySummaryEnabled: Flow<Boolean> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.SUMMARY_ENABLED] ?: true }
+
+    // Minutes after midnight, local time.
+    val dailySummaryMinute: Flow<Int> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.SUMMARY_MINUTE] ?: DEFAULT_SUMMARY_MINUTE }
+
+    suspend fun saveDailySummary(
+        enabled: Boolean,
+        minuteOfDay: Int,
+    ) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.SUMMARY_ENABLED] = enabled
+            prefs[Keys.SUMMARY_MINUTE] = minuteOfDay
+        }
+    }
+
     // Read on its own, without userData's token store, so MainActivity can
     // pick the theme before the first frame without touching the Keystore.
     // "system" / "light" / "dark" -- see ThemeMode; blank if never chosen.
@@ -301,6 +369,10 @@ class UserPreferences(
             val keep: Set<Preferences.Key<*>> =
                 buildSet {
                     addAll(listOf(Keys.THEME_MODE, Keys.TEXT_SCALE, Keys.MY_NUMBER, Keys.ONBOARDING_COMPLETE))
+                    // Phone-level choices, like the theme.
+                    addAll(listOf(Keys.HIDE_UNKNOWN, Keys.TUTORIALS_SEEN, Keys.SUMMARY_ENABLED, Keys.SUMMARY_MINUTE))
+                    // A privacy choice: signing out must not quietly turn reports back on.
+                    add(Keys.SHARE_REPORTS)
                     if (keepLocalData) {
                         addAll(
                             listOf(
@@ -320,3 +392,6 @@ class UserPreferences(
         }
     }
 }
+
+// 8:00 PM.
+const val DEFAULT_SUMMARY_MINUTE = 20 * 60

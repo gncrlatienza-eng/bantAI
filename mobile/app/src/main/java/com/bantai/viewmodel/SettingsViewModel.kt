@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
+import com.bantai.data.DailySummaryScheduler
 import com.bantai.data.LocalAccountData
 import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.local.DEFAULT_SUMMARY_MINUTE
 import com.bantai.data.local.UserData
 import com.bantai.data.remote.ApiConfig
 import com.bantai.data.remote.ApiException
@@ -239,6 +241,45 @@ class SettingsViewModel(
 
     fun setShowScamWavesTab(show: Boolean) {
         viewModelScope.launch { userPreferences.saveShowScamWavesTab(show) }
+    }
+
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setHideUnknown(hide: Boolean) {
+        viewModelScope.launch { userPreferences.saveHideUnknown(hide) }
+    }
+
+    val shareReports: StateFlow<Boolean> =
+        userPreferences.shareReports.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setShareReports(share: Boolean) {
+        viewModelScope.launch { userPreferences.saveShareReports(share) }
+    }
+
+    val dailySummaryEnabled: StateFlow<Boolean> =
+        userPreferences.dailySummaryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val dailySummaryMinute: StateFlow<Int> =
+        userPreferences.dailySummaryMinute.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_SUMMARY_MINUTE)
+
+    // Saves, then restarts the daily cycle from the new time (or cancels it).
+    fun setDailySummary(
+        enabled: Boolean,
+        minuteOfDay: Int,
+    ) {
+        viewModelScope.launch {
+            userPreferences.saveDailySummary(enabled, minuteOfDay)
+            DailySummaryScheduler.schedule(getApplication())
+        }
+    }
+
+    // Clears the "seen" marks first, so the tour that [onReady] opens plays.
+    fun replayTutorial(onReady: () -> Unit) {
+        viewModelScope.launch {
+            userPreferences.resetTutorials()
+            onReady()
+        }
     }
 
     fun toggleDeliveryReports(value: Boolean) {

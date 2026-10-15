@@ -5,6 +5,7 @@ import com.bantai.container
 import com.bantai.data.model.Classification
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.remote.SmsApi
+import com.bantai.util.SmsLinkSafety
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -71,7 +72,8 @@ object LocalScamAlerts {
             messageId = "$PREFIX${message.id}",
             sourceId = null,
             sender = message.sender,
-            body = message.mms?.text ?: message.body,
+            // A scam: its links and numbers never reach the Alerts preview.
+            body = SmsLinkSafety.maskSensitive(message.mms?.text ?: message.body),
             receivedAt = at,
             label = "Scam",
             score = null,

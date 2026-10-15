@@ -6,6 +6,7 @@ import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
 import com.bantai.container
+import com.bantai.data.DailySummaryScheduler
 import com.bantai.data.SmsIngestPipeline
 import com.bantai.util.DefaultSmsApp
 import kotlinx.coroutines.CoroutineScope
@@ -58,6 +59,9 @@ class SmsReceiver : BroadcastReceiver() {
         // below is also a blocking ContentResolver call, so it must run inside
         // this async work too, not on the main thread before goAsync() -- onReceive
         // itself only has the standard (much shorter) ANR budget.
+        // The daily recap may have been held back by a battery manager; a text
+        // arriving after its time shows it now (once per day, see DailySummaryScheduler).
+        DailySummaryScheduler.onSmsReceived(context)
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {

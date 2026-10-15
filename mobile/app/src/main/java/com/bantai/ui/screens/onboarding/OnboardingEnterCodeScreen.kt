@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.navigation.Screen
@@ -146,7 +147,7 @@ fun OnboardingEnterCodeScreen(
                 .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        IconButton(onClick = { navController.popBackStack() }) {
+        IconButton(onClick = dropUnlessResumed { navController.popBackStack() }) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.action_back),

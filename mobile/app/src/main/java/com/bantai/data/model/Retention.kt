@@ -17,6 +17,12 @@ object Retention {
     /** Scam Waves only show scams from this window. */
     const val SCAM_WAVE_DAYS = 90
 
+    /**
+     * Finished alerts (a reviewed report, a blocked scam) leave Alerts after
+     * this. Anything still To Review stays until the user deals with it.
+     */
+    const val ALERT_HISTORY_DAYS = 30
+
     private const val DAY_MS = 24L * 60 * 60 * 1000
 
     fun cutoff(

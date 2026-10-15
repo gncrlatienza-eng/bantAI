@@ -29,6 +29,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
@@ -36,6 +37,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -140,6 +143,14 @@ class MessagesViewModel(
     // Conversations per filter, for the counts on the Messages tab's filter chips.
     private val _filterCounts = MutableStateFlow<Map<MessageFilter, Int>>(emptyMap())
     val filterCounts: StateFlow<Map<MessageFilter, Int>> = _filterCounts.asStateFlow()
+
+    // Settings → Hide Unknown: drops the Unknown chip. The texts stay out of
+    // All either way (with links hidden), so nothing unsafe reappears.
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown
+            .onEach { hidden ->
+                if (hidden && _selectedFilter.value == MessageFilter.UNKNOWN) setFilter(MessageFilter.MESSAGES)
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()

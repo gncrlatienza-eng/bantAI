@@ -35,7 +35,7 @@ import com.bantai.ui.theme.White
 @Composable
 internal fun ThreadMenu(
     enabled: Boolean,
-    onReport: () -> Unit,
+    onReport: (() -> Unit)?,
     onBlock: (() -> Unit)?,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -53,29 +53,31 @@ internal fun ThreadMenu(
             containerColor = SurfaceElevated,
             shape = RoundedCornerShape(14.dp),
         ) {
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        stringResource(R.string.message_detail_report_message),
-                        color = White,
-                        fontSize = TextSize.Body,
-                    )
-                },
-                trailingIcon = {
-                    Icon(
-                        Icons.Outlined.ReportGmailerrorred,
-                        contentDescription = null,
-                        tint = White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                },
-                onClick = {
-                    expanded = false
-                    onReport()
-                },
-            )
+            if (onReport != null) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.message_detail_report_message),
+                            color = White,
+                            fontSize = TextSize.Body,
+                        )
+                    },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Outlined.ReportGmailerrorred,
+                            contentDescription = null,
+                            tint = White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onReport()
+                    },
+                )
+            }
             if (onBlock == null) return@DropdownMenu
-            HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+            if (onReport != null) HorizontalDivider(color = Hairline, thickness = 0.5.dp)
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.alert_block_sender), color = Danger, fontSize = TextSize.Body) },
                 trailingIcon = {

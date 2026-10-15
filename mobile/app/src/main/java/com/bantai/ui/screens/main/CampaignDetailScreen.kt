@@ -60,6 +60,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.util.SmsLinkSafety
 import com.bantai.viewmodel.CampaignDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -268,7 +269,7 @@ private fun CampaignDetailContent(campaign: CampaignsApi.CampaignDetail) {
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Icon(Icons.Default.Link, contentDescription = null, tint = Danger, modifier = Modifier.size(16.dp))
-                            Text(domain, color = Danger, fontSize = TextSize.Footnote)
+                            Text(SmsLinkSafety.defang(domain), color = Danger, fontSize = TextSize.Footnote)
                         }
                         if (index != campaign.urlDomains.lastIndex) {
                             HorizontalDivider(color = Hairline, modifier = Modifier.padding(start = 16.dp))

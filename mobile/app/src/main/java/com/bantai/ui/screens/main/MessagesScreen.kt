@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,10 +27,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -70,31 +72,44 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.container
 import com.bantai.data.ContactsSync
 import com.bantai.data.model.Classification
 import com.bantai.data.model.ConversationView
 import com.bantai.data.model.SmsMessage
+import com.bantai.data.model.isGroupKey
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.BadgeType
+import com.bantai.ui.components.CoachIds
+import com.bantai.ui.components.CoachStep
+import com.bantai.ui.components.CoachTour
+import com.bantai.ui.components.CoachTourLauncher
+import com.bantai.ui.components.FilterPill
 import com.bantai.ui.components.GlassIconButton
 import com.bantai.ui.components.ListSkeleton
+import com.bantai.ui.components.LocalCoachMarks
 import com.bantai.ui.components.MessageItem
 import com.bantai.ui.components.SenderAvatar
 import com.bantai.ui.components.StateMessage
+import com.bantai.ui.components.SwipeActionsRow
+import com.bantai.ui.components.SwipeGroupScope
+import com.bantai.ui.components.coachTarget
 import com.bantai.ui.components.getAvatarColor
 import com.bantai.ui.components.getInitialsFromSender
+import com.bantai.ui.components.swipeActionFor
+import com.bantai.ui.theme.BantaiShapes
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
-import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.SuspiciousText
@@ -103,9 +118,12 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.ui.theme.glassSurface
 import com.bantai.util.MessageTime
 import com.bantai.util.SmsLinkSafety
 import com.bantai.util.SmsWriteAccess
+import com.bantai.util.TrustedSenders
+import com.bantai.util.isResumed
 import com.bantai.viewmodel.MessageFilter
 import com.bantai.viewmodel.MessagesViewModel
 import com.bantai.viewmodel.conversationViewFor
@@ -158,6 +176,7 @@ fun MessagesScreen(
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val visibleMessages by viewModel.visibleMessages.collectAsState()
     val filterCounts by viewModel.filterCounts.collectAsState()
+    val hideUnknown by viewModel.hideUnknown.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val selectionMode by viewModel.selectionMode.collectAsState()
@@ -179,6 +198,19 @@ fun MessagesScreen(
         } else {
             viewModel.setFilter(MessageFilter.MESSAGES)
         }
+    }
+
+    val prefs = context.container.userPreferences
+    val showScamWaves by prefs.showScamWavesTab.collectAsState(initial = false)
+    // "Help improve detection" off: flagged rows swipe to Block only.
+    val shareReports by context.container.shareReports
+        .collectAsState()
+    CoachTourLauncher(mainTour(showScamWaves, hideUnknown, shareReports), enabled = tabActive && !isLoading)
+    val coachStep = LocalCoachMarks.current?.currentTarget
+    LaunchedEffect(coachStep) {
+        if (coachStep == null) return@LaunchedEffect
+        if (selectionMode) viewModel.exitSelectionMode()
+        coachFilterFor(coachStep)?.let { viewModel.setFilter(it) }
     }
 
     Column(
@@ -246,7 +278,7 @@ fun MessagesScreen(
                 SearchPill(
                     value = searchQuery,
                     onValueChange = { viewModel.updateSearchQuery(it) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).coachTarget(CoachIds.SEARCH),
                 )
                 Spacer(Modifier.width(4.dp))
                 GlassIconButton(
@@ -260,6 +292,7 @@ fun MessagesScreen(
             FilterChipsRow(
                 selected = selectedFilter,
                 counts = filterCounts,
+                hideUnknown = hideUnknown,
                 onSelect = { viewModel.setFilter(it) },
             )
             if (selectedFilter == MessageFilter.RECENTLY_DELETED) {
@@ -285,118 +318,146 @@ fun MessagesScreen(
         run {
             val tabMessages = visibleMessages
             val listState = rememberSaveable(selectedFilter, saver = LazyListState.Saver) { LazyListState() }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = innerPadding,
-            ) {
-                if (!readSmsPermission.status.isGranted && smsPermissionAsked) {
-                    item {
-                        StateMessage(
-                            modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
-                            icon = Icons.Outlined.Sms,
-                            title = stringResource(R.string.messages_permission_title),
-                            detail = stringResource(R.string.messages_permission_detail),
-                            // Once Android stops showing the prompt ("Don't ask
-                            // again"), only the app's settings page can grant it.
-                            actionLabel =
-                                stringResource(
+            SwipeGroupScope(scrolling = listState.isScrollInProgress) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = innerPadding,
+                ) {
+                    if (!readSmsPermission.status.isGranted && smsPermissionAsked) {
+                        item {
+                            StateMessage(
+                                modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                                icon = Icons.Outlined.Sms,
+                                title = stringResource(R.string.messages_permission_title),
+                                detail = stringResource(R.string.messages_permission_detail),
+                                // Once Android stops showing the prompt ("Don't ask
+                                // again"), only the app's settings page can grant it.
+                                actionLabel =
+                                    stringResource(
+                                        if (readSmsPermission.status.shouldShowRationale) {
+                                            R.string.messages_permission_allow
+                                        } else {
+                                            R.string.action_open_settings
+                                        },
+                                    ),
+                                onAction = {
                                     if (readSmsPermission.status.shouldShowRationale) {
-                                        R.string.messages_permission_allow
+                                        readSmsPermission.launchPermissionRequest()
                                     } else {
-                                        R.string.action_open_settings
-                                    },
-                                ),
-                            onAction = {
-                                if (readSmsPermission.status.shouldShowRationale) {
-                                    readSmsPermission.launchPermissionRequest()
-                                } else {
-                                    openAppSettings(context)
+                                        openAppSettings(context)
+                                    }
+                                },
+                            )
+                        }
+                    } else if (isLoading) {
+                        item { ListSkeleton(rows = 6) }
+                    } else if (errorMessage != null) {
+                        item {
+                            StateMessage(
+                                modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                                icon = Icons.Outlined.CloudOff,
+                                title = stringResource(R.string.messages_load_failed),
+                                detail = errorMessage,
+                                actionLabel = stringResource(R.string.action_retry),
+                                onAction = { viewModel.loadMessages() },
+                            )
+                        }
+                    } else if (tabMessages.isEmpty()) {
+                        item {
+                            val (title, detail) = selectedFilter.emptyState(searching = searchQuery.isNotEmpty())
+                            StateMessage(
+                                modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                                icon = if (searchQuery.isNotEmpty()) Icons.Filled.Search else Icons.Outlined.Inbox,
+                                title = stringResource(title),
+                                detail = stringResource(detail),
+                            )
+                        }
+                    } else {
+                        val isDraftsFilter = selectedFilter == MessageFilter.DRAFTS
+                        // Stable keys: a new message or a read receipt updates its own
+                        // row instead of recomposing every row below it.
+                        items(tabMessages, key = { "${it.sender}|${it.id}" }, contentType = { "conversation" }) { msg ->
+                            val draftPrefix = stringResource(R.string.messages_draft_prefix)
+                            val unreadSummaryPrefix = stringResource(R.string.messages_unread_summary_prefix)
+                            // Remembered per row: building it runs the link/spoof regexes
+                            // and date formatting, which used to repeat for every row on
+                            // every recomposition (each filter switch, each new message).
+                            val item =
+                                remember(msg, isDraftsFilter) {
+                                    msg.toDisplayItem(
+                                        context = context,
+                                        isDraft = isDraftsFilter,
+                                        draftPrefix = draftPrefix,
+                                        unreadSummaryPrefix = unreadSummaryPrefix,
+                                    )
                                 }
-                            },
-                        )
-                    }
-                } else if (isLoading) {
-                    item { ListSkeleton(rows = 6) }
-                } else if (errorMessage != null) {
-                    item {
-                        StateMessage(
-                            modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
-                            icon = Icons.Outlined.CloudOff,
-                            title = stringResource(R.string.messages_load_failed),
-                            detail = errorMessage,
-                            actionLabel = stringResource(R.string.action_retry),
-                            onAction = { viewModel.loadMessages() },
-                        )
-                    }
-                } else if (tabMessages.isEmpty()) {
-                    item {
-                        val (title, detail) = selectedFilter.emptyState(searching = searchQuery.isNotEmpty())
-                        StateMessage(
-                            modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
-                            icon = if (searchQuery.isNotEmpty()) Icons.Filled.Search else Icons.Outlined.Inbox,
-                            title = stringResource(title),
-                            detail = stringResource(detail),
-                        )
-                    }
-                } else {
-                    val isDraftsFilter = selectedFilter == MessageFilter.DRAFTS
-                    // Stable keys: a new message or a read receipt updates its own
-                    // row instead of recomposing every row below it.
-                    items(tabMessages, key = { "${it.sender}|${it.id}" }, contentType = { "conversation" }) { msg ->
-                        val draftPrefix = stringResource(R.string.messages_draft_prefix)
-                        val unreadSummaryPrefix = stringResource(R.string.messages_unread_summary_prefix)
-                        // Remembered per row: building it runs the link/spoof regexes
-                        // and date formatting, which used to repeat for every row on
-                        // every recomposition (each filter switch, each new message).
-                        val item =
-                            remember(msg, isDraftsFilter) {
-                                msg.toDisplayItem(
-                                    context = context,
-                                    isDraft = isDraftsFilter,
-                                    draftPrefix = draftPrefix,
-                                    unreadSummaryPrefix = unreadSummaryPrefix,
+                            // Flagged threads (Spam, Unknown) swipe left to Report or
+                            // Block, like a To Review alert; real messages don't. A group
+                            // can't be blocked (the thread screen forbids it too).
+                            val canBlockThread = !TrustedSenders.isBuiltIn(msg.sender) && !isGroupKey(msg.sender)
+                            SwipeActionsRow(
+                                key = msg.id,
+                                enabled =
+                                    !selectionMode && selectedFilter in SWIPEABLE_FILTERS && !msg.isOutgoing,
+                                action = swipeActionFor(canBlock = canBlockThread, reportsOn = shareReports),
+                                background = Black,
+                                onAction = { action ->
+                                    if (!navController.isResumed()) return@SwipeActionsRow
+                                    navController.navigate(
+                                        Screen.TakeAction.createRoute(
+                                            sender = msg.sender,
+                                            localId = msg.id.takeIf { it > 0 },
+                                            action = action,
+                                            canBlock = canBlockThread,
+                                        ),
+                                    )
+                                },
+                            ) {
+                                MessageListRow(
+                                    item = item,
+                                    selectionMode = selectionMode,
+                                    isSelected = msg.id in selectedIds,
+                                    onClick = {
+                                        when {
+                                            selectionMode -> viewModel.toggleSelected(msg.id)
+                                            // Resume editing instead of opening a conversation —
+                                            // a draft may not even have any real messages yet.
+                                            isDraftsFilter ->
+                                                navController.navigate(
+                                                    Screen.Compose.createRoute(recipient = msg.sender, body = msg.body),
+                                                )
+                                            // A row whose latest message is the user's own is a
+                                            // conversation they're part of: open all of it, or a
+                                            // friend's replies filed as Unknown would be missing.
+                                            msg.isOutgoing ->
+                                                navController.navigate(
+                                                    Screen.Detail.createRoute(msg.sender, ConversationView.ALL),
+                                                )
+                                            else ->
+                                                navController.navigate(
+                                                    Screen.Detail.createRoute(
+                                                        msg.sender,
+                                                        conversationViewFor(selectedFilter),
+                                                    ),
+                                                )
+                                        }
+                                    },
+                                    onLongClick = {
+                                        // Drafts aren't real provider rows, so the delete/restore
+                                        // selection flow (built around real message ids) doesn't
+                                        // apply — discard a draft by opening and clearing it instead.
+                                        if (!selectionMode && !isDraftsFilter) viewModel.enterSelectionMode(msg.id)
+                                    },
                                 )
                             }
-                        MessageListRow(
-                            item = item,
-                            selectionMode = selectionMode,
-                            isSelected = msg.id in selectedIds,
-                            onClick = {
-                                when {
-                                    selectionMode -> viewModel.toggleSelected(msg.id)
-                                    // Resume editing instead of opening a conversation —
-                                    // a draft may not even have any real messages yet.
-                                    isDraftsFilter ->
-                                        navController.navigate(
-                                            Screen.Compose.createRoute(recipient = msg.sender, body = msg.body),
-                                        )
-                                    // A row whose latest message is the user's own is a
-                                    // conversation they're part of: open all of it, or a
-                                    // friend's replies filed as Unknown would be missing.
-                                    msg.isOutgoing ->
-                                        navController.navigate(
-                                            Screen.Detail.createRoute(msg.sender, ConversationView.ALL),
-                                        )
-                                    else ->
-                                        navController.navigate(
-                                            Screen.Detail.createRoute(msg.sender, conversationViewFor(selectedFilter)),
-                                        )
-                                }
-                            },
-                            onLongClick = {
-                                // Drafts aren't real provider rows, so the delete/restore
-                                // selection flow (built around real message ids) doesn't
-                                // apply — discard a draft by opening and clearing it instead.
-                                if (!selectionMode && !isDraftsFilter) viewModel.enterSelectionMode(msg.id)
-                            },
-                        )
-                        HorizontalDivider(
-                            color = Hairline,
-                            thickness = 0.5.dp,
-                            // Aligned with the text column (gutter + avatar + gap), as in iOS.
-                            modifier = Modifier.padding(start = 80.dp),
-                        )
+                            HorizontalDivider(
+                                color = Hairline,
+                                thickness = 0.5.dp,
+                                // Aligned with the text column (gutter + avatar + gap), as in iOS.
+                                modifier = Modifier.padding(start = 80.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -578,7 +639,7 @@ private fun SearchPill(
         modifier =
             modifier
                 .height(38.dp)
-                .background(SurfaceElevated, RoundedCornerShape(12.dp))
+                .background(SurfaceElevated, BantaiShapes.Small)
                 .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -604,8 +665,24 @@ private fun SearchPill(
                 modifier = Modifier.fillMaxWidth().semantics { contentDescription = searchLabel },
             )
         }
+        if (value.isNotEmpty()) {
+            Icon(
+                Icons.Filled.Cancel,
+                contentDescription = stringResource(R.string.action_clear_search),
+                tint = TextTertiary,
+                modifier =
+                    Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .clickable { onValueChange("") }
+                        .padding(5.dp),
+            )
+        }
     }
 }
+
+// Spam and Unknown hold the flagged threads; only those swipe to Report/Block.
+private val SWIPEABLE_FILTERS = setOf(MessageFilter.SPAM, MessageFilter.UNKNOWN)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -643,7 +720,13 @@ private fun MessageListRow(
                 modifier = Modifier.size(44.dp).padding(10.dp),
             )
         } else {
-            SenderAvatar(sender = item.sender, size = 44.dp)
+            // The review sign sits on the avatar's corner, so it lines up on
+            // every row -- next to the time it shifted with each time's width
+            // ("4:47 pm" vs "Yesterday") and the column looked like a wave.
+            Box {
+                SenderAvatar(sender = item.sender, size = 44.dp)
+                ReviewBadge(item.badge, Modifier.align(Alignment.BottomEnd))
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -654,33 +737,13 @@ private fun MessageListRow(
                 Text(
                     item.title,
                     color = White,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = if (item.isRead) FontWeight.SemiBold else FontWeight.Bold,
                     fontSize = TextSize.Body,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                // Only messages that need a second look get a marker; a "Safe"
-                // label on every row was noise. A trusted sender name gets one
-                // too: the name can be faked or the real account hacked.
-                val needsReview = item.badge == BadgeType.BLOCKED || item.badge == BadgeType.UNKNOWN
-                if (needsReview) {
-                    Icon(
-                        Icons.Outlined.WarningAmber,
-                        contentDescription =
-                            stringResource(
-                                if (item.badge == BadgeType.BLOCKED) {
-                                    R.string.verdict_likely_scam
-                                } else {
-                                    R.string.verdict_suspicious
-                                },
-                            ),
-                        tint = if (item.badge == BadgeType.BLOCKED) Danger else Suspicious,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                }
                 Text(
                     item.timestamp,
                     color = TextSecondary,
@@ -698,7 +761,8 @@ private fun MessageListRow(
                 item.preview,
                 color = TextSecondary,
                 fontSize = TextSize.Subhead,
-                maxLines = 1,
+                lineHeight = 19.sp,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -712,44 +776,50 @@ private fun MessageListRow(
 private fun FilterChipsRow(
     selected: MessageFilter,
     counts: Map<MessageFilter, Int>,
+    hideUnknown: Boolean,
     onSelect: (MessageFilter) -> Unit,
 ) {
     val filters =
         buildList {
             add(MessageFilter.MESSAGES)
             add(MessageFilter.SPAM)
-            add(MessageFilter.UNKNOWN)
+            if (!hideUnknown) add(MessageFilter.UNKNOWN)
             add(MessageFilter.UNREAD)
             if ((counts[MessageFilter.DRAFTS] ?: 0) > 0 || selected == MessageFilter.DRAFTS) add(MessageFilter.DRAFTS)
             add(MessageFilter.RECENTLY_DELETED)
         }
+    // The chosen pill is scrolled into view, so a filter picked off to the
+    // right (Deleted) or by the walkthrough is never hidden past the edge.
+    val rowState = rememberLazyListState()
+    LaunchedEffect(selected, filters.size) {
+        val index = filters.indexOf(selected)
+        if (index >= 0) rowState.animateScrollToItem(if (index <= 1) 0 else index - 1)
+    }
     LazyRow(
+        state = rowState,
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(filters) { filter ->
-            val isSelected = filter == selected
-            val label = stringResource(filter.chipRes())
-            Box(
-                modifier =
-                    Modifier
-                        .heightIn(min = 36.dp)
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(if (isSelected) Indigo else SurfaceElevated)
-                        .clickable { onSelect(filter) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    label,
-                    color = if (isSelected) OnIndigo else White,
-                    fontSize = TextSize.Subhead,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                )
-            }
+            // Same pill as Alerts' To review / Reported / Blocked, no counts. The
+            // spotlight target sits on the whole pill, padding included.
+            FilterPill(
+                label = stringResource(filter.chipRes()),
+                selected = filter == selected,
+                onClick = { onSelect(filter) },
+                modifier = Modifier.coachTarget(filter.coachId()),
+            )
         }
     }
 }
+
+private fun MessageFilter.coachId(): String =
+    when (this) {
+        MessageFilter.MESSAGES -> CoachIds.FILTER_ALL
+        MessageFilter.SPAM -> CoachIds.FILTER_SPAM
+        MessageFilter.UNKNOWN -> CoachIds.FILTER_UNKNOWN
+        else -> "filter_${name.lowercase()}"
+    }
 
 private fun MessageFilter.titleRes(): Int =
     when (this) {
@@ -818,8 +888,7 @@ private fun SmsWriteBlockedBanner() {
             Modifier
                 .padding(start = 16.dp, end = 16.dp, top = 10.dp)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Suspicious.copy(alpha = 0.12f))
+                .glassSurface()
                 .clickable { runCatching { context.startActivity(SmsWriteAccess.fixIntent()) } }
                 .padding(14.dp),
     ) {
@@ -840,6 +909,110 @@ private fun SmsWriteBlockedBanner() {
             fontWeight = FontWeight.SemiBold,
             fontSize = TextSize.Footnote,
             modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+private const val MESSAGES_TAB = 0
+private const val ALERTS_TAB = 1
+private const val WAVES_TAB = 2
+private const val SETTINGS_TAB = 3
+
+// First-run walkthrough: what each inbox filter holds, search, then on into
+// Alerts, Scam Waves (only when that tab is on) and Settings -- the tour opens
+// each tab itself. Steps for things the user hid drop out.
+private fun mainTour(
+    showScamWaves: Boolean,
+    hideUnknown: Boolean,
+    shareReports: Boolean,
+): CoachTour {
+    val steps =
+        buildList {
+            add(step(CoachIds.FILTER_ALL, R.string.coach_all_title, R.string.coach_all_body))
+            add(step(CoachIds.FILTER_SPAM, R.string.coach_spam_title, R.string.coach_spam_body))
+            if (!hideUnknown) {
+                add(step(CoachIds.FILTER_UNKNOWN, R.string.coach_unknown_title, R.string.coach_unknown_body))
+            }
+            add(step(CoachIds.SEARCH, R.string.coach_search_title, R.string.coach_search_body))
+            add(step(CoachIds.TAB_ALERTS, R.string.coach_alerts_tab_title, R.string.coach_alerts_tab_body))
+            // With reports off there's no Reported page, and the swipe only blocks.
+            val tabsBody =
+                if (shareReports) R.string.coach_alert_tabs_body else R.string.coach_alert_tabs_body_no_reports
+            add(step(CoachIds.ALERT_TABS, R.string.coach_alert_tabs_title, tabsBody, ALERTS_TAB))
+            add(
+                step(
+                    CoachIds.ALERT_FIRST_ROW,
+                    R.string.coach_alert_swipe_title,
+                    if (shareReports) R.string.coach_alert_swipe_body else R.string.coach_alert_swipe_body_block,
+                    ALERTS_TAB,
+                ),
+            )
+            if (showScamWaves) {
+                add(step(CoachIds.WAVES_TITLE, R.string.coach_waves_title, R.string.coach_waves_body, WAVES_TAB))
+                add(
+                    step(
+                        CoachIds.WAVES_CHIPS,
+                        R.string.coach_waves_chips_title,
+                        R.string.coach_waves_chips_body,
+                        WAVES_TAB,
+                    ),
+                )
+            }
+            addAll(SETTINGS_STEPS)
+        }
+    return CoachTour(key = "main_v2", steps = steps)
+}
+
+// The tour's last stops, in Settings: the switches a user is likeliest to want,
+// then help. The Scam Waves and Unknown rows are there whether those tabs are
+// on or off, so these steps also say where to bring back whatever was hidden.
+private val SETTINGS_STEPS =
+    listOf(
+        CoachIds.SETTINGS_TITLE to (R.string.coach_settings_title to R.string.coach_settings_body),
+        CoachIds.SETTINGS_WAVES to (R.string.coach_settings_waves_title to R.string.coach_settings_waves_body),
+        CoachIds.SETTINGS_UNKNOWN to (R.string.coach_settings_unknown_title to R.string.coach_settings_unknown_body),
+        CoachIds.SETTINGS_TIPS to (R.string.coach_settings_tips_title to R.string.coach_settings_tips_body),
+        CoachIds.SETTINGS_SUPPORT to (R.string.coach_settings_support_title to R.string.coach_settings_support_body),
+        CoachIds.SETTINGS_SHARE_REPORTS to (R.string.coach_settings_share_title to R.string.coach_settings_share_body),
+    ).map { (target, text) -> step(target, text.first, text.second, SETTINGS_TAB) }
+
+// Main-tour steps live on Messages unless they name another tab.
+private fun step(
+    target: String,
+    title: Int,
+    body: Int,
+    tab: Int = MESSAGES_TAB,
+) = CoachStep(target, title, body, tab)
+
+// Which inbox page a walkthrough step shows; null leaves the page alone.
+private fun coachFilterFor(step: String): MessageFilter? =
+    when (step) {
+        CoachIds.FILTER_ALL, CoachIds.SEARCH, CoachIds.TAB_ALERTS -> MessageFilter.MESSAGES
+        CoachIds.FILTER_SPAM -> MessageFilter.SPAM
+        CoachIds.FILTER_UNKNOWN -> MessageFilter.UNKNOWN
+        else -> null
+    }
+
+// Only messages that need a second look get a marker; a "Safe" label on every
+// row was noise. A trusted sender name gets one too: the name can be faked or
+// the real account hacked. Drawn as a small badge on the avatar's corner.
+@Composable
+private fun ReviewBadge(
+    badge: BadgeType,
+    modifier: Modifier = Modifier,
+) {
+    if (badge != BadgeType.BLOCKED && badge != BadgeType.UNKNOWN) return
+    val scam = badge == BadgeType.BLOCKED
+    Box(
+        modifier = modifier.offset(x = 3.dp, y = 3.dp).size(20.dp).background(Black, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Outlined.WarningAmber,
+            contentDescription =
+                stringResource(if (scam) R.string.verdict_likely_scam else R.string.verdict_suspicious),
+            tint = if (scam) Danger else Suspicious,
+            modifier = Modifier.size(15.dp),
         )
     }
 }

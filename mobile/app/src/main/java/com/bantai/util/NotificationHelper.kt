@@ -5,9 +5,12 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -29,6 +32,7 @@ object NotificationHelper {
     const val EXTRA_NAVIGATE_TO = "navigate_to"
     const val TARGET_ALERTS = "alerts"
     const val TARGET_MESSAGES = "messages"
+    const val TARGET_DAILY_SUMMARY = "daily_summary"
 
     /** Safety tip to open from its notification, and (for a campaign tip) the wave it belongs to. */
     const val EXTRA_TIP_ID = "tip_id"
@@ -41,12 +45,16 @@ object NotificationHelper {
      * Tints the notification icon backdrop in the shade: the middle of the app
      * icon's gradient (#6366F1 -> #4338CA), so it reads as the same indigo.
      */
-    private val BRAND_INDIGO = 0xFF534FDE.toInt()
+    internal val BRAND_INDIGO = 0xFF534FDE.toInt()
 
-    private const val SMISHING_CHANNEL_ID = "bantai_smishing"
+    // "_v2" since 1.7: each now has its own sound, and Android never lets an
+    // existing channel change its sound, so these are new channels and the
+    // old ids are deleted (see LEGACY_CHANNEL_IDS).
+    private const val SMISHING_CHANNEL_ID = "bantai_smishing_v2"
     private const val SUSPICIOUS_CHANNEL_ID = "bantai_suspicious"
-    private const val SPAM_CHANNEL_ID = "bantai_spam"
-    private const val MESSAGE_CHANNEL_ID = "bantai_messages"
+    private const val SPAM_CHANNEL_ID = "bantai_spam_v2"
+    private const val MESSAGE_CHANNEL_ID = "bantai_messages_v2"
+    private val LEGACY_CHANNEL_IDS = listOf("bantai_smishing", "bantai_spam", "bantai_messages")
     private const val SEND_STATUS_CHANNEL_ID = "bantai_send_status"
     private const val SMISHING_CHANNEL_NAME = "Smishing Alerts"
     private const val SUSPICIOUS_CHANNEL_NAME = "Suspicious Alerts"
@@ -92,7 +100,7 @@ object NotificationHelper {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun notifySafely(
+    internal fun notifySafely(
         context: Context,
         notifId: Int,
         notification: Notification,
@@ -108,6 +116,7 @@ object NotificationHelper {
     // this app can run on, so no SDK_INT guard is needed here.
     fun createNotificationChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        LEGACY_CHANNEL_IDS.forEach { runCatching { manager.deleteNotificationChannel(it) } }
 
         val smishingChannel =
             NotificationChannel(
@@ -117,6 +126,7 @@ object NotificationHelper {
             ).apply {
                 description = "Alerts for detected smishing messages"
                 enableVibration(true)
+                setSound(soundUri(context, "alert_scam"), NOTIFICATION_AUDIO)
             }
 
         val suspiciousChannel =
@@ -132,9 +142,11 @@ object NotificationHelper {
             NotificationChannel(
                 SPAM_CHANNEL_ID,
                 SPAM_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW,
+                // DEFAULT, not LOW: LOW never plays a sound, and spam now has its own.
+                NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 description = "Unsolicited promotional or marketing messages"
+                setSound(soundUri(context, "alert_spam"), NOTIFICATION_AUDIO)
             }
 
         val messageChannel =
@@ -144,6 +156,7 @@ object NotificationHelper {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "Ordinary incoming SMS — BantAI acting as your default messaging app"
+                setSound(soundUri(context, "alert_message"), NOTIFICATION_AUDIO)
             }
 
         val sendStatusChannel =
@@ -160,13 +173,32 @@ object NotificationHelper {
         manager.createNotificationChannel(spamChannel)
         manager.createNotificationChannel(messageChannel)
         manager.createNotificationChannel(sendStatusChannel)
+        createTipsChannel(manager)
+        createReportsChannel(manager)
+        SummaryNotification.createChannel(manager)
+    }
+
+    private fun createTipsChannel(manager: NotificationManager) {
         manager.createNotificationChannel(
             NotificationChannel(TIPS_CHANNEL_ID, TIPS_CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "New scam warnings and safety tips from the BantAI team"
             },
         )
-        createReportsChannel(manager)
     }
+
+    private val NOTIFICATION_AUDIO: AudioAttributes =
+        AudioAttributes
+            .Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+    // By name, not numeric id: Android stores this URI in the channel for good,
+    // and an id can shift in a later build. res/raw/keep.xml keeps the files.
+    private fun soundUri(
+        context: Context,
+        rawName: String,
+    ): Uri = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/raw/$rawName")
 
     private fun createReportsChannel(manager: NotificationManager) {
         manager.createNotificationChannel(
@@ -190,11 +222,15 @@ object NotificationHelper {
         )
     }
 
-    /** The BantAI team reviewed one of the user's reports ([key] = its message id). */
+    /**
+     * The BantAI team reviewed one of the user's reports ([key] = its message id).
+     * [unblocked]: a rejected Scam report whose auto-block was just lifted.
+     */
     fun sendReportReviewed(
         context: Context,
         key: String,
         accepted: Boolean,
+        unblocked: String? = null,
     ) {
         val (title, body) =
             if (accepted) {
@@ -202,8 +238,11 @@ object NotificationHelper {
             } else {
                 R.string.report_notif_rejected_title to R.string.report_notif_rejected_body
             }
+        val text =
+            unblocked?.let { context.getString(R.string.report_notif_rejected_unblocked_body, it) }
+                ?: context.getString(body)
         val notifId = ("report:$key").hashCode() and Int.MAX_VALUE
-        sendReportNotification(context, notifId, context.getString(title), context.getString(body))
+        sendReportNotification(context, notifId, context.getString(title), text)
     }
 
     // Tapping opens Alerts, where Reported shows each report's status.

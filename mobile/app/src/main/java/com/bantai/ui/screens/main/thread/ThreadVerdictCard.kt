@@ -3,7 +3,6 @@
 package com.bantai.ui.screens.main.thread
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,14 +42,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bantai.R
-import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.IosBlue
-import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
+import com.bantai.ui.theme.glassSurface
 
 /** One tappable word in a [ThreadVerdictCard]'s action row. */
 internal data class VerdictAction(
@@ -79,15 +77,15 @@ internal fun ThreadVerdictCard(
     icon: ImageVector = Icons.Outlined.WarningAmber,
     // Shows an X that hides the card; for status-only cards like the cloud check.
     onDismiss: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable(detail) { mutableStateOf(false) }
     Column(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Surface)
+                .glassSurface()
                 .animateContentSize(),
     ) {
         Row(
@@ -171,9 +169,11 @@ internal fun UnknownVerdictBanner(
     busy: Boolean,
     onRealMessage: () -> Unit,
     onSpam: () -> Unit,
-    onReportScam: () -> Unit,
+    onReportScam: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     ThreadVerdictCard(
+        modifier = modifier,
         headline = if (busy) stringResource(R.string.thread_flag_sending) else headline,
         detail = detail,
         tint = Suspicious,
@@ -182,8 +182,10 @@ internal fun UnknownVerdictBanner(
             listOf(
                 VerdictAction(stringResource(R.string.thread_flag_real), IosBlue, onRealMessage),
                 VerdictAction(stringResource(R.string.thread_flag_spam), IosBlue, onSpam),
-                VerdictAction(stringResource(R.string.thread_flag_report_scam), Danger, onReportScam),
-            ),
+            ) +
+                listOfNotNull(
+                    onReportScam?.let { VerdictAction(stringResource(R.string.thread_flag_report_scam), IosBlue, it) },
+                ),
     )
 }
 

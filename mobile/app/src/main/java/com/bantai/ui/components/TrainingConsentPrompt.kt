@@ -30,8 +30,11 @@ fun TrainingConsentPrompt(settingsViewModel: SettingsViewModel) {
     val context = LocalContext.current
     val signedIn = userData.authToken.isNotEmpty()
 
-    LaunchedEffect(signedIn, userData.trainingConsentAsked) {
-        if (signedIn && !userData.trainingConsentAsked) settingsViewModel.loadTrainingOptIn()
+    // Read on every sign-in, not only while unanswered: the choice also turns
+    // reports on or off on this phone, so a change made on another phone has
+    // to reach it.
+    LaunchedEffect(signedIn) {
+        if (signedIn) settingsViewModel.loadTrainingOptIn()
     }
     // Already opted in (e.g. on another phone): nothing to ask.
     LaunchedEffect(optedIn, userData.trainingConsentAsked) {

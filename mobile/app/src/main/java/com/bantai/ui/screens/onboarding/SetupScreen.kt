@@ -13,12 +13,18 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +54,7 @@ import com.bantai.ui.components.BantAILogo
 import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
@@ -90,7 +98,7 @@ private data class SortProgress(
 @Composable
 fun SetupScreen(onDone: () -> Unit) {
     val progress = rememberSortProgress()
-    val pager = rememberPagerState { tutorialCards.size }
+    val pager = rememberPagerState { tutorialCards.size + 1 }
     val scope = rememberCoroutineScope()
 
     Column(
@@ -107,7 +115,7 @@ fun SetupScreen(onDone: () -> Unit) {
         TutorialPager(pager, Modifier.weight(1f))
         when {
             progress.ready -> PrimaryButton(text = stringResource(R.string.setup_open), onClick = onDone)
-            pager.currentPage < tutorialCards.lastIndex ->
+            pager.currentPage < tutorialCards.size ->
                 PrimaryButton(
                     text = stringResource(R.string.setup_next_tip),
                     onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
@@ -242,24 +250,32 @@ private fun TutorialPager(
     modifier: Modifier,
 ) {
     HorizontalPager(state = pager, modifier = modifier.fillMaxWidth()) { page ->
-        val (title, body) = tutorialCards[page]
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(Surface, RoundedCornerShape(16.dp))
-                    .padding(20.dp),
-        ) {
-            Text(stringResource(title), color = Indigo, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(body), color = White, fontSize = TextSize.Subhead, lineHeight = 21.sp)
+        // Each card scrolls inside its page, so nothing (the last card's
+        // switches) is cut off on a small screen or at a large font size.
+        Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            if (page == tutorialCards.size) {
+                SimplerAppCard()
+            } else {
+                val (title, body) = tutorialCards[page]
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Surface, RoundedCornerShape(16.dp))
+                            .padding(20.dp),
+                ) {
+                    Text(stringResource(title), color = Indigo, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(body), color = White, fontSize = TextSize.Subhead, lineHeight = 21.sp)
+                }
+            }
         }
     }
     Row(
         Modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
-        repeat(tutorialCards.size) { index ->
+        repeat(tutorialCards.size + 1) { index ->
             Box(
                 Modifier
                     .padding(horizontal = 4.dp)
@@ -277,3 +293,76 @@ private fun etaLabel(seconds: Int): String =
     } else {
         stringResource(R.string.setup_eta_minutes, (seconds + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE)
     }
+
+/**
+ * The last Setup card: a new user can keep the app to its three main things
+ * (Messages, Spam, Alerts) by hiding Unknown, and choose whether to show Scam
+ * Waves. Both stay changeable in Settings → Appearance.
+ */
+@Composable
+private fun SimplerAppCard() {
+    val prefs = LocalContext.current.container.userPreferences
+    val scope = rememberCoroutineScope()
+    val showWaves by prefs.showScamWavesTab.collectAsState(initial = false)
+    val hideUnknown by prefs.hideUnknown.collectAsState(initial = false)
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+    ) {
+        Text(
+            stringResource(R.string.setup_simpler_title),
+            color = Indigo,
+            fontWeight = FontWeight.Bold,
+            fontSize = TextSize.Body,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(R.string.setup_simpler_body),
+            color = White,
+            fontSize = TextSize.Subhead,
+            lineHeight = 21.sp,
+        )
+        Spacer(Modifier.height(14.dp))
+        SetupSwitch(
+            title = stringResource(R.string.setup_simpler_hide_unknown),
+            detail = stringResource(R.string.setup_simpler_hide_unknown_detail),
+            checked = !hideUnknown,
+            onChange = { scope.launch { prefs.saveHideUnknown(!it) } },
+        )
+        Spacer(Modifier.height(10.dp))
+        SetupSwitch(
+            title = stringResource(R.string.setup_simpler_show_waves),
+            detail = stringResource(R.string.setup_simpler_show_waves_detail),
+            checked = showWaves,
+            onChange = { scope.launch { prefs.saveShowScamWavesTab(it) } },
+        )
+    }
+}
+
+@Composable
+private fun SetupSwitch(
+    title: String,
+    detail: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = White, fontSize = TextSize.Body)
+            Text(detail, color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 17.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(checkedThumbColor = OnIndigo, checkedTrackColor = Indigo),
+        )
+    }
+}

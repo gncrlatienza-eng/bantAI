@@ -62,10 +62,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.container
 import com.bantai.data.MessageReports
+import com.bantai.data.local.ReportBlocks
 import com.bantai.data.model.Classification
 import com.bantai.data.model.SmsMessage
 import com.bantai.navigation.Screen
@@ -90,8 +92,9 @@ import kotlinx.coroutines.withContext
 private const val DISABLED_CARD_ALPHA = 0.4f
 
 // Each option is a concrete correction for the backend's SubmitReportDto
-// (Ham/Spam/Scam) -- reports feed AI retraining, so every choice has to name
-// the label the message should have had, including "this is legit".
+// (Ham/Spam/Scam) -- a validated report can become training data (unless the
+// user turned off "Help improve detection"), so every choice has to name the
+// label the message should have had, including "this is legit".
 private data class ReportOption(
     @StringRes val title: Int,
     val reportedLabel: String,
@@ -113,6 +116,10 @@ private class NotDefaultSmsAppException : Exception("Set BantAI as your default 
 /** TakeAction `action` value for the one-tap "Report as scam" shortcut. */
 const val PRESELECT_REPORT_SCAM = "report_scam"
 
+// The alert's "Report & block": Report with Scam picked (so Block follows),
+// but the page stays open so its explanation can be read first.
+const val PRESELECT_REPORT_BLOCK = "report_block"
+
 private data class TakeActionRequest(
     val reportSelected: Boolean,
     val blockSelected: Boolean,
@@ -121,6 +128,9 @@ private data class TakeActionRequest(
     val sender: String,
     val reportedLabel: String?,
     val notes: String = "",
+    // The block comes only from the Scam report's auto-block (the user didn't
+    // pick Block): lifted again if the BantAI team rejects the report.
+    val blockedByReport: Boolean = false,
     // Several messages from the thread, selected and reported together. Each
     // is its own report; they share one groupId so they're listed as one.
     val localMessageIds: List<Long> = emptyList(),
@@ -195,6 +205,13 @@ private suspend fun performTakeAction(
 ): Result<Unit> {
     val blockResult = blockIfSelected(context, request)
     if (blockResult.isFailure) return blockResult
+    if (request.blockSelected) {
+        if (request.blockedByReport) {
+            ReportBlocks.mark(context, request.sender)
+        } else {
+            ReportBlocks.forget(context, request.sender)
+        }
+    }
     return submitReportIfSelected(context, request)
 }
 
@@ -227,7 +244,12 @@ fun TakeActionScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val canReport = messageId.isNotBlank() || localMessageId != null || localMessageIds.isNotEmpty()
+    // "Help improve detection" off: no report can be filed, so a Report entry
+    // point that still got here (an old link, a race) lands on Block instead.
+    val shareReports = remember { context.container.shareReports.value }
+    val preselected = if (shareReports || preselect.isBlank()) preselect else "block"
+    val canReport =
+        shareReports && (messageId.isNotBlank() || localMessageId != null || localMessageIds.isNotEmpty())
     // The exact bubbles being reported, shown at the top so it's never a guess.
     val previewIds = localMessageIds.ifEmpty { listOfNotNull(localMessageId) }
     var preview by remember { mutableStateOf<List<SmsMessage>>(emptyList()) }
@@ -242,16 +264,19 @@ fun TakeActionScreen(
     val reportOptions = remember(currentLabel) { reportOptionsFor(currentLabel) }
     // "report_scam" is the one-tap shortcut: Report with "Scam" already chosen,
     // straight to the confirmation.
-    val quickScamReport = preselect == PRESELECT_REPORT_SCAM
-    var reportSelected by remember { mutableStateOf(canReport && (preselect == "report" || quickScamReport)) }
+    val quickScamReport = preselected == PRESELECT_REPORT_SCAM
+    val scamPicked = quickScamReport || preselected == PRESELECT_REPORT_BLOCK
+    var reportSelected by remember {
+        mutableStateOf(canReport && (preselected == "report" || scamPicked))
+    }
     // Block needs the default SMS app role; asked for up front (below) rather
     // than only discovered at Submit.
     var blockSelected by remember {
-        mutableStateOf(canBlock && preselect == "block" && BlockHelper.isDefaultSmsApp(context))
+        mutableStateOf(canBlock && preselected == "block" && BlockHelper.isDefaultSmsApp(context))
     }
     var selectedReportType by remember {
         mutableIntStateOf(
-            if (quickScamReport) reportOptions.indexOfFirst { it.reportedLabel == "Scam" }.coerceAtLeast(0) else 0,
+            if (scamPicked) reportOptions.indexOfFirst { it.reportedLabel == "Scam" }.coerceAtLeast(0) else 0,
         )
     }
     var notes by remember { mutableStateOf("") }
@@ -268,7 +293,7 @@ fun TakeActionScreen(
     var showDialog by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var showDefaultSmsPrompt by remember {
-        mutableStateOf(canBlock && preselect == "block" && !BlockHelper.isDefaultSmsApp(context))
+        mutableStateOf(canBlock && preselected == "block" && !BlockHelper.isDefaultSmsApp(context))
     }
     val defaultSmsLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -324,7 +349,10 @@ fun TakeActionScreen(
 
     fun proceedAfterConfirm() {
         showDialog = false
-        navController.navigate(Screen.ReportSent.createRoute(dialogType))
+        // Replaces this form, so Back from the confirmation can't resubmit it.
+        navController.navigate(Screen.ReportSent.createRoute(dialogType)) {
+            popUpTo(Screen.TakeAction.route) { inclusive = true }
+        }
     }
 
     if (showDialog && dialogType != "none") {
@@ -348,6 +376,7 @@ fun TakeActionScreen(
                                 sender = sender,
                                 reportedLabel = reportedLabel,
                                 notes = notes,
+                                blockedByReport = autoBlock && !blockSelected,
                                 localMessageIds = localMessageIds,
                             ),
                         )
@@ -374,6 +403,7 @@ fun TakeActionScreen(
 
     TakeActionContent(
         preview = preview,
+        reportsAllowed = shareReports,
         canReport = canReport,
         canBlock = canBlock,
         reportOptions = reportOptions,
@@ -395,14 +425,16 @@ fun TakeActionScreen(
         onSelectReportType = { selectedReportType = it },
         onNotesChange = { notes = it },
         onSubmit = { showDialog = true },
-        onBack = navController::popBackStack,
+        // Ignored once this screen is leaving, so a double tap can't pop past it.
+        onBack = dropUnlessResumed { navController.popBackStack() },
     )
 }
 
 @Composable
-@Suppress("LongMethod", "LongParameterList") // one flat list of hoisted state + callbacks
+@Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod") // one flat list of hoisted state + callbacks
 private fun TakeActionContent(
     preview: List<SmsMessage>,
+    reportsAllowed: Boolean,
     canReport: Boolean,
     canBlock: Boolean,
     reportOptions: List<ReportOption>,
@@ -473,24 +505,27 @@ private fun TakeActionContent(
             }
             SectionHeader(stringResource(R.string.take_action_choose_an_action))
             GroupCard {
-                ActionRow(
-                    icon = Icons.Outlined.ReportGmailerrorred,
-                    tint = Indigo,
-                    title = stringResource(R.string.message_detail_report_message),
-                    subtitle =
-                        stringResource(
-                            if (canReport) {
-                                R.string.take_action_report_subtitle
-                            } else {
-                                R.string.take_action_report_unavailable
-                            },
-                        ),
-                    selected = reportSelected,
-                    enabled = canReport,
-                    onClick = onToggleReport,
-                )
+                // With reports turned off in Settings, Block is the only action.
+                if (reportsAllowed) {
+                    ActionRow(
+                        icon = Icons.Outlined.ReportGmailerrorred,
+                        tint = Indigo,
+                        title = stringResource(R.string.message_detail_report_message),
+                        subtitle =
+                            stringResource(
+                                if (canReport) {
+                                    R.string.take_action_report_subtitle
+                                } else {
+                                    R.string.take_action_report_unavailable
+                                },
+                            ),
+                        selected = reportSelected,
+                        enabled = canReport,
+                        onClick = onToggleReport,
+                    )
+                }
                 if (canBlock) {
-                    RowDivider()
+                    if (reportsAllowed) RowDivider()
                     ActionRow(
                         icon = Icons.Outlined.Block,
                         tint = Danger,
@@ -513,6 +548,7 @@ private fun TakeActionContent(
             if (reportSelected) {
                 SectionHeader(stringResource(R.string.take_action_what_is_this_message))
                 ReportTypeSection(reportOptions, selectedReportType, onSelectReportType)
+                ScamReviewNote(show = autoBlock)
                 SectionHeader(stringResource(R.string.take_action_notes_optional))
                 NotesSection(notes, onNotesChange)
             }
@@ -823,5 +859,19 @@ private fun ConfirmationDialog(
                 Text(stringResource(R.string.action_cancel), color = TextSecondary)
             }
         },
+    )
+}
+
+// What a Scam report sets in motion -- the block, the team's review, and
+// where the message goes if they disagree -- so blocking isn't a surprise.
+@Composable
+private fun ScamReviewNote(show: Boolean) {
+    if (!show) return
+    Text(
+        stringResource(R.string.take_action_scam_review_note),
+        color = TextSecondary,
+        fontSize = TextSize.Footnote,
+        lineHeight = 18.sp,
+        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
     )
 }

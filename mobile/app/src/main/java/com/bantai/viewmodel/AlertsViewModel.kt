@@ -13,7 +13,9 @@ import com.bantai.data.local.AlertState
 import com.bantai.data.localAlertsOnly
 import com.bantai.data.model.AlertTab
 import com.bantai.data.model.ReportFilter
+import com.bantai.data.model.TODAY
 import com.bantai.data.model.unseenAlerts
+import com.bantai.data.model.visibleAlerts
 import com.bantai.data.model.withLocalReports
 import com.bantai.data.model.withReportList
 import com.bantai.data.remote.ReportsApi
@@ -77,13 +79,20 @@ class AlertsViewModel(
     val alertState: StateFlow<AlertState> =
         alertStateStore.state.stateIn(viewModelScope, SharingStarted.Eagerly, AlertState())
 
+    // Settings → Hide Unknown.
+    private val hideUnknown = application.container.userPreferences.hideUnknown
+
     /**
      * The alerts plus every report the user filed, with reports just filed
      * from this phone already applied.
      */
     val alerts: StateFlow<List<SmsApi.AlertSummary>> =
-        combine(_alerts, localAlerts, reportList, alertState) { alerts, local, reports, state ->
-            withLocalReports(withReportList(alerts + local, reports), state.reported)
+        combine(_alerts, localAlerts, reportList, alertState, hideUnknown) { alerts, local, reports, state, hidden ->
+            visibleAlerts(
+                withLocalReports(withReportList(alerts + local, reports), state.reported),
+                hideUnknown = hidden,
+                nowMillis = System.currentTimeMillis(),
+            )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _tab = MutableStateFlow(AlertTab.TO_REVIEW)
@@ -98,10 +107,19 @@ class AlertsViewModel(
         _reportFilter.value = filter
     }
 
+    // To Review / Blocked's Today / This Week / Earlier, kept like reportFilter.
+    private val _ageFilter = MutableStateFlow(TODAY)
+    val ageFilter: StateFlow<String> = _ageFilter.asStateFlow()
+
+    fun setAgeFilter(bucket: String) {
+        _ageFilter.value = bucket
+    }
+
     /** Alerts the user hasn't opened yet -- drives the Alerts tab's count. */
     val unseenCount: StateFlow<Int> =
-        combine(_alerts, localAlerts, alertState) { alerts, local, state ->
-            unseenAlerts(alerts + local, state.initialized, state.seen).size
+        combine(_alerts, localAlerts, alertState, hideUnknown) { alerts, local, state, hidden ->
+            val shown = visibleAlerts(alerts + local, hideUnknown = hidden, nowMillis = System.currentTimeMillis())
+            unseenAlerts(shown, state.initialized, state.seen).size
         }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     // Keeps alerts older than a polled first page (loaded by an earlier full

@@ -42,7 +42,11 @@ object SmsPrivacyMasker {
                 "(?:com|net|org|ph|io|co|xyz|info|tk|top|link|app)(?:/[^\\s<>()]*)?",
             RegexOption.IGNORE_CASE,
         )
-    private val email = Regex("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b")
+
+    // Starts only where an address can start (not mid-run) and takes the local
+    // part atomically: a long dotted text with no "@" used to be re-scanned from
+    // every word, ~0.7 s on a 30k-character message.
+    private val email = Regex("(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]++@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b")
 
     // Allows a single space or hyphen between digits (e.g. "0917 123 4567",
     // "+63-917-123-4567") in addition to the unbroken "09171234567" form --
@@ -93,6 +97,20 @@ object SmsPrivacyMasker {
     // ever sees what those left behind. Up to two spaces/hyphens between
     // digits, so a double-spaced "1234  567  890123" is still one run.
     private val genericDigitRun = Regex("(?<!\\w)\\d(?:[\\s-]{0,2}\\d){${MIN_GENERIC_DIGIT_RUN - 1},}(?!\\w)")
+
+    /**
+     * The identifying parts of a text (email, PH mobile number, codes,
+     * references, long digit runs), masked for showing on screen. Amounts and
+     * links are left to the caller: a scam's amount is useful to see, and
+     * links have their own placeholder (SmsLinkSafety).
+     */
+    fun maskIdentifiersForDisplay(text: String): String =
+        text
+            .replace(email, "[email hidden]")
+            .replace(phone, "[number hidden]")
+            .replace(otp) { match -> "${match.groupValues[1]}${match.groupValues[2]}[code hidden]" }
+            .replace(reference) { match -> "${match.groupValues[1]}${match.groupValues[2]}[number hidden]" }
+            .replace(genericDigitRun, "[number hidden]")
 
     fun maskForRemoteClassification(body: String): String =
         Normalizer

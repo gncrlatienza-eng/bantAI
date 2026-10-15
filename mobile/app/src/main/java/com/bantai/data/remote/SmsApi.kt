@@ -201,7 +201,11 @@ object SmsApi {
 
     internal fun parseAlerts(json: JSONArray): List<AlertSummary> {
         val count = json.length()
-        return List(count) { i -> parseAlert(json.getJSONObject(i)) }
+        // One malformed entry (e.g. a message deleted on the server) must not
+        // sink the whole list, or report polling retries forever.
+        return (0 until count).mapNotNull { i ->
+            json.optJSONObject(i)?.let { runCatching { parseAlert(it) }.getOrNull() }
+        }
     }
 
     private fun parseAlert(json: JSONObject): AlertSummary {

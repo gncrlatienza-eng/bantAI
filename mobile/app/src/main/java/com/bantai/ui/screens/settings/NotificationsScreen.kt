@@ -1,10 +1,15 @@
 package com.bantai.ui.screens.settings
 
 import android.Manifest
+import android.app.AlarmManager
+import android.app.TimePickerDialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,13 +58,16 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.data.DailySummaryScheduler
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
@@ -66,6 +75,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.SettingsViewModel
+import kotlinx.coroutines.launch
 
 /**
  * One page of notification toggles. Each switch maps to a real check in
@@ -96,7 +106,7 @@ fun NotificationsScreen(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
-                onClick = { navController.popBackStack() },
+                onClick = dropUnlessResumed { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
                 Icon(
@@ -188,6 +198,10 @@ fun NotificationsScreen(
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
+
+            item { SectionLabel(stringResource(R.string.summary_settings_section)) }
+
+            item { DailySummarySettings(viewModel) }
 
             item { SectionLabel(stringResource(R.string.notifications_messages_section)) }
 
@@ -356,4 +370,145 @@ private fun SectionLabel(text: String) {
         letterSpacing = 1.sp,
         modifier = Modifier.padding(top = 4.dp, start = 4.dp),
     )
+}
+
+// The evening recap: on/off, and the time it arrives (Android's own time picker).
+@Composable
+private fun DailySummarySettings(viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    val enabled by viewModel.dailySummaryEnabled.collectAsState()
+    val minute by viewModel.dailySummaryMinute.collectAsState()
+    val timeLabel =
+        remember(minute) {
+            DateFormat.getTimeFormat(context).format(
+                java.util.Calendar
+                    .getInstance()
+                    .apply {
+                        set(java.util.Calendar.HOUR_OF_DAY, minute / MINUTES_PER_HOUR)
+                        set(java.util.Calendar.MINUTE, minute % MINUTES_PER_HOUR)
+                    }.time,
+            )
+        }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Surface, RoundedCornerShape(16.dp)),
+    ) {
+        ToggleRow(
+            title = stringResource(R.string.summary_settings_toggle),
+            subtitle = stringResource(R.string.summary_settings_toggle_detail),
+            checked = enabled,
+            onCheckedChange = { viewModel.setDailySummary(it, minute) },
+        )
+        if (enabled) {
+            HorizontalDivider(color = BorderColor, thickness = 1.dp)
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            TimePickerDialog(
+                                context,
+                                { _, hour, min -> viewModel.setDailySummary(true, hour * MINUTES_PER_HOUR + min) },
+                                minute / MINUTES_PER_HOUR,
+                                minute % MINUTES_PER_HOUR,
+                                DateFormat.is24HourFormat(context),
+                            ).show()
+                        }.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.summary_settings_time),
+                    color = White,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = TextSize.Subhead,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(timeLabel, color = IosBlue, fontSize = TextSize.Subhead)
+            }
+            SummaryOnTimeRows()
+        }
+    }
+}
+
+private const val MINUTES_PER_HOUR = 60
+
+// Phone brands whose battery managers stop background apps unless allowed.
+private val STRICT_BATTERY_BRANDS =
+    setOf("huawei", "honor", "xiaomi", "redmi", "poco", "oppo", "realme", "vivo", "oneplus")
+
+/**
+ * What it takes for the recap to arrive on time with BantAI closed. On Android
+ * 14+ exact alarms are off until the user allows "Alarms & reminders" (without
+ * it the recap comes a few minutes late), and some brands' battery managers stop
+ * background apps altogether. Re-checked on every resume; once allowed, the row
+ * goes away and the alarm is re-armed exactly.
+ */
+@Composable
+private fun SummaryOnTimeRows() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var exactAllowed by remember { mutableStateOf(canExactAlarm(context)) }
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    val now = canExactAlarm(context)
+                    if (now && !exactAllowed) scope.launch { DailySummaryScheduler.schedule(context) }
+                    exactAllowed = now
+                }
+            }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    if (!exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        HorizontalDivider(color = BorderColor, thickness = 1.dp)
+        OnTimeRow(
+            title = stringResource(R.string.summary_exact_title),
+            detail = stringResource(R.string.summary_exact_detail),
+            action = stringResource(R.string.summary_exact_allow),
+        ) {
+            val intent =
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
+            runCatching { context.startActivity(intent) }
+        }
+    }
+    if (Build.MANUFACTURER.lowercase() in STRICT_BATTERY_BRANDS) {
+        HorizontalDivider(color = BorderColor, thickness = 1.dp)
+        OnTimeRow(
+            title = stringResource(R.string.summary_battery_title),
+            detail = stringResource(R.string.summary_battery_detail),
+            action = stringResource(R.string.action_open_settings),
+        ) {
+            val intent =
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+            runCatching { context.startActivity(intent) }
+        }
+    }
+}
+
+private fun canExactAlarm(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+        context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
+
+@Composable
+private fun OnTimeRow(
+    title: String,
+    detail: String,
+    action: String,
+    onAction: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onAction).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = TextSize.Subhead)
+            Text(detail, color = TextSecondary, fontSize = TextSize.Caption, lineHeight = 16.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(action, color = IosBlue, fontSize = TextSize.Subhead)
+    }
 }

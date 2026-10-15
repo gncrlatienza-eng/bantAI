@@ -12,11 +12,20 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.bantai.container
+import com.bantai.data.local.ReportBlocks
+import com.bantai.data.model.REPORT_REJECTED
 import com.bantai.data.model.REPORT_VALIDATED
 import com.bantai.data.remote.ReportsApi
+import com.bantai.data.remote.SmsApi
+import com.bantai.util.BlockHelper
+import com.bantai.util.DefaultSmsApp
 import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsSourceId
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "ReportStatusWorker"
@@ -31,8 +40,12 @@ class ReportStatusWorker(
     context: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result = runLock.withLock { check() }
+
+    // The periodic and on-open runs can overlap; both would read the same saved
+    // statuses and notify (and consume the report-block) twice.
     @Suppress("ReturnCount") // signed out, network failure, done
-    override suspend fun doWork(): Result {
+    private suspend fun check(): Result {
         val token =
             applicationContext.container.userPreferences.userData
                 .first()
@@ -57,15 +70,28 @@ class ReportStatusWorker(
                 null
             }
         val plan = ReportStatusNotifications.plan(previous, current)
+        val byMessage = reports.associateBy { it.messageId }
         plan.notify.forEach { (key, status) ->
-            NotificationHelper.sendReportReviewed(applicationContext, key, accepted = status == REPORT_VALIDATED)
+            val alert = byMessage[key]
+            val unblocked =
+                if (status == REPORT_REJECTED && alert != null) {
+                    liftReportBlock(token, alert, SmsSourceId.localRowId(applicationContext, alert.sourceId))
+                } else {
+                    null
+                }
+            NotificationHelper.sendReportReviewed(
+                applicationContext,
+                key,
+                accepted = status == REPORT_VALIDATED,
+                unblocked = unblocked,
+            )
         }
         // A rejected report says what the text really is: file it there.
-        val byMessage = reports.filter { it.report != null }.associateBy { it.messageId }
+        val reported = byMessage.filterValues { it.report != null }
         ReportStatusNotifications
-            .refiles(plan, byMessage.mapValues { it.value.report?.reviewedLabel })
+            .refiles(plan, reported.mapValues { it.value.report?.reviewedLabel })
             .forEach { (messageId, label) ->
-                val localId = SmsSourceId.localRowId(applicationContext, byMessage[messageId]?.sourceId)
+                val localId = SmsSourceId.localRowId(applicationContext, reported[messageId]?.sourceId)
                 // Best effort: a failed move must not fail the worker before the
                 // statuses below are saved, or the retry would notify again.
                 runCatching { MessageReports.refile(applicationContext, localId, label) }
@@ -79,6 +105,35 @@ class ReportStatusWorker(
         return Result.success()
     }
 
+    /**
+     * The team didn't confirm this Scam report, so the block that came only
+     * from reporting it is lifted (a block the user chose stays). Returns the
+     * sender that was unblocked, or null when there was nothing to undo.
+     */
+    @Suppress("ReturnCount") // not a scam report, nothing to undo, then unblock
+    private suspend fun liftReportBlock(
+        token: String,
+        alert: SmsApi.AlertSummary,
+        localId: Long?,
+    ): String? {
+        if (alert.report?.reportedLabel != "Scam") return null
+        // The backend sends no sender on reports; the phone's own row (found
+        // from the sourceId it sent at ingest) has it.
+        val sender =
+            localId
+                ?.let { applicationContext.container.smsRepository.getMessagesByIds(setOf(it)) }
+                ?.firstOrNull()
+                ?.sender
+                .orEmpty()
+        // Android only lets the default SMS app touch its block list; without the
+        // role the delete silently fails, so keep the record and say nothing.
+        if (sender.isBlank() || !DefaultSmsApp.isDefault(applicationContext)) return null
+        if (!ReportBlocks.consume(applicationContext, sender)) return null
+        BlockHelper.unblockSender(applicationContext, token, sender)
+        val stillBlocked = withContext(Dispatchers.IO) { BlockHelper.isBlocked(applicationContext, sender) }
+        return sender.takeUnless { stillBlocked }
+    }
+
     companion object {
         private const val PERIODIC_WORK = "report-status-periodic"
         private const val ON_OPEN_WORK = "report-status-on-open"
@@ -88,7 +143,18 @@ class ReportStatusWorker(
         private const val SEPARATOR = "\t"
         private const val INTERVAL_MINUTES = 15L
 
+        private val runLock = Mutex()
+
         private val online = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+        /** A different account signed in: start its report history fresh (no burst of old reviews). */
+        fun clearState(context: Context) {
+            context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .apply()
+        }
 
         /** Keeps the periodic check scheduled and runs one now. Safe to call on every app start. */
         fun schedule(context: Context) {

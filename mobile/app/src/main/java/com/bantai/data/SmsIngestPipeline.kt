@@ -688,6 +688,22 @@ object SmsIngestPipeline {
     // When the corresponding toggle is off, the SMS still needs to be surfaced
     // somehow -- silently dropping it entirely would hide real messages, not
     // just quiet the high-priority channel the user opted out of.
+    // Unknown verdicts. Silent when Settings → Hide Unknown is on: the text is
+    // still filed under Unknown (out of All, links hidden), just not announced.
+    private suspend fun notifyUnknown(
+        context: Context,
+        target: NotificationTarget,
+    ) {
+        if (context.container.userPreferences.hideUnknown
+                .first()
+        ) {
+            return
+        }
+        notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
+            NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
+        }
+    }
+
     private suspend fun notifyHighRiskOrFallback(
         context: Context,
         target: NotificationTarget,
@@ -743,9 +759,7 @@ object SmsIngestPipeline {
                     NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)
                 }
             AlertKind.SUSPICIOUS ->
-                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
-                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
-                }
+                notifyUnknown(context, target)
             // Unlike smishing/suspicious, turning spam off means no notification at
             // all rather than a plain-message fallback: the SMS is still filed in
             // the Spam folder, so nothing is hidden, and promos are exactly the
@@ -791,9 +805,7 @@ object SmsIngestPipeline {
         persistClassification(context, target.messageId, classification, source = "heuristic")
         when (classification) {
             Classification.UNKNOWN -> {
-                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
-                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
-                }
+                notifyUnknown(context, target)
             }
             // A quiet fallback is only a normal incoming message, not a trust claim.
             else ->
@@ -889,9 +901,7 @@ object SmsIngestPipeline {
                     NotificationHelper.sendSpamAlert(context, target.sender, target.notificationId)
                 }
             decision.requiresReview ->
-                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
-                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
-                }
+                notifyUnknown(context, target)
             else -> Unit
         }
     }

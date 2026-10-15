@@ -85,6 +85,7 @@ import com.bantai.ui.theme.White
 import com.bantai.util.IndicatorExplanations
 import com.bantai.util.SmsRiskSignals
 import com.bantai.util.SmsSourceId
+import com.bantai.util.isResumed
 import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -207,7 +208,7 @@ fun SmishingAlertScreen(
  *   when the content gives a spoof away (SmsRiskSignals.spoofWarning).
  */
 @Composable
-@Suppress("LongParameterList", "LongMethod")
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // one branch per alert state
 private fun SmishingAlertContent(
     alert: SmsApi.AlertSummary,
     resolvedSender: String,
@@ -234,26 +235,33 @@ private fun SmishingAlertContent(
     // The phone's own row for this alert, so a report can re-file the message
     // under the label the user picked (TakeActionScreen.refileReported).
     val localId = SmsSourceId.localRowId(LocalContext.current, alert.sourceId)
+    // "Help improve detection" off: no reports, so this alert offers Block only.
+    val shareReports by LocalContext.current.container.shareReports
+        .collectAsState()
 
     // resolvedSender (from the local SMS provider) instead of alert.sender,
     // which the backend always sends as "".
     fun openTakeAction(
         action: String,
         canBlock: Boolean,
-    ) = navController.navigate(
-        Screen.TakeAction.createRoute(
-            messageId = alert.messageId,
-            sender = resolvedSender,
-            localId = localId,
-            // Blank: every alert offers all three labels. Confirming the
-            // model's own verdict ("yes, it's a scam") is a valid report --
-            // it's how a To review alert gets reviewed (backend accepts it
-            // since reports.service stopped rejecting matching labels).
-            currentLabel = "",
-            action = action,
-            canBlock = canBlock,
-        ),
-    )
+    ) = if (!navController.isResumed()) {
+        Unit
+    } else {
+        navController.navigate(
+            Screen.TakeAction.createRoute(
+                messageId = alert.messageId,
+                sender = resolvedSender,
+                localId = localId,
+                // Blank: every alert offers all three labels. Confirming the
+                // model's own verdict ("yes, it's a scam") is a valid report --
+                // it's how a To review alert gets reviewed (backend accepts it
+                // since reports.service stopped rejecting matching labels).
+                currentLabel = "",
+                action = action,
+                canBlock = canBlock,
+            ),
+        )
+    }
 
     val thisSender = stringResource(R.string.alert_this_sender)
     LazyColumn(
@@ -302,16 +310,20 @@ private fun SmishingAlertContent(
                     item { SpoofWarningCard(warning) }
                 }
                 item { TrustedSenderNote(resolvedSender.ifEmpty { thisSender }) }
-                item {
-                    PrimaryButton(stringResource(R.string.alert_report_message)) {
-                        openTakeAction("report", canBlock = false)
+                // A trusted name can't be blocked; with reports off there's nothing to offer.
+                if (shareReports) {
+                    item {
+                        PrimaryButton(stringResource(R.string.alert_report_message)) {
+                            openTakeAction("report", canBlock = false)
+                        }
                     }
                 }
             }
             alert.kind() == AlertKind.BLOCKED ->
                 item {
                     AutoBlockedNote(
-                        onReportMistake = { openTakeAction("report", canBlock = false) },
+                        onReportMistake =
+                            if (shareReports) ({ openTakeAction("report", canBlock = false) }) else null,
                         // Without the sender's number (an alert from another
                         // phone on this account) there's nothing to unblock here.
                         onUnblock = if (resolvedSender.isNotEmpty()) ({ confirmUnblock = true }) else null,
@@ -320,16 +332,18 @@ private fun SmishingAlertContent(
                 }
             else -> {
                 item { NotBlockedNote(isScam) }
-                // Report is the review: Ham, Spam or Scam files the text there
-                // and moves the alert to Reported.
+                // One action: report it, and a Scam report blocks the number too
+                // (Take Action explains what happens if the team disagrees). Report
+                // still files Ham or Spam answers where they belong.
                 item {
-                    PrimaryButton(stringResource(R.string.alert_report_message)) {
-                        openTakeAction("report", canBlock = false)
-                    }
-                }
-                item {
-                    SecondaryButton(stringResource(R.string.alert_block_sender)) {
-                        openTakeAction("block", canBlock = true)
+                    if (shareReports) {
+                        PrimaryButton(stringResource(R.string.alert_report_and_block)) {
+                            openTakeAction(PRESELECT_REPORT_BLOCK, canBlock = true)
+                        }
+                    } else {
+                        PrimaryButton(stringResource(R.string.alert_block_sender)) {
+                            openTakeAction("block", canBlock = true)
+                        }
                     }
                 }
             }
@@ -513,19 +527,21 @@ private fun TrustedSenderNote(senderName: String) {
 
 @Composable
 private fun AutoBlockedNote(
-    onReportMistake: () -> Unit,
+    onReportMistake: (() -> Unit)?,
     onUnblock: (() -> Unit)?,
     unblocking: Boolean,
 ) {
     DetailCard(Icons.Default.Shield, Safe, stringResource(R.string.alert_blocked_title)) {
         DetailCardBody(stringResource(R.string.alert_blocked_detail))
-        Text(
-            stringResource(R.string.alert_report_mistake),
-            color = Indigo,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = TextSize.Subhead,
-            modifier = Modifier.clickable(onClick = onReportMistake).padding(vertical = 10.dp),
-        )
+        if (onReportMistake != null) {
+            Text(
+                stringResource(R.string.alert_report_mistake),
+                color = Indigo,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = TextSize.Subhead,
+                modifier = Modifier.clickable(onClick = onReportMistake).padding(vertical = 10.dp),
+            )
+        }
         // Here, a deliberate step inside the alert, rather than on the Blocked
         // list where a stray tap could let a scammer back in. Confirmed first.
         if (onUnblock != null) {

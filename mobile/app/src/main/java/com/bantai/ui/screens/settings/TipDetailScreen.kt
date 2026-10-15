@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.ui.components.LocalBottomBarClearance
@@ -189,7 +190,7 @@ fun TipDetailScreen(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
-                onClick = { navController.popBackStack() },
+                onClick = dropUnlessResumed { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = White)

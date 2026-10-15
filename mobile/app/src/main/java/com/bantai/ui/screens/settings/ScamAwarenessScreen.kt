@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
@@ -148,7 +149,7 @@ fun ScamAwarenessScreen(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             IconButton(
-                onClick = { navController.popBackStack() },
+                onClick = dropUnlessResumed { navController.popBackStack() },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
                 Icon(

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.ui.components.OnboardingHeader
@@ -122,7 +123,7 @@ fun OnboardingProfileScreen(
                 .padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        ProfileBackButton(onClick = navController::popBackStack)
+        ProfileBackButton(onClick = dropUnlessResumed { navController.popBackStack() })
         Spacer(Modifier.height(24.dp))
 
         AnimatedVisibility(visible = visible, enter = staggeredEnter(DELAY_HEADER_MS)) {

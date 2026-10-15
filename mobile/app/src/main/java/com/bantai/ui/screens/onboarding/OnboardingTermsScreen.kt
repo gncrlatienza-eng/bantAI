@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.navigation.Screen
@@ -83,7 +84,7 @@ fun OnboardingTermsScreen(
             // Terms is now the first onboarding screen, so there's usually
             // nothing to go back to.
             if (navController.previousBackStackEntry != null) {
-                IconButton(onClick = { navController.popBackStack() }) {
+                IconButton(onClick = dropUnlessResumed { navController.popBackStack() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = White)
                 }
             } else {

@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
+import com.bantai.data.DailySummaryScheduler
 import com.bantai.data.LocalAccountData
 import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.local.DEFAULT_SUMMARY_MINUTE
 import com.bantai.data.local.UserData
 import com.bantai.data.remote.ApiConfig
 import com.bantai.data.remote.ApiException
@@ -241,6 +243,38 @@ class SettingsViewModel(
         viewModelScope.launch { userPreferences.saveShowScamWavesTab(show) }
     }
 
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setHideUnknown(hide: Boolean) {
+        viewModelScope.launch { userPreferences.saveHideUnknown(hide) }
+    }
+
+    val dailySummaryEnabled: StateFlow<Boolean> =
+        userPreferences.dailySummaryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val dailySummaryMinute: StateFlow<Int> =
+        userPreferences.dailySummaryMinute.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_SUMMARY_MINUTE)
+
+    // Saves, then restarts the daily cycle from the new time (or cancels it).
+    fun setDailySummary(
+        enabled: Boolean,
+        minuteOfDay: Int,
+    ) {
+        viewModelScope.launch {
+            userPreferences.saveDailySummary(enabled, minuteOfDay)
+            DailySummaryScheduler.schedule(getApplication())
+        }
+    }
+
+    // Clears the "seen" marks first, so the tour that [onReady] opens plays.
+    fun replayTutorial(onReady: () -> Unit) {
+        viewModelScope.launch {
+            userPreferences.resetTutorials()
+            onReady()
+        }
+    }
+
     fun toggleDeliveryReports(value: Boolean) {
         _deliveryReports.value = value
         viewModelScope.launch { userPreferences.saveDeliveryReports(value) }
@@ -327,7 +361,10 @@ class SettingsViewModel(
         viewModelScope.launch {
             val token = userPreferences.userData.first().authToken
             if (token.isEmpty()) return@launch
-            AuthApi.trainingOptIn(token).onSuccess { _trainingOptIn.value = it }
+            AuthApi.trainingOptIn(token).onSuccess {
+                _trainingOptIn.value = it
+                userPreferences.saveTrainingOptIn(it)
+            }
         }
     }
 
@@ -346,6 +383,7 @@ class SettingsViewModel(
             val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
             if (saved) {
                 _trainingOptIn.value = enabled
+                userPreferences.saveTrainingOptIn(enabled)
                 userPreferences.setTrainingConsentAsked()
                 onDone()
             } else {
@@ -371,7 +409,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             val token = userPreferences.userData.first().authToken
             val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
-            if (!saved) {
+            if (saved) {
+                userPreferences.saveTrainingOptIn(enabled)
+            } else {
                 _trainingOptIn.value = previous
                 onFailed()
             }

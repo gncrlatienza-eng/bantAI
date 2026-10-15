@@ -335,7 +335,7 @@ private fun TabBarItems(
                         .weight(1f)
                         .onGloballyPositioned { coordinates ->
                             tabBounds[index] = coordinates.boundsInParent()
-                        },
+                        }.then(if (tab.id == ALERTS_TAB_INDEX) Modifier.coachTarget(CoachIds.TAB_ALERTS) else Modifier),
             )
         }
     }
@@ -399,13 +399,18 @@ private fun TabItem(
             }
         }
         Spacer(Modifier.height(0.dp))
+        // The bar has a fixed height, so the label grows with the system font
+        // size only up to a point; past it, it would be cut off.
+        val fontScale = LocalDensity.current.fontScale
         Text(
             tab.label,
             color = tint,
-            fontSize = 10.sp,
+            fontSize = 10.sp * (minOf(fontScale, MAX_LABEL_FONT_SCALE) / fontScale),
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
         )
     }
 }
+
+private const val MAX_LABEL_FONT_SCALE = 1.3f

@@ -72,14 +72,6 @@ class AlertsViewModel(
     // Scams only the on-device model caught (no server alert behind them).
     private val localAlerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
 
-    init {
-        viewModelScope.launch {
-            _alerts.collect { server ->
-                application.container.alertedMessageIds.value = server.mapNotNullTo(HashSet()) { it.localId }
-            }
-        }
-    }
-
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -181,6 +173,13 @@ class AlertsViewModel(
     var isScreenVisible = false
 
     init {
+        // What Alerts actually shows (not the raw server list: expired, blocked
+        // or hidden-Unknown alerts aren't shown, so Unknown must keep them).
+        viewModelScope.launch {
+            alerts.collect { shown ->
+                application.container.alertedMessageIds.value = shown.mapNotNullTo(HashSet()) { it.localId }
+            }
+        }
         loadAlerts()
         // A new verdict (on-device or from the server's AI), or a block/unblock
         // made from a thread, shows here right away instead of on the next
@@ -256,7 +255,13 @@ class AlertsViewModel(
         // A background refresh never interrupts a load in flight: cancelling a
         // full load left the spinner up for good (isLoading is only cleared by
         // the load itself), and the running load brings the same news anyway.
-        if (silent && loadJob?.isActive == true) return
+        if (silent && loadJob?.isActive == true) {
+            // ...but runs once more after it: the running request may predate the
+            // alert that triggered this (a new verdict), and dropping it left the
+            // scam out of Alerts until the next 20-60 s poll.
+            refreshAgain = true
+            return
+        }
         // Cancels any in-flight fetch first so a slow earlier response can't land
         // after a newer one and overwrite it with stale data.
         loadJob?.cancel()
@@ -306,7 +311,22 @@ class AlertsViewModel(
                 loadReports(token)
                 refreshLocalAlerts(token)
                 if (!silent) _isLoading.value = false
+                if (refreshAgain) {
+                    refreshAgain = false
+                    // This job is finishing: detach it so the re-run isn't
+                    // mistaken for a load still in flight.
+                    loadJob = null
+                    loadAlerts(silent = true)
+                }
             }
+    }
+
+    @Volatile private var refreshAgain = false
+
+    // The container outlives this ViewModel: don't leave this session's ids
+    // hiding messages from Unknown after it's gone (sign-out pops Main).
+    override fun onCleared() {
+        getApplication<Application>().container.alertedMessageIds.value = emptySet()
     }
 
     // Best-effort: a failure keeps the last list (reports still show from the

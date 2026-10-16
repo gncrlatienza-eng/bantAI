@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 class SettingsViewModel(
     application: Application,
@@ -117,8 +118,13 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
+            // _trainingOptIn is declared further down; let construction finish.
+            yield()
             userPreferences.userData.collect { data ->
                 _userData.value = data
+                // Signed out by any path (Sign out, Delete account, an expired
+                // session): the next sign-in must not see this account's answer.
+                if (data.authToken.isEmpty()) _trainingOptIn.value = null
                 _smishingAlerts.value = data.smishingAlerts
                 _suspiciousAlerts.value = data.suspiciousAlerts
                 _spamAlerts.value = data.spamAlerts

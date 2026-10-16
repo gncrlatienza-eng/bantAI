@@ -31,6 +31,8 @@ fun SendButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
+    // Optional: still tappable while dimmed, e.g. to explain what's missing.
+    onDisabledClick: (() -> Unit)? = null,
 ) {
     Box(
         modifier =
@@ -38,7 +40,10 @@ fun SendButton(
                 .size(size)
                 .clip(CircleShape)
                 .background(if (enabled) Indigo else Surface)
-                .clickable(enabled = enabled, onClick = onClick),
+                .clickable(
+                    enabled = enabled || onDisabledClick != null,
+                    onClick = if (enabled) onClick else onDisabledClick ?: {},
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

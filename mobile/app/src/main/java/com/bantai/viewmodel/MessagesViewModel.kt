@@ -282,6 +282,9 @@ class MessagesViewModel(
             }
         }
 
+    private var namesRefreshedForGrant = false
+    private var contactsObserverRegistered = false
+
     init {
         OutgoingSms.ensureLoaded(application)
         loadMessages()
@@ -318,13 +321,7 @@ class MessagesViewModel(
             true,
             contentObserver,
         )
-        runCatching {
-            application.contentResolver.registerContentObserver(
-                ContactsContract.Contacts.CONTENT_URI,
-                true,
-                contactsObserver,
-            )
-        }
+        registerContactsObserver()
         // MMS arriving or finishing its download (see MmsDownloader).
         application.contentResolver.registerContentObserver(
             Telephony.Mms.CONTENT_URI,
@@ -395,17 +392,26 @@ class MessagesViewModel(
         filterMessages(_searchQuery.value)
     }
 
-    /** Contacts just became readable (or changed): look names up again. */
+    /** Contacts just became readable: look names up again (once per grant). */
     fun refreshContactNames() {
+        registerContactsObserver()
+        if (namesRefreshedForGrant) return
+        namesRefreshedForGrant = true
         ContactNames.clear()
-        runCatching {
-            getApplication<Application>().contentResolver.registerContentObserver(
-                ContactsContract.Contacts.CONTENT_URI,
-                true,
-                contactsObserver,
-            )
-        }
         loadMessages()
+    }
+
+    // Registered once: a second registration made every contacts change reload twice.
+    private fun registerContactsObserver() {
+        if (contactsObserverRegistered) return
+        contactsObserverRegistered =
+            runCatching {
+                getApplication<Application>().contentResolver.registerContentObserver(
+                    ContactsContract.Contacts.CONTENT_URI,
+                    true,
+                    contactsObserver,
+                )
+            }.isSuccess
     }
 
     /** The screen reports this on every start; only a real change (denied -> granted) reloads. */

@@ -202,7 +202,10 @@ class MessageDetailViewModel(
             getApplication<Application>()
                 .container.blockedSendersStore.state
                 .drop(1)
-                .collect { providerChanges.tryEmit(Unit) }
+                .collect {
+                    blockCheckedFor = null
+                    providerChanges.tryEmit(Unit)
+                }
         }
         getApplication<Application>().contentResolver.registerContentObserver(
             Telephony.Sms.CONTENT_URI,
@@ -223,6 +226,7 @@ class MessageDetailViewModel(
 
     // Whether this thread's sender is blocked (by BantAI or in Android's list),
     // so the thread stops offering Block once it's done. Refreshed on every load.
+    @Volatile private var blockCheckedFor: String? = null
     private val _senderBlocked = MutableStateFlow(false)
     val senderBlocked: StateFlow<Boolean> = _senderBlocked.asStateFlow()
 
@@ -376,15 +380,21 @@ class MessageDetailViewModel(
                             .map { it.id }
                             .toSet()
                     val rows = smsRepository.getConversationBySender(sender, loadLimit, keepScamIds)
-                    val app = getApplication<Application>()
-                    _senderBlocked.value =
-                        BlockHelper.isSenderBlocked(
-                            app,
-                            sender,
-                            app.container.blockedSendersStore.state
-                                .first()
-                                .blocked,
-                        )
+                    // Only when the sender or the block list changed: this load
+                    // runs on every new message, and Android's block list is a
+                    // provider query.
+                    if (blockCheckedFor != sender) {
+                        val app = getApplication<Application>()
+                        _senderBlocked.value =
+                            BlockHelper.isSenderBlocked(
+                                app,
+                                sender,
+                                app.container.blockedSendersStore.state
+                                    .first()
+                                    .blocked,
+                            )
+                        blockCheckedFor = sender
+                    }
                     _canLoadOlder.value = rows.size >= loadLimit
                     _conversation.value = rows.filter { (it.id in deletedIds) == deletedOnly }
                     if (visible && !deletedOnly) markLoadedRead(sender)

@@ -229,7 +229,12 @@ fun ComposeScreen(
         }
     }
 
+    // Set once a send starts: the MMS path looks up its thread off the main
+    // thread before leaving, and a quick second tap used to send it twice.
+    var sending by remember { mutableStateOf(false) }
+
     fun sendMessage() {
+        if (sending) return
         if (!commitRecipient()) return
         val recipients = chips.toList()
         val body = messageBody.trim()
@@ -245,6 +250,7 @@ fun ComposeScreen(
         // OutgoingSms's own scope: this screen is popped right after, which
         // used to cancel the result update and leave the message "Sending…".
         withSmsPermission {
+            sending = true
             if (needsMms(recipients.size, photos.size)) {
                 val picked = photos.toList()
                 scope.launch {
@@ -422,7 +428,8 @@ fun ComposeScreen(
                     },
                 )
             }
-            SendButton(enabled = canSend, onClick = { sendMessage() })
+            // Tapped while dimmed, it says what's missing (in red under To).
+            SendButton(enabled = canSend, onClick = { sendMessage() }, onDisabledClick = { sendMessage() })
         }
     }
 }

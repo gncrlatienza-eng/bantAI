@@ -6,3 +6,9 @@ mobile/gradlew text eol=lf
 mobile/gradlew.bat text eol=crlf
 mobile/gradle/wrapper/gradle-wrapper.jar binary
 *.jar binary
+
+# Shell scripts run inside Linux containers (e.g. infra/azure/db-init.sh is the
+# db-init job's entrypoint). Checked out with CRLF on Windows, the shebang
+# becomes "#!/bin/sh" and the container fails with "exec ...: no such file
+# or directory" -- this broke the 753f218 student deploy's db-init job.
+*.sh text eol=lf

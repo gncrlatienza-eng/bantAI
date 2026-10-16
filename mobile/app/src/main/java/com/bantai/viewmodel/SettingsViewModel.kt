@@ -386,8 +386,8 @@ class SettingsViewModel(
 
     /**
      * The onboarding / one-time "Help improve scam detection" answer. Saved on
-     * the server first; only then is the question marked answered, so a failed
-     * save is asked again later instead of silently dropped.
+     * the server first. A failed save still ends the question (with a toast
+     * pointing to Settings) rather than asking again on every launch.
      */
     fun answerTrainingConsent(
         enabled: Boolean,
@@ -403,6 +403,10 @@ class SettingsViewModel(
                 userPreferences.setTrainingConsentAsked()
                 onDone()
             } else {
+                // Still counts as asked: the one-time question must never trap the
+                // user (an unreachable or older backend failed every save, so it
+                // came straight back). The toast points to Settings for later.
+                userPreferences.setTrainingConsentAsked()
                 onFailed()
             }
         }

@@ -170,6 +170,15 @@ object DailySummaryScheduler {
     private suspend fun claim(context: Context): Boolean {
         val prefs = context.container.userPreferences
         if (!prefs.dailySummaryEnabled.first()) return false
+        // Signed out: don't use up today's recap on the Welcome screen (the card
+        // then popped up right after signing back in).
+        if (prefs.userData
+                .first()
+                .authToken
+                .isEmpty()
+        ) {
+            return false
+        }
         val store = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = ZonedDateTime.now()
         if (!isDue(now, prefs.dailySummaryMinute.first(), store.getLong(KEY_LAST_DAY, Long.MIN_VALUE))) return false

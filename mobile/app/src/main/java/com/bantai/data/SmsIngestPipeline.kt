@@ -248,9 +248,7 @@ object SmsIngestPipeline {
         timeoutMs: Int,
         conversationKey: String,
     ) {
-        // Notification ID: XOR of sender hash and truncated timestamp avoids
-        // the collision caused by System.currentTimeMillis().toInt() overflow.
-        val notificationId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+        val notificationId = NotificationHelper.alertNotifId(sender)
         val notification = NotificationTarget(sender, body, notificationId, messageId, conversationKey)
 
         if (token.isNotEmpty()) {
@@ -888,7 +886,7 @@ object SmsIngestPipeline {
             NotificationTarget(
                 sender = message.sender,
                 body = message.body,
-                notificationId = (message.sender.hashCode() xor (message.timestamp ushr 10).toInt()) and Int.MAX_VALUE,
+                notificationId = NotificationHelper.alertNotifId(message.sender),
                 messageId = message.id,
             )
         when {

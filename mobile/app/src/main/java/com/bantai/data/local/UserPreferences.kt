@@ -39,7 +39,8 @@ data class UserData(
     val sortGenerationStarted: Int = 0,
     val sortGenerationDone: Int = 0,
     // The "Help improve scam detection" question was answered on this phone
-    // (onboarding or the one-time prompt). Cleared on sign-out with the rest.
+    // (onboarding or the one-time prompt). Kept when the same account signs
+    // back in (it was asked again on every sign-in); cleared for a different one.
     val trainingConsentAsked: Boolean = false,
     val sortGenerationStartedAt: Long = 0L,
     // Off by default: asking the carrier for delivery reports is extra traffic
@@ -146,7 +147,10 @@ class UserPreferences(
             val previous = prefs[Keys.LOCAL_DATA_ACCOUNT]
             accountChanged = previous != null && previous != account
             prefs[Keys.LOCAL_DATA_ACCOUNT] = account
-            if (accountChanged) prefs[Keys.HISTORY_SORTED_AT] = 0L
+            if (accountChanged) {
+                prefs[Keys.HISTORY_SORTED_AT] = 0L
+                prefs.remove(Keys.TRAINING_CONSENT_ASKED)
+            }
             prefs[Keys.PHONE_NUMBER] = phoneNumber
             // A mobile session has one authoritative sign-in identity. Remove
             // the old email-backed value when upgrading an App 1.1 install.
@@ -390,6 +394,7 @@ class UserPreferences(
                                 Keys.SORT_GEN_STARTED,
                                 Keys.SORT_GEN_DONE,
                                 Keys.SORT_GEN_STARTED_AT,
+                                Keys.TRAINING_CONSENT_ASKED,
                             ),
                         )
                     }

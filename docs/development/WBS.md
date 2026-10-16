@@ -301,6 +301,60 @@ After the first install on the Huawei:
 - The first spotlight and tip card now appear in place instead of sweeping in from the top-left corner.
 - The Alerts first-row step scrolls the list to the top.
 
+Eighth pass (UI polish, `feature/mobile-1.7-ui-polish`, uncommitted, 2026-10-15):
+- **Blocked is out of Alerts.** Blocked senders live only in Settings → Blocked numbers, and the tab badge no longer counts them.
+- **Alerts pages:** with "Help improve detection" off, Alerts is one list with Today / This week / Earlier and no page chips. With it on, the pages are To review | Reported.
+- **Blocked numbers:** tapping a number offers Unblock instead of opening its conversation.
+- **Tutorial "Next" fixes:**
+  - Setup "Next tip" no longer drops quick taps.
+  - The walkthrough shows its card, with Next and Skip, even when a step's control isn't on screen. Before, it showed a dimmed screen with no buttons, then skipped ahead.
+  - The walkthrough's "Next" no longer wraps into "Ne / xt" on narrow phones (seen on the Huawei). The buttons never wrap, and a long tour shows "3 of 12" instead of dots when the dots don't fit.
+- **Compose:** the send button moved to the bottom right, next to the message field. It is bigger (48 dp) and shared with the thread reply bar.
+- **Scam Awareness and the Tip page:** restyled to iOS grouped cards, with smaller, lighter text and Settings-style icon tiles.
+- **iOS back bar:** a shared `IosTopBar` ("‹ Back") replaces the old Material back arrows on Blocked numbers, Compose, Scam Awareness, Tip, Threat Analysis, Suspicious detail, Take Action, Unsafe link, Edit profile, How it works, Notifications and Privacy & Data.
+- **Back chevrons:** the thread and onboarding screens get the blue iOS chevron.
+- **Second round, after the Huawei install:**
+  - The back buttons, links and Compose icons use the bantAI indigo accent, not Apple blue.
+  - Every pop-up uses one shared iOS-style `BantaiAlertDialog`. Sign out's red filled button became red text.
+  - The "Help improve scam detection" pop-up and its onboarding screen have a short lead line and three check points. Yes and Not now still look the same, so neither is the nudged default.
+  - Privacy & data is now a grouped list. Each topic shows a one-line summary and opens to the full text, which is unchanged; the switch, Download and Delete each sit in their own section.
+  - Compose shows validation in red under the To field instead of toasts.
+  - The Edit profile and Delete account fields are filled, borderless and rounded.
+  - How it works shows numbered steps.
+- **Third round (tester notes):**
+  - With page chips hidden, the Alerts tour ring wraps the Today/This week/Earlier control itself, not its padding.
+  - Tab-bar labels clear the selection pill and shrink to fit ("Scam Waves").
+  - Sign-out/sign-in routing:
+    - The consent prompt no longer re-asks the same account on every sign-in. The "asked" flag is kept and the stale answer is reset.
+    - A returning user goes straight to the app (or Setup only when a different account needs a sort), not through the consent, "You're protected" and Setup screens again.
+    - The consent screen is no longer covered by the default-SMS gate.
+    - The daily summary card isn't used up or shown across a sign-out.
+    - Signing in opens Messages, not the last tab.
+    - A paused walkthrough ends on sign-out.
+    - The last account's name and OTP are cleared.
+    - Verify ignores a double tap.
+    - A dark-mode or font-size change no longer replays the last notification's screen.
+- **Fourth round:**
+  - The "Scam Waves" tab label is measured in the style it's drawn in, so it shrinks to fit instead of being cut off.
+  - The walkthrough visits Privacy & data before Contact support, matching the screen order.
+  - Pre-release bug sweep, stale screens:
+    - A new server-caught scam now appears in Alerts right away; it used to wait for a 20–60 s poll, or a notification tap or restart. Alerts also refreshes on resume and on sign-in/out.
+    - A background refresh no longer cancels a load and leaves the spinner stuck.
+    - An on-device scam opened from Alerts now shows in its thread; scams were filtered out of threads.
+    - Alert notifications use one ID per sender and clear when the alert or thread is opened or Mark all read is used; Mark all read in Messages clears message notifications.
+    - Notification taps land on the right page: Spam → Spam chip, report result → Reported, Scam blocked → Blocked numbers.
+    - A notification for a deleted conversation no longer opens an empty thread.
+    - Scam Waves updates while open and drops Recently Deleted texts.
+    - Contact names refresh when contacts change or are allowed.
+    - Edit profile starts from the saved values.
+    - The Privacy switch shows the saved choice while offline.
+    - An open sender-reports page keeps its reports when their status changes.
+    - The fast Alerts poll runs only while the Alerts tab is showing.
+    - A thread stops offering Block once its sender is blocked.
+    - Blocks made in Android's Phone app show on return to the app.
+    - A dark-mode or font-size change no longer kicks the user off Scam Waves.
+  - The Privacy & data pattern is now shared (`GroupedRow`, `IconTile`, `GroupedRowDivider`) and used by Scam Awareness, How it works and Notifications. Each has a grouped card, icon tiles and one-line summaries, with the full text a tap away.
+
 ktlint, detekt and unit tests pass, and assembleDebug passes. Lint is clean apart from the 7 known ProduceState false positives. **Not yet tested on a device.** The release build needs the Model C bundle (Reymark).
 
   - [-] **6.4** Test: sprint-level unit and integration testing

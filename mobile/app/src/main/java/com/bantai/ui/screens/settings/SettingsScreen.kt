@@ -53,7 +53,6 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -96,6 +95,7 @@ import com.bantai.data.model.SCAN_PERIOD_MONTHLY
 import com.bantai.data.model.SCAN_PERIOD_WEEKLY
 import com.bantai.data.remote.ApiConfig
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.BantaiAlertDialog
 import com.bantai.ui.components.CoachIds
 import com.bantai.ui.components.LocalCoachMarks
 import com.bantai.ui.components.coachTarget
@@ -150,9 +150,8 @@ fun SettingsScreen(
     val selectTab = LocalSelectTab.current
     var showReplayConfirm by remember { mutableStateOf(false) }
     if (showReplayConfirm) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showReplayConfirm = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_replay_confirm_title),
@@ -237,7 +236,7 @@ fun SettingsScreen(
     }
 
     if (showSignOutDialog) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showSignOutDialog = false },
             title = { Text(stringResource(R.string.settings_sign_out), color = White, fontWeight = FontWeight.Bold) },
             text = {
@@ -248,7 +247,7 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         showSignOutDialog = false
                         viewModel.signOut {
@@ -257,10 +256,8 @@ fun SettingsScreen(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Danger),
-                    shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text(stringResource(R.string.settings_sign_out_2), color = OnAccent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_sign_out_2), color = Danger, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -268,14 +265,12 @@ fun SettingsScreen(
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
             },
-            containerColor = SurfaceElevated,
         )
     }
 
     if (showScanPeriodDialog) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showScanPeriodDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_scan_period),
@@ -320,7 +315,7 @@ fun SettingsScreen(
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = null,
         )
     }
 
@@ -333,9 +328,8 @@ fun SettingsScreen(
 
         LaunchedEffect(Unit) { viewModel.clearSimulateStatus() }
 
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showSimulateSmsDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_simulate_incoming_sms),
@@ -411,9 +405,8 @@ fun SettingsScreen(
 
         LaunchedEffect(Unit) { viewModel.clearOnnxBenchmarkStatus() }
 
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showOnnxBenchmarkDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_onnx_latency_benchmark),
@@ -458,9 +451,8 @@ fun SettingsScreen(
             viewModel.checkBackendConnection()
         }
 
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showBackendCheckDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_backend_connection),
@@ -1044,9 +1036,8 @@ private fun SendSimDialog(
 ) {
     val automatic = stringResource(R.string.settings_sending_sim_auto)
     val options = listOf<Pair<Int?, String>>(null to automatic) + sims.map { it.slot to it.label }
-    AlertDialog(
+    BantaiAlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceElevated,
         title = { Text(stringResource(R.string.settings_sending_sim), color = White, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1076,7 +1067,7 @@ private fun SendSimDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = null,
     )
 }
 

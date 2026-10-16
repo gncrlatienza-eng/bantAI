@@ -36,7 +36,8 @@ fun SmsApi.AlertSummary.kind(): AlertKind =
  * - [REPORTED]: texts the user reported (Ham/Spam/Scam), with where the review
  *   stands. Reporting *is* reviewing: it files the text under the chosen label
  *   and moves the alert here. Takes priority: once reported, nothing is left to decide.
- * - [BLOCKED]: scams whose sender BantAI blocked -- a record, nothing to do.
+ * - [BLOCKED]: scams whose sender is blocked. Not shown in Alerts (see
+ *   [visibleAlerts]): blocked numbers live in Settings → Blocked numbers.
  *
  * There used to be a separate "Reviewed" page fed by a "Mark as reviewed"
  * button/swipe; it duplicated what a report already says, so it's gone.
@@ -81,12 +82,18 @@ fun SmsApi.AlertSummary.isExpired(nowMillis: Long): Boolean {
     }
 }
 
-/** What Alerts shows: no expired history, and no Unknown when the user hid it. */
+/**
+ * What Alerts shows: no expired history, no blocked senders (those are in
+ * Settings → Blocked numbers), and no Unknown when the user hid it.
+ */
 fun visibleAlerts(
     alerts: List<SmsApi.AlertSummary>,
     hideUnknown: Boolean,
     nowMillis: Long,
-): List<SmsApi.AlertSummary> = alerts.filter { !it.isExpired(nowMillis) && !(hideUnknown && it.isUnknownVerdict()) }
+): List<SmsApi.AlertSummary> =
+    alerts.filter {
+        it.tab() != AlertTab.BLOCKED && !it.isExpired(nowMillis) && !(hideUnknown && it.isUnknownVerdict())
+    }
 
 /**
  * [alerts] with reports filed from this phone ([reported], messageId to

@@ -83,6 +83,7 @@ import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
 import com.bantai.util.IndicatorExplanations
+import com.bantai.util.NotificationHelper
 import com.bantai.util.SmsRiskSignals
 import com.bantai.util.SmsSourceId
 import com.bantai.util.isResumed
@@ -118,6 +119,9 @@ fun SmishingAlertScreen(
         // clears its "new" dot and the tab count.
         alertStateStore.markSeen(messageId)
     }
+    // ...and its notification, once the sender is known.
+    val alertSender = alert?.sender
+    LaunchedEffect(alertSender) { alertSender?.let { NotificationHelper.cancelAlert(context, it) } }
 
     Column(
         modifier =

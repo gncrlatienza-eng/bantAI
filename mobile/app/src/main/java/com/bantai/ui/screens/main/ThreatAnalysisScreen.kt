@@ -14,11 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Warning
@@ -26,7 +24,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,12 +37,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.data.remote.SmsApi
 import com.bantai.ui.components.DetailSkeleton
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
@@ -84,32 +81,10 @@ fun ThreatAnalysisScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = dropUnlessResumed { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(R.string.threat_analysis_threat_analysis),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.threat_analysis_threat_analysis),
+            onBack = { navController.popBackStack() },
+        )
 
         when {
             isLoading -> DetailSkeleton()

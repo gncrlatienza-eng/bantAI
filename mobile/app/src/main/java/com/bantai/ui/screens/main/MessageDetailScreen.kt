@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -29,7 +29,6 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.ReportGmailerrorred
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -83,6 +82,7 @@ import com.bantai.data.model.summarizeThread
 import com.bantai.navigation.Screen
 import com.bantai.navigation.rememberSafePopBack
 import com.bantai.ui.components.AISummaryBottomSheet
+import com.bantai.ui.components.BantaiAlertDialog
 import com.bantai.ui.components.ChatThreadSkeleton
 import com.bantai.ui.components.CoachIds
 import com.bantai.ui.components.CoachStep
@@ -110,7 +110,6 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Surface
-import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
@@ -206,6 +205,7 @@ fun MessageDetailScreen(
 
     LaunchedEffect(sender) {
         viewModel.showDeletedOnly(deletedView)
+        viewModel.keepScamIds = highlightIds
         viewModel.loadConversation(sender)
         if (!deletedView) viewModel.markAsRead(sender)
         viewModel.loadSenderDetails(sender)
@@ -311,6 +311,8 @@ fun MessageDetailScreen(
     // blocked (that would cut off the real sender's OTPs and notices), but it
     // doesn't vouch for the content either. See TrustedSenders.
     val isTrusted = TrustedSenders.isTrusted(sender, senderVerification?.familiarity)
+    // Already blocked: Block is no longer offered (it reappeared after blocking).
+    val senderBlocked by viewModel.senderBlocked.collectAsState()
     val hasSuspicious = !isTrusted && conversation.any { it.classification == Classification.SCAM }
     val hasUnknown = !isTrusted && conversation.any { it.classification == Classification.UNKNOWN }
     // For the Real / Spam / Scam card: any Unknown message, trusted name or not.
@@ -353,7 +355,7 @@ fun MessageDetailScreen(
         canBlock: Boolean = true,
     ) {
         // Blocking a trusted name would also cut off the real company.
-        val allowBlock = canBlock && !isTrusted
+        val allowBlock = canBlock && !isTrusted && !senderBlocked
         val message =
             target
                 ?: conversation.lastOrNull { it.classification.isFlagged }
@@ -488,9 +490,8 @@ fun MessageDetailScreen(
             conversation
                 .filter { !it.isOutgoing && it.classification == Classification.UNKNOWN && it.id > 0 }
                 .map { it.id }
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { pendingFlag = null },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(if (toSpam) R.string.thread_flag_spam_title else R.string.thread_flag_real_title),
@@ -547,9 +548,8 @@ fun MessageDetailScreen(
     }
 
     permanentDeleteIds?.let { ids ->
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { permanentDeleteIds = null },
-            containerColor = SurfaceElevated,
             title = {
                 Text(pluralStringResource(R.plurals.messages_delete_forever_title, ids.size, ids.size), color = White)
             },
@@ -672,9 +672,9 @@ fun MessageDetailScreen(
                         modifier = Modifier.align(Alignment.CenterStart),
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
+                            Icons.AutoMirrored.Filled.ArrowBackIos,
                             contentDescription = stringResource(R.string.action_back),
-                            tint = White,
+                            tint = IosBlue,
                         )
                     }
                     Column(
@@ -781,7 +781,8 @@ fun MessageDetailScreen(
                                         } else {
                                             null
                                         },
-                                    onBlock = if (isTrusted) null else ({ openReport(action = "block") }),
+                                    onBlock =
+                                        if (isTrusted || senderBlocked) null else ({ openReport(action = "block") }),
                                 )
                             }
                         }
@@ -815,7 +816,7 @@ fun MessageDetailScreen(
                                         openReport()
                                     },
                                 )
-                            isTrusted -> emptyList()
+                            isTrusted || senderBlocked -> emptyList()
                             else ->
                                 listOf(
                                     VerdictAction(stringResource(R.string.alert_block_sender), Danger) {

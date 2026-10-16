@@ -115,10 +115,16 @@ fun SetupScreen(onDone: () -> Unit) {
         TutorialPager(pager, Modifier.weight(1f))
         when {
             progress.ready -> PrimaryButton(text = stringResource(R.string.setup_open), onClick = onDone)
-            pager.currentPage < tutorialCards.size ->
+            // targetPage, not currentPage: currentPage only moves once a scroll is
+            // past halfway, so a second tap mid-animation re-aimed at the same
+            // page and cancelled the scroll -- Next looked like it did nothing.
+            pager.targetPage < tutorialCards.size ->
                 PrimaryButton(
                     text = stringResource(R.string.setup_next_tip),
-                    onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
+                    onClick = {
+                        val next = (pager.targetPage + 1).coerceAtMost(tutorialCards.size)
+                        scope.launch { pager.animateScrollToPage(next) }
+                    },
                 )
             else -> PrimaryButton(text = stringResource(R.string.setup_open), onClick = {}, enabled = false)
         }

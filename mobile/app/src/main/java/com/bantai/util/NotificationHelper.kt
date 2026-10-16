@@ -23,6 +23,7 @@ import com.bantai.data.model.isGroupKey
 import com.bantai.data.model.normalizeSenderKey
 import com.bantai.data.remote.TipsApi
 import com.bantai.receiver.NotificationActionReceiver
+import com.bantai.util.NotificationLanding
 
 @Suppress("TooManyFunctions") // one builder per notification kind
 object NotificationHelper {
@@ -30,6 +31,7 @@ object NotificationHelper {
 
     /** Intent extra read by MainActivity to deep-link a notification tap to a tab. */
     const val EXTRA_NAVIGATE_TO = "navigate_to"
+    const val EXTRA_LANDING = "landing"
     const val TARGET_ALERTS = "alerts"
     const val TARGET_MESSAGES = "messages"
     const val TARGET_DAILY_SUMMARY = "daily_summary"
@@ -67,8 +69,18 @@ object NotificationHelper {
     private const val REPORTS_CHANNEL_NAME = "Report updates"
     private const val REPORT_RECEIVED_NOTIF_ID = 0x5245_5054 // "REPT"
 
-    /** Derives a stable-ish notification id from a sender, same formula used across the app. */
-    fun notifIdFor(sender: String): Int = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+    /**
+     * One scam/suspicious/spam alert notification per sender. It used to mix in
+     * the time, so nothing could ever clear it: it stayed in the shade after the
+     * alert was opened or marked read. Now opening the alert, its thread, or
+     * Mark all read clears it.
+     */
+    fun alertNotifId(sender: String): Int = ("alert:" + normalizeSenderKey(sender)).hashCode() and Int.MAX_VALUE
+
+    fun cancelAlert(
+        context: Context,
+        sender: String,
+    ) = cancel(context, alertNotifId(sender))
 
     /**
      * One notification per conversation: a new text replaces the previous one
@@ -256,6 +268,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(EXTRA_LANDING, NotificationLanding.REPORTS)
                 putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
@@ -319,8 +332,8 @@ object NotificationHelper {
     }
 
     /**
-     * A scam whose sender BantAI has already blocked. Nothing to decide, so the
-     * copy points at the alert as a chance to learn what the scam looked like.
+     * A scam whose sender BantAI has already blocked. Nothing to decide; blocked
+     * senders live in Settings -> Blocked numbers (not Alerts), so the tap opens that.
      */
     fun sendScamBlockedNotice(
         context: Context,
@@ -332,6 +345,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(EXTRA_LANDING, NotificationLanding.BLOCKED)
                 putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
@@ -347,7 +361,7 @@ object NotificationHelper {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(BRAND_INDIGO)
                 .setContentTitle("Scam blocked — $safe")
-                .setContentText("BantAI blocked a scam text. Tap to see what it looked like.")
+                .setContentText("BantAI blocked a scam text. Tap to see your blocked numbers.")
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
@@ -442,6 +456,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_MESSAGES)
+                putExtra(EXTRA_LANDING, NotificationLanding.SPAM)
                 putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =

@@ -13,18 +13,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,11 +38,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.ui.components.BantaiAlertDialog
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.OnIndigo
-import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -56,9 +53,8 @@ fun UnsafeLinkScreen(navController: NavController) {
     var showDialog by remember { mutableStateOf(false) }
 
     if (showDialog) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showDialog = false },
-            containerColor = Surface,
             title = {
                 Text(
                     stringResource(R.string.unsafe_link_proceed_at_your_own_risk),
@@ -86,31 +82,10 @@ fun UnsafeLinkScreen(navController: NavController) {
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = dropUnlessResumed { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(R.string.unsafe_link_unsafe_link),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
+        IosTopBar(
+            title = stringResource(R.string.unsafe_link_unsafe_link),
+            onBack = { navController.popBackStack() },
+        )
 
         Column(
             modifier =

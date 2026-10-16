@@ -15,12 +15,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Psychology
@@ -44,11 +42,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.AISummaryBottomSheet
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
@@ -83,33 +81,12 @@ fun SuspiciousDetailScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+        IosTopBar(
+            title = sender,
+            onBack = { navController.popBackStack() },
         ) {
             IconButton(
-                onClick = dropUnlessResumed { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                sender,
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-            IconButton(
                 onClick = { showAISummary = true },
-                modifier = Modifier.align(Alignment.CenterEnd),
             ) {
                 Icon(
                     Icons.Default.Psychology,

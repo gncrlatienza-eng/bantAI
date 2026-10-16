@@ -204,7 +204,11 @@ fun Modifier.coachTarget(id: String): Modifier =
             Modifier
         } else {
             Modifier.onGloballyPositioned { coords ->
-                CoachTargetRegistry.current?.targets?.put(id, coords.boundsInRoot())
+                // Scrolled or clipped fully off screen, the bounds collapse to
+                // nothing: treat that as "not on screen", not a spot at 0,0.
+                val bounds = coords.boundsInRoot()
+                val registry = CoachTargetRegistry.current?.targets
+                if (bounds.width > 0f && bounds.height > 0f) registry?.put(id, bounds) else registry?.remove(id)
             }
         }
     }
@@ -235,15 +239,18 @@ fun CoachMarkHost(content: @Composable () -> Unit) {
                     val step = tour.steps[controller.index.coerceIn(0, tour.steps.lastIndex)]
                     val target = controller.targets[step.targetId]
                     // A control on a tab that just opened may need a moment to
-                    // lay out; if it never shows (no alerts yet), move on.
-                    LaunchedEffect(step, target == null) {
-                        if (target == null) {
-                            delay(MISSING_TARGET_WAIT_MS)
-                            controller.next()
-                        }
+                    // lay out. If it still isn't there (no alerts yet), the card
+                    // shows on its own, centered, so Next and Skip are always
+                    // reachable. It used to skip ahead by itself, leaving a dimmed
+                    // screen with no buttons in between -- Next looked broken.
+                    var waited by remember(step) { mutableStateOf(false) }
+                    LaunchedEffect(step) {
+                        delay(MISSING_TARGET_WAIT_MS)
+                        waited = true
                     }
                     CoachOverlay(
                         target = target,
+                        showUnanchored = waited,
                         step = step,
                         position = controller.index,
                         total = tour.steps.size,
@@ -296,6 +303,7 @@ private val CARD_CORNER = 14.dp
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // one overlay: spotlight, arrow and tip card
 private fun CoachOverlay(
     target: Rect?,
+    showUnanchored: Boolean,
     step: CoachStep,
     position: Int,
     total: Int,
@@ -380,6 +388,18 @@ private fun CoachOverlay(
                         .padding(horizontal = 20.dp)
                         .onSizeChanged { tipSize = it },
             )
+        } else if (showUnanchored) {
+            CoachTipCard(
+                step = step,
+                position = position,
+                total = total,
+                onNext = onNext,
+                onSkip = onSkip,
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 20.dp),
+            )
         }
     }
 }
@@ -426,14 +446,18 @@ private fun CoachTipCard(
         Spacer(Modifier.height(4.dp))
         Text(stringResource(step.body), color = TextSecondary, fontSize = TextSize.Subhead, lineHeight = 20.sp)
         Spacer(Modifier.height(14.dp))
+        // The buttons are measured first and never wrap; the progress takes
+        // what's left. On a narrow phone (Huawei) a long tour's dots used to
+        // squeeze the pill until "Next" broke into "Ne / xt".
         Row(verticalAlignment = Alignment.CenterVertically) {
-            StepDots(position, total)
-            Spacer(Modifier.weight(1f))
+            StepProgress(position, total, Modifier.weight(1f))
             if (!last) {
                 Text(
                     stringResource(R.string.coach_skip),
                     color = TextSecondary,
                     fontSize = TextSize.Subhead,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.clickable(onClick = onSkip).padding(horizontal = 12.dp, vertical = 8.dp),
                 )
             }
@@ -449,13 +473,38 @@ private fun CoachTipCard(
                     color = OnIndigo,
                     fontSize = TextSize.Subhead,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
     }
 }
 
-// Page dots like iOS onboarding: the current step is a longer indigo pill.
+// Page dots like iOS onboarding, or "3 of 12" when a long tour's dots
+// wouldn't fit beside the buttons.
+@Composable
+private fun StepProgress(
+    position: Int,
+    total: Int,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier) {
+        val dotsWidth = 16.dp + 6.dp * (total - 1) + 5.dp * (total - 1)
+        if (dotsWidth <= maxWidth) {
+            StepDots(position, total)
+        } else {
+            Text(
+                stringResource(R.string.coach_step_of, position + 1, total),
+                color = TextSecondary,
+                fontSize = TextSize.Footnote,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+// The current step is a longer indigo pill.
 @Composable
 private fun StepDots(
     position: Int,

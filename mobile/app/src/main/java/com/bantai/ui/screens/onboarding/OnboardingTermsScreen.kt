@@ -19,7 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -43,6 +43,7 @@ import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
@@ -85,7 +86,7 @@ fun OnboardingTermsScreen(
             // nothing to go back to.
             if (navController.previousBackStackEntry != null) {
                 IconButton(onClick = dropUnlessResumed { navController.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = stringResource(R.string.action_back), tint = IosBlue)
                 }
             } else {
                 Spacer(Modifier.height(40.dp))

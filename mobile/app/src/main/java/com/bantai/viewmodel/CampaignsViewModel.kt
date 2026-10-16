@@ -19,6 +19,7 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.buildLocalCampaigns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,10 +89,27 @@ class CampaignsViewModel(
     // a visit reuses the last result unless something actually changed.
     @Volatile private var stale = true
 
+    // Set by the screen while the Scam Waves tab is showing: a change then
+    // reloads right away (debounced), instead of waiting for the next visit --
+    // a new scam used to stay out of an open Scam Waves tab.
+    @Volatile var isTabActive = false
+    private var liveRefresh: Job? = null
+
+    private fun markStale() {
+        stale = true
+        if (!isTabActive) return
+        liveRefresh?.cancel()
+        liveRefresh =
+            viewModelScope.launch {
+                delay(LIVE_REFRESH_DEBOUNCE_MS)
+                refreshIfStale()
+            }
+    }
+
     private val smsObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                stale = true
+                markStale()
             }
         }
 
@@ -99,7 +117,13 @@ class CampaignsViewModel(
         application.contentResolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, smsObserver)
         viewModelScope.launch {
             // drop(1): the first emission is the current state, not a change.
-            classificationStore.classifications.drop(1).collect { stale = true }
+            classificationStore.classifications.drop(1).collect { markStale() }
+        }
+        // A text moved to (or back from) Recently Deleted leaves (or rejoins) its wave.
+        viewModelScope.launch {
+            application.container.deletedMessagesStore.deletedEntries
+                .drop(1)
+                .collect { markStale() }
         }
         refreshIfStale()
     }
@@ -174,8 +198,17 @@ class CampaignsViewModel(
         withContext(Dispatchers.IO) {
             // Scam Waves keep a 90-day window (Retention.SCAM_WAVE_DAYS).
             val since = Retention.cutoff(Retention.SCAM_WAVE_DAYS, System.currentTimeMillis())
+            // Recently Deleted texts leave their wave (tapping one opened an empty thread).
+            val deleted =
+                getApplication<Application>()
+                    .container.deletedMessagesStore.deletedEntries
+                    .first()
+                    .mapTo(HashSet()) { it.id }
             smsRepository.getInboxMessages().filter {
-                !it.isOutgoing && it.classification in SCAM_CLASSIFICATIONS && it.timestamp >= since
+                !it.isOutgoing &&
+                    it.classification in SCAM_CLASSIFICATIONS &&
+                    it.timestamp >= since &&
+                    it.id !in deleted
             }
         }
 
@@ -233,3 +266,5 @@ class CampaignsViewModel(
         publish(loadScamMessages())
     }
 }
+
+private const val LIVE_REFRESH_DEBOUNCE_MS = 1_000L

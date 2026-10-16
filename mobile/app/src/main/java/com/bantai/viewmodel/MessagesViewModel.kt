@@ -4,9 +4,12 @@ import android.app.Application
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
+import android.provider.ContactsContract
 import android.provider.Telephony
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -25,6 +28,8 @@ import com.bantai.data.model.scanCutoffMillis
 import com.bantai.data.offline.HistorySortWorker
 import com.bantai.util.BlockHelper
 import com.bantai.util.ContactNames
+import com.bantai.util.NotificationHelper
+import com.bantai.util.NotificationLanding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -48,6 +53,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 private const val TAG = "MessagesViewModel"
 
@@ -266,6 +272,19 @@ class MessagesViewModel(
             }
         }
 
+    // A contact saved or renamed while the app runs: names are cached for the
+    // process, so without this the list kept the old number/name until restart.
+    private val contactsObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                ContactNames.clear()
+                providerChanges.tryEmit(Unit)
+            }
+        }
+
+    private var namesRefreshedForGrant = false
+    private var contactsObserverRegistered = false
+
     init {
         OutgoingSms.ensureLoaded(application)
         loadMessages()
@@ -302,6 +321,7 @@ class MessagesViewModel(
             true,
             contentObserver,
         )
+        registerContactsObserver()
         // MMS arriving or finishing its download (see MmsDownloader).
         application.contentResolver.registerContentObserver(
             Telephony.Mms.CONTENT_URI,
@@ -322,11 +342,21 @@ class MessagesViewModel(
         // Every block/unblock BantAI makes goes through BlockedSendersStore, so
         // this re-filters the moment the user blocks someone from a thread.
         viewModelScope.launch(Dispatchers.IO) {
-            blockedSendersStore.state.collect { state ->
-                val onDevice = BlockHelper.getBlockedNumbers(application).map { it.number }
-                blockedKeys = (state.blocked + onDevice).map(::normalizeSenderKey).toSet()
-                filterMessages(_searchQuery.value)
-            }
+            blockedSendersStore.state.collect { refreshBlockedKeys() }
+        }
+        viewModelScope.launch {
+            application.container.alertedMessageIds
+                .drop(1)
+                .collect { filterMessages(_searchQuery.value) }
+        }
+        // Blocks made outside BantAI (the system Phone app) only show in
+        // Android's own list: re-read it whenever the app comes back to the front.
+        viewModelScope.launch(Dispatchers.IO) {
+            ProcessLifecycleOwner
+                .get()
+                .lifecycle.currentStateFlow
+                .drop(1)
+                .collect { if (it == Lifecycle.State.STARTED) refreshBlockedKeys() }
         }
         // DataStore's Flow already emits on every write, so this stays live without
         // needing a ContentObserver-style poke — a saved/cleared draft shows up
@@ -352,6 +382,36 @@ class MessagesViewModel(
     override fun onCleared() {
         super.onCleared()
         getApplication<Application>().contentResolver.unregisterContentObserver(contentObserver)
+        getApplication<Application>().contentResolver.unregisterContentObserver(contactsObserver)
+    }
+
+    private suspend fun refreshBlockedKeys() {
+        val app = getApplication<Application>()
+        val onDevice = BlockHelper.getBlockedNumbers(app).map { it.number }
+        blockedKeys = (blockedSendersStore.state.first().blocked + onDevice).map(::normalizeSenderKey).toSet()
+        filterMessages(_searchQuery.value)
+    }
+
+    /** Contacts just became readable: look names up again (once per grant). */
+    fun refreshContactNames() {
+        registerContactsObserver()
+        if (namesRefreshedForGrant) return
+        namesRefreshedForGrant = true
+        ContactNames.clear()
+        loadMessages()
+    }
+
+    // Registered once: a second registration made every contacts change reload twice.
+    private fun registerContactsObserver() {
+        if (contactsObserverRegistered) return
+        contactsObserverRegistered =
+            runCatching {
+                getApplication<Application>().contentResolver.registerContentObserver(
+                    ContactsContract.Contacts.CONTENT_URI,
+                    true,
+                    contactsObserver,
+                )
+            }.isSuccess
     }
 
     /** The screen reports this on every start; only a real change (denied -> granted) reloads. */
@@ -596,6 +656,18 @@ class MessagesViewModel(
             }
     }
 
+    // A tapped Spam notification ("Hidden in your Spam folder") opens that chip.
+    init {
+        viewModelScope.launch {
+            // Let the rest of the constructor run first: launch is immediate on
+            // Main, and this init sits above properties setFilter/setTab use.
+            yield()
+            NotificationLanding.pending.collect {
+                if (NotificationLanding.consume(NotificationLanding.SPAM)) setFilter(MessageFilter.SPAM)
+            }
+        }
+    }
+
     fun setFilter(filter: MessageFilter) {
         _selectedFilter.value = filter
         exitSelectionMode()
@@ -675,7 +747,10 @@ class MessagesViewModel(
         _suspiciousMessages.value = spam
         _suspiciousTodayCount.value = spam.count { isToday(it.timestamp) }
 
-        val unknown = inbox.filter { ConversationView.UNKNOWN.includes(it) && !it.isOutgoing }
+        // A message the server already alerted on is in Alerts; listing it here
+        // too showed the same scam in two places.
+        val alerted = getApplication<Application>().container.alertedMessageIds.value
+        val unknown = inbox.filter { ConversationView.UNKNOWN.includes(it) && !it.isOutgoing && it.id !in alerted }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
 
@@ -749,6 +824,12 @@ class MessagesViewModel(
                 .filter { !it.isOutgoing && !it.isRead && view.includes(it) }
                 .mapTo(HashSet()) { it.id }
         if (ids.isEmpty()) return
+        // Their notifications go too, as when each thread is opened.
+        allMessages.value
+            .filter { it.id in ids }
+            .map { it.sender }
+            .distinct()
+            .forEach { NotificationHelper.cancelConversation(getApplication(), it) }
         allMessages.update { messages -> messages.map { if (it.id in ids) it.copy(isRead = true) else it } }
         filterMessages(_searchQuery.value)
         viewModelScope.launch(Dispatchers.IO) {

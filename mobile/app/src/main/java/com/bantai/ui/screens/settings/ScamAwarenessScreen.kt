@@ -5,7 +5,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,15 +15,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Bolt
@@ -32,9 +28,7 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -50,21 +44,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.data.remote.TipsApi
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.GroupedRow
+import com.bantai.ui.components.GroupedRowDivider
+import com.bantai.ui.components.GroupedSectionHeader
+import com.bantai.ui.components.IconTile
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.components.LocalBottomBarClearance
+import com.bantai.ui.components.groupedItem
 import com.bantai.ui.theme.BantAIColors
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
+import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.LocalBantAIColors
-import com.bantai.ui.theme.Surface
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.SystemGray
@@ -141,219 +141,65 @@ fun ScamAwarenessScreen(
     val latestTips by viewModel.latestTips.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = dropUnlessResumed { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(R.string.scam_awareness_scam_awareness),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.scam_awareness_scam_awareness),
+            onBack = { navController.popBackStack() },
+        )
 
-        // One category open at a time, kept across rotation and coming back
-        // from a tip's detail page.
+        // One topic and one warning open at a time, kept across rotation and
+        // coming back from a tip's page. Same grouped pattern as Privacy & data:
+        // a line per topic at a glance, its tips one tap away.
         var expanded by rememberSaveable { mutableStateOf<Int?>(null) }
         var expandedTip by rememberSaveable { mutableStateOf(openTipId) }
+        val colors = LocalBantAIColors.current
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             // Bottom clearance matches the floating tab bar's footprint (see
             // MainScreen) -- this screen now renders behind that persistent bar.
-            contentPadding =
-                PaddingValues(
-                    start = 16.dp,
-                    top = 16.dp,
-                    end = 16.dp,
-                    bottom = LocalBottomBarClearance.current,
-                ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = LocalBottomBarClearance.current),
         ) {
-            latestWarnings(latestTips, expandedTip) { id -> expandedTip = if (expandedTip == id) null else id }
+            item(key = "hero") { AwarenessHero() }
+            latestTipRows(latestTips, expandedTip) { id -> expandedTip = if (expandedTip == id) null else id }
+            item(key = "builtin-header") { GroupedSectionHeader(stringResource(R.string.tips_by_topic)) }
             itemsIndexed(categories) { index, category ->
-                CategoryCard(
-                    category = category,
-                    isExpanded = expanded == index,
-                    relevantTipIds = relevantTipIds,
-                    onToggle = { expanded = if (expanded == index) null else index },
-                    onTipClick = { tip -> navController.navigate(Screen.SettingsTipDetail.createRoute(tip.tipId)) },
-                )
+                val relevant = category.tips.any { it.tipId in relevantTipIds }
+                Column(Modifier.groupedItem(index, categories.lastIndex)) {
+                    GroupedRow(
+                        icon = category.icon,
+                        tint = category.tintOf(colors),
+                        title = stringResource(category.name),
+                        summary =
+                            if (relevant) {
+                                stringResource(R.string.scam_awareness_relevant_to_you)
+                            } else {
+                                stringResource(category.description)
+                            },
+                        expanded = expanded == index,
+                        onClick = { expanded = if (expanded == index) null else index },
+                        expandedContent = {
+                            category.tips.forEach { tip ->
+                                TopicTip(
+                                    tip = tip,
+                                    isRelevant = tip.tipId in relevantTipIds,
+                                    onClick = {
+                                        navController.navigate(Screen.SettingsTipDetail.createRoute(tip.tipId))
+                                    },
+                                )
+                            }
+                        },
+                    )
+                    if (index != categories.lastIndex) GroupedRowDivider()
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun CategoryCard(
-    category: TipCategory,
-    isExpanded: Boolean,
-    relevantTipIds: Set<String>,
-    onToggle: () -> Unit,
-    onTipClick: (TipEntry) -> Unit,
-) {
-    val tint = category.tintOf(LocalBantAIColors.current)
-    val chevronRotation by animateFloatAsState(if (isExpanded) CHEVRON_OPEN_DEGREES else 0f, label = "chevron")
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Surface)
-                .animateContentSize(),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggle)
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp).background(tint.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(category.icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                CategoryTitle(category, isRelevant = category.tips.any { it.tipId in relevantTipIds })
-                Spacer(Modifier.height(2.dp))
-                Text(stringResource(category.description), color = TextSecondary, fontSize = TextSize.Footnote)
-            }
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = null,
-                tint = TextTertiary,
-                modifier = Modifier.size(14.dp).rotate(chevronRotation),
-            )
-        }
-        if (isExpanded) {
-            category.tips.forEach { tip ->
-                HorizontalDivider(color = BorderColor, thickness = 0.5.dp, modifier = Modifier.padding(start = 68.dp))
-                TipRow(tip, isRelevant = tip.tipId in relevantTipIds, onClick = { onTipClick(tip) })
-            }
-        }
-    }
-}
-
-// The badge always sits on the title's line: the title takes what's left
-// (weight, not fill, so a short title keeps the badge right beside it) and
-// ellipsizes, while the badge never wraps or shrinks.
-@Composable
-private fun CategoryTitle(
-    category: TipCategory,
-    isRelevant: Boolean,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            stringResource(category.name),
-            color = White,
-            fontWeight = FontWeight.Bold,
-            fontSize = TextSize.Subhead,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        if (isRelevant) {
-            Spacer(Modifier.width(6.dp))
-            RelevantBadge()
-        }
-    }
-}
-
-// Indented under the category's title, so the tips read as its contents.
-@Composable
-private fun TipRow(
-    tip: TipEntry,
-    isRelevant: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(start = 68.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Badge on the title's line, as in CategoryTitle; a long tip title
-        // wraps to a second line beside it instead of pushing it down.
-        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(tip.title),
-                color = White,
-                fontSize = TextSize.Subhead,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            if (isRelevant) {
-                Spacer(Modifier.width(6.dp))
-                RelevantBadge()
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            Icons.AutoMirrored.Filled.ArrowForwardIos,
-            contentDescription = null,
-            tint = TextTertiary,
-            modifier = Modifier.size(12.dp),
-        )
     }
 }
 
 private const val CHEVRON_OPEN_DEGREES = 90f
+private val CARD_SHAPE = RoundedCornerShape(16.dp)
 
-// The team's published tips above the built-in topics, each opening in place.
-private fun LazyListScope.latestWarnings(
-    latestTips: List<TipsApi.PublishedTip>,
-    expandedTip: String?,
-    onToggle: (String) -> Unit,
-) {
-    if (latestTips.isEmpty()) return
-    item(key = "latest-header") {
-        Text(
-            stringResource(R.string.tips_latest_warnings),
-            color = TextSecondary,
-            fontSize = TextSize.Footnote,
-            modifier = Modifier.padding(start = 4.dp),
-        )
-    }
-    items(latestTips, key = { "latest-${it.id}" }) { tip ->
-        PublishedTipCard(
-            title = tip.title,
-            body = tip.body,
-            isExpanded = expandedTip == tip.id,
-            onToggle = { onToggle(tip.id) },
-        )
-    }
-    item(key = "builtin-header") {
-        Text(
-            stringResource(R.string.tips_by_topic),
-            color = TextSecondary,
-            fontSize = TextSize.Footnote,
-            modifier = Modifier.padding(start = 4.dp, top = 6.dp),
-        )
-    }
-}
+// Tip rows line up with the category title, past the icon tile.
+private val TIP_INDENT = 56.dp
 
 /**
  * A tip the BantAI team published from the admin dashboard. Opens in place,
@@ -372,25 +218,20 @@ internal fun PublishedTipCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Surface)
+                .clip(CARD_SHAPE)
+                .background(SurfaceElevated)
                 .clickable(onClick = onToggle)
                 .animateContentSize()
-                .padding(16.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(40.dp).background(tint.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Campaign, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-            }
+            IconTile(Icons.Filled.Campaign, tint)
             Spacer(Modifier.width(12.dp))
             Text(
                 title,
                 color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Subhead,
+                fontWeight = FontWeight.Medium,
+                fontSize = TextSize.Body,
                 maxLines = if (isExpanded) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -404,9 +245,109 @@ internal fun PublishedTipCard(
             )
         }
         if (isExpanded && body.isNotBlank()) {
-            Spacer(Modifier.height(10.dp))
-            Text(body, color = TextSecondary, fontSize = TextSize.Subhead, lineHeight = 20.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                body,
+                color = TextSecondary,
+                fontSize = TextSize.Footnote,
+                lineHeight = 19.sp,
+                modifier = Modifier.padding(start = TIP_INDENT - 14.dp),
+            )
         }
+    }
+}
+
+// The team's published warnings, each opening in place.
+private fun LazyListScope.latestTipRows(
+    latestTips: List<TipsApi.PublishedTip>,
+    expandedTip: String?,
+    onToggle: (String) -> Unit,
+) {
+    if (latestTips.isEmpty()) return
+    item(key = "latest-header") { GroupedSectionHeader(stringResource(R.string.tips_latest_warnings)) }
+    itemsIndexed(latestTips, key = { _, tip -> "latest-${tip.id}" }) { index, tip ->
+        Column(Modifier.groupedItem(index, latestTips.lastIndex)) {
+            GroupedRow(
+                icon = Icons.Filled.Campaign,
+                tint = LocalBantAIColors.current.suspicious,
+                title = tip.title,
+                expanded = expandedTip == tip.id,
+                onClick = { onToggle(tip.id) },
+                expandedContent =
+                    tip.body.takeIf { it.isNotBlank() }?.let { body ->
+                        {
+                            Text(
+                                body,
+                                color = TextSecondary,
+                                fontSize = TextSize.Footnote,
+                                lineHeight = 19.sp,
+                            )
+                        }
+                    },
+            )
+            if (index != latestTips.lastIndex) GroupedRowDivider()
+        }
+    }
+}
+
+@Composable
+private fun AwarenessHero() {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 12.dp, bottom = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier.size(56.dp).background(Indigo, RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.tips_hero),
+            color = TextSecondary,
+            fontSize = TextSize.Footnote,
+            lineHeight = 18.sp,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+// One tip inside an open topic: its title, a "relevant" badge when it matches
+// texts this phone received, and a chevron to its page.
+@Composable
+private fun TopicTip(
+    tip: TipEntry,
+    isRelevant: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The title and badge share all the room left of the chevron. (A second
+        // weighted spacer here used to cap the title at half the row, so tips
+        // wrapped into a narrow column.)
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(tip.title),
+                color = Indigo,
+                fontSize = TextSize.Subhead,
+                lineHeight = 19.sp,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (isRelevant) {
+                Spacer(Modifier.width(6.dp))
+                RelevantBadge()
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowForwardIos,
+            contentDescription = null,
+            tint = TextTertiary,
+            modifier = Modifier.size(12.dp),
+        )
     }
 }
 

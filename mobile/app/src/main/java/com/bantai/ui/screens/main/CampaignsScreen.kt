@@ -115,7 +115,10 @@ fun CampaignsScreen(
     // load (the tab itself stays composed in the background, see MainScreen).
     // It refreshes in place -- the skeleton only shows before the first load.
     val tabActive = LocalTabActive.current
-    LaunchedEffect(tabActive) { if (tabActive) viewModel.refreshIfStale() }
+    LaunchedEffect(tabActive) {
+        viewModel.isTabActive = tabActive
+        if (tabActive) viewModel.refreshIfStale()
+    }
 
     val now = System.currentTimeMillis()
     val waves =

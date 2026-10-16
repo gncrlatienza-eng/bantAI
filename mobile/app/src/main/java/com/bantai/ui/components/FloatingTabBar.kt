@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -62,7 +64,9 @@ import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -271,7 +275,7 @@ private fun TabSelectionPill(
                 .offset(x = pillOffset)
                 .width(pillWidth)
                 .fillMaxHeight()
-                .padding(6.dp)
+                .padding(horizontal = PILL_INSET_X, vertical = 6.dp)
                 .clip(RoundedCornerShape(22.dp))
                 .border(0.75.dp, White.copy(alpha = 0.22f), RoundedCornerShape(22.dp))
                 // Real backdrop blur -- glassifies whatever screen content
@@ -365,7 +369,9 @@ private fun TabItem(
     // 16dp per side left ~55dp on a 1080px-wide phone, clipping "Campaigns"
     // to "Campaig". The pill uses the slice bounds, so this doesn't change it.
     Column(
-        modifier = modifier.fillMaxHeight().padding(horizontal = 4.dp),
+        // Clear of the pill's inset and edge, so a long label ("Scam Waves")
+        // never touches the selection's rim.
+        modifier = modifier.fillMaxHeight().padding(horizontal = PILL_INSET_X + 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -399,14 +405,40 @@ private fun TabItem(
             }
         }
         Spacer(Modifier.height(0.dp))
-        // The bar has a fixed height, so the label grows with the system font
-        // size only up to a point; past it, it would be cut off.
-        val fontScale = LocalDensity.current.fontScale
+        TabLabel(tab.label, tint, selected)
+    }
+}
+
+// The bar has a fixed height, so the label grows with the system font size
+// only up to a point; past it, it would be cut off.
+@Composable
+private fun TabLabel(
+    label: String,
+    tint: Color,
+    selected: Boolean,
+) {
+    val fontScale = LocalDensity.current.fontScale
+    val weight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+    val baseSize = 10.sp * (minOf(fontScale, MAX_LABEL_FONT_SCALE) / fontScale)
+    // A label wider than its slice shrinks to fit instead of being clipped
+    // or crowding the pill (measured at the semibold, selected weight so it
+    // doesn't jump in size when selected).
+    val measurer = rememberTextMeasurer()
+    // Measured with the exact style it's drawn in: measuring a bare TextStyle
+    // left out the theme's letter spacing, so "Scam Waves" came out narrower
+    // than drawn, wasn't shrunk enough, and lost its last letters.
+    val style = LocalTextStyle.current.merge(TextStyle(fontSize = baseSize, letterSpacing = 0.sp))
+    BoxWithConstraints(contentAlignment = Alignment.Center) {
+        val widthPx = constraints.maxWidth
+        val natural =
+            remember(label, style, widthPx) {
+                measurer.measure(label, style.copy(fontWeight = FontWeight.SemiBold)).size.width
+            }
+        val fit = if (natural > widthPx && natural > 0) widthPx.toFloat() / natural else 1f
         Text(
-            tab.label,
+            label,
             color = tint,
-            fontSize = 10.sp * (minOf(fontScale, MAX_LABEL_FONT_SCALE) / fontScale),
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            style = style.copy(fontSize = baseSize * fit.coerceAtLeast(MIN_LABEL_SHRINK), fontWeight = weight),
             maxLines = 1,
             softWrap = false,
         )
@@ -414,3 +446,5 @@ private fun TabItem(
 }
 
 private const val MAX_LABEL_FONT_SCALE = 1.3f
+private const val MIN_LABEL_SHRINK = 0.7f
+private val PILL_INSET_X = 4.dp

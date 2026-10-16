@@ -24,6 +24,7 @@ import com.bantai.data.model.matchReplyQuotes
 import com.bantai.data.model.normalizeSenderKey
 import com.bantai.data.remote.CloudVerificationApi
 import com.bantai.data.remote.VerificationApi
+import com.bantai.util.BlockHelper
 import com.bantai.util.ContactNames
 import com.bantai.util.NotificationHelper
 import kotlinx.coroutines.CancellationException
@@ -220,6 +221,16 @@ class MessageDetailViewModel(
     // the top (loadOlder). A thread used to stop at its newest 500 for good.
     private var loadLimit = PAGE_SIZE
 
+    // Whether this thread's sender is blocked (by BantAI or in Android's list),
+    // so the thread stops offering Block once it's done. Refreshed on every load.
+    private val _senderBlocked = MutableStateFlow(false)
+    val senderBlocked: StateFlow<Boolean> = _senderBlocked.asStateFlow()
+
+    // Set by the screen when the thread was opened to show these messages (an
+    // on-device scam tapped in Alerts): scams are otherwise left out of threads,
+    // which opened a thread without the very message it was opened for.
+    @Volatile var keepScamIds: Set<Long> = emptySet()
+
     /** True while the loaded window is full, i.e. older messages may exist. */
     private val _canLoadOlder = MutableStateFlow(false)
     val canLoadOlder: StateFlow<Boolean> = _canLoadOlder.asStateFlow()
@@ -364,7 +375,16 @@ class MessageDetailViewModel(
                             .first()
                             .map { it.id }
                             .toSet()
-                    val rows = smsRepository.getConversationBySender(sender, loadLimit)
+                    val rows = smsRepository.getConversationBySender(sender, loadLimit, keepScamIds)
+                    val app = getApplication<Application>()
+                    _senderBlocked.value =
+                        BlockHelper.isSenderBlocked(
+                            app,
+                            sender,
+                            app.container.blockedSendersStore.state
+                                .first()
+                                .blocked,
+                        )
                     _canLoadOlder.value = rows.size >= loadLimit
                     _conversation.value = rows.filter { (it.id in deletedIds) == deletedOnly }
                     if (visible && !deletedOnly) markLoadedRead(sender)
@@ -401,6 +421,7 @@ class MessageDetailViewModel(
         val unread = _conversation.value.filter { !it.isOutgoing && !it.isRead }.map { it.id }
         if (unread.isNotEmpty()) getApplication<Application>().container.smsWriter.markMessagesRead(unread)
         NotificationHelper.cancelConversation(getApplication(), sender)
+        NotificationHelper.cancelAlert(getApplication(), sender)
     }
 
     /** Called from the reply bar's onDispose — preserves unsent text as a draft. */

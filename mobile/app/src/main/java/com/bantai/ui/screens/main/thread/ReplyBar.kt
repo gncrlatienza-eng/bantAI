@@ -2,7 +2,6 @@ package com.bantai.ui.screens.main.thread
 
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -10,14 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,17 +42,17 @@ import com.bantai.data.OutgoingSms
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.isGroupKey
 import com.bantai.mms.needsMms
+import com.bantai.ui.components.BantaiAlertDialog
 import com.bantai.ui.components.MAX_MMS_PHOTOS
 import com.bantai.ui.components.PhotoAttachmentStrip
+import com.bantai.ui.components.SendButton
 import com.bantai.ui.components.SimSelector
 import com.bantai.ui.components.rememberPhotoPicker
 import com.bantai.ui.components.rememberSmsSendPermission
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
-import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
-import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -126,9 +122,8 @@ internal fun ReplyBar(
     }
 
     if (showScamReplyWarning) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showScamReplyWarning = false },
-            containerColor = SurfaceElevated,
             icon = { Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = Danger) },
             title = { Text(stringResource(R.string.thread_reply_warning_title), color = White) },
             text = { Text(stringResource(R.string.thread_reply_warning_detail), color = TextSecondary) },
@@ -199,24 +194,10 @@ internal fun ReplyBar(
                 },
             )
         }
-        Box(
-            modifier =
-                Modifier
-                    .size(44.dp)
-                    .background(if (canSend) Indigo else Surface, CircleShape)
-                    .clickable {
-                        if (!canSend) return@clickable
-                        if (warnBeforeSending && !scamReplyConfirmed) showScamReplyWarning = true else send()
-                    },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Filled.ArrowUpward,
-                contentDescription = stringResource(R.string.action_send),
-                tint = if (canSend) OnIndigo else TextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
+        SendButton(
+            enabled = canSend,
+            onClick = { if (warnBeforeSending && !scamReplyConfirmed) showScamReplyWarning = true else send() },
+        )
     }
 }
 

@@ -2,7 +2,6 @@ package com.bantai.ui.screens.main
 
 import android.net.Uri
 import android.provider.ContactsContract
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -13,26 +12,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,12 +50,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
@@ -67,17 +62,20 @@ import com.bantai.data.model.normalizeSenderKey
 import com.bantai.mms.MmsSender
 import com.bantai.mms.needsMms
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.BantaiAlertDialog
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.components.MAX_MMS_PHOTOS
 import com.bantai.ui.components.PhotoAttachmentStrip
+import com.bantai.ui.components.SendButton
 import com.bantai.ui.components.SimSelector
 import com.bantai.ui.components.rememberPhotoPicker
 import com.bantai.ui.components.rememberSmsSendPermission
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
+import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.OnIndigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Surface
-import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -102,7 +100,6 @@ fun ComposeScreen(
     val context = LocalContext.current
     var recipient by remember { mutableStateOf(initialRecipient) }
     var messageBody by remember { mutableStateOf(initialBody) }
-    var isSending by remember { mutableStateOf(false) }
     // Set right before navigating away after a successful send, so the draft-save
     // below doesn't re-save text that was just sent (and already had its draft cleared).
     var justSent by remember { mutableStateOf(false) }
@@ -119,13 +116,17 @@ fun ComposeScreen(
             picked.filterNot { it in photos }.take(MAX_MMS_PHOTOS - photos.size).let(photos::addAll)
         }
 
-    // Adds the typed number as a chip; false (with a toast) when it isn't one.
+    // Shown in red under the To field instead of a toast, so it stays put
+    // next to what needs fixing; cleared as soon as the user types.
+    var inputError by remember { mutableStateOf<Int?>(null) }
+
+    // Adds the typed number as a chip; false (with a message) when it isn't one.
     @Suppress("ReturnCount") // nothing typed, not a number, or added
     fun commitRecipient(raw: String = recipient): Boolean {
         val number = raw.trim().replace(Regex("[\\s\\-()]"), "")
         if (number.isEmpty()) return true
         if (!isValidSmsRecipient(number)) {
-            Toast.makeText(context, R.string.compose_enter_valid_number, Toast.LENGTH_SHORT).show()
+            inputError = R.string.compose_enter_valid_number
             return false
         }
         if (chips.none { normalizeSenderKey(it) == normalizeSenderKey(number) }) chips += number
@@ -187,9 +188,8 @@ fun ComposeScreen(
         }
 
     numberChoices?.let { choices ->
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { numberChoices = null },
-            containerColor = SurfaceElevated,
             title = { Text(stringResource(R.string.compose_choose_number), color = White) },
             text = {
                 Column {
@@ -211,7 +211,7 @@ fun ComposeScreen(
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = null,
             dismissButton = {
                 TextButton(onClick = { numberChoices = null }) {
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
@@ -234,11 +234,11 @@ fun ComposeScreen(
         val recipients = chips.toList()
         val body = messageBody.trim()
         if (recipients.isEmpty()) {
-            Toast.makeText(context, R.string.compose_enter_recipient, Toast.LENGTH_SHORT).show()
+            inputError = R.string.compose_enter_recipient
             return
         }
         if (body.isEmpty() && photos.isEmpty()) {
-            Toast.makeText(context, R.string.compose_enter_message, Toast.LENGTH_SHORT).show()
+            inputError = R.string.compose_enter_message
             return
         }
         // Sending, recording the result and the failure notice all happen in
@@ -275,71 +275,22 @@ fun ComposeScreen(
                 .statusBarsPadding()
                 .imePadding(),
     ) {
-        // Top bar
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = dropUnlessResumed { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = TextSecondary,
-                )
-            }
-            Text(
-                stringResource(R.string.compose_new_message),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp)
-                        .size(36.dp)
-                        .background(if (canSend) Indigo else Surface, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (isSending) {
-                    CircularProgressIndicator(color = OnIndigo, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    IconButton(
-                        onClick = { sendMessage() },
-                        modifier = Modifier.size(36.dp),
-                        enabled = !isSending,
-                    ) {
-                        Icon(
-                            Icons.Filled.ArrowUpward,
-                            contentDescription = stringResource(R.string.action_send),
-                            tint = if (canSend) OnIndigo else TextSecondary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-            }
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.compose_new_message),
+            onBack = { navController.popBackStack() },
+        )
+        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
 
         // To field
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(Black)
-                    .border(width = 1.dp, color = BorderColor)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(R.string.compose_to), color = TextSecondary, fontSize = TextSize.Footnote)
+            Text(stringResource(R.string.compose_to), color = TextSecondary, fontSize = TextSize.Body)
             FlowRow(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -351,9 +302,11 @@ fun ComposeScreen(
                     // A comma or semicolon finishes a recipient, like most messaging apps.
                     onValueChange = { typed ->
                         if (typed.endsWith(',') || typed.endsWith(';')) {
+                            inputError = null
                             recipient = typed.dropLast(1)
                             commitRecipient()
                         } else {
+                            inputError = null
                             recipient = typed
                         }
                     },
@@ -381,17 +334,25 @@ fun ComposeScreen(
             }
             IconButton(
                 onClick = { contactPickerLauncher.launch(null) },
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(32.dp),
             ) {
                 Icon(
-                    Icons.Default.PersonAdd,
+                    Icons.Outlined.AddCircleOutline,
                     contentDescription = stringResource(R.string.compose_add_contact),
-                    tint = Indigo,
-                    modifier = Modifier.size(20.dp),
+                    tint = IosBlue,
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
-        HorizontalDivider(color = BorderColor)
+        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+        inputError?.let {
+            Text(
+                stringResource(it),
+                color = Danger,
+                fontSize = TextSize.Footnote,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
         if (needsMms(chips.size + (if (recipient.isNotBlank()) 1 else 0), photos.size)) {
             Text(
                 stringResource(R.string.compose_mms_hint),
@@ -400,42 +361,69 @@ fun ComposeScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }
+        // iMessage layout: empty space under the To field, and the message
+        // field with a big send button at the bottom, right above the keyboard.
+        Spacer(Modifier.weight(1f))
+        PhotoAttachmentStrip(photos, onRemove = { photos.remove(it) }, modifier = Modifier.padding(top = 8.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SimSelector(sims, chosenSub, onSelect = { chosenSub = it }, modifier = Modifier.padding(start = 12.dp))
-            IconButton(onClick = pickPhotos, enabled = photos.size < MAX_MMS_PHOTOS) {
+            SimSelector(
+                sims,
+                chosenSub,
+                onSelect = { chosenSub = it },
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+            IconButton(
+                onClick = pickPhotos,
+                enabled = photos.size < MAX_MMS_PHOTOS,
+                modifier = Modifier.size(48.dp),
+            ) {
                 Icon(
                     Icons.Outlined.AddPhotoAlternate,
                     contentDescription = stringResource(R.string.attachment_add_photo),
-                    tint = Indigo,
+                    tint = IosBlue,
                 )
             }
-            PhotoAttachmentStrip(photos, onRemove = { photos.remove(it) }, modifier = Modifier.weight(1f))
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .border(0.5.dp, Hairline, RoundedCornerShape(24.dp))
+                        .background(Surface, RoundedCornerShape(24.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                BasicTextField(
+                    value = messageBody,
+                    onValueChange = {
+                        inputError = null
+                        messageBody = it
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp),
+                    textStyle = TextStyle(color = White, fontSize = TextSize.Body, lineHeight = 22.sp),
+                    cursorBrush = SolidColor(Indigo),
+                    decorationBox = { inner ->
+                        if (messageBody.isEmpty()) {
+                            Text(
+                                stringResource(R.string.compose_type_a_message),
+                                color = TextSecondary,
+                                fontSize = TextSize.Body,
+                            )
+                        }
+                        inner()
+                    },
+                )
+            }
+            SendButton(enabled = canSend, onClick = { sendMessage() })
         }
-
-        // Message body
-        BasicTextField(
-            value = messageBody,
-            onValueChange = { messageBody = it },
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-            textStyle = TextStyle(color = White, fontSize = TextSize.Body, lineHeight = 22.sp),
-            cursorBrush = SolidColor(Indigo),
-            decorationBox = { inner ->
-                if (messageBody.isEmpty()) {
-                    Text(
-                        stringResource(R.string.compose_type_a_message),
-                        color = TextSecondary,
-                        fontSize = TextSize.Body,
-                    )
-                }
-                inner()
-            },
-        )
     }
 }
 

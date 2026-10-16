@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -94,6 +95,7 @@ import com.bantai.ui.screens.settings.TipDetailScreen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.GlassFill
 import com.bantai.util.DefaultSmsApp
+import com.bantai.util.NotificationLanding
 import com.bantai.util.rememberIsLowRamDevice
 import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.OnboardingViewModel
@@ -102,6 +104,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Sealed class kept for main-app screens referenced throughout the codebase
@@ -352,9 +355,11 @@ fun NavGraph(
 
     // Settings → "Show Scam Waves tab". Turning it off while on that tab
     // falls back to Messages rather than leaving a tab with no button.
-    val showScamWaves by settingsViewModel.showScamWavesTab.collectAsState()
+    // Waits for the saved value: its "off" placeholder used to bounce the user
+    // off Scam Waves whenever the screen was rebuilt (dark mode, font size).
+    val showScamWaves by settingsViewModel.showScamWavesTabLoaded.collectAsState()
     LaunchedEffect(showScamWaves) {
-        if (!showScamWaves && selectedTab == SCAM_WAVES_TAB_ID) selectedTab = 0
+        if (showScamWaves == false && selectedTab == SCAM_WAVES_TAB_ID) selectedTab = 0
     }
 
     // Jumps to the requested tab on cold start from a notification tap, and again
@@ -585,10 +590,23 @@ fun NavGraph(
                     }
 
                     composable("onboarding_profile") {
+                        val scope = rememberCoroutineScope()
                         OnboardingProfileScreen(
                             navController = navController,
                             viewModel = viewModel,
-                            onNext = { navController.navigate("onboarding_training_consent") },
+                            onNext = {
+                                if (viewModel.userData.value.onboardingComplete) {
+                                    // Returning user who only had to re-enter a name:
+                                    // straight back in, not the new-user steps.
+                                    scope.launch {
+                                        navController.navigate(viewModel.returningUserRoute()) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                } else {
+                                    navController.navigate("onboarding_training_consent")
+                                }
+                            },
                         )
                     }
 
@@ -846,7 +864,7 @@ fun NavGraph(
                             alertsBadge = unseenAlerts,
                             hazeState = hazeState,
                             docked = true,
-                            showScamWaves = showScamWaves,
+                            showScamWaves = showScamWaves == true,
                             onSelect = onSelectTab,
                         )
                         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -866,7 +884,7 @@ fun NavGraph(
                             selected = selectedTab,
                             alertsBadge = unseenAlerts,
                             hazeState = hazeState,
-                            showScamWaves = showScamWaves,
+                            showScamWaves = showScamWaves == true,
                             onSelect = onSelectTab,
                         )
                     }
@@ -909,8 +927,30 @@ fun NavGraph(
         onDispose { coachMarks?.selectTab = null }
     }
 
+    // Signed out (any of the three Sign out buttons, Delete account, or an
+    // expired session): nothing from the last session may resurface on the next
+    // sign-in -- a pending summary card, the tab they left on, or a paused tour.
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == Screen.Welcome.route) {
+            showSummary = false
+            selectedTab = 0
+            if (coachMarks?.isShowing == true) coachMarks.finish()
+        }
+    }
+
     // No walkthrough over the default-SMS gate; it starts once the gate clears.
     LaunchedEffect(showDefaultSmsGate, showSummary) { coachMarks?.suspended = showDefaultSmsGate || showSummary }
+
+    // A "Scam blocked" notification opens Settings -> Blocked numbers, once the app is up.
+    val landing by NotificationLanding.pending.collectAsState()
+    LaunchedEffect(landing, currentRoute) {
+        if (landing == NotificationLanding.BLOCKED &&
+            currentRoute == Screen.Main.route &&
+            NotificationLanding.consume(NotificationLanding.BLOCKED)
+        ) {
+            navController.navigate(Screen.BlockedNumbers.route)
+        }
+    }
 
     // The daily summary notification opens its recap card over the app.
     LaunchedEffect(requestedSummary) {
@@ -938,9 +978,15 @@ fun NavGraph(
         val sender = requestedConversationSender ?: return@LaunchedEffect
         val conversationExists =
             withContext(Dispatchers.IO) {
+                // Texts in Recently Deleted don't count: a notification for a
+                // conversation deleted since then opened an empty thread.
+                val deleted =
+                    context.container.deletedMessagesStore.deletedEntries
+                        .first()
+                        .mapTo(HashSet()) { it.id }
                 context.container.smsRepository
-                    .getConversationBySender(sender, limit = 1)
-                    .isNotEmpty()
+                    .getConversationBySender(sender, limit = EXISTS_CHECK_LIMIT)
+                    .any { it.id !in deleted }
             }
         if (conversationExists) {
             navController.navigate(Screen.Detail.createRoute(sender))
@@ -973,7 +1019,12 @@ private val UNGATED_ROUTES =
         "onboarding_enter_code",
         "onboarding_terms",
         "onboarding_profile",
+        // Asked right after sign-in; the gate (and the summary card) used to cover it.
+        "onboarding_training_consent",
         "onboarding_protected",
         // The first inbox sort and tutorial run before the gate, not under it.
         "setup",
     )
+
+// How many of a conversation's newest texts are checked before a notification opens it.
+private const val EXISTS_CHECK_LIMIT = 50

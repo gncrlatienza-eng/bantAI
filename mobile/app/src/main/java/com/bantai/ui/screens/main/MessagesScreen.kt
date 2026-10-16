@@ -45,7 +45,6 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,6 +87,7 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.isGroupKey
 import com.bantai.navigation.Screen
 import com.bantai.ui.components.BadgeType
+import com.bantai.ui.components.BantaiAlertDialog
 import com.bantai.ui.components.CoachIds
 import com.bantai.ui.components.CoachStep
 import com.bantai.ui.components.CoachTour
@@ -162,6 +162,9 @@ fun MessagesScreen(
     LaunchedEffect(readContactsPermission.status.isGranted) {
         if (readContactsPermission.status.isGranted) {
             ContactsSync.syncIfDue(context)
+            // Names only resolve once contacts are readable: regroup the list
+            // now instead of on the next incoming text.
+            viewModel.refreshContactNames()
         }
     }
 
@@ -489,9 +492,8 @@ fun MessagesScreen(
 
     if (showDeleteConfirm) {
         val count = selectedIds.size
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            containerColor = SurfaceElevated,
             title = { Text(pluralStringResource(R.plurals.messages_delete_title, count, count), color = White) },
             text = { Text(stringResource(R.string.message_detail_they_ll_move_to_recently), color = TextSecondary) },
             confirmButton = {
@@ -513,9 +515,8 @@ fun MessagesScreen(
 
     if (showRestoreConfirm) {
         val count = selectedIds.size
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showRestoreConfirm = false },
-            containerColor = SurfaceElevated,
             title = { Text(pluralStringResource(R.plurals.messages_restore_title, count, count), color = White) },
             text = { Text(stringResource(R.string.messages_they_ll_move_back_to), color = TextSecondary) },
             confirmButton = {
@@ -537,9 +538,8 @@ fun MessagesScreen(
 
     if (showPermanentDeleteConfirm) {
         val count = selectedIds.size
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showPermanentDeleteConfirm = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(pluralStringResource(R.plurals.messages_delete_forever_title, count, count), color = White)
             },
@@ -958,10 +958,14 @@ private fun mainTour(
             }
             add(step(CoachIds.SEARCH, R.string.coach_search_title, R.string.coach_search_body))
             add(step(CoachIds.TAB_ALERTS, R.string.coach_alerts_tab_title, R.string.coach_alerts_tab_body))
-            // With reports off there's no Reported page, and the swipe only blocks.
+            // With reports off there's no Reported page (Alerts is one list,
+            // so this points at its Today / This week / Earlier control), and
+            // the swipe only blocks.
+            val tabsTitle =
+                if (shareReports) R.string.coach_alert_tabs_title else R.string.coach_alert_tabs_title_no_reports
             val tabsBody =
                 if (shareReports) R.string.coach_alert_tabs_body else R.string.coach_alert_tabs_body_no_reports
-            add(step(CoachIds.ALERT_TABS, R.string.coach_alert_tabs_title, tabsBody, ALERTS_TAB))
+            add(step(CoachIds.ALERT_TABS, tabsTitle, tabsBody, ALERTS_TAB))
             add(
                 step(
                     CoachIds.ALERT_FIRST_ROW,
@@ -995,8 +999,9 @@ private val SETTINGS_STEPS =
         CoachIds.SETTINGS_WAVES to (R.string.coach_settings_waves_title to R.string.coach_settings_waves_body),
         CoachIds.SETTINGS_UNKNOWN to (R.string.coach_settings_unknown_title to R.string.coach_settings_unknown_body),
         CoachIds.SETTINGS_TIPS to (R.string.coach_settings_tips_title to R.string.coach_settings_tips_body),
-        CoachIds.SETTINGS_SUPPORT to (R.string.coach_settings_support_title to R.string.coach_settings_support_body),
+        // Screen order: Privacy & data sits above Contact support.
         CoachIds.SETTINGS_PRIVACY to (R.string.coach_settings_privacy_title to R.string.coach_settings_privacy_body),
+        CoachIds.SETTINGS_SUPPORT to (R.string.coach_settings_support_title to R.string.coach_settings_support_body),
     ).map { (target, text) -> step(target, text.first, text.second, SETTINGS_TAB) }
 
 // Main-tour steps live on Messages unless they name another tab.

@@ -19,9 +19,12 @@ import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -65,14 +68,26 @@ fun SenderReportsScreen(
 ) {
     val alerts by alertsViewModel.alerts.collectAsState()
     val filter by alertsViewModel.reportFilter.collectAsState()
+    // The reports this page opened with stay on it when their status changes
+    // (Waiting -> Accepted while it's open used to empty it to "gone").
+    var openedWith by remember(senderKey) { mutableStateOf<Set<String>?>(null) }
     val reports =
-        remember(alerts, filter, senderKey) {
+        remember(alerts, filter, senderKey, openedWith) {
+            val kept = openedWith
             groupReports(
                 alerts
-                    .filter { it.report?.filter() == filter && senderKey(it) == senderKey }
-                    .sortedByDescending { it.receivedAt },
+                    .filter {
+                        senderKey(it) == senderKey &&
+                            it.report != null &&
+                            (if (kept != null) it.messageId in kept else it.report?.filter() == filter)
+                    }.sortedByDescending { it.receivedAt },
             )
         }
+    LaunchedEffect(reports) {
+        if (openedWith == null && reports.isNotEmpty()) {
+            openedWith = reports.flatten().mapTo(HashSet()) { it.messageId }
+        }
+    }
     val popBack = rememberSafePopBack(navController)
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {

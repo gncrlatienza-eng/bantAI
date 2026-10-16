@@ -93,10 +93,27 @@ class OnboardingViewModel(
     private val _onboardingAuthComplete = MutableSharedFlow<Unit>()
     val onboardingAuthComplete: SharedFlow<Unit> = _onboardingAuthComplete
 
+    /**
+     * Where a returning user (this phone already finished onboarding) goes after
+     * the code is accepted: the app, or Setup when this phone's inbox still has
+     * to be sorted (a different account just signed in). Never the new-user
+     * steps again -- consent, "You're protected" and Setup used to replay.
+     */
+    suspend fun returningUserRoute(): String {
+        val sorted = userPreferences.userData.first().historySortedAt != 0L
+        return if (sorted) ROUTE_MAIN else ROUTE_SETUP
+    }
+
     init {
         viewModelScope.launch {
+            var wasSignedIn = false
             userPreferences.userData.collect { data ->
                 _userData.value = data
+                val signedIn = data.authToken.isNotEmpty()
+                // Activity-scoped: signing out must not leave the last account's
+                // name (it skipped the next account's name step) or OTP behind.
+                if (wasSignedIn && !signedIn) clearSignInState()
+                wasSignedIn = signedIn
                 if (data.firstName.isNotEmpty()) {
                     _firstName.value = data.firstName
                     _lastName.value = data.lastName
@@ -245,8 +262,16 @@ class OnboardingViewModel(
         requestVerificationCode(current.phoneNumber) {}
     }
 
+    private fun clearSignInState() {
+        _firstName.value = ""
+        _lastName.value = ""
+        _state.update { it.copy(otpCode = "", errorMessage = null, isLoading = false, failedVerifyAttempts = 0) }
+    }
+
     fun verifyCode() {
         val current = _state.value
+        // A double tap must not send the same code twice.
+        if (current.isLoading) return
         val validationError = codeEntryError(current)
         if (validationError != null) {
             _state.update { it.copy(errorMessage = validationError) }
@@ -318,3 +343,6 @@ class OnboardingViewModel(
         _state.update { it.copy(termsAccepted = accepted) }
     }
 }
+
+private const val ROUTE_SETUP = "setup"
+private const val ROUTE_MAIN = "main"

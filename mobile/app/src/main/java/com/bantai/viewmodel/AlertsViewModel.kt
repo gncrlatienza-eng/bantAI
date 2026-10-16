@@ -22,6 +22,8 @@ import com.bantai.data.remote.ReportsApi
 import com.bantai.data.remote.SmsApi
 import com.bantai.data.remote.toUserMessage
 import com.bantai.util.ContactNames
+import com.bantai.util.NotificationHelper
+import com.bantai.util.NotificationLanding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -33,12 +35,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 // The newest page of alerts gets re-fetched on every tick (a full load pulls
 // up to ALERTS_MAX_PAGES pages of 100 via the backend's cursor), so this trades
@@ -66,6 +71,14 @@ class AlertsViewModel(
 
     // Scams only the on-device model caught (no server alert behind them).
     private val localAlerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
+
+    init {
+        viewModelScope.launch {
+            _alerts.collect { server ->
+                application.container.alertedMessageIds.value = server.mapNotNullTo(HashSet()) { it.localId }
+            }
+        }
+    }
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -107,7 +120,7 @@ class AlertsViewModel(
         _reportFilter.value = filter
     }
 
-    // To Review / Blocked's Today / This Week / Earlier, kept like reportFilter.
+    // To Review's Today / This Week / Earlier, kept like reportFilter.
     private val _ageFilter = MutableStateFlow(TODAY)
     val ageFilter: StateFlow<String> = _ageFilter.asStateFlow()
 
@@ -135,37 +148,46 @@ class AlertsViewModel(
         return fresh + _alerts.value.filter { it.id !in ids && it.createdAt < oldest }
     }
 
+    // A tapped report-result notification opens the Reported page.
+    init {
+        viewModelScope.launch {
+            // Let the rest of the constructor run first: launch is immediate on
+            // Main, and this init sits above properties setFilter/setTab use.
+            yield()
+            NotificationLanding.pending.collect {
+                if (NotificationLanding.consume(NotificationLanding.REPORTS)) _tab.value = AlertTab.REPORTED
+            }
+        }
+    }
+
     fun setTab(tab: AlertTab) {
         _tab.value = tab
     }
 
     fun markSeen(alert: SmsApi.AlertSummary) {
+        NotificationHelper.cancelAlert(getApplication(), alert.sender)
         viewModelScope.launch { alertStateStore.markSeen(alert.messageId) }
     }
 
     /** "Mark all read": clears every new dot and the tab count without opening each alert. */
     fun markAllSeen() {
-        val ids = (_alerts.value + localAlerts.value).map { it.messageId }
-        viewModelScope.launch { alertStateStore.markSeen(ids) }
+        val all = _alerts.value + localAlerts.value
+        all.map { it.sender }.distinct().forEach { NotificationHelper.cancelAlert(getApplication(), it) }
+        viewModelScope.launch { alertStateStore.markSeen(all.map { it.messageId }) }
     }
 
     // Set by AlertsScreen while it's composed; picks the faster poll interval.
     @Volatile
     var isScreenVisible = false
 
-    /**
-     * Unblocks [alert]'s sender from the Blocked page. Its alerts move to To
-     * review straight away (the next poll agrees: BlockedSendersStore now
-     * records the sender as user-unblocked, so catch-up won't re-block it).
-     * [onDone] gets false when only the phone half worked -- the backend may
-     * still be filtering this sender.
-     */
-
     init {
         loadAlerts()
-        // An on-device scam verdict, or a block/unblock made from a thread,
-        // shows here right away instead of on the next 20-60 s poll. Local
-        // only: no network call.
+        // A new verdict (on-device or from the server's AI), or a block/unblock
+        // made from a thread, shows here right away instead of on the next
+        // 20-60 s poll. A server-caught scam's alert lives on the server, so
+        // this fetches the newest page too: it used to refresh only on-device
+        // data, and a new scam stayed out of Alerts until its notification was
+        // tapped or the app restarted.
         @OptIn(FlowPreview::class)
         viewModelScope.launch {
             combine(
@@ -174,7 +196,34 @@ class AlertsViewModel(
             ) { _, _ -> Unit }
                 .drop(1)
                 .debounce(LOCAL_REFRESH_DEBOUNCE_MS)
-                .collect { refreshLocalState() }
+                .collect {
+                    refreshLocalState()
+                    loadAlerts(silent = true)
+                }
+        }
+        // Signed out, or in again (this ViewModel outlives both): drop the last
+        // session's alerts and its "Sign in to see alerts" error, then load fresh.
+        viewModelScope.launch {
+            userPreferences.userData
+                .map { it.authToken }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    _alerts.value = emptyList()
+                    reportList.value = emptyList()
+                    localAlerts.value = emptyList()
+                    _errorMessage.value = null
+                    loadAlerts()
+                }
+        }
+        // Back from the background (or the screen turned on): catch up now,
+        // not on the next poll tick.
+        viewModelScope.launch {
+            ProcessLifecycleOwner
+                .get()
+                .lifecycle.currentStateFlow
+                .drop(1)
+                .collect { state -> if (state == Lifecycle.State.STARTED) loadAlerts(silent = true) }
         }
         // Polling lives here (viewModelScope) rather than in AlertsScreen's own
         // composition, so the Alerts tab's unread badge stays live even while
@@ -204,6 +253,10 @@ class AlertsViewModel(
      *   spinner so an already-populated list doesn't flash empty every poll.
      */
     fun loadAlerts(silent: Boolean = false) {
+        // A background refresh never interrupts a load in flight: cancelling a
+        // full load left the spinner up for good (isLoading is only cleared by
+        // the load itself), and the running load brings the same news anyway.
+        if (silent && loadJob?.isActive == true) return
         // Cancels any in-flight fetch first so a slow earlier response can't land
         // after a newer one and overwrite it with stale data.
         loadJob?.cancel()

@@ -13,7 +13,6 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,19 +21,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.GppBad
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -48,6 +49,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -58,19 +61,23 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.data.DailySummaryScheduler
+import com.bantai.ui.components.GroupedRowDivider
+import com.bantai.ui.components.IconTile
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.OnIndigo
+import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SystemGray
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -98,32 +105,10 @@ fun NotificationsScreen(
     val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = dropUnlessResumed { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(R.string.notifications_notifications),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.notifications_notifications),
+            onBack = { navController.popBackStack() },
+        )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -151,36 +136,45 @@ fun NotificationsScreen(
                 ) {
                     ToggleRow(
                         title = stringResource(R.string.notifications_smishing_alerts),
+                        icon = Icons.Filled.GppBad,
+                        tint = Danger,
                         subtitle = stringResource(R.string.notifications_high_priority_alert_for_likely),
                         checked = smishingAlerts,
                         onCheckedChange = { viewModel.toggleSmishingAlerts(it) },
                     )
-                    HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                    GroupedRowDivider()
                     ToggleRow(
                         title = stringResource(R.string.notifications_suspicious_alerts),
+                        icon = Icons.Filled.WarningAmber,
+                        tint = Suspicious,
                         subtitle = stringResource(R.string.notifications_alert_for_messages_worth_a),
                         checked = suspiciousAlerts,
                         onCheckedChange = { viewModel.toggleSuspiciousAlerts(it) },
                     )
-                    HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                    GroupedRowDivider()
                     ToggleRow(
                         title = stringResource(R.string.notifications_spam_alerts),
+                        icon = Icons.Filled.Campaign,
+                        tint = SystemGray,
                         subtitle = stringResource(R.string.notifications_notify_when_a_promo_is),
                         checked = spamAlerts,
                         onCheckedChange = { viewModel.toggleSpamAlerts(it) },
                     )
-                    HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                    GroupedRowDivider()
                     ToggleRow(
                         title = stringResource(R.string.notifications_auto_block_scams),
+                        icon = Icons.Filled.Block,
+                        tint = Danger,
                         subtitle = stringResource(R.string.notifications_auto_block_scams_detail),
                         checked = autoBlockScams,
                         onCheckedChange = { viewModel.toggleAutoBlockScams(it) },
                     )
                     // Only meaningful when BantAI blocks on its own.
                     if (autoBlockScams) {
-                        HorizontalDivider(color = BorderColor, thickness = 1.dp)
+                        GroupedRowDivider()
                         ToggleRow(
                             title = stringResource(R.string.notifications_auto_block_notice),
+                            icon = Icons.Filled.NotificationsActive,
                             subtitle = stringResource(R.string.notifications_when_a_number_is_blocked),
                             checked = autoBlockNotice,
                             onCheckedChange = { viewModel.toggleAutoBlockNotice(it) },
@@ -214,6 +208,8 @@ fun NotificationsScreen(
                 ) {
                     ToggleRow(
                         title = stringResource(R.string.notifications_delivery_reports),
+                        icon = Icons.Filled.DoneAll,
+                        tint = Safe,
                         subtitle = stringResource(R.string.notifications_delivery_reports_detail),
                         checked = deliveryReports,
                         onCheckedChange = { viewModel.toggleDeliveryReports(it) },
@@ -326,11 +322,14 @@ private fun NotificationPermissionBanner() {
 }
 
 @Composable
+@Suppress("LongParameterList") // the row, its switch, and an optional icon tile
 private fun ToggleRow(
     title: String,
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector? = null,
+    tint: Color = Indigo,
 ) {
     Row(
         modifier =
@@ -340,12 +339,16 @@ private fun ToggleRow(
                 // its on/off state as one item. The Switch below used to be a
                 // second, unlabelled stop ("switch, off").
                 .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            IconTile(icon, tint)
+            Spacer(Modifier.width(12.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
-            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption)
+            Text(title, color = White, fontSize = TextSize.Body)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption, lineHeight = 16.sp)
         }
         Spacer(Modifier.width(12.dp))
         Switch(
@@ -362,13 +365,13 @@ private fun ToggleRow(
 
 @Composable
 private fun SectionLabel(text: String) {
+    // Same small caps header as the other grouped screens (GroupedSectionHeader).
     Text(
-        text,
+        text.uppercase(),
         color = TextSecondary,
-        fontSize = TextSize.Caption2,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 1.sp,
-        modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+        fontSize = TextSize.Caption,
+        letterSpacing = 0.4.sp,
+        modifier = Modifier.padding(top = 10.dp, start = 16.dp),
     )
 }
 
@@ -402,7 +405,7 @@ private fun DailySummarySettings(viewModel: SettingsViewModel) {
             onCheckedChange = { viewModel.setDailySummary(it, minute) },
         )
         if (enabled) {
-            HorizontalDivider(color = BorderColor, thickness = 1.dp)
+            HorizontalDivider(color = Hairline, thickness = 0.5.dp)
             Row(
                 modifier =
                     Modifier
@@ -464,7 +467,7 @@ private fun SummaryOnTimeRows() {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     if (!exactAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        HorizontalDivider(color = BorderColor, thickness = 1.dp)
+        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
         OnTimeRow(
             title = stringResource(R.string.summary_exact_title),
             detail = stringResource(R.string.summary_exact_detail),
@@ -476,7 +479,7 @@ private fun SummaryOnTimeRows() {
         }
     }
     if (Build.MANUFACTURER.lowercase() in STRICT_BATTERY_BRANDS) {
-        HorizontalDivider(color = BorderColor, thickness = 1.dp)
+        HorizontalDivider(color = Hairline, thickness = 0.5.dp)
         OnTimeRow(
             title = stringResource(R.string.summary_battery_title),
             detail = stringResource(R.string.summary_battery_detail),

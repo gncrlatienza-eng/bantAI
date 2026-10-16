@@ -102,16 +102,23 @@ class SettingsViewModel(
     private val _simulateStatus = MutableStateFlow<String?>(null)
     val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
 
+    /**
+     * Edit profile starts from what's saved. This ViewModel lives as long as the
+     * activity, so without it, typing then Back without saving showed the
+     * unsaved text the next time the screen opened.
+     */
+    fun resetEdits() {
+        val data = _userData.value
+        _editFirstName.value = data.firstName
+        _editLastName.value = data.lastName
+        _editAvatarColor.value = data.avatarColor
+        viewModelScope.launch { _editMyNumber.value = userPreferences.myNumber.first() }
+    }
+
     init {
-        viewModelScope.launch {
-            userPreferences.myNumber.collect { _editMyNumber.value = it }
-        }
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
                 _userData.value = data
-                _editFirstName.value = data.firstName
-                _editLastName.value = data.lastName
-                _editAvatarColor.value = data.avatarColor
                 _smishingAlerts.value = data.smishingAlerts
                 _suspiciousAlerts.value = data.suspiciousAlerts
                 _spamAlerts.value = data.spamAlerts
@@ -239,6 +246,12 @@ class SettingsViewModel(
     val showScamWavesTab: StateFlow<Boolean> =
         userPreferences.showScamWavesTab.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** The same setting, but null until it has actually been read. */
+    val showScamWavesTabLoaded: StateFlow<Boolean?> =
+        userPreferences.showScamWavesTab
+            .map<Boolean, Boolean?> { it }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     fun setShowScamWavesTab(show: Boolean) {
         viewModelScope.launch { userPreferences.saveShowScamWavesTab(show) }
     }
@@ -342,6 +355,9 @@ class SettingsViewModel(
             // sign-in (UserPreferences.savePhoneAuth / LocalAccountData).
             userPreferences.clearAll(keepLocalData = true)
             OutgoingSms.clearAll(getApplication())
+            // Lives as long as the activity: the next sign-in must not see this
+            // account's answer before the server's (it flashed the consent prompt).
+            _trainingOptIn.value = null
             onComplete()
         }
     }

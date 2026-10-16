@@ -60,4 +60,11 @@ class AlertExpiryTest {
         assertEquals(listOf(scam), visibleAlerts(listOf(unknown, scam), hideUnknown = true, nowMillis = now))
         assertEquals(2, visibleAlerts(listOf(unknown, scam), hideUnknown = false, nowMillis = now).size)
     }
+
+    @Test
+    fun `blocked senders are left out of Alerts`() {
+        val blocked = alert("2026-10-13")
+        val review = alert("2026-10-13", senderBlocked = false)
+        assertEquals(listOf(review), visibleAlerts(listOf(blocked, review), hideUnknown = false, nowMillis = now))
+    }
 }

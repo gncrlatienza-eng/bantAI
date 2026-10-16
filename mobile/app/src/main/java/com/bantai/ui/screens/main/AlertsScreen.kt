@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.VerifiedUser
@@ -96,7 +95,6 @@ import com.bantai.ui.components.coachTarget
 import com.bantai.ui.components.groupedItem
 import com.bantai.ui.components.swipeActionFor
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Safe
@@ -156,8 +154,11 @@ fun AlertsScreen(
     innerPadding: PaddingValues,
     viewModel: AlertsViewModel = viewModel(),
 ) {
-    DisposableEffect(viewModel) {
-        viewModel.isScreenVisible = true
+    // Tabs stay composed when hidden, so "on screen" is the tab being active,
+    // not this screen being composed (the fast poll used to run on every tab).
+    val tabActive = LocalTabActive.current
+    DisposableEffect(viewModel, tabActive) {
+        viewModel.isScreenVisible = tabActive
         onDispose { viewModel.isScreenVisible = false }
     }
     val alerts by viewModel.alerts.collectAsState()
@@ -192,11 +193,13 @@ fun AlertsScreen(
     }
     val reportSections = remember(alerts, reportFilter) { reportSections(alerts, reportFilter) }
     val reportCounts = remember(alerts) { reportCounts(alerts) }
+    // Blocked senders aren't in Alerts (they're in Settings → Blocked numbers).
     // "Help improve detection" off: nobody reviews anything from this phone, so
-    // Alerts is just To Review and Blocked.
+    // Alerts is just the scam list, with no page chips.
     val shareReports by LocalContext.current.container.shareReports
         .collectAsState()
-    val tabs = AlertTab.entries.filter { it != AlertTab.REPORTED || shareReports }
+    val tabs = if (shareReports) listOf(AlertTab.TO_REVIEW, AlertTab.REPORTED) else listOf(AlertTab.TO_REVIEW)
+    val showTabs = tabs.size > 1
     LaunchedEffect(tabs, tab) { if (tab !in tabs) viewModel.setTab(AlertTab.TO_REVIEW) }
     val density = LocalDensity.current
     // Measured once the Reported page shows its filter; the estimate is its
@@ -264,18 +267,20 @@ fun AlertsScreen(
             Spacer(Modifier.height(TabTitleTopSpacing))
             AlertsTitle(hasUnseen = unseen.isNotEmpty(), onMarkAllSeen = viewModel::markAllSeen)
             Spacer(Modifier.height(10.dp))
-            AlertTabChips(
-                tabs = tabs,
-                selected = tab,
-                tabsWithNew = tabsWithNew,
-                onSelect = viewModel::setTab,
-                modifier = Modifier.coachTarget(CoachIds.ALERT_TABS),
-            )
+            if (showTabs) {
+                AlertTabChips(
+                    tabs = tabs,
+                    selected = tab,
+                    tabsWithNew = tabsWithNew,
+                    onSelect = viewModel::setTab,
+                    modifier = Modifier.coachTarget(CoachIds.ALERT_TABS),
+                )
+            }
             // Every page's blurb is laid out and only the selected one shown, so
             // this block is as tall as the longest at any width or font size:
             // switching pages never moves the list (or its empty state) below.
-            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp)) {
-                AlertTab.entries.forEach { page ->
+            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = if (showTabs) 10.dp else 0.dp)) {
+                tabs.forEach { page ->
                     Text(
                         stringResource(page.aboutRes()),
                         color = TextSecondary,
@@ -285,8 +290,7 @@ fun AlertsScreen(
                     )
                 }
             }
-            val showReportFilter = reportCounts.isNotEmpty()
-            // Only To Review splits by age; Blocked is one list, a record to scroll.
+            val showReportFilter = shareReports && reportCounts.isNotEmpty()
             val showAgeFilter = tab == AlertTab.TO_REVIEW && sections.isNotEmpty()
             val insetForControl = !showAgeFilter && tab != AlertTab.REPORTED && showReportFilter
             if (showAgeFilter) {
@@ -300,7 +304,10 @@ fun AlertsScreen(
                     modifier =
                         Modifier
                             .onSizeChanged { reportFilterHeight = with(density) { it.height.toDp() } }
-                            .padding(start = 20.dp, end = 20.dp, top = 14.dp),
+                            .padding(start = 20.dp, end = 20.dp, top = 14.dp)
+                            // With no page chips, the tour points here instead. After
+                            // the padding, so the ring hugs the control itself.
+                            .then(if (showTabs) Modifier else Modifier.coachTarget(CoachIds.ALERT_TABS)),
                 )
             }
             if (tab == AlertTab.REPORTED && showReportFilter) {
@@ -520,20 +527,7 @@ private fun ColumnScope.AlertsList(
                         item { GroupedSectionHeader(section.title) }
                         reportRows(section.rows, onReportClick)
                     }
-                state.tab == AlertTab.TO_REVIEW -> ageRows(state, onClick, onSwipeAction, reportsOn)
-                else ->
-                    state.sections.forEach { section ->
-                        item { GroupedSectionHeader(section.title) }
-                        alertRows(
-                            tab = state.tab,
-                            sectionAlerts = section.alerts,
-                            unseen = state.unseen,
-                            onClick = onClick,
-                            onSwipeAction = onSwipeAction,
-                            firstSection = false,
-                            reportsOn = reportsOn,
-                        )
-                    }
+                else -> ageRows(state, onClick, onSwipeAction, reportsOn)
             }
         }
     }
@@ -673,8 +667,7 @@ private fun EmptyAlerts(
 ) {
     val (title, detail) =
         when (tab) {
-            AlertTab.TO_REVIEW -> R.string.alerts_empty_title to R.string.alerts_empty_detail
-            AlertTab.BLOCKED -> R.string.alerts_empty_blocked_title to R.string.alerts_empty_blocked_detail
+            AlertTab.TO_REVIEW, AlertTab.BLOCKED -> R.string.alerts_empty_title to R.string.alerts_empty_detail
             AlertTab.REPORTED -> R.string.alerts_empty_reported_title to R.string.alerts_empty_reported_detail
         }
     StateMessage(
@@ -687,7 +680,7 @@ private fun EmptyAlerts(
 }
 
 // Each page has its own glyph and color, so a row says where it belongs even
-// out of context: orange warning to review, red block, indigo flag.
+// out of context: orange warning to review, indigo flag.
 private data class RowStyle(
     val icon: ImageVector,
     val tint: Color,
@@ -697,8 +690,8 @@ private data class RowStyle(
 @Composable
 private fun AlertTab.rowStyle(): RowStyle =
     when (this) {
-        AlertTab.TO_REVIEW -> RowStyle(Icons.Outlined.WarningAmber, Suspicious, R.string.alerts_needs_review)
-        AlertTab.BLOCKED -> RowStyle(Icons.Outlined.Block, Danger, R.string.alerts_blocked)
+        AlertTab.TO_REVIEW, AlertTab.BLOCKED ->
+            RowStyle(Icons.Outlined.WarningAmber, Suspicious, R.string.alerts_needs_review)
         AlertTab.REPORTED -> RowStyle(Icons.Outlined.Flag, Indigo, R.string.alerts_tab_reported)
     }
 
@@ -778,15 +771,13 @@ private fun AlertRow(
 
 private fun AlertTab.titleRes(): Int =
     when (this) {
-        AlertTab.TO_REVIEW -> R.string.alerts_tab_to_review
-        AlertTab.BLOCKED -> R.string.alerts_tab_blocked
+        AlertTab.TO_REVIEW, AlertTab.BLOCKED -> R.string.alerts_tab_to_review
         AlertTab.REPORTED -> R.string.alerts_tab_reported
     }
 
 private fun AlertTab.aboutRes(): Int =
     when (this) {
-        AlertTab.TO_REVIEW -> R.string.alerts_about_to_review
-        AlertTab.BLOCKED -> R.string.alerts_about_blocked
+        AlertTab.TO_REVIEW, AlertTab.BLOCKED -> R.string.alerts_about_to_review
         AlertTab.REPORTED -> R.string.alerts_about_reported
     }
 

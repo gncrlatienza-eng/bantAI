@@ -18,24 +18,20 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.ReportGmailerrorred
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -71,6 +67,8 @@ import com.bantai.data.local.ReportBlocks
 import com.bantai.data.model.Classification
 import com.bantai.data.model.SmsMessage
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.BantaiAlertDialog
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Hairline
@@ -305,10 +303,8 @@ fun TakeActionScreen(
     }
 
     if (showDefaultSmsPrompt) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showDefaultSmsPrompt = false },
-            containerColor = SurfaceElevated,
-            shape = RoundedCornerShape(20.dp),
             title = {
                 Text(stringResource(R.string.default_sms_prompt_title), color = White, fontWeight = FontWeight.Bold)
             },
@@ -461,31 +457,10 @@ private fun TakeActionContent(
                 // focused field is scrolled into view.
                 .imePadding(),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(if (canBlock) R.string.take_action_title else R.string.take_action_title_report),
-                color = White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
+        IosTopBar(
+            title = stringResource(if (canBlock) R.string.take_action_title else R.string.take_action_title_report),
+            onBack = onBack,
+        )
 
         // iOS grouped-list layout: small caps section headers over rounded
         // cards, a check circle for each choice, one primary button at the end.
@@ -828,10 +803,8 @@ private fun ConfirmationDialog(
                 )
         }
     val accent = if (type == "report_only") Indigo else Danger
-    AlertDialog(
+    BantaiAlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceElevated,
-        shape = RoundedCornerShape(20.dp),
         icon = { Icon(data.icon, contentDescription = null, tint = accent, modifier = Modifier.size(28.dp)) },
         title = {
             Text(

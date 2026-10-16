@@ -27,6 +27,7 @@ import com.bantai.ui.theme.ThemeMode
 import com.bantai.ui.theme.isDark
 import com.bantai.util.IntentToken
 import com.bantai.util.NotificationHelper
+import com.bantai.util.NotificationLanding
 import kotlinx.coroutines.launch
 
 // smsto:/sms: are the schemes Android's own Contacts and Dialer apps use for
@@ -90,7 +91,9 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { DailySummaryScheduler.schedule(this@MainActivity) }
         // Resumes the background half of first-run sorting after a restart.
         HistorySortWorker.enqueue(this)
-        applyIntent(intent)
+        // Only a fresh launch: a recreation (dark mode, font size) used to replay
+        // the old notification intent and reopen its card or screen.
+        if (savedInstanceState == null) applyIntent(intent)
         val themeModeFlow = this.container.userPreferences.themeMode
         val textScaleFlow = this.container.userPreferences.textScale
         setContent {
@@ -150,6 +153,7 @@ class MainActivity : ComponentActivity() {
                 .getStringExtra(NotificationHelper.EXTRA_TIP_ID)
                 ?.takeIf { trusted }
                 ?.let { RequestedTip(it, intent.getStringExtra(NotificationHelper.EXTRA_TIP_WAVE_KEY)) }
+        if (trusted) NotificationLanding.pending.value = intent.getStringExtra(NotificationHelper.EXTRA_LANDING)
         val target = intent.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
         if (trusted && target == NotificationHelper.TARGET_DAILY_SUMMARY) {
             requestedSummary.value = System.currentTimeMillis()

@@ -15,15 +15,20 @@ related scam waves.
 - **Mobile app** (Kotlin + Jetpack Compose) — stands in as the user's default
   SMS app so messages are classified before the user ever sees them; includes
   live alerts, campaign tracking, and full message management.
-- **Backend** (NestJS + Prisma + PostgreSQL) — OTP-only phone auth (no
-  passwords), ingests messages, orchestrates classification, and serves
+- **Backend** (NestJS + Prisma + PostgreSQL) — phone OTP sign-in for the app
+  (no passwords) and password/email sign-in for the web portal; ingests
+  messages, orchestrates classification, and serves
   alerts/campaigns/verification data to the app.
 - **AI service** (Python/FastAPI) — the classifier itself: privacy-masked
   preprocessing, a fine-tuned XLM-RoBERTa model routing messages to
   Safe/Review/Spam/Blocked, HDBSCAN campaign clustering, and SHAP
   explainability.
-- **Web dashboard** (React + Vite) — admin/client views for monitoring
-  detections (UI only; not yet wired to the backend).
+- **Web dashboard** (React + Vite) — admin/client portal for monitoring
+  detections, wired to the backend.
+
+The student deployment (backend, AI service and web) runs on Azure Container
+Apps, and signed test APKs are published as GitHub pre-releases
+(`student-android-v*`). See `docs/deployment/`.
 
 See the per-folder READMEs and `docs/` for details on each piece.
 
@@ -60,7 +65,7 @@ Each stack started with a deliberately narrow rule set against the existing code
 green first, tighten incrementally) rather than a strict set applied all at once — see the
 per-folder README or the relevant lint config's comments for what's deferred and why.
 
-No CI workflow enforces any of this automatically yet — that's the next step.
+CI (`.github/workflows/ci.yml`) runs these checks plus each module's tests on every pull request.
 
 ## Branching Strategy
 

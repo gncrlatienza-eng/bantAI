@@ -1,6 +1,8 @@
+/*
+ * System → Audit: the full staff audit trail. Mounted by the System hub
+ * (routes/AppRoutes.tsx); /admin/audit redirects there.
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -14,7 +16,7 @@ import {
   getAdminAuditEvents,
   type AdminAuditEvent,
 } from '../../services/adminAuditService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { formatCompactDateTime } from '../../utils/dateFormat';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontSize: '0.85rem' } as const;
 
@@ -52,14 +54,11 @@ const COLUMNS: Column<AdminAuditEvent>[] = [
   {
     key: 'when',
     header: 'When',
-    render: (event) =>
-      new Date(event.createdAt).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }),
+    render: (event) => (
+      <span style={{ whiteSpace: 'nowrap' }}>
+        {formatCompactDateTime(new Date(event.createdAt))}
+      </span>
+    ),
   },
   {
     key: 'action',
@@ -79,9 +78,7 @@ const COLUMNS: Column<AdminAuditEvent>[] = [
   { key: 'target', header: 'Target', render: eventTarget },
 ];
 
-export function AuditPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
+export function AuditEventsPanel() {
   const [events, setEvents] = useState<AdminAuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -120,20 +117,7 @@ export function AuditPage() {
     ? events.filter((event) => event.type === typeFilter)
     : events;
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Administration &middot; Audit events</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
-      <PageHeader
-        title="Audit events"
-        description="Recent account, campaign, report and API access changes. Event metadata and restricted content are not displayed."
-      />
+    <>
       <div
         style={{
           display: 'flex',
@@ -146,6 +130,7 @@ export function AuditPage() {
         <div style={{ minWidth: 220 }}>
           <Select
             label="Event type"
+            hideLabel
             value={typeFilter}
             options={typeOptions}
             onChange={(event) => setTypeFilter(event.target.value)}
@@ -167,7 +152,7 @@ export function AuditPage() {
               setIncludeReads(event.target.checked);
             }}
           />
-          Show routine restricted-content reads
+          Include routine reads
         </label>
       </div>
       {loading ? (
@@ -200,8 +185,6 @@ export function AuditPage() {
           }
         />
       )}
-    </AppShell>
+    </>
   );
 }
-
-export default AuditPage;

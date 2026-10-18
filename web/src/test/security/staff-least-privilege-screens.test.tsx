@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getFilteredAdminSidebarGroups } from '../../pages/admin/adminNav';
+import {
+  ADMIN_NAV,
+  ADMIN_UTILITY,
+  adminPathPermitted,
+  breadcrumbFor,
+  firstPermittedAdminPath,
+  visibleTabs,
+} from '../../navigation/portalNav';
 import { fetchApi } from '../../api/apiClient';
 
 describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => {
@@ -16,88 +24,112 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
   });
 
   describe('Least-Privilege Navigation Filtering (W6)', () => {
-    it('filters sidebar items strictly for Support role (verification:read, overview:read)', () => {
-      const supportPermissions = ['overview:read', 'verification:read'];
-      const groups = getFilteredAdminSidebarGroups(supportPermissions);
+    const labels = (permissions: string[]) =>
+      getFilteredAdminSidebarGroups(permissions).flatMap((g) =>
+        g.items.map((i) => i.label),
+      );
 
-      const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
-      expect(itemLabels).toContain('Overview');
-      expect(itemLabels).not.toContain('Tips');
-      expect(itemLabels).toContain('Settings');
-
-      // Must NOT contain restricted screens
-      expect(itemLabels).not.toContain('Campaigns');
-      expect(itemLabels).not.toContain('Model');
-      expect(itemLabels).not.toContain('Export');
-      expect(itemLabels).not.toContain('System');
+    it('shows Support only Overview and Review (verification:read, overview:read)', () => {
+      expect(labels(['overview:read', 'verification:read'])).toEqual([
+        'Overview',
+        'Review',
+      ]);
     });
 
-    it('filters sidebar items strictly for Analyst role (campaigns:read, models:read, reports:read)', () => {
-      const analystPermissions = [
-        'overview:read',
-        'campaigns:manage',
-        'models:read',
-        'reports:read',
-      ];
-      const groups = getFilteredAdminSidebarGroups(analystPermissions);
-
-      const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
-      expect(itemLabels).toContain('Overview');
-      expect(itemLabels).toContain('Campaigns');
-      expect(itemLabels).toContain('Model');
-      expect(itemLabels).toContain('Reports');
-
-      // Must NOT contain system or export screens
-      expect(itemLabels).not.toContain('System');
-      expect(itemLabels).not.toContain('Export');
-      expect(itemLabels).not.toContain('Tips');
+    it('shows Analyst Overview, Review, Campaigns and Model', () => {
+      expect(
+        labels([
+          'overview:read',
+          'campaigns:manage',
+          'models:read',
+          'reports:read',
+        ]),
+      ).toEqual(['Overview', 'Review', 'Campaigns', 'Model']);
     });
 
-    it('filters sidebar items strictly for Privacy role (privacy:read)', () => {
-      const privacyPermissions = ['overview:read', 'privacy:read'];
-      const groups = getFilteredAdminSidebarGroups(privacyPermissions);
-
-      const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
-      expect(itemLabels).toContain('Overview');
-      expect(itemLabels).not.toContain('Export');
-
-      // Must NOT contain model, system, tips, or campaigns
-      expect(itemLabels).not.toContain('Model');
-      expect(itemLabels).not.toContain('System');
-      expect(itemLabels).not.toContain('Campaigns');
-      expect(itemLabels).not.toContain('Tips');
+    it('shows Privacy only Overview (privacy:read)', () => {
+      expect(labels(['overview:read', 'privacy:read'])).toEqual(['Overview']);
     });
 
-    it('filters sidebar items strictly for Operations role (system:read, campaigns:read)', () => {
-      const opsPermissions = [
-        'overview:read',
-        'system:read',
-        'campaigns:manage',
-      ];
-      const groups = getFilteredAdminSidebarGroups(opsPermissions);
-
-      const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
-      expect(itemLabels).toContain('Overview');
-      expect(itemLabels).toContain('System');
-      expect(itemLabels).toContain('Campaigns');
-
-      // Must NOT contain privacy export or tips
-      expect(itemLabels).not.toContain('Export');
-      expect(itemLabels).not.toContain('Tips');
+    it('shows Operations Overview, Campaigns and System', () => {
+      expect(
+        labels(['overview:read', 'system:read', 'campaigns:manage']),
+      ).toEqual(['Overview', 'Campaigns', 'System']);
     });
 
-    it('grants all navigation groups when wildcard * is present (Global Admin)', () => {
+    it('shows a full-access admin all eight sections, settings excluded', () => {
       const groups = getFilteredAdminSidebarGroups(['*']);
-      const itemLabels = groups.flatMap((g) => g.items.map((i) => i.label));
+      expect(groups.map((g) => g.label)).toEqual([undefined, 'Manage']);
+      expect(labels(['*'])).toEqual([
+        'Overview',
+        'Review',
+        'Campaigns',
+        'Messages',
+        'Model',
+        'Customers',
+        'Tips',
+        'System',
+      ]);
+    });
 
-      expect(itemLabels).toContain('Overview');
-      expect(itemLabels).toContain('Campaigns');
-      expect(itemLabels).toContain('Model');
-      expect(itemLabels).toContain('Reports');
-      expect(itemLabels).toContain('Tips');
-      expect(itemLabels).toContain('Export');
-      expect(itemLabels).toContain('System');
-      expect(itemLabels).toContain('Settings');
+    it('shows nothing to an admin without a staff role', () => {
+      expect(labels([])).toEqual([]);
+    });
+  });
+
+  describe('Hub tabs and landing follow the same permissions', () => {
+    const review = ADMIN_NAV[0].sections.find((s) => s.id === 'review')!;
+    const system = ADMIN_NAV[1].sections.find((s) => s.id === 'system')!;
+
+    it('gives each role only its own Review tabs', () => {
+      const ids = (p: string[]) => visibleTabs(review, p).map((t) => t.id);
+      expect(ids(['verification:read'])).toEqual(['senders']);
+      expect(ids(['reports:read', 'verification:read'])).toEqual([
+        'reports',
+        'senders',
+      ]);
+      expect(ids(['models:read'])).toEqual(['detections']);
+    });
+
+    it('keeps Audit and Exports for full access only', () => {
+      expect(visibleTabs(system, ['system:read']).map((t) => t.id)).toEqual([
+        'health',
+        'logs',
+        'storage',
+      ]);
+      expect(adminPathPermitted('/admin/system/audit', ['system:read'])).toBe(
+        false,
+      );
+      expect(adminPathPermitted('/admin/system/audit', ['*'])).toBe(true);
+    });
+
+    it('lands each account on the first screen it can use', () => {
+      expect(firstPermittedAdminPath(['*'])).toBe('/admin/overview');
+      expect(firstPermittedAdminPath(['verification:read'])).toBe(
+        '/admin/review/senders',
+      );
+      expect(firstPermittedAdminPath([])).toBe('/admin/settings/profile');
+      expect(adminPathPermitted('/admin/overview', [])).toBe(false);
+      expect(adminPathPermitted('/admin/settings/profile', [])).toBe(true);
+      expect(adminPathPermitted('/admin/notifications', [])).toBe(true);
+    });
+
+    it('builds the top-bar breadcrumb from the registry', () => {
+      expect(
+        breadcrumbFor(ADMIN_NAV, ADMIN_UTILITY, '/admin/review/senders'),
+      ).toEqual([
+        { label: 'Review', path: '/admin/review' },
+        { label: 'Sender reports' },
+      ]);
+      expect(
+        breadcrumbFor(ADMIN_NAV, ADMIN_UTILITY, '/admin/campaigns/c1'),
+      ).toEqual([
+        { label: 'Campaigns', path: '/admin/campaigns' },
+        { label: 'Campaign' },
+      ]);
+      expect(breadcrumbFor(ADMIN_NAV, ADMIN_UTILITY, '/admin/tips')).toEqual([
+        { label: 'Tips' },
+      ]);
     });
   });
 

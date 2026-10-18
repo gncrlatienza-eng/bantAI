@@ -5,8 +5,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -14,8 +13,6 @@ import {
   LoadingState,
   type Column,
 } from '../../components/primitives';
-import { logout } from '../../services/authService';
-import { useClientSidebarGroups } from './clientNav';
 import {
   getShieldDocumentation,
   type ShieldDocEndpoint,
@@ -73,7 +70,7 @@ function DocSection({ section }: { section: ShieldDocSection }) {
       style={{
         background: 'var(--surface-raised)',
         border: '1px solid var(--border-default)',
-        borderRadius: 8,
+        borderRadius: 10,
         padding: 20,
         scrollMarginTop: 80,
       }}
@@ -167,9 +164,6 @@ function DocSection({ section }: { section: ShieldDocSection }) {
 }
 
 export function HelpPage() {
-  const sidebarGroups = useClientSidebarGroups();
-  const navigate = useNavigate();
-  const location = useLocation();
   const [documentation, setDocumentation] =
     useState<ShieldDocumentation | null>(null);
   const [error, setError] = useState('');
@@ -192,32 +186,7 @@ export function HelpPage() {
   }, [load]);
 
   return (
-    <AppShell
-      role="client"
-      groups={sidebarGroups}
-      brandInitial="S"
-      brandLabel="BantAI Shield"
-      currentPath={location.pathname}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Shield &middot; Documentation</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
-      footer={
-        <span style={{ fontSize: '0.85rem' }}>
-          Shield intelligence subscription
-        </span>
-      }
-    >
+    <>
       <PageHeader
         title="Documentation"
         description="How to read Shield campaign intelligence and use the Shield API safely."
@@ -255,7 +224,7 @@ export function HelpPage() {
             style={{
               margin: 0,
               padding: '10px 14px',
-              borderRadius: 6,
+              borderRadius: 10,
               border: '1px solid var(--border-default)',
               background: 'var(--surface-raised)',
               fontSize: '0.9rem',
@@ -316,7 +285,7 @@ export function HelpPage() {
           ))}
         </div>
       )}
-    </AppShell>
+    </>
   );
 }
 

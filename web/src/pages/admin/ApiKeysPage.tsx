@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -12,6 +11,8 @@ import {
   Metric,
   MetricRow,
   type Column,
+  StatPanel,
+  SectionHeader,
 } from '../../components/primitives';
 import {
   getAdminShieldUsage,
@@ -23,7 +24,7 @@ import {
   type AdminShieldOrganization,
   type AdminShieldUsage,
 } from '../../services/adminShieldApiKeysService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { formatCompactDateTime } from '../../utils/dateFormat';
 
 // Mirrors backend UpdateShieldApiLimitsDto bounds.
 const MAX_MONTHLY_QUOTA = 10_000_000;
@@ -38,7 +39,6 @@ interface LimitDraft {
 
 const MUTED = { color: 'var(--text-secondary)' } as const;
 const MONO = { fontFamily: 'var(--font-mono)', fontSize: '0.85rem' } as const;
-const SECTION_TITLE = { margin: 0, fontSize: '1rem', fontWeight: 600 } as const;
 
 function errorText(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -47,15 +47,7 @@ function errorText(error: unknown, fallback: string): string {
 function formatDateTime(value: string | null): string {
   if (!value) return 'Never';
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? '—'
-    : date.toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
+  return Number.isNaN(date.getTime()) ? '—' : formatCompactDateTime(date);
 }
 
 function formatScope(scope: string): string {
@@ -67,30 +59,7 @@ function isWholeNumberInRange(value: string, max: number): boolean {
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= max;
 }
 
-function SectionHeader({
-  id,
-  title,
-  description,
-}: {
-  id: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <h2 id={id} style={SECTION_TITLE}>
-        {title}
-      </h2>
-      <p style={{ ...MUTED, margin: '4px 0 0', fontSize: '0.9rem' }}>
-        {description}
-      </p>
-    </div>
-  );
-}
-
 export function ApiKeysPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [keys, setKeys] = useState<AdminShieldApiKey[]>([]);
   const [organizations, setOrganizations] = useState<AdminShieldOrganization[]>(
     [],
@@ -469,19 +438,10 @@ export function ApiKeysPage() {
   ];
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Administration &middot; Shield API</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
-        title="Shield API management"
-        description="Inspect tenant usage, tune per-account limits, and revoke subscriber credentials. Plaintext secrets are never available here."
+        title="Shield API"
+        description="Usage, limits and keys per Shield account."
       />
 
       {loading ? (
@@ -498,24 +458,26 @@ export function ApiKeysPage() {
         />
       ) : (
         <>
-          <MetricRow columns={4}>
-            <Metric
-              label="Requests this month"
-              value={(usage?.requestsThisPeriod ?? 0).toLocaleString()}
-            />
-            <Metric
-              label="Shield accounts"
-              value={organizations.length.toLocaleString()}
-            />
-            <Metric
-              label="Accounts with traffic"
-              value={(usage?.byOrganization.length ?? 0).toLocaleString()}
-            />
-            <Metric
-              label="Active keys"
-              value={activeKeyCount.toLocaleString()}
-            />
-          </MetricRow>
+          <StatPanel label="Shield API summary">
+            <MetricRow columns={4}>
+              <Metric
+                label="Requests this month"
+                value={(usage?.requestsThisPeriod ?? 0).toLocaleString()}
+              />
+              <Metric
+                label="Shield accounts"
+                value={organizations.length.toLocaleString()}
+              />
+              <Metric
+                label="Accounts with traffic"
+                value={(usage?.byOrganization.length ?? 0).toLocaleString()}
+              />
+              <Metric
+                label="Active keys"
+                value={activeKeyCount.toLocaleString()}
+              />
+            </MetricRow>
+          </StatPanel>
 
           {notice && (
             <p role="status" style={{ margin: '16px 0 0' }}>
@@ -535,7 +497,7 @@ export function ApiKeysPage() {
             <SectionHeader
               id="admin-api-limits-heading"
               title="Account limits"
-              description={`Monthly quota (1–${MAX_MONTHLY_QUOTA.toLocaleString()}) applies to the whole account; the per-minute rate (1–${MAX_RATE_PER_MINUTE.toLocaleString()}) applies to each key. Changes are audited.`}
+              description="Monthly quota per account, per-minute rate per key. Changes are audited."
             />
             <DataTable<AdminShieldOrganization>
               ariaLabel="Shield account API limits"
@@ -558,7 +520,7 @@ export function ApiKeysPage() {
             <SectionHeader
               id="admin-api-keys-heading"
               title="Subscriber keys"
-              description="Only the key prefix and suffix are stored for display. Revoking a key stops it immediately and cannot be undone."
+              description="Revoking a key stops it at once and can't be undone."
             />
             <DataTable<AdminShieldApiKey>
               ariaLabel="Shield subscriber API keys"
@@ -631,7 +593,7 @@ export function ApiKeysPage() {
       >
         {actionError && pendingRevoke && <p role="alert">{actionError}</p>}
       </Dialog>
-    </AppShell>
+    </>
   );
 }
 

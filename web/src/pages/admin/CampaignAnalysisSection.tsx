@@ -232,7 +232,7 @@ export function CampaignAnalysisSection({
         emptyState={
           <EmptyState
             title="No observations yet"
-            description="An observation is recorded once the campaign has confirmed messages in a 7-day window."
+            description="Recorded once a 7-day window has confirmed messages."
           />
         }
       />

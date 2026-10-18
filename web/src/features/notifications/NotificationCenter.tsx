@@ -52,22 +52,22 @@ const CATEGORIES: Record<
     {
       key: 'campaignChangesEnabled',
       label: 'Campaign review queue',
-      help: 'Evolution entries, including analysis proposals, are waiting for approval.',
+      help: 'Campaign changes waiting for approval.',
     },
     {
       key: 'subscriptionUpdatesEnabled',
       label: 'Applications and contracts',
-      help: 'New Shield applications, historical contracts awaiting review, and licenses that expire or are suspended.',
+      help: 'New applications, contract reviews and license changes.',
     },
     {
       key: 'apiUsageAlertsEnabled',
       label: 'API quota',
-      help: 'An organization reaches its monthly API quota.',
+      help: 'An organization hits its monthly quota.',
     },
     {
       key: 'systemHealthAlertsEnabled',
       label: 'AI system health',
-      help: 'The AI service is unreachable or not ready, the serving model differs from the registry, a candidate awaits review, retraining fails, or drift is under investigation.',
+      help: 'AI service outages, model mismatches, candidates, retraining and drift.',
     },
   ],
 };
@@ -95,7 +95,17 @@ const PANEL = {
   padding: 20,
 } as const;
 
-export function NotificationCenter({ area }: { area: Area }) {
+/*
+ * `section` lets the admin portal show the inbox on its Notifications page
+ * and the preferences under Settings; the Shield portal still shows both.
+ */
+export function NotificationCenter({
+  area,
+  section = 'all',
+}: {
+  area: Area;
+  section?: 'all' | 'inbox' | 'preferences';
+}) {
   const navigate = useNavigate();
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
@@ -143,6 +153,8 @@ export function NotificationCenter({ area }: { area: Area }) {
         unreadCount: next.filter((item) => !item.readAt).length,
       };
     });
+    // The top-bar bell refreshes its unread badge on this event.
+    window.dispatchEvent(new Event('bantai:notifications-changed'));
   }
 
   async function save(key: keyof NotificationPreferences, value: boolean) {
@@ -210,198 +222,216 @@ export function NotificationCenter({ area }: { area: Area }) {
         </p>
       )}
 
-      <section aria-labelledby={`${area}-inbox-title`} style={PANEL}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-            marginBottom: 12,
-          }}
-        >
-          <h2
-            id={`${area}-inbox-title`}
-            style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}
+      {section !== 'preferences' && (
+        <section aria-labelledby={`${area}-inbox-title`} style={PANEL}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+              marginBottom: 12,
+            }}
           >
-            Inbox
-            <span
+            <h2
+              id={`${area}-inbox-title`}
+              style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}
+            >
+              Inbox
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontWeight: 400,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                {inbox.unreadCount
+                  ? `${inbox.unreadCount} unread`
+                  : 'All caught up'}
+              </span>
+            </h2>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ width: 140 }}>
+                <Select
+                  aria-label="Show notices"
+                  value={filter}
+                  options={[
+                    { value: 'all', label: 'All notices' },
+                    { value: 'unread', label: 'Unread only' },
+                  ]}
+                  onChange={(event) =>
+                    setFilter(event.target.value as 'all' | 'unread')
+                  }
+                />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!inbox.unreadCount}
+                onClick={() => void readAll()}
+              >
+                Mark all read
+              </Button>
+            </div>
+          </div>
+
+          {!preferences.inAppEnabled && (
+            <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)' }}>
+              In-app notifications are off, so no new notices are being added.
+            </p>
+          )}
+
+          {items.length === 0 ? (
+            <EmptyState
+              title={
+                filter === 'unread' ? 'No unread notices' : 'No notices yet'
+              }
+              description="Notices are created from verified system records as they happen."
+            />
+          ) : (
+            <ul
               style={{
-                marginLeft: 8,
-                fontWeight: 400,
-                color: 'var(--text-secondary)',
+                listStyle: 'none',
+                margin: 0,
+                padding: 0,
+                display: 'grid',
+                // Hairline dividers between notices only; the panel around the
+                // list is the one frame (no box inside a box).
+                gap: 1,
+                background: 'var(--border-default)',
+                borderTop: '1px solid var(--border-default)',
+                borderBottom: '1px solid var(--border-default)',
+                overflow: 'hidden',
               }}
             >
-              {inbox.unreadCount
-                ? `${inbox.unreadCount} unread`
-                : 'All caught up'}
-            </span>
+              {items.map((item) => (
+                <li
+                  key={item.id}
+                  style={{
+                    // Actions sit beside the text on wide screens and wrap
+                    // below it on phones instead of squeezing the message.
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px 12px',
+                    alignItems: 'flex-start',
+                    padding: '12px 14px',
+                    background: 'var(--surface-raised)',
+                    boxShadow: item.readAt
+                      ? undefined
+                      : 'inset 3px 0 0 var(--brand-primary)',
+                  }}
+                >
+                  <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                    <p
+                      style={{ margin: 0, fontWeight: item.readAt ? 500 : 700 }}
+                    >
+                      {item.title}
+                      {!item.readAt && (
+                        <span className="bantai-visually-hidden">
+                          {' '}
+                          (unread)
+                        </span>
+                      )}
+                    </p>
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      {item.body}
+                    </p>
+                    <p
+                      style={{
+                        margin: '4px 0 0',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      {when(item.createdAt)}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flex: '0 0 auto' }}>
+                    {item.link && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void open(item)}
+                      >
+                        Open
+                      </Button>
+                    )}
+                    {!item.readAt && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void read(item)}
+                      >
+                        Mark read
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {section !== 'inbox' && (
+        <section aria-labelledby={`${area}-preferences-title`} style={PANEL}>
+          <h2
+            id={`${area}-preferences-title`}
+            style={{ margin: '0 0 4px', fontSize: '1rem', fontWeight: 600 }}
+          >
+            Notifications
           </h2>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ width: 140 }}>
-              <Select
-                aria-label="Show notices"
-                value={filter}
-                options={[
-                  { value: 'all', label: 'All notices' },
-                  { value: 'unread', label: 'Unread only' },
-                ]}
-                onChange={(event) =>
-                  setFilter(event.target.value as 'all' | 'unread')
-                }
-              />
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!inbox.unreadCount}
-              onClick={() => void readAll()}
-            >
-              Mark all read
-            </Button>
-          </div>
-        </div>
-
-        {!preferences.inAppEnabled && (
-          <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)' }}>
-            In-app notifications are off, so no new notices are being added.
-          </p>
-        )}
-
-        {items.length === 0 ? (
-          <EmptyState
-            title={filter === 'unread' ? 'No unread notices' : 'No notices yet'}
-            description="Notices are created from verified system records as they happen."
-          />
-        ) : (
-          <ul
+          <p
             style={{
-              listStyle: 'none',
+              margin: '0 0 16px',
+              color: 'var(--text-secondary)',
+              fontSize: '0.9rem',
+            }}
+          >
+            Shown in the portal. Email isn’t available yet.
+          </p>
+          <fieldset
+            style={{
+              border: 0,
               margin: 0,
               padding: 0,
               display: 'grid',
-              gap: 1,
-              background: 'var(--border-default)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 6,
-              overflow: 'hidden',
+              gap: 14,
             }}
           >
-            {items.map((item) => (
-              <li
-                key={item.id}
-                style={{
-                  // Actions sit beside the text on wide screens and wrap
-                  // below it on phones instead of squeezing the message.
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px 12px',
-                  alignItems: 'flex-start',
-                  padding: '12px 14px',
-                  background: 'var(--surface-raised)',
-                  boxShadow: item.readAt
-                    ? undefined
-                    : 'inset 3px 0 0 var(--brand-primary)',
-                }}
-              >
-                <div style={{ flex: '1 1 260px', minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: item.readAt ? 500 : 700 }}>
-                    {item.title}
-                    {!item.readAt && (
-                      <span className="bantai-visually-hidden"> (unread)</span>
-                    )}
-                  </p>
-                  <p
-                    style={{
-                      margin: '4px 0 0',
-                      color: 'var(--text-secondary)',
-                      fontSize: '0.9rem',
-                    }}
-                  >
-                    {item.body}
-                  </p>
-                  <p
-                    style={{
-                      margin: '4px 0 0',
-                      color: 'var(--text-secondary)',
-                      fontSize: '0.8rem',
-                    }}
-                  >
-                    {when(item.createdAt)}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: 6, flex: '0 0 auto' }}>
-                  {item.link && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => void open(item)}
-                    >
-                      Open
-                    </Button>
-                  )}
-                  {!item.readAt && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void read(item)}
-                    >
-                      Mark read
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby={`${area}-preferences-title`} style={PANEL}>
-        <h2
-          id={`${area}-preferences-title`}
-          style={{ margin: '0 0 4px', fontSize: '1rem', fontWeight: 600 }}
-        >
-          What to notify me about
-        </h2>
-        <p
-          style={{
-            margin: '0 0 16px',
-            color: 'var(--text-secondary)',
-            fontSize: '0.9rem',
-          }}
-        >
-          Notices appear here in the portal. Email delivery is not available
-          yet.
-        </p>
-        <fieldset
-          style={{ border: 0, margin: 0, padding: 0, display: 'grid', gap: 14 }}
-        >
-          <legend className="bantai-visually-hidden">
-            Notification categories
-          </legend>
-          <PreferenceToggle
-            id={`${area}-inApp`}
-            label="In-app notifications"
-            help="Turn off to stop new notices for every category below."
-            checked={preferences.inAppEnabled}
-            busy={saving === 'inAppEnabled'}
-            onChange={(value) => void save('inAppEnabled', value)}
-          />
-          {CATEGORIES[area].map((category) => (
+            <legend className="bantai-visually-hidden">
+              Notification categories
+            </legend>
             <PreferenceToggle
-              key={category.key}
-              id={`${area}-${category.key}`}
-              label={category.label}
-              help={category.help}
-              checked={preferences[category.key]}
-              disabled={!preferences.inAppEnabled}
-              busy={saving === category.key}
-              onChange={(value) => void save(category.key, value)}
+              id={`${area}-inApp`}
+              label="In-app notifications"
+              help="Turn off to pause every category below."
+              checked={preferences.inAppEnabled}
+              busy={saving === 'inAppEnabled'}
+              onChange={(value) => void save('inAppEnabled', value)}
             />
-          ))}
-        </fieldset>
-      </section>
+            {CATEGORIES[area].map((category) => (
+              <PreferenceToggle
+                key={category.key}
+                id={`${area}-${category.key}`}
+                label={category.label}
+                help={category.help}
+                checked={preferences[category.key]}
+                disabled={!preferences.inAppEnabled}
+                busy={saving === category.key}
+                onChange={(value) => void save(category.key, value)}
+              />
+            ))}
+          </fieldset>
+        </section>
+      )}
     </div>
   );
 }

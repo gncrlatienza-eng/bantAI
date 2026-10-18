@@ -29,11 +29,13 @@ import {
   NoteDialog,
   Notice,
   SectionHeader,
+  StatPanel,
   errorText,
   formatDate,
   formatDateTime,
   type NoteRequest,
 } from './shared';
+import { TextMetricValue } from '../adminDisplay';
 
 const STATUS: Record<
   ModelCandidateStatus,
@@ -374,44 +376,85 @@ export function ModelLifecycleTab() {
     );
   }
 
+  // Said once, inside the summary, and only when it adds something: an
+  // unreachable service already reads "Unavailable" on the metric itself.
+  const servingStatus: { tone: 'ok' | 'warn'; text: string } | undefined =
+    serving?.status === 'ready'
+      ? serving.matchesRegistry
+        ? {
+            tone: 'ok',
+            text: 'Serving the active registry version with its approved files.',
+          }
+        : serving.registryVersionTag &&
+            serving.versionTag === serving.registryVersionTag
+          ? {
+              tone: 'warn',
+              text: 'Serving the active tag, but its files don’t match the approved bundle.',
+            }
+          : serving.registryVersionTag
+            ? {
+                tone: 'warn',
+                text: 'The serving checkpoint doesn’t match the active registry version.',
+              }
+            : {
+                tone: 'warn',
+                text: 'A checkpoint is serving, but no registry version is active.',
+              }
+      : serving?.status === 'not_ready'
+        ? {
+            tone: 'warn',
+            text: 'The AI service is up but has no approved model ready.',
+          }
+        : undefined;
+
   return (
     <>
-      <MetricRow columns={4}>
-        <Metric
-          label="Serving checkpoint"
-          value={
-            !serving || serving.status === 'unavailable'
-              ? 'Unavailable'
-              : serving.modelReady
-                ? (serving.versionTag ?? 'Untracked')
-                : 'Not ready'
-          }
-        />
-        <Metric label="Registry active" value={active?.versionTag ?? 'None'} />
-        <Metric label="Awaiting review" value={awaitingReview} />
-        <Metric
-          label="Pending deployment"
-          value={pending?.versionTag ?? 'None'}
-        />
-      </MetricRow>
-
-      <p
-        aria-live="polite"
-        style={{ ...MUTED, margin: '14px 0 0', fontSize: '0.9rem' }}
-      >
-        {serving?.status === 'ready'
-          ? serving.matchesRegistry
-            ? 'The serving checkpoint matches the registry’s active version and its approved files.'
-            : serving.registryVersionTag &&
-                serving.versionTag === serving.registryVersionTag
-              ? 'The serving checkpoint has the active version’s tag, but its files could not be matched to the approved bundle.'
-              : serving.registryVersionTag
-                ? 'The serving checkpoint does not match the registry’s active version.'
-                : 'A checkpoint is serving, but no registry version is marked active.'
-          : serving?.status === 'not_ready'
-            ? 'The AI service is up but has no approved, ready model to classify with.'
-            : 'The AI service is unreachable. The registry below is still accurate.'}
-      </p>
+      <StatPanel label="Model summary" status={servingStatus}>
+        <MetricRow columns={4}>
+          <Metric
+            label="Serving checkpoint"
+            meta={
+              !serving || serving.status === 'unavailable'
+                ? 'AI service unreachable'
+                : undefined
+            }
+            value={
+              !serving || serving.status === 'unavailable' ? (
+                'Unavailable'
+              ) : serving.modelReady ? (
+                serving.versionTag ? (
+                  <TextMetricValue value={serving.versionTag} />
+                ) : (
+                  'Untracked'
+                )
+              ) : (
+                'Not ready'
+              )
+            }
+          />
+          <Metric
+            label="Registry active"
+            value={
+              active?.versionTag ? (
+                <TextMetricValue value={active.versionTag} />
+              ) : (
+                'None'
+              )
+            }
+          />
+          <Metric label="Awaiting review" value={awaitingReview} />
+          <Metric
+            label="Pending deployment"
+            value={
+              pending?.versionTag ? (
+                <TextMetricValue value={pending.versionTag} />
+              ) : (
+                'None'
+              )
+            }
+          />
+        </MetricRow>
+      </StatPanel>
 
       {pending && (
         <section
@@ -473,7 +516,7 @@ export function ModelLifecycleTab() {
         <SectionHeader
           id="model-versions-title"
           title="Model versions"
-          description="Candidates arrive from the training pipeline with holdout evidence. Approve or reject each one; approved versions can then be deployed or used for a rollback."
+          description="Approve or reject candidates; approved ones can deploy or roll back."
         />
         <DataTable<ModelVersionItem>
           ariaLabel="Model versions"

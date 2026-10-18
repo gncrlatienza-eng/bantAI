@@ -91,3 +91,30 @@ export function isRecentlyActive(
   const seen = new Date(lastSeenAt).getTime();
   return !Number.isNaN(seen) && now - seen < ACTIVE_WINDOW_MS;
 }
+
+/**
+ * The number the Admin Campaigns "Active" tab shows with its default filters:
+ * each cluster once, not archived, not promo, with a linked message in the
+ * last 30 days. Overview uses this so both pages report the same figure.
+ */
+export function countRecentlyActiveCampaigns(
+  clusters: ReadonlyArray<{
+    id: string;
+    category?: string | null;
+    archivedAt?: string | null;
+    lastSeenAt?: string | null;
+    lastObserved?: string | null;
+  }>,
+  now: number,
+): number {
+  const seen = new Set<string>();
+  let count = 0;
+  for (const c of clusters) {
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    if (c.archivedAt || isPromo(c.category)) continue;
+    if (isRecentlyActive(c.lastSeenAt ?? c.lastObserved ?? null, now))
+      count += 1;
+  }
+  return count;
+}

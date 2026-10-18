@@ -22,6 +22,8 @@ import {
   StatusBadge,
   type Column,
   type StatusKind,
+  SectionHeader,
+  StatPanel,
 } from '../../components/primitives';
 import {
   archiveCampaign,
@@ -237,19 +239,11 @@ export function CampaignDetail({
 
   return (
     <>
-      <div
-        style={{
-          display: 'flex',
-          gap: 16,
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+      {/* The campaign is the page title; the breadcrumb leads back. */}
+      <header className="bantai-pageheader">
+        <div className="bantai-pageheader__row">
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <h1 style={{ margin: 0, fontSize: '1.5rem' }}>
+            <h1 className="bantai-pageheader__title">
               {data.label || 'Unlabeled campaign'}
             </h1>
             <StatusBadge
@@ -263,33 +257,36 @@ export function CampaignDetail({
               }
             />
           </div>
-          <p
-            style={{
-              margin: '6px 0 0',
-              color: 'var(--text-secondary)',
-              fontSize: '0.9rem',
-              fontFamily: 'var(--font-mono, monospace)',
-            }}
-          >
-            {data.id}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {canDeactivate && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeactivateOpen(true)}
-            >
-              Deactivate
-            </Button>
-          )}
-          {canArchive && (
-            <Button variant="ghost" onClick={() => setArchiveOpen(true)}>
-              Archive
-            </Button>
+          {(canDeactivate || canArchive) && (
+            <div className="bantai-pageheader__actions">
+              {canArchive && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setArchiveOpen(true)}
+                >
+                  Archive
+                </Button>
+              )}
+              {canDeactivate && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeactivateOpen(true)}
+                >
+                  Deactivate
+                </Button>
+              )}
+            </div>
           )}
         </div>
-      </div>
+        <p
+          className="bantai-pageheader__meta"
+          style={{ fontFamily: 'var(--font-mono)' }}
+        >
+          {data.id}
+        </p>
+      </header>
 
       {actionError && (
         <div
@@ -308,24 +305,24 @@ export function CampaignDetail({
         </div>
       )}
 
-      <MetricRow columns={4}>
-        <Metric
-          label="Messages in cluster"
-          value={
-            data.countVerified === false
-              ? 'Needs review'
-              : (data.messageCount ?? 0).toLocaleString()
-          }
-        />
-        <Metric label="Linked domains" value={data.urlDomains.length} />
-        <Metric label="First seen" value={formatDate(data.createdAt)} />
-        <Metric label="Last updated" value={formatDate(data.updatedAt)} />
-      </MetricRow>
+      <StatPanel label="Campaign summary">
+        <MetricRow columns={4}>
+          <Metric
+            label="Messages in cluster"
+            value={
+              data.countVerified === false
+                ? 'Needs review'
+                : (data.messageCount ?? 0).toLocaleString()
+            }
+          />
+          <Metric label="Linked domains" value={data.urlDomains.length} />
+          <Metric label="First seen" value={formatDate(data.createdAt)} />
+          <Metric label="Last updated" value={formatDate(data.updatedAt)} />
+        </MetricRow>
+      </StatPanel>
 
       <section style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>
-          Linked domains
-        </h2>
+        <SectionHeader title="Linked domains" />
         {data.urlDomains.length === 0 ? (
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
             No domains associated with this cluster yet.
@@ -340,19 +337,10 @@ export function CampaignDetail({
       </section>
 
       <section style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: '1.05rem', margin: '0 0 6px' }}>
-          Messages in this campaign
-        </h2>
-        <p
-          style={{
-            margin: '0 0 12px',
-            color: 'var(--text-secondary)',
-            fontSize: '0.85rem',
-          }}
-        >
-          Up to 25 recent stored masked records are returned by the audited
-          Admin campaign endpoint. Original SMS text is not retained here.
-        </p>
+        <SectionHeader
+          title="Messages in this campaign"
+          description="The 25 most recent masked records. Original SMS text is never stored."
+        />
         <DataTable<MessageRow>
           ariaLabel="Messages in this campaign"
           rowKey={(r) => r.id}

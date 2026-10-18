@@ -15,7 +15,6 @@ import {
   ErrorState,
   Input,
   LoadingState,
-  StatusBadge,
 } from '../../components/primitives';
 import { getCurrentUser, type CurrentUser } from '../../services/authService';
 import { updateMyProfile } from '../../services/usersService';
@@ -114,11 +113,10 @@ export function ProfileForm() {
           </>
         )}
         <span style={{ color: 'var(--text-secondary)' }}>Role</span>
-        <span>
-          <StatusBadge
-            kind={user.role === 'ADMIN' ? 'suspicious' : 'unknown'}
-            label={user.role}
-          />
+        {/* A role is a fact, not a warning: StatusBadge colors are for
+            classifications, so the role is plain text. */}
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+          {user.role.charAt(0) + user.role.slice(1).toLowerCase()}
         </span>
       </div>
 

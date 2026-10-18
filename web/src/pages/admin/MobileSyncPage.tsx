@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   ConfidenceMeter,
@@ -13,6 +12,9 @@ import {
   StatusBadge,
   type Column,
   type StatusKind,
+  MetricRow,
+  SectionHeader,
+  StatPanel,
 } from '../../components/primitives';
 import {
   getAdminClassificationHistory,
@@ -23,7 +25,8 @@ import {
   type AdminMobileSyncSummary,
   type ClassificationHistoryFilter,
 } from '../../services/smsService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { HowThisWorks, NewestFirstHeader, ShortId } from './adminDisplay';
+import { formatCompactDateTime } from '../../utils/dateFormat';
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'The backend request failed.';
@@ -33,13 +36,7 @@ function formatDateTime(value: string | null): string {
   if (!value) return 'No sync yet';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Unknown';
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatCompactDateTime(date);
 }
 
 function statusKind(label: string): StatusKind {
@@ -50,8 +47,6 @@ function statusKind(label: string): StatusKind {
 }
 
 export function MobileSyncPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [data, setData] = useState<AdminMobileSyncSummary | null>(null);
   const [history, setHistory] = useState<AdminClassificationHistory | null>(
     null,
@@ -121,17 +116,24 @@ export function MobileSyncPage() {
     }
   };
 
+  // The API pages by sync time, newest first. Showing that column first
+  // explains why an old inbox message can sit above a newer one.
   const columns: Column<AdminClassificationItem>[] = [
     {
-      key: 'verificationStatus',
-      header: 'Cloud verification',
-      render: (row) => cloudVerificationLabel(row.verificationStatus),
+      key: 'createdAt',
+      header: <NewestFirstHeader>Synced</NewestFirstHeader>,
+      render: (row) => (
+        <span style={{ whiteSpace: 'nowrap' }}>
+          {formatDateTime(row.createdAt)}
+        </span>
+      ),
+      width: '18%',
     },
     {
       key: 'receivedAt',
       header: 'Received on phone',
       render: (row) => formatDateTime(row.receivedAt),
-      width: '26%',
+      width: '18%',
     },
     {
       key: 'label',
@@ -139,45 +141,45 @@ export function MobileSyncPage() {
       render: (row) => (
         <StatusBadge kind={statusKind(row.label)} label={row.label} />
       ),
-      width: '18%',
+      width: '14%',
     },
     {
       key: 'score',
       header: 'Confidence',
       render: (row) => <ConfidenceMeter value={row.score} compact />,
       align: 'right',
-      width: '22%',
+      width: '14%',
     },
     {
       key: 'bucket',
       header: 'Risk bucket',
       render: (row) => row.bucket ?? '—',
-      width: '16%',
     },
     {
       key: 'alertStatus',
       header: 'Alert status',
       render: (row) => row.alertStatus ?? 'Not alerted',
     },
+    {
+      key: 'verificationStatus',
+      header: 'Cloud verification',
+      render: (row) => cloudVerificationLabel(row.verificationStatus),
+    },
+    {
+      key: 'messageId',
+      header: 'Record ID',
+      render: (row) => <ShortId id={row.messageId} />,
+    },
   ];
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Intelligence &middot; Mobile sync</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
-        title="Mobile sync"
-        description="Privacy-minimized classification activity received from signed-in mobile accounts. SMS text is masked before transfer, and this admin view omits message content, senders, contacts, and user identity."
+        title="Messages"
+        description="Synced from signed-in phones. Text, senders and identities stay hidden."
         meta={
           data
-            ? `Last server classification: ${formatDateTime(data.latestSyncAt)}`
+            ? `Last synced ${formatDateTime(data.latestSyncAt)}`
             : 'Reading mobile sync activity…'
         }
         actions={
@@ -193,7 +195,7 @@ export function MobileSyncPage() {
 
       {error && !loading ? (
         <ErrorState
-          title="Mobile sync unavailable"
+          title="Messages unavailable"
           description={error}
           action={
             <Button variant="secondary" onClick={() => void load()}>
@@ -205,94 +207,58 @@ export function MobileSyncPage() {
         <LoadingState label="Loading synced classifications" />
       ) : data ? (
         <>
-          <section
-            aria-label="Mobile sync summary"
-            style={{
-              background: 'var(--surface-raised)',
-              borderRadius: 8,
-              padding: '20px 24px',
-              marginBottom: 24,
-            }}
-          >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                gap: 24,
-              }}
-            >
+          <StatPanel label="Messages summary">
+            <MetricRow columns={4}>
               <Metric
                 label="Synced accounts"
                 value={data.syncedAccounts.toLocaleString()}
-                meta="accounts with mobile SMS metadata"
               />
               <Metric
                 label="Classified"
                 value={data.classifiedMessages.toLocaleString()}
                 meta={`${data.totalMessages.toLocaleString()} messages received`}
               />
-              <Metric
-                label="Scam"
-                value={data.scamCount.toLocaleString()}
-                meta="privacy-safe detections"
-              />
-              <Metric
-                label="Spam"
-                value={data.spamCount.toLocaleString()}
-                meta="privacy-safe detections"
-              />
-            </div>
-          </section>
+              <Metric label="Scam" value={data.scamCount.toLocaleString()} />
+              <Metric label="Spam" value={data.spamCount.toLocaleString()} />
+            </MetricRow>
+          </StatPanel>
 
           <section aria-labelledby="recent-mobile-sync-heading">
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                gap: 16,
-                flexWrap: 'wrap',
-                marginBottom: 12,
-              }}
-            >
-              <div>
-                <h2
-                  id="recent-mobile-sync-heading"
-                  style={{ margin: 0, fontSize: '1.05rem' }}
-                >
-                  Recent classifications
-                </h2>
-                <p
-                  style={{
-                    margin: '6px 0 0',
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  Browse all synced classifications, including older messages
-                  scanned from the phone. Device count is not inferred because
-                  BantAI does not retain a stable device identifier. A “blocked”
-                  risk bucket does not mean the sender was blocked; blocking
-                  requires the user to choose Block.
-                </p>
-              </div>
-              <div style={{ width: 200 }}>
-                <Select
-                  label="Classification"
-                  value={filter}
-                  onChange={(event) =>
-                    setFilter(event.target.value as ClassificationHistoryFilter)
-                  }
-                  options={[
-                    { value: 'threats', label: 'Scam and Spam' },
-                    { value: 'all', label: 'All classifications' },
-                    { value: 'Scam', label: 'Scam' },
-                    { value: 'Spam', label: 'Spam' },
-                    { value: 'Ham', label: 'Ham' },
-                  ]}
-                />
-              </div>
-            </div>
+            <SectionHeader
+              id="recent-mobile-sync-heading"
+              title="Recent classifications"
+              actions={
+                <>
+                  <HowThisWorks align="end">
+                    Rows are ordered by when the server classified them, so an
+                    older inbox message scanned later appears near the top.
+                    Device count is not inferred because BantAI does not retain
+                    a stable device identifier. A “blocked” risk bucket does not
+                    mean the sender was blocked; blocking requires the user to
+                    choose Block.
+                  </HowThisWorks>
+                  <div style={{ width: 200 }}>
+                    <Select
+                      label="Classification"
+                      hideLabel
+                      value={filter}
+                      onChange={(event) =>
+                        setFilter(
+                          event.target.value as ClassificationHistoryFilter,
+                        )
+                      }
+                      options={[
+                        { value: 'threats', label: 'Scam and Spam' },
+                        { value: 'all', label: 'All classifications' },
+                        { value: 'Scam', label: 'Scam' },
+                        { value: 'Spam', label: 'Spam' },
+                        { value: 'Ham', label: 'Ham' },
+                      ]}
+                    />
+                  </div>
+                </>
+              }
+            />
             <DataTable<AdminClassificationItem>
               ariaLabel="Recent mobile classifications"
               rowKey={(row) => row.id}
@@ -330,7 +296,7 @@ export function MobileSyncPage() {
           </section>
         </>
       ) : null}
-    </AppShell>
+    </>
   );
 }
 

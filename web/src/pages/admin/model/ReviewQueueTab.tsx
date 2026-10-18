@@ -51,7 +51,7 @@ const KINDS: Array<{ value: ReviewKind; label: string; hint: string }> = [
   {
     value: 'spot_check',
     label: 'Spot-check (called safe)',
-    hint: 'A random draw of messages the model called safe -- where missed scams hide.',
+    hint: 'A random sample the model called safe, where missed scams hide.',
   },
 ];
 
@@ -126,30 +126,29 @@ export function ReviewQueueTab() {
     <section aria-labelledby="review-queue-heading">
       <SectionHeader
         id="review-queue-heading"
-        title="Review queue"
-        description="Messages the model classified on its own, from users who opted in to help train it. Nothing enters the dataset until you label it; your label, not the model's, is what's saved."
+        title="Messages to label"
+        description={`${current.hint} Only your label is saved.`}
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={loading}
-            onClick={() => void load(kind)}
-          >
-            Refresh
-          </Button>
+          <>
+            <div style={{ width: 220 }}>
+              <Select
+                label="Show"
+                hideLabel
+                value={kind}
+                onChange={(e) => setKind(e.target.value as ReviewKind)}
+                options={KINDS.map((k) => ({ value: k.value, label: k.label }))}
+              />
+            </div>
+            <Button
+              variant="secondary"
+              disabled={loading}
+              onClick={() => void load(kind)}
+            >
+              Refresh
+            </Button>
+          </>
         }
       />
-      <div style={{ maxWidth: 320, marginBottom: 8 }}>
-        <Select
-          label="Show"
-          value={kind}
-          onChange={(e) => setKind(e.target.value as ReviewKind)}
-          options={KINDS.map((k) => ({ value: k.value, label: k.label }))}
-        />
-      </div>
-      <p style={{ ...MUTED, margin: '0 0 12px', fontSize: '0.88rem' }}>
-        {current.hint}
-      </p>
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
       {loading ? (
@@ -165,10 +164,14 @@ export function ReviewQueueTab() {
           }
         />
       ) : candidates.length === 0 ? (
-        <EmptyState
-          title="Nothing to review"
-          description="No messages from opted-in users are waiting in this queue."
-        />
+        <div className="bantai-p-table-wrap">
+          <div className="bantai-p-table__state">
+            <EmptyState
+              title="Nothing to review"
+              description="No opted-in messages are waiting here."
+            />
+          </div>
+        </div>
       ) : (
         <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0 }}>
           {candidates.map((c) => (

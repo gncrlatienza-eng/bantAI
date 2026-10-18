@@ -6,49 +6,17 @@
  */
 
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import { Button } from '../../components/primitives';
+import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/appshell/AppShell';
 import { CampaignsList } from '../../features/campaigns/CampaignsList';
-import { logout } from '../../services/authService';
-import { useClientSidebarGroups } from './clientNav';
 
 export function CampaignsPage() {
-  const sidebarGroups = useClientSidebarGroups();
   const navigate = useNavigate();
-  const location = useLocation();
   return (
-    <AppShell
-      role="client"
-      groups={sidebarGroups}
-      brandInitial="S"
-      brandLabel="BantAI Shield"
-      currentPath={location.pathname}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Shield &middot; Campaigns</span>}
-      topbarUtility={
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              logout();
-              void navigate('/login');
-            }}
-          >
-            Sign out
-          </Button>
-        </>
-      }
-      footer={
-        <span style={{ fontSize: '0.85rem' }}>
-          Shield intelligence subscription
-        </span>
-      }
-    >
+    <>
       <PageHeader
         title="Campaigns"
-        description="Browse published smishing campaign intelligence, indicators, and status changes."
+        description="Published smishing campaigns, their indicators and status."
       />
       <CampaignsList
         role="client"
@@ -56,7 +24,7 @@ export function CampaignsPage() {
           void navigate(`/shield/campaigns/${encodeURIComponent(c.id)}`)
         }
       />
-    </AppShell>
+    </>
   );
 }
 

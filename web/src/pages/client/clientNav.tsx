@@ -1,76 +1,16 @@
 /*
- * Shared Shield sidebar groups. Every external portal page must use
- * useClientSidebarGroups() so the portal shows the same navigation
- * everywhere.
+ * Shield sidebar groups, derived from the navigation registry
+ * (src/navigation/portalNav.tsx).
  *
  * Visibility is a product boundary, while the backend remains responsible for
  * authorization. Shield intentionally has no raw message, dataset, model, or
- * administration entry points.
+ * administration entry points. Account and notifications live in the top bar.
  */
 
-import React from 'react';
-import type {
-  NavGroupDef,
-  NavItemDef,
-} from '../../components/appshell/AppShell';
-import {
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavApiKeysIcon,
-  NavExportIcon,
-  NavDocsIcon,
-  NavAccountIcon,
-  NotificationsIcon,
-} from '../../components/primitives';
+import type { NavGroupDef } from '../../components/appshell/AppShell';
+import { SHIELD_NAV, toNavGroups } from '../../navigation/portalNav';
 
-const CLIENT_NAV: Array<Omit<NavGroupDef, 'items'> & { items: NavItemDef[] }> =
-  [
-    {
-      label: 'Threat Intelligence',
-      items: [
-        {
-          label: 'Overview',
-          path: '/shield/overview',
-          icon: <NavOverviewIcon />,
-        },
-        {
-          label: 'Campaigns',
-          path: '/shield/campaigns',
-          icon: <NavCampaignsIcon />,
-        },
-      ],
-    },
-    {
-      label: 'Access',
-      items: [
-        {
-          label: 'API',
-          path: '/shield/api',
-          icon: <NavApiKeysIcon />,
-        },
-        {
-          label: 'Exports',
-          path: '/shield/exports',
-          icon: <NavExportIcon />,
-        },
-        {
-          label: 'Notifications',
-          path: '/shield/notifications',
-          icon: <NotificationsIcon />,
-        },
-        {
-          label: 'Documentation',
-          path: '/shield/documentation',
-          icon: <NavDocsIcon />,
-        },
-        {
-          label: 'Account',
-          path: '/account',
-          icon: <NavAccountIcon />,
-        },
-      ],
-    },
-  ];
+const CLIENT_NAV = toNavGroups(SHIELD_NAV, ['*']);
 
 /** The deliberately narrow navigation for the external Shield portal. */
 export function useClientSidebarGroups(): NavGroupDef[] {

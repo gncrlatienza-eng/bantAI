@@ -496,7 +496,10 @@ export class PortalNotificationsService {
       } else if (!serving.matchesRegistry) {
         candidates.push({
           category: 'systemHealthAlertsEnabled',
-          sourceKey: `system-health:mismatch:${serving.versionTag ?? 'none'}:${day}`,
+          // One notice per mismatched version, not one per day: the key must
+          // stay the same while the same condition persists, or the inbox
+          // fills with copies of one unresolved notice.
+          sourceKey: `system-health:mismatch:${serving.versionTag ?? 'none'}`,
           type: 'MODEL_REGISTRY_MISMATCH',
           title: 'Serving model differs from the registry',
           body: `The AI service is serving ${serving.versionTag ?? 'an unregistered model'}, which is not the active registry version.`,

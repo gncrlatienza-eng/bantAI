@@ -21,7 +21,7 @@ function renderMenu(user: CurrentUser | null = admin) {
   render(
     <AccountMenu
       user={user}
-      settingsPath="/admin/settings"
+      items={[{ label: 'Settings', path: '/admin/settings' }]}
       onNavigate={onNavigate}
       onSignOut={onSignOut}
     />,

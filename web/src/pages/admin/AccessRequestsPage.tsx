@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -15,6 +14,7 @@ import {
   StatusBadge,
   type Column,
   type StatusKind,
+  StatPanel,
 } from '../../components/primitives';
 import {
   approveAccessRequest,
@@ -33,7 +33,6 @@ import {
   type AccessRequestStatus,
   type ApplicantHistory,
 } from '../../services/accessRequestsService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 type StatusFilter = 'all' | AccessRequestStatus;
 type Decision = 'approve' | 'decline' | 'info' | null;
@@ -80,10 +79,41 @@ const DETAIL_LABELS: Record<string, string> = {
   contactPerson: 'Contact person',
 };
 
-function detailValue(value: string | boolean | undefined): string {
+/*
+ * Only enum-shaped answers (EXPORTS_AND_API, six_months) are humanized.
+ * Anything the applicant typed (a website, a paragraph) is shown verbatim.
+ */
+export function detailValue(value: string | boolean | undefined): string {
   if (value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return formatStatus(value);
+  if (!/^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+$|^[A-Z0-9]+$/.test(value)) return value;
+  const words = value.toLowerCase().replaceAll('_', ' ');
+  return (words.charAt(0).toUpperCase() + words.slice(1)).replace(
+    /\bapi\b/g,
+    'API',
+  );
+}
+
+/* Approved but not yet paid for, so not active and not reviewable either. */
+const AWAITING_PAYMENT = new Set<AccessRequestStatus>([
+  'APPROVED',
+  'AGREEMENT_ACCEPTED',
+  'PAYMENT_PENDING',
+]);
+
+export function accessRequestCounts(
+  requests: Pick<AdminAccessRequest, 'status' | 'tier'>[],
+) {
+  return {
+    pending: requests.filter((r) => REVIEWABLE.has(r.status)).length,
+    awaitingPayment: requests.filter((r) => AWAITING_PAYMENT.has(r.status))
+      .length,
+    // Every Shield request still in progress, whatever step it is at.
+    openShield: requests.filter(
+      (r) => r.tier === 'SHIELD' && CANCELLABLE.has(r.status),
+    ).length,
+    active: requests.filter((r) => r.status === 'ACTIVE').length,
+  };
 }
 
 function errorText(error: unknown): string {
@@ -267,7 +297,16 @@ function Detail({ request }: { request: AdminAccessRequest }) {
       }}
     >
       {fields.map(([label, value]) => (
-        <div key={label} style={{ minWidth: 0 }}>
+        <div
+          key={label}
+          style={{
+            minWidth: 0,
+            // Paragraph answers get a full-width row instead of a narrow
+            // column (GOV.UK summary-list style); short facts stay in the grid.
+            gridColumn: value.length > 80 ? '1 / -1' : undefined,
+            maxWidth: value.length > 80 ? '72ch' : undefined,
+          }}
+        >
           <dt
             style={{
               color: 'var(--text-secondary)',
@@ -288,8 +327,6 @@ function Detail({ request }: { request: AdminAccessRequest }) {
 }
 
 export function AccessRequestsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [requests, setRequests] = useState<AdminAccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -343,16 +380,7 @@ export function AccessRequestsPage() {
     });
   }, [requests, search, statusFilter]);
 
-  const counts = useMemo(() => {
-    const pending = requests.filter((request) =>
-      REVIEWABLE.has(request.status),
-    );
-    return {
-      pending: pending.length,
-      shield: pending.filter((request) => request.tier === 'SHIELD').length,
-      active: requests.filter((request) => request.status === 'ACTIVE').length,
-    };
-  }, [requests]);
+  const counts = useMemo(() => accessRequestCounts(requests), [requests]);
 
   const columns: Column<AdminAccessRequest>[] = [
     {
@@ -508,19 +536,10 @@ export function AccessRequestsPage() {
   const infoMessageValid = infoMessage.trim().length >= 10;
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Administration &middot; Access requests</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
         title="Access requests"
-        description="Review Shield subscription applications before payment and account activation."
+        description="Shield applications to review before payment."
       />
 
       {error && !loading ? (
@@ -537,11 +556,14 @@ export function AccessRequestsPage() {
         <LoadingState label="Loading access requests" />
       ) : (
         <>
-          <MetricRow columns={4}>
-            <Metric label="Awaiting review" value={counts.pending} />
-            <Metric label="Shield requests" value={counts.shield} />
-            <Metric label="Active licenses" value={counts.active} />
-          </MetricRow>
+          <StatPanel label="Access request summary">
+            <MetricRow columns={4}>
+              <Metric label="Awaiting review" value={counts.pending} />
+              <Metric label="Awaiting payment" value={counts.awaitingPayment} />
+              <Metric label="Open Shield requests" value={counts.openShield} />
+              <Metric label="Active licenses" value={counts.active} />
+            </MetricRow>
+          </StatPanel>
 
           <div
             style={{
@@ -563,6 +585,7 @@ export function AccessRequestsPage() {
             <div style={{ minWidth: 210 }}>
               <Select
                 label="Status"
+                hideLabel
                 value={statusFilter}
                 onChange={(event) =>
                   setStatusFilter(event.target.value as StatusFilter)
@@ -902,7 +925,7 @@ export function AccessRequestsPage() {
           not exposed in the admin browser.
         </p>
       </Dialog>
-    </AppShell>
+    </>
   );
 }
 

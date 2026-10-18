@@ -3,7 +3,8 @@ import type { CurrentUser } from '../../services/authService';
 
 /*
  * Signed-in account affordance at the right of the top bar: the account's
- * initial, opening a menu with who is signed in, Settings and Sign out.
+ * initial, opening a menu with who is signed in, the portal's account
+ * links (Settings, Notifications, Account...) and Sign out.
  * Replaces the bare "Sign out" button every admin page used to pass in.
  *
  * Follows the WAI-ARIA menu button pattern: Enter/Space/ArrowDown open the
@@ -11,20 +12,32 @@ import type { CurrentUser } from '../../services/authService';
  * Escape closes and returns focus to the button, and a click outside closes.
  */
 
+/** The identity fields the menu shows; admin and Shield accounts both fit. */
+export type AccountMenuUser = Pick<
+  CurrentUser,
+  'firstName' | 'lastName' | 'email'
+> &
+  Partial<Pick<CurrentUser, 'phone' | 'staffRole'>>;
+
+export interface AccountMenuLink {
+  label: string;
+  path: string;
+}
+
 interface AccountMenuProps {
-  user: CurrentUser | null;
-  settingsPath: string;
+  user: AccountMenuUser | null;
+  items: AccountMenuLink[];
   onNavigate: (path: string) => void;
   onSignOut: () => void;
 }
 
-export function accountDisplayName(user: CurrentUser | null): string {
+export function accountDisplayName(user: AccountMenuUser | null): string {
   if (!user) return 'Signed-in account';
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
   return name || user.email || user.phone || 'Signed-in account';
 }
 
-export function accountInitial(user: CurrentUser | null): string {
+export function accountInitial(user: AccountMenuUser | null): string {
   const source = user?.firstName?.trim() || user?.email?.trim() || '';
   return source ? source[0].toUpperCase() : '?';
 }
@@ -36,7 +49,7 @@ function staffRoleLabel(staffRole: string | null | undefined): string | null {
 
 export function AccountMenu({
   user,
-  settingsPath,
+  items: links,
   onNavigate,
   onSignOut,
 }: AccountMenuProps) {
@@ -142,17 +155,20 @@ export function AccountMenu({
               {role && <span className="bantai-account__detail">{role}</span>}
             </span>
           </div>
-          <button
-            type="button"
-            role="menuitem"
-            className="bantai-account__item"
-            onClick={() => {
-              close(false);
-              onNavigate(settingsPath);
-            }}
-          >
-            Settings
-          </button>
+          {links.map((link) => (
+            <button
+              key={link.path}
+              type="button"
+              role="menuitem"
+              className="bantai-account__item"
+              onClick={() => {
+                close(false);
+                onNavigate(link.path);
+              }}
+            >
+              {link.label}
+            </button>
+          ))}
           <button
             type="button"
             role="menuitem"

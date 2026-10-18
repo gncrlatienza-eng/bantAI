@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   EmptyState,
@@ -9,14 +9,14 @@ import {
   Metric,
   MetricRow,
   StatusBadge,
+  StatPanel,
+  SectionHeader,
 } from '../../components/primitives';
 import {
   getActiveCampaigns,
   getInactiveCampaigns,
   type CampaignCluster,
 } from '../../services/campaignsService';
-import { logout } from '../../services/authService';
-import { useClientSidebarGroups } from './clientNav';
 
 const errorText = (error: unknown) =>
   error instanceof Error
@@ -36,9 +36,7 @@ function formatRelative(iso: string) {
 const lastObserved = (c: CampaignCluster) => c.lastObserved ?? c.updatedAt;
 
 export function OverviewPage() {
-  const sidebarGroups = useClientSidebarGroups();
   const navigate = useNavigate();
-  const location = useLocation();
   const [campaigns, setCampaigns] = useState<CampaignCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,40 +79,10 @@ export function OverviewPage() {
   );
 
   return (
-    <AppShell
-      role="client"
-      groups={sidebarGroups}
-      brandInitial="S"
-      brandLabel="BantAI Shield"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Shield &middot; Overview</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
-      footer={
-        <span style={{ fontSize: '0.85rem' }}>
-          Shield intelligence subscription
-        </span>
-      }
-    >
+    <>
       <PageHeader
         title="Threat activity"
-        description="Published Philippine smishing campaign intelligence relevant to your Shield subscription."
-        meta={
-          loading
-            ? 'Loading published campaigns…'
-            : 'Campaign-level intelligence only'
-        }
+        description="Published smishing campaigns targeting Philippine mobile users."
       />
       {loading && (
         <LoadingState label="Loading published campaign intelligence…" />
@@ -132,53 +100,37 @@ export function OverviewPage() {
       )}
       {!loading && !error && (
         <>
-          <section
-            style={{
-              background: 'var(--surface-raised)',
-              borderRadius: 8,
-              padding: '20px 24px',
-              marginBottom: 24,
-            }}
-          >
+          <StatPanel label="Threat summary">
             <MetricRow columns={3}>
               <Metric
                 label="Active campaigns"
                 value={activeCount.toLocaleString()}
-                meta="Observed in the last 30 days"
+                meta="Last 30 days"
               />
               <Metric
                 label="Inactive campaigns"
                 value={(campaigns.length - activeCount).toLocaleString()}
-                meta="Quiet for 30+ days"
+                meta="Quiet 30+ days"
               />
               <Metric
                 label="Published campaigns"
                 value={campaigns.length.toLocaleString()}
-                meta="All intelligence available to you"
               />
             </MetricRow>
-          </section>
+          </StatPanel>
           <section>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                gap: 16,
-                marginBottom: 12,
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: '1rem' }}>
-                Latest intelligence updates
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void navigate('/shield/campaigns')}
-              >
-                View campaigns
-              </Button>
-            </div>
+            <SectionHeader
+              title="Latest updates"
+              actions={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void navigate('/shield/campaigns')}
+                >
+                  View campaigns
+                </Button>
+              }
+            />
             {latest.length === 0 ? (
               <EmptyState
                 title="No published campaigns"
@@ -204,8 +156,8 @@ export function OverviewPage() {
                     style={{
                       appearance: 'none',
                       textAlign: 'left',
-                      border: 0,
-                      borderRadius: 8,
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 10,
                       padding: 16,
                       background: 'var(--surface-raised)',
                       color: 'inherit',
@@ -243,7 +195,7 @@ export function OverviewPage() {
           </section>
         </>
       )}
-    </AppShell>
+    </>
   );
 }
 

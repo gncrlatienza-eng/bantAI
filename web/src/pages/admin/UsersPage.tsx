@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -15,6 +14,8 @@ import {
   Select,
   StatusBadge,
   type Column,
+  StatPanel,
+  SectionHeader,
 } from '../../components/primitives';
 import {
   getAdministrativePortalAccounts,
@@ -25,7 +26,7 @@ import {
   type PortalAccessStatus,
   type PortalAccountAction,
 } from '../../services/portalAccountsService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { humanizeEnum } from './adminDisplay';
 
 interface AccountRow {
   key: string;
@@ -87,8 +88,6 @@ const REVIEW_BADGE: Record<
 };
 
 export function UsersPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [legacyLicenses, setLegacyLicenses] = useState<LegacyLicenseReview[]>(
     [],
@@ -261,10 +260,10 @@ export function UsersPage() {
       header: 'License',
       render: (row) => (
         <span>
-          {row.tier.replace('_', ' ')}
+          {humanizeEnum(row.tier)}
           <br />
           <span style={{ color: 'var(--text-secondary)' }}>
-            Billing: {row.billingStatus.replace('_', ' ')}
+            Billing {humanizeEnum(row.billingStatus).toLowerCase()}
           </span>
         </span>
       ),
@@ -282,25 +281,36 @@ export function UsersPage() {
                   ? 'suspicious'
                   : 'threat'
             }
-            label={shieldStatus(row)}
+            label={humanizeEnum(shieldStatus(row))}
           />
-          <span
-            style={{
-              display: 'block',
-              marginTop: 6,
-              color: 'var(--text-secondary)',
-            }}
-          >
-            Account control: {row.accessStatus}
-          </span>
+          {/* Only when the account control says something the badge does not. */}
+          {row.accessStatus !== 'ACTIVE' &&
+            row.accessStatus !== shieldStatus(row) && (
+              <span
+                style={{
+                  display: 'block',
+                  marginTop: 6,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Account {humanizeEnum(row.accessStatus).toLowerCase()}
+              </span>
+            )}
           {row.accessReason && (
             <span
-              title={row.accessReason}
-              style={{ display: 'block', marginTop: 6, maxWidth: 220 }}
+              title={`${row.accessReason} · ${formatDate(row.accessUpdatedAt)}`}
+              style={{
+                display: 'block',
+                marginTop: 6,
+                maxWidth: 220,
+                color: 'var(--text-secondary)',
+                fontSize: '0.85rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
             >
               {row.accessReason}
-              <br />
-              <small>{formatDate(row.accessUpdatedAt)}</small>
             </span>
           )}
         </span>
@@ -425,19 +435,10 @@ export function UsersPage() {
   ];
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Administration &middot; Users</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
-        title="Portal accounts"
-        description="Manage client access independently from Stripe billing. Every suspension, restoration, and revocation requires a reason and is audited."
+        title="Users"
+        description="Every access change needs a reason and is audited."
       />
 
       {notice && <p role="status">{notice}</p>}
@@ -455,21 +456,23 @@ export function UsersPage() {
         <LoadingState label="Loading portal accounts" />
       ) : (
         <>
-          <MetricRow columns={4}>
-            <Metric label="Accounts" value={rows.length.toLocaleString()} />
-            <Metric
-              label="Shield active"
-              value={counts.active.toLocaleString()}
-            />
-            <Metric
-              label="Contract review"
-              value={counts.review.toLocaleString()}
-            />
-            <Metric
-              label="Restricted"
-              value={counts.restricted.toLocaleString()}
-            />
-          </MetricRow>
+          <StatPanel label="Account summary">
+            <MetricRow columns={4}>
+              <Metric label="Accounts" value={rows.length.toLocaleString()} />
+              <Metric
+                label="Shield active"
+                value={counts.active.toLocaleString()}
+              />
+              <Metric
+                label="Contract review"
+                value={counts.review.toLocaleString()}
+              />
+              <Metric
+                label="Restricted"
+                value={counts.restricted.toLocaleString()}
+              />
+            </MetricRow>
+          </StatPanel>
 
           <div style={{ margin: '20px 0 16px', maxWidth: 420 }}>
             <SearchInput
@@ -502,20 +505,11 @@ export function UsersPage() {
             aria-labelledby="legacy-license-title"
             style={{ marginTop: 40 }}
           >
-            <header className="bantai-pageheader">
-              <h2
-                id="legacy-license-title"
-                className="bantai-pageheader__title"
-                style={{ fontSize: '1.15rem' }}
-              >
-                Historical contract review
-              </h2>
-              <p className="bantai-pageheader__description">
-                Older Research and Organization licenses keep their billing
-                history. Shield access stays off until an Admin checks each
-                contract and records a decision.
-              </p>
-            </header>
+            <SectionHeader
+              id="legacy-license-title"
+              title="Historical contract review"
+              description="Older Research and Organization licenses. Shield stays off until an Admin records a contract decision."
+            />
             <DataTable<LegacyLicenseReview>
               ariaLabel="Historical licenses awaiting contract review"
               rowKey={(license) => license.id}
@@ -662,7 +656,7 @@ export function UsersPage() {
         </label>
         {error && pendingAction && <p role="alert">{error}</p>}
       </Dialog>
-    </AppShell>
+    </>
   );
 }
 

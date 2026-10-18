@@ -36,10 +36,12 @@ import {
   MUTED,
   Notice,
   SectionHeader,
+  StatPanel,
   errorText,
   formatDate,
   formatDateTime,
 } from './shared';
+import { HowThisWorks } from '../adminDisplay';
 
 const LABELS: TrainingLabel[] = ['Ham', 'Spam', 'Scam'];
 const LABEL_OPTIONS = LABELS.map((label) => ({ value: label, label }));
@@ -412,52 +414,55 @@ export function DatasetTab() {
 
   return (
     <>
-      <MetricRow columns={4}>
-        <Metric
-          label="Included samples"
-          value={totals.included.toLocaleString()}
-        />
-        <Metric label="Excluded" value={totals.excluded.toLocaleString()} />
-        <Metric
-          label="Awaiting curation"
-          value={totals.candidates.toLocaleString()}
-        />
-        <Metric
-          label="Portal holdout records"
-          value={totals.frozenHoldout.toLocaleString()}
-          meta="External holdout files are not counted"
-        />
-      </MetricRow>
-
-      <p style={{ ...MUTED, margin: '14px 0 0', fontSize: '0.9rem' }}>
-        Class balance:{' '}
-        {LABELS.map(
-          (label) =>
-            `${label} ${totals.labels[label] ?? 0} (${share(totals.labels[label] ?? 0, totals.included)})`,
-        ).join(' · ')}
-        {' — '}Languages:{' '}
-        {Object.entries(totals.languages)
-          .map(
-            ([lang, count]) =>
-              `${lang === 'untagged' ? 'Not tagged' : languageName(lang)} ${count}`,
-          )
-          .join(' · ') || 'none tagged'}
-      </p>
-      <p
-        style={{
-          ...MUTED,
-          margin: '6px 0 0',
-          fontSize: '0.9rem',
-          maxWidth: '85ch',
-        }}
+      <StatPanel
+        label="Dataset summary"
+        facts={[
+          {
+            label: 'Class balance',
+            value: LABELS.map((label) =>
+              totals.included
+                ? `${label} ${totals.labels[label] ?? 0} (${share(totals.labels[label] ?? 0, totals.included)})`
+                : `${label} 0`,
+            ).join('  ·  '),
+          },
+          {
+            label: 'Languages',
+            value:
+              Object.entries(totals.languages)
+                .map(
+                  ([lang, count]) =>
+                    `${lang === 'untagged' ? 'Not tagged' : languageName(lang)} ${count}`,
+                )
+                .join('  ·  ') || 'None tagged yet',
+          },
+        ]}
+        aside={
+          <HowThisWorks align="end">
+            This tab tracks curated reports, not the historical training corpus
+            or external holdout file. Phone classifications appear in Messages;
+            only masked text from Admin-validated user reports can enter this
+            dataset. Raw SMS never leaves the phone. Every change is saved as a
+            new version, and snapshots freeze exactly what a training run uses.
+          </HowThisWorks>
+        }
       >
-        This tab tracks curated reports, not the historical training corpus or
-        external holdout file. Phone classifications appear in Mobile sync and
-        Classification log; only masked text from Admin-validated user reports
-        can enter this dataset. Raw SMS never leaves the phone. Every change is
-        saved as a new version, and snapshots freeze exactly what a training run
-        uses.
-      </p>
+        <MetricRow columns={4}>
+          <Metric
+            label="Included samples"
+            value={totals.included.toLocaleString()}
+          />
+          <Metric label="Excluded" value={totals.excluded.toLocaleString()} />
+          <Metric
+            label="Awaiting curation"
+            value={totals.candidates.toLocaleString()}
+          />
+          <Metric
+            label="Portal holdout records"
+            value={totals.frozenHoldout.toLocaleString()}
+            meta="External holdout files are not counted"
+          />
+        </MetricRow>
+      </StatPanel>
 
       {notice && <Notice tone="status">{notice}</Notice>}
       {actionError && <Notice tone="alert">{actionError}</Notice>}
@@ -469,7 +474,7 @@ export function DatasetTab() {
         <SectionHeader
           id="dataset-candidates-title"
           title="Validated reports awaiting curation"
-          description="Confirm the training label and tag the language before adding a report."
+          description="Confirm the label and language, then add."
         />
         <DataTable<DatasetCandidate>
           ariaLabel="Validated reports awaiting curation"
@@ -479,7 +484,7 @@ export function DatasetTab() {
           emptyState={
             <EmptyState
               title="Nothing to curate"
-              description="Reports appear here after they are validated on the FP / FN reviews tab."
+              description="Validated FP / FN reviews appear here."
             />
           }
         />
@@ -492,7 +497,7 @@ export function DatasetTab() {
         <SectionHeader
           id="dataset-samples-title"
           title="Training samples"
-          description="Relabel, retag or exclude samples. Excluded samples stay in history and are left out of new snapshots."
+          description="Relabel, retag or exclude. Excluded samples stay in history."
           actions={
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ width: 150 }}>
@@ -549,7 +554,7 @@ export function DatasetTab() {
         <SectionHeader
           id="dataset-snapshots-title"
           title="Dataset versions"
-          description="A snapshot freezes every included sample at its current version. Retraining requests record the newest snapshot, and the JSONL export plugs into the retraining pipeline's reports directory."
+          description="Freezes every included sample for a training run."
           actions={
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
               <div style={{ width: 220 }}>
@@ -597,7 +602,7 @@ export function DatasetTab() {
       <Dialog
         open={edit !== null}
         title="Edit training sample"
-        description="Saving creates a new version of this sample. Earlier versions stay in its history and in any snapshot that used them."
+        description="Saving creates a new version; earlier ones stay in history."
         onClose={() => {
           if (!busyId) setEdit(null);
         }}

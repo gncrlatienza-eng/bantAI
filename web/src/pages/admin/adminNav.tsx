@@ -1,127 +1,15 @@
 /*
- * Shared admin sidebar groups. Keeps every admin page pointing at the same
- * set of routes so a rename in one spot updates all of them. Icons are
- * semantic (from the icon abstraction layer), never Phosphor directly.
+ * Admin sidebar groups, derived from the navigation registry
+ * (src/navigation/portalNav.tsx). Keep screens, tabs and their permissions
+ * there; this file only shapes them for the AppShell sidebar.
  */
 
-import React from 'react';
 import type { NavGroupDef } from '../../components/appshell/AppShell';
-import {
-  NavOverviewIcon,
-  NavCampaignsIcon,
-  NavUsersIcon,
-  NavModelIcon,
-  NavMessagesIcon,
-  NavSystemIcon,
-  NotificationsIcon,
-  NavFlaggedMessagesIcon,
-  NavReportedNumbersIcon,
-  NavAccessRequestsIcon,
-  NavApiKeysIcon,
-  NavAuditIcon,
-  NavTipsIcon,
-  NavExportIcon,
-  NavInfrastructureIcon,
-} from '../../components/primitives';
-
-export const ADMIN_SIDEBAR_GROUPS: NavGroupDef[] = [
-  {
-    label: 'Overview',
-    items: [
-      { label: 'Overview', path: '/admin/overview', icon: <NavOverviewIcon /> },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      {
-        label: 'Mobile sync',
-        path: '/admin/mobile-sync',
-        icon: <NavMessagesIcon />,
-      },
-      {
-        label: 'Campaigns',
-        path: '/admin/campaigns',
-        icon: <NavCampaignsIcon />,
-      },
-      { label: 'Model', path: '/admin/model', icon: <NavModelIcon /> },
-      {
-        label: 'Reports',
-        path: '/admin/reports',
-        icon: <NavFlaggedMessagesIcon />,
-      },
-      {
-        label: 'Sender reports',
-        path: '/admin/sender-reports',
-        icon: <NavReportedNumbersIcon />,
-      },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      {
-        label: 'Access requests',
-        path: '/admin/access-requests',
-        icon: <NavAccessRequestsIcon />,
-      },
-      { label: 'Users', path: '/admin/users', icon: <NavUsersIcon /> },
-      {
-        label: 'Shield API',
-        path: '/admin/shield-api',
-        icon: <NavApiKeysIcon />,
-      },
-      { label: 'Audit events', path: '/admin/audit', icon: <NavAuditIcon /> },
-      { label: 'Tips', path: '/admin/tips', icon: <NavTipsIcon /> },
-      { label: 'Export', path: '/admin/export', icon: <NavExportIcon /> },
-      {
-        label: 'System',
-        path: '/admin/system',
-        icon: <NavInfrastructureIcon />,
-      },
-      {
-        label: 'Notifications',
-        path: '/admin/notifications',
-        icon: <NotificationsIcon />,
-      },
-      { label: 'Settings', path: '/admin/settings', icon: <NavSystemIcon /> },
-    ],
-  },
-];
-
-// Keep visibility aligned with the API guards. Navigation is a usability gate;
-// the backend still authorizes each request independently.
-const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/admin/overview': ['overview:read'],
-  '/admin/campaigns': ['campaigns:manage'],
-  '/admin/model': ['models:read'],
-  '/admin/reports': ['reports:read'],
-  '/admin/sender-reports': ['verification:read'],
-  '/admin/export': ['*'],
-  '/admin/system': ['system:read'],
-  '/admin/access-requests': ['access_requests:manage'],
-  '/admin/users': ['access_requests:manage'],
-  '/admin/mobile-sync': ['*'],
-  '/admin/shield-api': ['*'],
-  '/admin/audit': ['*'],
-  '/admin/tips': ['*'],
-};
-ADMIN_SIDEBAR_GROUPS.forEach((group) => {
-  group.items.forEach((item) => {
-    item.permissions = ROUTE_PERMISSIONS[item.path];
-  });
-});
+import { ADMIN_NAV, toNavGroups } from '../../navigation/portalNav';
 
 export function getFilteredAdminSidebarGroups(
   permissions: string[],
+  badges: Partial<Record<string, number>> = {},
 ): NavGroupDef[] {
-  return ADMIN_SIDEBAR_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) =>
-        !item.permissions?.length ||
-        permissions.includes('*') ||
-        item.permissions.some((p) => permissions.includes(p)),
-    ),
-  })).filter((group) => group.items.length > 0);
+  return toNavGroups(ADMIN_NAV, permissions, badges);
 }

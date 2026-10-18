@@ -253,6 +253,7 @@ export function MessagesInbox() {
         <div style={{ minWidth: 200 }}>
           <Select
             label="Classification"
+            hideLabel
             value={labelFilter}
             onChange={(e) => setLabelFilter(e.target.value as LabelFilter)}
             options={[

@@ -11,6 +11,12 @@ interface SelectProps extends Omit<
   'className'
 > {
   label?: string;
+  /**
+   * Keep the label for screen readers but hide it visually: for toolbar
+   * filters whose options already say what they filter ("All statuses"),
+   * so the select lines up with the search box beside it.
+   */
+  hideLabel?: boolean;
   helpText?: string;
   error?: string;
   options: Option[];
@@ -19,7 +25,7 @@ interface SelectProps extends Omit<
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   function Select(
-    { label, helpText, error, options, placeholder, id, ...rest },
+    { label, hideLabel, helpText, error, options, placeholder, id, ...rest },
     ref,
   ) {
     const reactId = React.useId();
@@ -32,7 +38,12 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="bantai-p-field">
         {label && (
-          <label htmlFor={selectId} className="bantai-p-field__label">
+          <label
+            htmlFor={selectId}
+            className={
+              hideLabel ? 'bantai-visually-hidden' : 'bantai-p-field__label'
+            }
+          >
             {label}
           </label>
         )}

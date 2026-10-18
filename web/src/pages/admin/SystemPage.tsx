@@ -1,14 +1,9 @@
 /*
- * Admin System page. Phase F step 8 + Phase A step 5.
- *
- * Consolidates three legacy admin routes (/admin/server, /admin/api-logs,
- * /admin/db-storage) into one page with tabs synced to ?tab=. Legacy paths
- * redirect via AppRoutes so old deep links still land.
+ * System hub tabs: Health, API logs and Storage. The hub (with Audit and
+ * Exports) is assembled in routes/AppRoutes.tsx from the navigation registry.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   DataTable,
@@ -18,10 +13,8 @@ import {
   Metric,
   MetricRow,
   StatusBadge,
-  Tabs,
-  type StatusKind,
-  type TabDef,
   type Column,
+  StatPanel,
 } from '../../components/primitives';
 import {
   getHealthStatus,
@@ -36,32 +29,18 @@ import {
   type ApiLogResponse,
   type DbStorageResponse,
 } from '../../services/adminSystemService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { databaseKind, formatUptime, healthKind } from './adminDisplay';
+import { formatCompactDateTime, formatLogTime } from '../../utils/dateFormat';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
-}
-
-const TABS: TabDef[] = [
-  { id: 'server', label: 'Server health' },
-  { id: 'api-logs', label: 'API logs' },
-  { id: 'db-storage', label: 'DB storage' },
-];
-
-function statusToKind(status: string): StatusKind {
-  const s = status.toLowerCase();
-  if (s === 'ok' || s === 'up' || s === 'ready' || s === 'healthy')
-    return 'verified';
-  if (s === 'degraded' || s === 'warning') return 'suspicious';
-  if (s === 'down' || s === 'error' || s === 'failed') return 'threat';
-  return 'unknown';
 }
 
 /* ------------------------------------------------------------------ */
 /*  Server health tab                                                 */
 /* ------------------------------------------------------------------ */
 
-function ServerHealthTab() {
+export function ServerHealthTab() {
   const [data, setData] = useState<{
     health: HealthStatus;
     readiness: ReadinessStatus;
@@ -113,53 +92,56 @@ function ServerHealthTab() {
 
   return (
     <>
-      <MetricRow columns={4}>
-        <Metric
-          label="Backend"
-          value={
-            <StatusBadge
-              kind={statusToKind(data.health.status)}
-              label={data.health.status}
-            />
-          }
-        />
-        <Metric
-          label="Database"
-          value={
-            <StatusBadge
-              kind={databaseStatusToKind(
-                data.readiness.database,
-                data.readiness.status,
-              )}
-              label={data.readiness.database}
-            />
-          }
-        />
-        <Metric label="Version" value={data.health.version} />
-        <Metric
-          label="Round-trip"
-          value={`${data.latencyMs.toLocaleString()} ms`}
-        />
-      </MetricRow>
-
-      <p
-        style={{
-          margin: '20px 0 0',
-          color: 'var(--text-secondary)',
-          fontSize: '0.85rem',
-        }}
+      <StatPanel
+        label="Server health"
+        facts={[
+          {
+            label: 'Uptime',
+            value: formatUptime(data.health.uptime).replace(/^Up /, ''),
+          },
+          {
+            label: 'Checked',
+            value: new Date(data.health.timestamp).toLocaleTimeString(
+              undefined,
+              { hour: 'numeric', minute: '2-digit' },
+            ),
+          },
+        ]}
+        aside={
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
+            Recheck now
+          </Button>
+        }
       >
-        Backend uptime: {Math.floor(data.health.uptime).toLocaleString()}{' '}
-        seconds &middot; Reported at{' '}
-        {new Date(data.health.timestamp).toLocaleString()} &middot; Service{' '}
-        {data.health.service}
-      </p>
-
-      <div style={{ marginTop: 16 }}>
-        <Button variant="secondary" onClick={() => void load()}>
-          Recheck now
-        </Button>
-      </div>
+        <MetricRow columns={4}>
+          <Metric
+            label="Backend"
+            value={
+              <StatusBadge
+                kind={healthKind(data.health.status)}
+                label={data.health.status}
+              />
+            }
+          />
+          <Metric
+            label="Database"
+            value={
+              <StatusBadge
+                kind={databaseKind(
+                  data.readiness.database,
+                  data.readiness.status,
+                )}
+                label={data.readiness.database}
+              />
+            }
+          />
+          <Metric label="Version" value={data.health.version} />
+          <Metric
+            label="Round-trip"
+            value={`${data.latencyMs.toLocaleString()} ms`}
+          />
+        </MetricRow>
+      </StatPanel>
     </>
   );
 }
@@ -167,15 +149,6 @@ function ServerHealthTab() {
 /* ------------------------------------------------------------------ */
 /*  Placeholder tab renderer                                          */
 /* ------------------------------------------------------------------ */
-
-function databaseStatusToKind(database: string, readiness: string): StatusKind {
-  if (
-    readiness.toLowerCase() === 'ok' &&
-    ['reachable', 'ready', 'ok'].includes(database.toLowerCase())
-  )
-    return 'verified';
-  return statusToKind(database);
-}
 
 function formatBytes(value: string): string {
   const bytes = Number(value);
@@ -190,7 +163,7 @@ function formatBytes(value: string): string {
   return `${size >= 10 || unit === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`;
 }
 
-function ApiLogsTab() {
+export function ApiLogsTab() {
   const [data, setData] = useState<ApiLogResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -212,7 +185,7 @@ function ApiLogsTab() {
     {
       key: 'timestamp',
       header: 'Timestamp',
-      render: (entry) => new Date(entry.timestamp).toLocaleString(),
+      render: (entry) => formatLogTime(new Date(entry.timestamp)),
       width: '22%',
     },
     {
@@ -268,18 +241,20 @@ function ApiLogsTab() {
   if (!data) return null;
   return (
     <>
-      <MetricRow columns={2}>
-        <Metric
-          label="Entries retained"
-          value={data.entries.length.toLocaleString()}
-          meta={data.retention}
-        />
-        <Metric
-          label="Privacy protection"
-          value="Redacted"
-          meta={data.redaction}
-        />
-      </MetricRow>
+      <StatPanel label="API log summary">
+        <MetricRow columns={2}>
+          <Metric
+            label="Entries retained"
+            value={data.entries.length.toLocaleString()}
+            meta={<span title={data.retention}>kept in memory</span>}
+          />
+          <Metric
+            label="Privacy"
+            value="Redacted"
+            meta={<span title={data.redaction}>personal data removed</span>}
+          />
+        </MetricRow>
+      </StatPanel>
       <div style={{ marginTop: 20 }}>
         <DataTable
           ariaLabel="Recent API activity"
@@ -289,7 +264,7 @@ function ApiLogsTab() {
           emptyState={
             <EmptyState
               title="No recent API activity"
-              description="This in-memory view begins collecting after the backend starts. Request bodies, identities, IP addresses, and query strings are not retained."
+              description="Collected since the backend started. Bodies, identities, IPs and queries are never kept."
             />
           }
         />
@@ -298,7 +273,7 @@ function ApiLogsTab() {
   );
 }
 
-function DbStorageTab() {
+export function DbStorageTab() {
   const [data, setData] = useState<DbStorageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -355,13 +330,15 @@ function DbStorageTab() {
   ];
   return (
     <>
-      <MetricRow columns={2}>
-        <Metric label="Database size" value={formatBytes(data.databaseBytes)} />
-        <Metric
-          label="Measured"
-          value={new Date(data.measuredAt).toLocaleString()}
-        />
-      </MetricRow>
+      <StatPanel label="Storage summary">
+        <MetricRow columns={2}>
+          <Metric
+            label="Database size"
+            value={formatBytes(data.databaseBytes)}
+            meta={`Measured ${formatCompactDateTime(new Date(data.measuredAt))}`}
+          />
+        </MetricRow>
+      </StatPanel>
       <div style={{ marginTop: 20 }}>
         <DataTable
           ariaLabel="Database row counts"
@@ -373,64 +350,3 @@ function DbStorageTab() {
     </>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Page shell                                                        */
-/* ------------------------------------------------------------------ */
-
-export function SystemPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const activeTab = useMemo(() => {
-    const t = searchParams.get('tab') ?? 'server';
-    return TABS.some((tab) => tab.id === t) ? t : 'server';
-  }, [searchParams]);
-
-  function selectTab(id: string) {
-    const next = new URLSearchParams(searchParams);
-    if (id === 'server') next.delete('tab');
-    else next.set('tab', id);
-    setSearchParams(next, { replace: true });
-  }
-
-  return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={
-        location.pathname.startsWith('/admin/system') ||
-        location.pathname === '/admin/server' ||
-        location.pathname === '/admin/api-logs' ||
-        location.pathname === '/admin/db-storage'
-          ? '/admin/system'
-          : location.pathname
-      }
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Administration &middot; System</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
-      <PageHeader
-        title="System"
-        description="Backend health, API request logs, and database storage — one page, three tabs. Only the tabs whose backend endpoints exist show live data."
-      />
-      <Tabs
-        tabs={TABS}
-        activeId={activeTab}
-        onChange={selectTab}
-        label="System sections"
-      >
-        <div style={{ paddingTop: 20 }}>
-          {activeTab === 'server' && <ServerHealthTab />}
-          {activeTab === 'api-logs' && <ApiLogsTab />}
-          {activeTab === 'db-storage' && <DbStorageTab />}
-        </div>
-      </Tabs>
-    </AppShell>
-  );
-}
-
-export default SystemPage;

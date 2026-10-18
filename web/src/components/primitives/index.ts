@@ -26,6 +26,10 @@ export { ErrorState } from './ErrorState';
 export { Skeleton } from './Skeleton';
 
 export { Metric, MetricRow } from './Metric';
+export { StatPanel } from './StatPanel';
+export type { PanelFact } from './StatPanel';
+export { SectionHeader } from './SectionHeader';
+export { HelpPopover } from './HelpPopover';
 
 export { DataTable } from './DataTable';
 export type { Column, SortDirection, Align } from './DataTable';

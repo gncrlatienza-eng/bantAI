@@ -74,7 +74,9 @@
   --motion-slow: 250ms;
   --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Typography tokens (font loading deferred to Phase C) */
+  /* Typography tokens. Geist and Geist Mono load from Google Fonts in
+     index.html; until 2026-10 they were never loaded, so the portal fell
+     back to Segoe UI / JetBrains Mono. */
   --font-sans:
     'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     sans-serif;

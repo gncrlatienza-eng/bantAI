@@ -8,64 +8,18 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
-import { Button } from '../../components/primitives';
+import { useParams } from 'react-router-dom';
 import { CampaignDetail } from '../../features/campaigns/CampaignDetail';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 import { CampaignIntelligenceEditor } from './CampaignIntelligenceEditor';
 import { CampaignReconciliationPanel } from './CampaignReconciliationPanel';
 
 export function CampaignDetailPage() {
-  const navigate = useNavigate();
   const params = useParams<{ id: string }>();
   const campaignId = params.id ?? '';
   const [archiveVersion, setArchiveVersion] = useState(0);
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={'/admin/campaigns'}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={
-        <span>
-          Intelligence &middot;{' '}
-          <button
-            type="button"
-            onClick={() => void navigate('/admin/campaigns')}
-            style={{
-              background: 'none',
-              border: 0,
-              padding: 0,
-              color: 'inherit',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              font: 'inherit',
-            }}
-          >
-            Campaigns
-          </button>{' '}
-          &middot; Detail
-        </span>
-      }
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
-      <PageHeader
-        title="Campaign detail"
-        description="Inspect a detected campaign, its linked domains, and the messages it clusters. Deactivate stops new messages from clustering under it."
-        actions={
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void navigate('/admin/campaigns')}
-          >
-            Back to campaigns
-          </Button>
-        }
-      />
+    <>
       {campaignId ? (
         <>
           <CampaignDetail
@@ -88,7 +42,7 @@ export function CampaignDetailPage() {
           No campaign id in URL. Return to the campaigns list.
         </p>
       )}
-    </AppShell>
+    </>
   );
 }
 

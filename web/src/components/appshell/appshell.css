@@ -111,6 +111,18 @@
   color: var(--text-primary);
 }
 
+/* A bare heading's next paragraph is its description: secondary text with
+   room before the first field, matching SectionHeader. */
+:where(.bantai-shell__content)
+  :is(h2, h3):not([class])
+  + p:not([class], [role]) {
+  margin: 0 0 16px;
+  max-width: 70ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 :where(.bantai-shell__content, .bantai-p-dialog) h3:not([class]) {
   margin: 16px 0 8px;
   font-size: 0.95rem;
@@ -174,6 +186,24 @@
   }
 }
 
+/*
+ * Scrollbars are hidden across the portal (sidebar, tables, the page
+ * itself); every area still scrolls by wheel, trackpad, touch and keyboard.
+ * The classic Windows bars with arrows read as unfinished chrome.
+ */
+html:has(.bantai-shell),
+.bantai-shell,
+.bantai-shell * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html:has(.bantai-shell)::-webkit-scrollbar,
+.bantai-shell ::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Sidebar */
 .bantai-sidebar {
   grid-area: sidebar;
@@ -219,20 +249,34 @@
 .bantai-sidebar__nav {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 0;
+  padding: 12px 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+}
+
+/* Reference links (Shield: Documentation) sit at the foot of the list. */
+.bantai-sidebar__bottom {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* Each section starts after a divider and extra space, and its header sits
+   close to its own items, so the header reads as the start of a group
+   rather than one more line in the list. */
+.bantai-sidebar__group + .bantai-sidebar__group {
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--surface-selected);
 }
 
 .bantai-sidebar__group-label {
   padding: 0 20px;
   margin: 0 0 6px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--brand-primary);
 }
 
 .bantai-sidebar__footer {
@@ -242,15 +286,21 @@
   color: var(--text-secondary);
 }
 
-/* Nav item */
+/* Nav item: an inset 36px row; the current page is marked twice (tinted
+   row + brand-coloured semibold label), per NN/g's two-indicator rule. */
 .bantai-navitem {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 20px;
-  color: var(--text-primary);
+  min-height: 36px;
+  margin: 1px 10px;
+  padding: 0 10px;
+  border-radius: 8px;
+  /* A step softer than page text so section headers lead the hierarchy;
+     the current page still switches to brand color and bold. */
+  color: color-mix(in srgb, var(--text-primary) 80%, transparent);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   position: relative;
   transition:
     background-color var(--motion-fast) var(--motion-ease),
@@ -272,15 +322,32 @@
   font-weight: 600;
 }
 
-.bantai-navitem[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--brand-primary);
+.bantai-navitem__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pending count: neutral, never a threat colour (counts are not risk). */
+.bantai-navitem__badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.bantai-navitem[aria-current='page'] .bantai-navitem__badge {
+  background: var(--surface-raised);
+  color: var(--brand-primary);
 }
 
 .bantai-navitem__icon {
@@ -312,15 +379,20 @@
   }
   .bantai-navitem {
     justify-content: center;
-    padding: 10px 0;
+    padding: 0;
   }
   .bantai-navitem__label {
     display: none;
   }
-  .bantai-navitem[aria-current='page']::before {
-    left: 0;
-    top: 8px;
-    bottom: 8px;
+  .bantai-navitem__badge {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 0.62rem;
+    line-height: 16px;
   }
   .bantai-sidebar__footer {
     display: none;
@@ -427,6 +499,45 @@
   gap: 12px;
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+/* Notification bell (NotificationBell.tsx) */
+.bantai-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+.bantai-bell:hover,
+.bantai-bell[aria-current='page'] {
+  background: var(--surface-selected);
+}
+.bantai-bell:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+.bantai-bell__badge {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--brand-primary);
+  color: var(--action-primary-text);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface-raised);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Account menu (AccountMenu.tsx) */
@@ -573,26 +684,28 @@
   flex-wrap: wrap;
 }
 
+/* Devin-style title: semibold rather than bold, slightly tightened. */
 .bantai-pageheader__title {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
 .bantai-pageheader__description {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--text-secondary);
   font-size: 0.95rem;
-  max-width: 65ch;
+  line-height: 1.5;
+  max-width: 60ch;
 }
 
 .bantai-pageheader__meta {
   margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  letter-spacing: 0.02em;
 }
 
 .bantai-pageheader__actions {
@@ -612,4 +725,443 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phase B navigation (docs/redesign/phase-b-post-auth-navigation-plan.md) */
+/* ------------------------------------------------------------------ */
+
+/* Collapse toggle: wide screens only (the rail and drawer sizes already
+   collapse on their own). Remembered per browser. */
+.bantai-sidebar__collapse {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  margin: 0 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 600 1rem var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+.bantai-sidebar__collapse:hover {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+.bantai-sidebar__collapse:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -2px;
+}
+
+@media (min-width: 1280px) {
+  .bantai-sidebar__collapse {
+    display: flex;
+  }
+  .bantai-shell[data-collapsed='true'] {
+    grid-template-columns: var(--shell-sidebar-rail) 1fr;
+  }
+  .bantai-shell[data-collapsed='true']
+    .bantai-sidebar__brand
+    span:not(.bantai-sidebar__brand-mark),
+  .bantai-shell[data-collapsed='true'] .bantai-sidebar__group-label,
+  .bantai-shell[data-collapsed='true'] .bantai-navitem__label,
+  .bantai-shell[data-collapsed='true'] .bantai-sidebar__footer {
+    display: none;
+  }
+  .bantai-shell[data-collapsed='true'] .bantai-sidebar__brand {
+    justify-content: center;
+    padding: 0;
+  }
+  .bantai-shell[data-collapsed='true'] .bantai-navitem {
+    justify-content: center;
+    padding: 0;
+  }
+  .bantai-shell[data-collapsed='true'] .bantai-navitem__badge {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 0.62rem;
+    line-height: 16px;
+  }
+}
+
+/* Top-bar breadcrumb: "Section / Tab". */
+.bantai-breadcrumb ol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.bantai-breadcrumb li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bantai-breadcrumb li + li::before {
+  content: '/';
+  color: var(--border-strong);
+}
+.bantai-breadcrumb a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 4px;
+}
+.bantai-breadcrumb a:hover {
+  color: var(--text-primary);
+}
+.bantai-breadcrumb a:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+.bantai-breadcrumb [aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hub tabs: links (each changes the URL), styled like the Tabs primitive.
+   Selected = brand underline + semibold. One row; scrolls on phones. */
+/* The hub's tab bar: tabs on the left; the current screen's How this works
+   and actions on the right (portalled in by its PageHeader). */
+.bantai-hubbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin: -8px 0 24px;
+  border-bottom: 1px solid var(--border-default);
+}
+.bantai-hubbar__aside {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.bantai-hubbar__aside:empty {
+  display: none;
+}
+.bantai-hubbar__single {
+  position: relative;
+  padding: 10px 14px;
+  color: var(--brand-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.bantai-hubbar__single::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--brand-primary);
+}
+.bantai-hubtabs {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.bantai-hubtabs__tab {
+  position: relative;
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+.bantai-hubtabs__tab:hover {
+  color: var(--text-primary);
+}
+.bantai-hubtabs__tab:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.bantai-hubtabs__tab[aria-current='page'] {
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+.bantai-hubtabs__tab[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--brand-primary);
+}
+
+.bantai-hubnotice {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+/* Label / value list (Shield → Account). */
+.bantai-summary {
+  max-width: 640px;
+  margin: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+.bantai-summary__row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 16px;
+  padding: 14px 20px;
+}
+.bantai-summary__row + .bantai-summary__row {
+  border-top: 1px solid var(--border-default);
+}
+.bantai-summary__row dt {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.bantai-summary__row dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .bantai-summary__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+/* Summary card at the top of a screen (Model tabs): headline numbers, one
+   optional status line, footer facts and the screen's How this works. */
+.bantai-statpanel {
+  margin-bottom: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+.bantai-statpanel__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.bantai-statpanel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--status-verified);
+}
+.bantai-statpanel__status[data-tone='warn'] .bantai-statpanel__dot {
+  background: var(--status-suspicious);
+}
+.bantai-statpanel__metrics {
+  padding: 20px;
+}
+.bantai-statpanel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-default);
+}
+.bantai-statpanel__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0;
+}
+.bantai-statpanel__fact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.bantai-statpanel__fact dt {
+  color: var(--text-secondary);
+}
+.bantai-statpanel__fact dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+}
+
+/* How this works: a quiet info button that opens a small popover. */
+.bantai-howto {
+  position: relative;
+  display: inline-block;
+}
+.bantai-howto__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 6px;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+.bantai-howto__toggle::-webkit-details-marker {
+  display: none;
+}
+.bantai-howto__toggle:hover,
+.bantai-howto[open] .bantai-howto__toggle {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+.bantai-howto__toggle:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+.bantai-howto__body {
+  position: absolute;
+  z-index: 15;
+  top: calc(100% + 10px);
+  left: -8px;
+  width: min(420px, calc(100vw - 48px));
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 12px 32px rgba(33, 31, 36, 0.14);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+/* A button at a right edge opens leftwards. */
+.bantai-howto[data-align='end'] .bantai-howto__body {
+  left: auto;
+  right: -8px;
+}
+
+.bantai-statpanel__aside {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Section heading above a table or form inside a screen. */
+.bantai-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+.bantai-section-header__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+.bantai-section-header__description {
+  margin: 4px 0 0;
+  max-width: 70ch;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+.bantai-section-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* A form inside a screen (e.g. Shield → API → Create API key). */
+.bantai-formcard {
+  padding: 20px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+/* Checkbox list with a field-style legend. */
+.bantai-checkgroup {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.bantai-checkgroup legend {
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.bantai-checkgroup label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.bantai-checkgroup input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-primary);
+}
+
+/* One-time secret: framed in the attention tone, value in mono. */
+.bantai-secret {
+  margin-bottom: 28px;
+  padding: 16px 20px;
+  border: 1px solid
+    color-mix(in srgb, var(--status-suspicious) 45%, var(--border-default));
+  border-radius: 10px;
+  background: color-mix(
+    in srgb,
+    var(--status-suspicious) 8%,
+    var(--surface-raised)
+  );
+}
+.bantai-secret__value {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }

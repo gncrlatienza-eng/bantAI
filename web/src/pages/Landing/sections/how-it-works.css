@@ -50,8 +50,8 @@
      * scroll waypoints for the sticky pane, but there is far less blank
      * space between them and the section no longer feels like four slides.
      */
-    gap: 9vh;
-    padding: 2vh 0 10vh;
+    gap: 7vh;
+    padding: 2vh 0 4vh;
   }
 }
 
@@ -68,15 +68,16 @@
   column-gap: 20px;
   row-gap: 8px;
   align-items: start;
-  opacity: 0.72;
-  transition:
-    opacity 320ms var(--motion-ease, ease),
-    transform 320ms var(--motion-ease, ease);
+  transition: transform 320ms var(--motion-ease, ease);
 }
 
 .hiw__step.is-active {
-  opacity: 1;
   transform: translateX(2px);
+}
+
+/* Inactive steps recede by colour, not opacity, so body text keeps AA. */
+.hiw__step:not(.is-active) .hiw__step-title {
+  color: var(--text-secondary);
 }
 
 .hiw__step-rail {
@@ -128,7 +129,7 @@
 
 .hiw__step-number {
   font-family: var(--font-mono, monospace);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--brand-primary);
   letter-spacing: 0.12em;
@@ -180,7 +181,9 @@
     display: block;
     position: sticky;
     top: 104px;
-    height: min(calc(100vh - 160px), 600px);
+    align-self: start;
+    /* Tall enough for a ~260px-wide phone replica plus the caption. */
+    height: min(calc(100vh - 140px), 660px);
   }
 }
 
@@ -203,7 +206,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -237,11 +240,16 @@
   transform: translateY(0) scale(1);
 }
 
-.hiw-viz-svg {
+.hiw__viz-slide .bf {
   width: 100%;
-  height: 100%;
-  max-width: 460px;
-  aspect-ratio: 460 / 360;
+}
+
+.hiw__step-viz .pm {
+  margin-top: 16px;
+}
+
+.hiw__step-viz .bf {
+  margin-top: 16px;
 }
 
 /* ————————————————————————————————— */
@@ -258,10 +266,7 @@
     transform: none !important;
     transition: none;
   }
-  .hiw__viz {
-    position: static !important;
-    height: auto !important;
-  }
+  /* Reduced motion drops the crossfade only; the pane keeps its layout. */
   .hiw__viz-slide {
     transition: none !important;
     transform: none !important;

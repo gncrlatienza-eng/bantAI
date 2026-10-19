@@ -21,6 +21,10 @@
    * portal; the marketing page needs tighter rhythm so sequential sections
    * read as one document instead of separate slides.
    */
+  /* Landing-only: ash-violet (#6d6870) is 4.09:1 on the warm section band.
+     #5c5760 clears AA on all three landing surfaces (5.3-6.7:1). */
+  --text-secondary: #5c5760;
+
   --landing-section-lg: 112px;
   --landing-section-md: 88px;
   --landing-section-sm: 72px;
@@ -98,8 +102,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 22px;
-  border-radius: 6px;
+  padding: 13px 24px;
+  border-radius: 999px;
   text-decoration: none;
   font-size: 1rem;
   font-weight: 500;

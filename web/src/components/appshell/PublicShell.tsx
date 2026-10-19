@@ -1,14 +1,17 @@
 /*
- * PublicShell: mineral-theme wrapper for the public landing surface.
+ * PublicShell: mineral-theme wrapper for the public pages.
  *
- * Nav: BantAI (logo → top) | How it works | About | Sign in | Request access.
- * Starts nearly transparent over the hero, gains cream+blur+border once the
- * visitor has scrolled past ~48px. Transition is 200ms; no parallax; the logo
- * click scrolls to the top rather than routing anywhere.
+ * Two audiences, two homes: Personal (/, the Android app, and /android) and
+ * Organizations (/platform). A segmented switch beside the logo moves between
+ * them, the way Philippine telco and bank sites split Personal and Business,
+ * and the header's call to action follows the audience. The header carries no
+ * section links; each page reads top to bottom. It gains a blurred backdrop
+ * and border once the visitor has scrolled past ~48px.
  */
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ANDROID_BETA_PATH, androidCtaLabel } from '../../config/android';
 import '../primitives/primitives.css';
 import './publicshell.css';
 
@@ -16,21 +19,37 @@ interface PublicShellProps {
   children: React.ReactNode;
 }
 
-interface NavLink {
-  hash: string;
+type Audience = 'personal' | 'organizations';
+
+interface AudienceNav {
+  home: string;
   label: string;
+  cta: { to: string; label: string };
 }
 
-const NAV_LINKS: NavLink[] = [
-  { hash: '#top', label: 'Home' },
-  { hash: '#how-it-works', label: 'How it works' },
-  { hash: '#about', label: 'About' },
-];
+const AUDIENCES: Record<Audience, AudienceNav> = {
+  personal: {
+    home: '/',
+    label: 'Personal',
+    cta: { to: ANDROID_BETA_PATH, label: androidCtaLabel() },
+  },
+  organizations: {
+    home: '/platform',
+    label: 'Organizations',
+    cta: { to: '/request-access', label: 'Request access' },
+  },
+};
+
+function audienceFor(pathname: string): Audience {
+  return pathname.startsWith('/platform') ? 'organizations' : 'personal';
+}
 
 export function PublicShell({ children }: PublicShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = React.useState(false);
+  const audience = audienceFor(location.pathname);
+  const nav = AUDIENCES[audience];
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 48);
@@ -52,13 +71,13 @@ export function PublicShell({ children }: PublicShellProps) {
     }
   }, [location.hash]);
 
-  function goToAnchor(hash: string) {
-    if (location.pathname !== '/') {
-      void navigate(`/${hash}`);
+  /** Scroll to a section of `home`, routing there first if needed. */
+  function goToAnchor(home: string, hash: string) {
+    if (location.pathname !== home) {
+      void navigate(`${home}${hash}`);
       return;
     }
-    const id = hash.slice(1);
-    const el = document.getElementById(id);
+    const el = document.getElementById(hash.slice(1));
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -72,7 +91,7 @@ export function PublicShell({ children }: PublicShellProps) {
             type="button"
             className="bantai-public__brand"
             onClick={() => {
-              if (location.pathname !== '/') void navigate('/');
+              if (location.pathname !== nav.home) void navigate(nav.home);
               else window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             aria-label="BantAI, return to top"
@@ -82,20 +101,22 @@ export function PublicShell({ children }: PublicShellProps) {
             </span>
             <span className="bantai-public__brand-text">
               <strong>BantAI</strong>
-              <small>Philippine SMS threat intelligence</small>
             </span>
           </button>
 
-          <nav className="bantai-public__nav" aria-label="Public sections">
-            {NAV_LINKS.map((link) => (
-              <button
-                key={link.hash}
-                type="button"
-                className="bantai-public__nav-link"
-                onClick={() => goToAnchor(link.hash)}
+          <nav
+            className="bantai-public__switch"
+            aria-label="Choose who BantAI is for"
+          >
+            {(Object.keys(AUDIENCES) as Audience[]).map((key) => (
+              <Link
+                key={key}
+                to={AUDIENCES[key].home}
+                className="bantai-public__switch-option"
+                aria-current={key === audience ? 'page' : undefined}
               >
-                {link.label}
-              </button>
+                {AUDIENCES[key].label}
+              </Link>
             ))}
           </nav>
 
@@ -103,11 +124,8 @@ export function PublicShell({ children }: PublicShellProps) {
             <Link to="/login" className="bantai-public__action-ghost">
               Sign in
             </Link>
-            <Link
-              to="/request-access"
-              className="bantai-public__action-primary"
-            >
-              Request access
+            <Link to={nav.cta.to} className="bantai-public__action-primary">
+              {nav.cta.label}
             </Link>
           </div>
         </div>
@@ -128,15 +146,17 @@ export function PublicShell({ children }: PublicShellProps) {
             className="bantai-public__footer-nav"
             aria-label="Footer navigation"
           >
-            <button type="button" onClick={() => goToAnchor('#top')}>
+            <button type="button" onClick={() => goToAnchor('/', '#top')}>
               Home
             </button>
-            <button type="button" onClick={() => goToAnchor('#how-it-works')}>
+            <button
+              type="button"
+              onClick={() => goToAnchor('/', '#how-it-works')}
+            >
               How it works
             </button>
-            <button type="button" onClick={() => goToAnchor('#about')}>
-              About
-            </button>
+            <Link to={ANDROID_BETA_PATH}>Android beta</Link>
+            <Link to="/platform">For organizations</Link>
             <Link to="/login">Sign in</Link>
             <Link to="/request-access">Request access</Link>
             <Link to="/legal?tab=terms">Terms</Link>

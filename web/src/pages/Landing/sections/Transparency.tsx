@@ -28,8 +28,10 @@ export function Transparency() {
             </div>
             <div className="tp__skeleton">
               <div className="tp__skeleton-metric">
-                <span className="tp__metric-label">Campaign activity</span>
-                <span className="tp__skeleton-value">Shield</span>
+                <span className="tp__metric-label">Published to Shield</span>
+                <span className="tp__skeleton-value">
+                  Reviewed campaign patterns
+                </span>
               </div>
               <dl className="tp__meta tp__meta--placeholder">
                 <dt>Data shared</dt>

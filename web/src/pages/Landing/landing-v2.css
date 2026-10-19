@@ -1,0 +1,1224 @@
+/*
+ * Landing v2: light only, on the mineral tokens (public canvas, see
+ * publicshell.css). One accent (mulberry); the app's own indigo appears
+ * only inside pictures of the app.
+ *
+ * Shape rule: buttons and chips are pills, cards 24px, panels 32px.
+ */
+
+.lv {
+  --landing-max: 1280px;
+  --lv-line: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  --lv-card: #ffffff;
+  --lv-tint: #f2eff2;
+  --lv-brand-soft: color-mix(in srgb, var(--brand-primary) 9%, #ffffff);
+  --lv-brand-deep: color-mix(in srgb, var(--brand-primary) 82%, #000000);
+  --lv-shadow:
+    0 1px 2px rgba(33, 31, 36, 0.04), 0 18px 40px -20px rgba(33, 31, 36, 0.18);
+  --lv-shadow-lg:
+    0 2px 4px rgba(33, 31, 36, 0.04), 0 40px 80px -36px rgba(33, 31, 36, 0.32);
+  --lv-r-card: 24px;
+  --lv-r-panel: 32px;
+  /* One scale for every picture of the app: phones at --lv-phone (1em =
+     1dp), cropped app UI at --lv-ui, and one inner padding for panels. */
+  --lv-section: clamp(64px, 11vh, 120px);
+  --lv-stage-pad: 40px;
+  /* Every phone is the same size: as large as the width allows, but small
+     enough that a phone section (padding, stage, 63em-tall phone) fits
+     under the header on a short screen. */
+  --lv-phone-max: clamp(7.6px, 0.61vw, 8.8px);
+  --lv-phone: max(
+    6.4px,
+    min(
+      var(--lv-phone-max),
+      calc(
+        (100dvh - 75px - 2 * var(--lv-section) - 2 * var(--lv-stage-pad)) / 63
+      )
+    )
+  );
+  --lv-ui: 10.5px;
+  --lv-pad: 56px;
+}
+
+.lv .landing__section {
+  padding: var(--lv-section) 0;
+}
+
+/* ---------------- Type ---------------- */
+
+.lv-h2,
+.lv .landing__h2 {
+  margin: 0;
+  max-width: 20ch;
+  font-size: clamp(2rem, 3.3vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+.lv-h2--sm {
+  font-size: clamp(1.75rem, 2.6vw, 2.4rem);
+}
+.lv-lede {
+  margin: 18px 0 0;
+  max-width: 56ch;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.lv-eyebrow {
+  margin: 0 0 14px;
+  color: var(--brand-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.lv-head {
+  margin-bottom: 56px;
+}
+.lv-head--center {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+.lv-head--center .lv-lede {
+  max-width: 48ch;
+}
+.lv-caption {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.lv-textlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.lv-textlink svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 200ms var(--motion-ease, ease);
+}
+.lv-textlink:hover svg {
+  transform: translateX(3px);
+}
+
+/* ---------------- Buttons ---------------- */
+
+.lv-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 36px;
+}
+.lv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: 600 1rem/1 var(--font-sans);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 200ms var(--motion-ease, ease),
+    border-color 200ms var(--motion-ease, ease),
+    transform 120ms var(--motion-ease, ease);
+}
+.lv-btn:active {
+  transform: scale(0.98);
+}
+.lv-btn--primary {
+  background: var(--brand-primary);
+  color: #fff;
+  box-shadow: 0 10px 24px -12px
+    color-mix(in srgb, var(--brand-primary) 70%, transparent);
+}
+.lv-btn--primary:hover {
+  background: var(--lv-brand-deep);
+}
+.lv-btn--dark {
+  background: var(--text-primary);
+  color: #fff;
+}
+.lv-btn--dark:hover {
+  background: #000;
+}
+.lv-btn--ghost {
+  background: var(--lv-card);
+  border-color: var(--lv-line);
+  color: var(--text-primary);
+}
+.lv-btn--ghost:hover {
+  border-color: color-mix(in srgb, var(--text-primary) 22%, transparent);
+}
+.lv-btn--light {
+  background: #fff;
+  color: var(--brand-primary);
+}
+.lv-btn--light:hover {
+  background: #f6f1f5;
+}
+.lv-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--lv-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 200ms var(--motion-ease, ease);
+}
+.lv-icon-btn:hover {
+  background: #fff;
+}
+.lv-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------------- Hero ---------------- */
+
+.lv-hero {
+  padding: 32px 0 104px;
+}
+.lv-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: 64px;
+  align-items: center;
+}
+.lv-hero__title {
+  margin: 0;
+  max-width: 15ch;
+  font-size: clamp(2.75rem, 5vw, 4.4rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+.lv-hero__lede {
+  margin: 24px 0 0;
+  max-width: 40ch;
+  font-size: 1.2rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.lv-hero__copy {
+  padding-bottom: 24px;
+}
+.lv-hero__copy > * {
+  animation: lv-rise 700ms var(--motion-ease, ease) both;
+}
+.lv-hero__copy > :nth-child(2) {
+  animation-delay: 80ms;
+}
+.lv-hero__copy > :nth-child(3) {
+  animation-delay: 160ms;
+}
+@keyframes lv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* The stage the demo phone stands on. */
+.lv-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  padding: var(--lv-stage-pad) 0;
+  border-radius: var(--lv-r-panel);
+  background:
+    radial-gradient(90% 70% at 72% 18%, #eadfe8 0%, transparent 70%),
+    radial-gradient(70% 60% at 12% 92%, #e6ecee 0%, transparent 70%), #f4f2f4;
+  box-shadow: inset 0 0 0 1px var(--lv-line);
+  animation: lv-rise 900ms 120ms var(--motion-ease, ease) both;
+}
+.lv-stage__phone {
+  font-size: var(--lv-phone);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 50px 90px -40px rgba(54, 32, 50, 0.55),
+    0 24px 40px -24px rgba(33, 31, 36, 0.35);
+}
+.lv-waves__card-label {
+  margin: 0 0 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.lv-stage__pause {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+}
+
+/* The demonstration: a 10 s loop. Text arrives (0.5 s), is marked Likely
+   scam (1.9 s), the message opens (3.3 s), the AI Summary rises (4.4 s),
+   hold, reset. */
+.lv-scene {
+  position: absolute;
+  inset: 0;
+}
+.lv-scene--chat {
+  animation: lv-chat 10s var(--motion-ease, ease) infinite;
+}
+.lv-scene--chat .ak-sheet {
+  animation: lv-sheet 10s var(--motion-ease, ease) infinite;
+}
+.lv-scene--inbox .ak-row--incoming {
+  overflow: hidden;
+  background: rgba(255, 59, 48, 0.035);
+  animation: lv-incoming 10s var(--motion-ease, ease) infinite;
+}
+.lv-scene--inbox .ak-row--incoming .ak-row__chip {
+  animation: lv-chip 10s var(--motion-ease, ease) infinite;
+}
+.lv-stage[data-paused='true'] .lv-scene,
+.lv-stage[data-paused='true'] .lv-scene * {
+  animation-play-state: paused;
+}
+@keyframes lv-incoming {
+  0%,
+  4% {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+  }
+  12%,
+  100% {
+    max-height: 14em;
+    padding-top: 1.1em;
+    padding-bottom: 1.1em;
+    opacity: 1;
+  }
+}
+@keyframes lv-chip {
+  0%,
+  17% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  21% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  24%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes lv-chat {
+  0%,
+  31% {
+    transform: translateX(104%);
+  }
+  36%,
+  90% {
+    transform: translateX(0);
+  }
+  96%,
+  100% {
+    transform: translateX(104%);
+  }
+}
+@keyframes lv-sheet {
+  0%,
+  42% {
+    transform: translateY(105%);
+  }
+  48%,
+  89% {
+    transform: translateY(0);
+  }
+  94%,
+  100% {
+    transform: translateY(105%);
+  }
+}
+
+/* ---------------- How it works ---------------- */
+
+.lv-steps__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+  gap: clamp(40px, 6vw, 88px);
+  align-items: center;
+}
+.lv-steps__visual {
+  display: grid;
+  justify-items: center;
+  padding: var(--lv-stage-pad) 0;
+  border-radius: var(--lv-r-panel);
+  background:
+    radial-gradient(80% 60% at 30% 10%, #e8e6f6 0%, transparent 70%), #f2f1f5;
+  box-shadow: inset 0 0 0 1px var(--lv-line);
+}
+.lv-steps__phone {
+  font-size: var(--lv-phone);
+}
+.lv-steps__list {
+  display: grid;
+  gap: 24px;
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lv-steps__list li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 20px;
+}
+.lv-steps__icon,
+.lv-privacy__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--lv-brand-soft);
+  color: var(--brand-primary);
+}
+.lv-steps__icon svg,
+.lv-privacy__icon svg {
+  width: 22px;
+  height: 22px;
+}
+.lv-steps__list h3,
+.lv-privacy__list h3 {
+  margin: 2px 0 6px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.lv-steps__list p,
+.lv-privacy__list p {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.lv-steps__list li:nth-child(2) {
+  transition-delay: 80ms;
+}
+.lv-steps__list li:nth-child(3) {
+  transition-delay: 160ms;
+}
+
+/* ---------------- Highlights (bento) ---------------- */
+
+.lv .lv-bento-section {
+  padding-top: 40px;
+}
+.lv-bento {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 20px;
+}
+.lv-tile {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 28px;
+  min-height: 360px;
+  padding: 36px;
+  border-radius: var(--lv-r-card);
+  background: var(--lv-card);
+  box-shadow: inset 0 0 0 1px var(--lv-line);
+  overflow: hidden;
+}
+.lv-tile h3 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.lv-tile p {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.lv-tile__art {
+  margin: 0;
+}
+.lv-tile--summary {
+  grid-column: span 4;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+  align-items: center;
+  background:
+    radial-gradient(70% 90% at 100% 0%, #efe3ec 0%, transparent 70%),
+    var(--lv-card);
+}
+.lv-summary {
+  padding: 2em 2.2em 2.4em;
+  border-radius: 2.4em;
+  background: #fff;
+  box-shadow:
+    var(--lv-shadow-lg),
+    0 0 0 1px var(--lv-line);
+  font-size: var(--lv-ui);
+}
+.lv-tile .lv-summary p {
+  max-width: none;
+}
+.lv-tile .lv-summary .ak-label {
+  color: var(--ak-secondary);
+}
+.lv-tile .lv-summary .ak-sheet__text {
+  color: var(--ak-label);
+  font-size: 1.4em;
+  line-height: 1.45;
+}
+.lv-tile .lv-summary .ak-sheet__link {
+  color: var(--ak-indigo);
+}
+.lv-tile--inbox {
+  grid-column: span 2;
+  grid-template-rows: auto 1fr;
+}
+.lv-tile--inbox .lv-tile__art {
+  align-self: end;
+  margin: 0 -36px -36px;
+  padding: 24px 28px 28px;
+  background: #f2f2f7;
+}
+.lv-inbox {
+  font-size: var(--lv-ui);
+}
+.lv-inbox .ak-pills {
+  margin-bottom: 1.4em;
+}
+.lv-tile .lv-inbox p {
+  color: var(--ak-secondary);
+  line-height: 1.35;
+}
+.lv-tile--lang {
+  grid-column: span 2;
+  align-content: space-between;
+  background:
+    radial-gradient(80% 70% at 100% 0%, #7a5675 0%, transparent 70%),
+    var(--brand-primary);
+  box-shadow: none;
+  color: #fff;
+}
+.lv-tile--lang h3 {
+  color: #fff;
+}
+.lv-tile--lang p {
+  color: rgba(255, 255, 255, 0.82);
+}
+.lv-tile p.lv-tile__langs {
+  display: grid;
+  gap: 2px;
+  color: #fff;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+.lv-tile__langs span:nth-child(2) {
+  color: rgba(255, 255, 255, 0.72);
+}
+.lv-tile__langs span:nth-child(3) {
+  color: rgba(255, 255, 255, 0.52);
+}
+.lv-tile--guide {
+  grid-column: span 4;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+  align-items: center;
+  background:
+    radial-gradient(70% 90% at 100% 100%, #dde9ec 0%, transparent 70%),
+    var(--lv-card);
+}
+.lv-guide {
+  padding: 26px 28px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow:
+    var(--lv-shadow-lg),
+    0 0 0 1px var(--lv-line);
+  font-family: Roboto, 'Google Sans', system-ui, sans-serif;
+  color: #000;
+}
+.lv-tile p.lv-guide__title {
+  margin: 0 0 8px;
+  color: #000;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.lv-tile p.lv-guide__quote {
+  margin: 0 0 16px;
+  color: rgba(60, 60, 67, 0.75);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.lv-guide ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: g;
+}
+.lv-guide li {
+  counter-increment: g;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.lv-guide li::before {
+  content: counter(g);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #ecebfd;
+  color: #5b4fe8;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.lv-bento > :nth-child(2),
+.lv-bento > :nth-child(4) {
+  transition-delay: 70ms;
+}
+
+/* ---------------- The real app (video tour) ---------------- */
+
+/* Heading and chapters beside the phone, and the phone sized to the
+   viewport height, so the whole tour fits on one screen. */
+.lv .lv-tour {
+  padding: var(--lv-section) 0;
+  background: var(--lv-tint);
+}
+.lv-tour__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'head device'
+    'list device';
+  column-gap: 96px;
+  row-gap: 32px;
+  align-items: start;
+}
+.lv-tour__head {
+  grid-area: head;
+}
+.lv-tour__head .lv-lede {
+  max-width: 44ch;
+}
+.lv-tour__device {
+  grid-area: device;
+  justify-self: center;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  margin: 0;
+}
+.lv-tour__device .ak-phone {
+  font-size: var(--lv-phone);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 50px 90px -40px rgba(54, 32, 50, 0.5),
+    0 24px 40px -24px rgba(33, 31, 36, 0.3);
+}
+/* Beside the phone's lower-left corner, never on top of it. */
+.lv-tour__toggle {
+  position: absolute;
+  left: -56px;
+  bottom: 16px;
+  box-shadow: var(--lv-shadow);
+}
+.lv-tour__chapters {
+  grid-area: list;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lv-chapter {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 16px 20px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 250ms var(--motion-ease, ease),
+    box-shadow 250ms var(--motion-ease, ease);
+}
+.lv-chapter b {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 250ms var(--motion-ease, ease);
+}
+.lv-chapter span {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.lv-chapter:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+.lv-chapter[aria-current='step'] {
+  background: #fff;
+  box-shadow:
+    var(--lv-shadow),
+    0 0 0 1px var(--lv-line);
+}
+.lv-chapter[aria-current='step'] b {
+  color: var(--brand-primary);
+}
+
+/* ---------------- Scam waves ---------------- */
+
+.lv-waves__viz {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) 96px minmax(0, 0.9fr);
+  align-items: center;
+  padding: var(--lv-pad);
+  border-radius: var(--lv-r-panel);
+  background:
+    radial-gradient(60% 80% at 100% 50%, #f1e6ee 0%, transparent 70%),
+    var(--lv-card);
+  box-shadow: inset 0 0 0 1px var(--lv-line);
+}
+.lv-waves__texts {
+  display: grid;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--lv-ui);
+}
+.lv-waves__text {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.landing .is-reveal-active .lv-waves__text[data-reveal] {
+  transform: translateX(-16px);
+  transition-delay: calc(var(--i) * 110ms);
+}
+.lv-waves__text:nth-child(2) {
+  margin-left: 12%;
+}
+.lv-waves__text .ak-bubble {
+  max-width: 34em;
+  background: #f2f2f7;
+}
+.lv-lang {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--lv-brand-soft);
+  color: var(--brand-primary);
+  font: 600 0.72rem/1 var(--font-mono);
+  letter-spacing: 0.06em;
+}
+.lv-waves__join {
+  position: relative;
+  height: 72%;
+}
+.landing .is-reveal-active .lv-waves__join[data-reveal] {
+  transform: none;
+  transition-delay: 380ms;
+}
+.lv-waves__join span {
+  position: absolute;
+  inset: 0 50% 0 0;
+  border: 2px solid color-mix(in srgb, var(--brand-primary) 35%, transparent);
+  border-left: 0;
+  border-radius: 0 28px 28px 0;
+}
+.lv-waves__join::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 6px;
+  top: 50%;
+  height: 2px;
+  background: color-mix(in srgb, var(--brand-primary) 35%, transparent);
+}
+.lv-waves__join::before {
+  content: '';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid
+    color-mix(in srgb, var(--brand-primary) 55%, transparent);
+  border-right: 2px solid
+    color-mix(in srgb, var(--brand-primary) 55%, transparent);
+  transform: translateY(-50%) rotate(45deg);
+}
+.lv-waves__card {
+  padding: 18px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    var(--lv-shadow-lg),
+    0 0 0 1px var(--lv-line);
+  font-size: var(--lv-ui);
+}
+.landing .is-reveal-active .lv-waves__card[data-reveal] {
+  transform: translateX(12px) scale(0.98);
+  transition-delay: 520ms;
+}
+.landing .is-reveal-active .lv-waves__card[data-reveal].is-in,
+.landing .is-reveal-active .lv-waves__text[data-reveal].is-in {
+  transform: none;
+}
+.lv-waves__card .ak-wave {
+  padding: 0;
+}
+.lv-waves__card .ak-row__top b {
+  white-space: normal;
+}
+
+/* ---------------- Privacy ---------------- */
+
+.lv .lv-privacy {
+  padding-top: 40px;
+}
+.lv-privacy__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 64px;
+  align-items: start;
+}
+.lv-privacy__intro {
+  position: sticky;
+  top: 120px;
+}
+.lv-privacy__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lv-privacy__list li {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 32px;
+  border-radius: var(--lv-r-card);
+  background: var(--lv-card);
+  box-shadow: inset 0 0 0 1px var(--lv-line);
+}
+.lv-privacy__list li:first-child {
+  grid-column: span 2;
+  grid-template-columns: 48px minmax(0, 1fr);
+  column-gap: 20px;
+  row-gap: 4px;
+}
+.lv-privacy__list li:first-child .lv-privacy__icon {
+  grid-row: span 2;
+}
+.lv-privacy__list h3 {
+  margin: 0;
+}
+
+/* ---------------- Researchers & organizations ---------------- */
+
+.lv-orgs {
+  padding: 0 0 120px;
+}
+.lv-orgs__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 48px;
+  align-items: center;
+  padding: var(--lv-pad);
+  border-radius: var(--lv-r-panel);
+  background:
+    radial-gradient(70% 90% at 100% 0%, #eadfe8 0%, transparent 70%), #f3eff2;
+  box-shadow: inset 0 0 0 1px var(--lv-line);
+}
+/* The capture's main pane (sidebar and page chrome left out) at a size
+   that stays readable: the campaign, its numbers, domains and messages.
+   The source is 1600x1000; the pane shown is x 275-1585, y 95-763. */
+.lv-orgs__shot {
+  aspect-ratio: 1310 / 668;
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow:
+    var(--lv-shadow-lg),
+    0 0 0 1px var(--lv-line);
+}
+.lv-orgs__shot img {
+  display: block;
+  width: calc(100% * 1600 / 1310);
+  max-width: none;
+  height: auto;
+  margin: calc(-100% * 95 / 1310) 0 0 calc(-100% * 275 / 1310);
+}
+
+/* ---------------- FAQ ---------------- */
+
+.lv .lv-faq {
+  padding-top: 0;
+}
+.lv-faq__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 64px;
+  align-items: start;
+}
+.lv-faq__intro .lv-lede {
+  max-width: 34ch;
+}
+.lv-faq__list {
+  border-top: 1px solid var(--lv-line);
+}
+.lv-faq__item {
+  border-bottom: 1px solid var(--lv-line);
+}
+.lv-faq__item summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  list-style: none;
+}
+.lv-faq__item summary::-webkit-details-marker {
+  display: none;
+}
+.lv-faq__item summary svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  transition: transform 250ms var(--motion-ease, ease);
+}
+.lv-faq__item[open] summary svg {
+  transform: rotate(45deg);
+}
+.lv-faq__item p {
+  margin: 0;
+  padding: 0 48px 26px 0;
+  max-width: 62ch;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+/* ---------------- Final CTA ---------------- */
+
+.lv-final {
+  padding: 0 0 120px;
+}
+.lv-final__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 48px;
+  align-items: center;
+  padding: var(--lv-pad);
+  border-radius: var(--lv-r-panel);
+  background:
+    radial-gradient(60% 120% at 100% 0%, #7d5878 0%, transparent 65%),
+    var(--brand-primary);
+  color: #fff;
+}
+.lv-final__title {
+  margin: 0;
+  color: #fff;
+  max-width: 16ch;
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.lv-final__body {
+  margin: 16px 0 32px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.1rem;
+}
+.lv-final__qr {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.88rem;
+}
+.lv-final__qr p {
+  margin: 0;
+}
+.qr {
+  margin: 0;
+  padding: 16px;
+  border-radius: 24px;
+  background: #fff;
+}
+.qr__code,
+.qr__code svg {
+  display: block;
+  width: 136px;
+  height: 136px;
+}
+.qr__code--loading {
+  border-radius: 8px;
+  background: var(--surface-selected);
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 1180px) {
+  .lv-tour__stage {
+    column-gap: 56px;
+  }
+  .lv-tour__chapters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .lv {
+    --lv-pad: 40px;
+  }
+  .lv {
+    --lv-section: clamp(64px, 10vh, 96px);
+  }
+  .lv-privacy__grid,
+  .lv-faq__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+  .lv-privacy__intro {
+    position: static;
+  }
+  .lv-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lv-tile--summary,
+  .lv-tile--guide {
+    grid-column: span 2;
+  }
+  .lv-tile--inbox,
+  .lv-tile--lang {
+    grid-column: span 1;
+  }
+  .lv-waves__viz {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+  .lv-waves__join {
+    height: 40px;
+  }
+  .lv-waves__join span {
+    display: none;
+  }
+  .lv-waves__join::after {
+    left: 50%;
+    right: auto;
+    top: 0;
+    bottom: 6px;
+    width: 2px;
+    height: auto;
+  }
+  .lv-waves__join::before {
+    right: auto;
+    left: calc(50% - 4px);
+    top: auto;
+    bottom: 4px;
+    transform: rotate(135deg);
+  }
+  .lv-orgs__panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+@media (max-width: 900px) {
+  .lv-steps__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lv-steps__visual {
+    order: 2;
+  }
+  .lv-tour__stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas:
+      'head'
+      'device'
+      'list';
+  }
+  .lv-tour__head {
+    text-align: center;
+  }
+  .lv-tour__head .lv-lede {
+    margin-inline: auto;
+  }
+  .lv-tour__head .lv-h2 {
+    margin-inline: auto;
+  }
+  .lv-hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+  .lv-hero__title {
+    max-width: 14ch;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Phones: just the campaign, its numbers and domains (x 290-1170,
+     y 200-470), so the capture stays legible at this width. */
+  .lv-orgs__shot {
+    aspect-ratio: 880 / 270;
+  }
+  .lv-orgs__shot img {
+    width: calc(100% * 1600 / 880);
+    margin: calc(-100% * 200 / 880) 0 0 calc(-100% * 290 / 880);
+  }
+  .lv {
+    --lv-pad: 24px;
+    --lv-phone: 7.4px;
+    --lv-section: 64px;
+    --lv-ui: 10px;
+    --landing-gutter: 16px;
+  }
+
+  .lv-hero {
+    padding: 16px 0 72px;
+  }
+  .lv-hero__lede {
+    font-size: 1.08rem;
+  }
+  .lv-cta-row .lv-btn {
+    flex: 1 1 100%;
+  }
+  .lv-chapter {
+    padding: 14px 16px;
+  }
+  .lv .lv-tour {
+    padding: 48px 0;
+  }
+  /* Phones: the chapters become a swipeable row under the video. */
+  .lv-tour__chapters {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 72%;
+    margin-inline: -16px;
+    padding: 0 16px 4px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+    scrollbar-width: none;
+  }
+  .lv-tour__chapters li {
+    scroll-snap-align: start;
+  }
+  .lv-bento {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lv-tile,
+  .lv-tile--summary,
+  .lv-tile--guide,
+  .lv-tile--inbox,
+  .lv-tile--lang {
+    grid-column: span 1;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding: 28px;
+  }
+  .lv-tile--inbox .lv-tile__art {
+    margin: 0 -28px -28px;
+  }
+  .lv-waves__text:nth-child(2) {
+    margin-left: 0;
+  }
+  .lv-privacy__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lv-privacy__list li:first-child {
+    grid-column: span 1;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lv-privacy__list li:first-child .lv-privacy__icon {
+    grid-row: auto;
+  }
+  .lv-privacy__list li {
+    padding: 24px;
+  }
+  .lv-final__panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lv-final__qr {
+    display: none;
+  }
+  .lv-final .lv-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-scene--chat,
+  .lv-scene--chat .ak-sheet,
+  .lv-scene--inbox .ak-row--incoming,
+  .lv-scene--inbox .ak-row--incoming .ak-row__chip,
+  .lv-stage,
+  .lv-hero__copy > * {
+    animation: none;
+  }
+  .lv-stage__pause {
+    display: none;
+  }
+  .lv-btn,
+  .lv-chapter,
+  .lv-faq__item summary svg {
+    transition: none;
+  }
+}

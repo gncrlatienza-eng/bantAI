@@ -14,11 +14,17 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "landing:shoot": "node ../tools/landing-capture/shoot-landing.mjs",
+    "landing:audit": "node ../tools/landing-capture/audit-landing.mjs",
+    "landing:verify-assets": "node ../tools/landing-capture/verify-assets.mjs src/assets/landing/captures",
+    "landing:capture": "node ../tools/landing-capture/capture-portal.mjs",
+    "landing:encode": "node ../tools/landing-capture/encode.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "lucide-react": "^1.25.0",
+    "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.7.1"
@@ -29,6 +35,7 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^24.2.0",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
@@ -39,6 +46,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "globals": "^17.0.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.64.0",
     "prettier": "^3.4.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.20.0",

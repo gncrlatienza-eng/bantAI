@@ -124,9 +124,12 @@ interface SystemStatus {
   readinessError: string | null;
 }
 
-function isOk(status: string | undefined | null): boolean {
+export function isOk(status: string | undefined | null): boolean {
   if (!status) return false;
-  return /(ok|ready|healthy|operational|up)/i.test(status);
+  // Negated values ("unreachable", "unready") contain a healthy word; reject
+  // them first. 'reachable' is what GET /api/health/ready returns for the DB.
+  if (/^(un|not)/i.test(status.trim())) return false;
+  return /(ok|ready|reachable|healthy|operational|up)/i.test(status);
 }
 
 export function OverviewPage() {

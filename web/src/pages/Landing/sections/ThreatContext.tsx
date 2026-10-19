@@ -9,46 +9,12 @@
 
 import React from 'react';
 import { useReveal } from '../useReveal';
+import { DEMO_VARIANTS } from '../landingFixture';
+import { highlight } from '../highlight';
 import './threat-context.css';
 
-interface Variant {
-  day: string;
-  body: React.ReactNode;
-  domain: string;
-}
-
-const VARIANTS: Variant[] = [
-  {
-    day: 'Day 01',
-    body: (
-      <>
-        Your <mark>GCash</mark> account will be <mark>suspended</mark>.<br />
-        Verify: <span className="tc-domain">gcash-secure.link</span>
-      </>
-    ),
-    domain: 'gcash-secure.link',
-  },
-  {
-    day: 'Day 04',
-    body: (
-      <>
-        <mark>GCash</mark> notice: account <mark>restricted</mark>.<br />
-        Confirm now: <span className="tc-domain">gcash-update.link</span>
-      </>
-    ),
-    domain: 'gcash-update.link',
-  },
-  {
-    day: 'Day 09',
-    body: (
-      <>
-        G-Cash <mark>security alert</mark>!<br />
-        Restore access: <span className="tc-domain">gcash-help.link</span>
-      </>
-    ),
-    domain: 'gcash-help.link',
-  },
-];
+// Day 01 / 04 / 09: the first three variants show wording + domain drift.
+const DRIFT = DEMO_VARIANTS.slice(0, 3);
 
 export function ThreatContext() {
   const rootRef = useReveal<HTMLElement>();
@@ -92,15 +58,21 @@ export function ThreatContext() {
             </svg>
 
             <ol className="tc__list">
-              {VARIANTS.map((v, i) => (
+              {DRIFT.map((v, i) => (
                 <li
-                  key={v.day}
+                  key={v.id}
                   className="tc__card"
                   data-reveal
                   data-reveal-delay={String(i + 1)}
                 >
-                  <span className="tc__day">{v.day}</span>
-                  <p className="tc__body">{v.body}</p>
+                  <span className="tc__day">
+                    Day {String(v.day).padStart(2, '0')}
+                  </span>
+                  <p className="tc__body">
+                    {highlight(v.lead, v.marks)}
+                    <br />
+                    {v.cta}: <span className="tc-domain">{v.domain}</span>
+                  </p>
                 </li>
               ))}
             </ol>

@@ -42,7 +42,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -58,42 +58,8 @@
   display: inline-block;
 }
 
-.ps__mobile-svg {
-  width: 100%;
-  height: auto;
-  max-width: 340px;
-  display: block;
-  filter: drop-shadow(
-    0 24px 50px color-mix(in srgb, var(--palette-warm-ink) 14%, transparent)
-  );
-}
-
-.ps__web-svg {
-  width: 100%;
-  height: auto;
-  filter: drop-shadow(
-    0 24px 50px color-mix(in srgb, var(--palette-warm-ink) 14%, transparent)
-  );
-  border-radius: 12px;
-}
-
-/*
- * Constrain the portal mock at very narrow widths so its dense table doesn't
- * shrink below legibility. Tablet and phone widths get the same composition,
- * just centered with a modest horizontal breathing room.
- */
 @media (max-width: 720px) {
   .ps__grid {
     gap: 56px;
-  }
-  .ps__mobile-svg {
-    max-width: 260px;
-    margin: 0 auto;
-    display: block;
-  }
-  .ps__web-svg {
-    /* Below ~500px the portal reads as a chart at best; give it edge-to-edge
-     * so text stays over ~10.5px effective. */
-    min-width: 100%;
   }
 }

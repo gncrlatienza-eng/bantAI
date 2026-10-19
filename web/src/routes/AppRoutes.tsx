@@ -22,6 +22,15 @@ function lazyPage<M>(
   return React.lazy(() => load().then((module) => ({ default: pick(module) })));
 }
 
+const AndroidPage = lazyPage(
+  () => import('../pages/Android'),
+  (m) => m.AndroidPage,
+);
+const PlatformPage = lazyPage(
+  () => import('../pages/Platform'),
+  (m) => m.PlatformPage,
+);
+
 const AdminOverviewPage = lazyPage(
   () => import('../pages/admin/OverviewPage'),
   (m) => m.OverviewPage,
@@ -192,10 +201,26 @@ export function AppRoutes() {
         }
       />
       <Route
+        path="/android"
+        element={
+          <React.Suspense fallback={<LoadingState label="Loading page" />}>
+            <AndroidPage />
+          </React.Suspense>
+        }
+      />
+      <Route
+        path="/platform"
+        element={
+          <React.Suspense fallback={<LoadingState label="Loading page" />}>
+            <PlatformPage />
+          </React.Suspense>
+        }
+      />
+      <Route
         path="/how-it-works"
         element={<Navigate to="/#how-it-works" replace />}
       />
-      <Route path="/about" element={<Navigate to="/#about" replace />} />
+      <Route path="/about" element={<Navigate to="/platform" replace />} />
       <Route path="/research" element={<Navigate to="/" replace />} />
       {/* Public plan selection. Choosing a plan starts account-first
           registration; signed-in visitors go to their current state. */}

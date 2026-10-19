@@ -1,10 +1,13 @@
 /*
- * Campaign Intelligence — plum surface. Two-column layout: cluster graph on
+ * Campaign Intelligence: a white band between the canvas sections. Two-column layout: cluster graph on
  * the left, a metadata panel on the right that names the campaign, its
  * languages, observation window, and top domains.
  */
 
 .ci {
+  background: #ffffff;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
   padding-top: var(--landing-section-lg, 112px);
   padding-bottom: var(--landing-section-lg, 112px);
 }
@@ -46,7 +49,7 @@
   gap: 20px;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: 1px solid var(--border-default);
 }
 
 .ci__legend-item {
@@ -54,10 +57,10 @@
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-on-brand) 80%, transparent);
+  color: var(--text-secondary);
 }
 
 .ci__legend-swatch {
@@ -67,43 +70,43 @@
 }
 
 .ci__legend-swatch--node {
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(94, 64, 90, 0.45);
+  background: #ffffff;
 }
 
 .ci__legend-swatch--domain {
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--brand-primary);
   width: 8px;
   height: 8px;
 }
 
 .ci__legend-swatch--edge {
   height: 1px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(94, 64, 90, 0.4);
 }
 
 .ci__legend-swatch--edge-evo {
   height: 1px;
   background: transparent;
-  border-top: 1px dashed rgba(255, 255, 255, 0.9);
+  border-top: 1px dashed rgba(94, 64, 90, 0.75);
 }
 
 /* Right-side metadata panel */
 
 .ci__panel {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 12px;
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 24px;
   padding: 28px;
-  color: var(--text-on-brand);
+  color: var(--text-primary);
 }
 
 .ci__panel-label {
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-on-brand) 72%, transparent);
+  color: var(--text-secondary);
   margin: 0 0 4px;
 }
 
@@ -111,25 +114,28 @@
   margin-top: 24px;
 }
 
+/* Campaign category, shown as a chip rather than a pseudo-ID. */
 .ci__panel-id {
-  font-family: var(--font-mono, monospace);
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--text-on-brand);
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--brand-primary);
   margin: 0 0 12px;
-  letter-spacing: 0.02em;
+  padding: 3px 10px;
+  border: 1px solid rgba(94, 64, 90, 0.3);
+  border-radius: 999px;
 }
 
 .ci__panel-title {
   font-size: 1.15rem;
-  color: var(--text-on-brand);
+  color: var(--text-primary);
   font-weight: 600;
   margin: 0 0 12px;
   line-height: 1.3;
 }
 
 .ci__panel-body {
-  color: color-mix(in srgb, var(--text-on-brand) 82%, transparent);
+  color: var(--text-secondary);
   font-size: 0.94rem;
   line-height: 1.55;
   margin: 0 0 20px;
@@ -141,7 +147,7 @@
   gap: 14px 20px;
   margin: 0;
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid var(--border-default);
 }
 
 .ci__meta > div {
@@ -152,17 +158,17 @@
 
 .ci__meta dt {
   font-family: var(--font-mono, monospace);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-on-brand) 66%, transparent);
+  color: var(--text-secondary);
   margin: 0;
 }
 
 .ci__meta dd {
   font-family: var(--font-mono, monospace);
   font-size: 0.92rem;
-  color: var(--text-on-brand);
+  color: var(--text-primary);
   margin: 0;
   font-weight: 600;
 }
@@ -179,7 +185,7 @@
 .ci__domain-list li {
   font-family: var(--font-mono, monospace);
   font-size: 0.9rem;
-  color: var(--text-on-brand);
+  color: var(--text-primary);
   padding-left: 14px;
   position: relative;
 }
@@ -191,7 +197,7 @@
   top: 8px;
   width: 6px;
   height: 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--brand-primary);
 }
 
 /* Evolutionary node has a subtle idle fade so viewer notices "NEW" */
@@ -227,7 +233,9 @@
   .ci__panel {
     padding: 24px;
   }
-  .ci__panel-id {
-    font-size: 1.2rem;
+  /* At phone width the graph renders at ~0.55x, so its labels would be ~6px.
+     Keep the shape as an illustration; the panel beside it carries the data. */
+  .ci-graph text {
+    display: none;
   }
 }

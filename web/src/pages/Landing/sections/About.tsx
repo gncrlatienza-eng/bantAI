@@ -29,14 +29,16 @@ export function About() {
               Built in the Philippines, for Philippine smishing.
             </h2>
             <p className="landing__body">
-              An undergraduate Computer Science thesis on on-device SMS
-              classification and server-side campaign clustering for Filipino
-              users — scoped to Tagalog, English, and Taglish.
+              An undergraduate Computer Science thesis on Android SMS triage,
+              Model C classification through the BantAI service, and server-side
+              campaign clustering for Filipino users — scoped to Tagalog,
+              English, and Taglish.
             </p>
             <p className="landing__body landing__body--secondary">
-              A research prototype, not a commercial product. Raw SMS bodies
-              stay on the phone; only the classification result, indicators, and
-              URL domains cross the wire.
+              A research prototype, not a commercial product. The app masks SMS
+              content before an authenticated service request; Model C runs on
+              the device as an offline fallback. The original message remains in
+              the device SMS inbox.
             </p>
           </div>
 
@@ -69,291 +71,115 @@ export function About() {
 }
 
 /*
- * ArchitectureDiagram — Swiss/editorial. Three columns for Device / Backend /
- * ML service; the Portal sits underneath and reads from the Backend. Arrows
- * are typed: solid = data flow, dashed = read-only. A distinct plum treatment
- * on the Device column signals what never leaves the phone.
+ * ArchitectureDiagram — plain HTML so every label stays readable at any width
+ * (the earlier SVG scaled its text down to 4–9px). Device → Backend → ML
+ * service across the top; the Portal underneath only reads from the Backend.
+ * The device node is tinted to anchor what stays on the phone.
  */
 function ArchitectureDiagram() {
   return (
-    <svg
-      viewBox="0 0 660 420"
-      className="about-arch"
-      role="img"
-      aria-label="Architecture: the Android device holds the raw SMS body and runs the on-device classifier; only the classification result, indicators, and URL domains flow to the NestJS backend; the ML service handles retraining and drift; the portal reads aggregated data from the backend."
+    <figure
+      className="arch"
+      aria-label="Architecture: the Android device receives the SMS and masks its content before an authenticated backend classification request. The backend uses Model C through the ML service, while the device can use Model C as an offline fallback. The portal reads aggregated data from the backend."
     >
-      {/* Top row of nodes */}
-      <ArchNode
-        x={20}
-        y={20}
-        width={200}
-        title="Android device"
-        subtitle="Kotlin · on-device"
-        rows={[
-          'SMS receiver',
-          'On-device classifier',
-          'Local corrections cache',
-        ]}
-        variant="stay"
-      />
+      <div className="arch__row">
+        <ArchNode
+          variant="stay"
+          title="Android device"
+          subtitle="Kotlin · local SMS handling"
+          rows={[
+            'SMS receiver',
+            'Local privacy masking',
+            'Model C offline fallback',
+            'Local corrections cache',
+          ]}
+        />
+        <ArchLink label="masked text" />
+        <ArchNode
+          title="Backend"
+          subtitle="NestJS · PostgreSQL"
+          rows={['Alert records', 'Campaign membership', 'User corrections']}
+        />
+        <ArchLink label="classify · train" />
+        <ArchNode
+          title="ML service"
+          subtitle="Python · Model C service"
+          rows={['Model C classification', 'Retraining queue', 'Drift signal']}
+        />
+      </div>
+
+      <div className="arch__wire">
+        <p className="arch__pill arch__pill--stay">
+          <span className="arch__key">Stays on device</span>
+          Original SMS inbox
+        </p>
+        <p className="arch__pill">
+          <span className="arch__key">Crosses the wire</span>
+          Masked SMS text · pseudonymized sender · telemetry
+        </p>
+      </div>
+
+      <ArchLink label="read" direction="down" dashed />
 
       <ArchNode
-        x={240}
-        y={20}
-        width={180}
-        title="Backend"
-        subtitle="NestJS · PostgreSQL"
-        rows={['Alert records', 'Campaign membership', 'User corrections']}
-      />
-
-      <ArchNode
-        x={440}
-        y={20}
-        width={200}
-        title="ML service"
-        subtitle="Python · offline"
-        rows={['Trained model', 'Retraining queue', 'Drift signal']}
-      />
-
-      {/* Arrows between top row nodes */}
-      <ArchArrow x1={220} x2={240} y={100} />
-      <ArchArrow x1={420} x2={440} y={100} />
-
-      {/* Portal (bottom) */}
-      <ArchNode
-        x={140}
-        y={240}
-        width={380}
+        variant="portal"
         title="BantAI portal"
         subtitle="React · reviewer surface"
         rows={[
           'Aggregated alerts and campaigns',
           'Admin corrections and model promotion',
         ]}
+        note="This site is the portal"
       />
-
-      {/* Portal reads from Backend — dashed arrow */}
-      <ArchArrow x1={330} x2={330} y1={220} y2={240} vertical dashed />
-
-      {/* Stays-on-device pill callout on the device column */}
-      <g transform="translate(20, 200)">
-        <rect
-          x="0"
-          y="0"
-          width="200"
-          height="26"
-          rx="4"
-          fill="var(--plum-14)"
-          stroke="var(--plum-35)"
-        />
-        <text
-          x="10"
-          y="12"
-          fontSize="7.5"
-          fill="var(--brand-primary)"
-          letterSpacing="0.14em"
-          fontFamily="var(--font-mono, monospace)"
-          fontWeight="700"
-        >
-          STAYS ON DEVICE
-        </text>
-        <text x="10" y="22" fontSize="9" fill="var(--brand-primary)">
-          Raw SMS body and sender
-        </text>
-      </g>
-
-      {/* What crosses the boundary */}
-      <g transform="translate(240, 200)">
-        <text
-          x="0"
-          y="10"
-          fontSize="7.5"
-          fill="var(--text-secondary)"
-          letterSpacing="0.14em"
-          fontFamily="var(--font-mono, monospace)"
-        >
-          CROSSES THE WIRE
-        </text>
-        <text x="0" y="24" fontSize="9" fill="var(--text-primary)">
-          class · indicators · domain
-        </text>
-      </g>
-
-      {/* Arrow labels */}
-      <text
-        x="230"
-        y="94"
-        fontSize="8"
-        fill="var(--text-secondary)"
-        fontFamily="var(--font-mono, monospace)"
-      >
-        POST
-      </text>
-      <text
-        x="428"
-        y="94"
-        fontSize="8"
-        fill="var(--text-secondary)"
-        fontFamily="var(--font-mono, monospace)"
-      >
-        train
-      </text>
-      <text
-        x="336"
-        y="235"
-        fontSize="8"
-        fill="var(--text-secondary)"
-        fontFamily="var(--font-mono, monospace)"
-      >
-        read
-      </text>
-
-      {/* Bottom rule */}
-      <line
-        x1="20"
-        y1="400"
-        x2="640"
-        y2="400"
-        stroke="var(--border-default)"
-        strokeDasharray="2 6"
-      />
-      <text
-        x="20"
-        y="416"
-        fontSize="8"
-        fill="var(--text-secondary)"
-        fontFamily="var(--font-mono, monospace)"
-        letterSpacing="0.14em"
-      >
-        THIS SITE IS THE PORTAL
-      </text>
-    </svg>
+    </figure>
   );
 }
 
 interface ArchNodeProps {
-  x: number;
-  y: number;
-  width: number;
   title: string;
   subtitle: string;
   rows: string[];
-  variant?: 'default' | 'stay';
+  variant?: 'default' | 'stay' | 'portal';
+  note?: string;
 }
 
 function ArchNode({
-  x,
-  y,
-  width,
   title,
   subtitle,
   rows,
   variant = 'default',
+  note,
 }: ArchNodeProps) {
-  const fill = variant === 'stay' ? 'var(--plum-08)' : 'var(--surface-raised)';
-  const stroke =
-    variant === 'stay' ? 'var(--plum-35)' : 'var(--border-default)';
-  const height = 160;
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      <rect
-        x="0"
-        y="0"
-        width={width}
-        height={height}
-        rx="8"
-        fill={fill}
-        stroke={stroke}
-      />
-      <text
-        x="16"
-        y="26"
-        fontSize="9"
-        letterSpacing="0.14em"
-        fill="var(--text-secondary)"
-        fontFamily="var(--font-mono, monospace)"
-      >
-        {title.toUpperCase()}
-      </text>
-      <text x="16" y="42" fontSize="10" fill="var(--text-secondary)">
-        {subtitle}
-      </text>
-      <line
-        x1="16"
-        y1="54"
-        x2={width - 16}
-        y2="54"
-        stroke={variant === 'stay' ? 'var(--plum-35)' : 'var(--border-default)'}
-      />
-      {rows.map((r, i) => (
-        <g key={r} transform={`translate(16, ${76 + i * 22})`}>
-          <rect
-            x="0"
-            y="-6"
-            width="3"
-            height="3"
-            fill={
-              variant === 'stay'
-                ? 'var(--brand-primary)'
-                : 'var(--text-primary)'
-            }
-          />
-          <text x="10" y="0" fontSize="11" fill="var(--text-primary)">
-            {r}
-          </text>
-        </g>
-      ))}
-    </g>
+    <div className={`arch__node arch__node--${variant}`}>
+      <p className="arch__title">{title}</p>
+      <p className="arch__sub">{subtitle}</p>
+      <ul className="arch__rows">
+        {rows.map((row) => (
+          <li key={row}>{row}</li>
+        ))}
+      </ul>
+      {note && <p className="arch__note">{note}</p>}
+    </div>
   );
 }
 
-interface ArchArrowProps {
-  x1: number;
-  x2: number;
-  y?: number;
-  y1?: number;
-  y2?: number;
-  vertical?: boolean;
-  dashed?: boolean;
-}
-
-function ArchArrow({
-  x1,
-  x2,
-  y,
-  y1,
-  y2,
-  vertical = false,
+function ArchLink({
+  label,
+  direction = 'right',
   dashed = false,
-}: ArchArrowProps) {
-  const strokeProps = {
-    stroke: 'var(--brand-primary)',
-    strokeWidth: 1.2,
-    strokeDasharray: dashed ? '4 4' : undefined,
-  } as const;
-
-  if (vertical) {
-    const sy = y1 ?? 0;
-    const ey = y2 ?? 0;
-    return (
-      <g>
-        <line x1={x1} y1={sy} x2={x2} y2={ey - 6} {...strokeProps} />
-        <polygon
-          points={`${x2 - 5},${ey - 6} ${x2 + 5},${ey - 6} ${x2},${ey}`}
-          fill="var(--brand-primary)"
-        />
-      </g>
-    );
-  }
-  const yy = y ?? 100;
+}: {
+  label: string;
+  direction?: 'right' | 'down';
+  dashed?: boolean;
+}) {
   return (
-    <g>
-      <line x1={x1} y1={yy} x2={x2 - 6} y2={yy} {...strokeProps} />
-      <polygon
-        points={`${x2 - 6},${yy - 5} ${x2 - 6},${yy + 5} ${x2},${yy}`}
-        fill="var(--brand-primary)"
-      />
-    </g>
+    <div
+      className={`arch__link arch__link--${direction}${dashed ? ' arch__link--dashed' : ''}`}
+      aria-hidden
+    >
+      <span>{label}</span>
+    </div>
   );
 }
 

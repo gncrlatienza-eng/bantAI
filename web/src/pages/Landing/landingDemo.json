@@ -1,0 +1,136 @@
+{
+  "brand": "BantAI",
+  "campaign": {
+    "label": "GCash account-suspension lure",
+    "summary": "Multilingual smishing family impersonating GCash account notices.",
+    "brand": "GCash",
+    "category": "Impersonation",
+    "risk": "High",
+    "messageCount": 148,
+    "firstSeen": "Sep 4",
+    "lastSeen": "Sep 20",
+    "topDomain": "gcash-secure.example"
+  },
+  "variants": [
+    {
+      "id": "v1",
+      "day": 1,
+      "seen": "Sep 4",
+      "lang": "en",
+      "lead": "Your GCash account will be suspended.",
+      "cta": "Verify",
+      "domain": "gcash-secure.example",
+      "similarity": 0.94,
+      "marks": ["GCash", "suspended"]
+    },
+    {
+      "id": "v2",
+      "day": 4,
+      "seen": "Sep 7",
+      "lang": "en",
+      "lead": "GCash notice: account restricted.",
+      "cta": "Confirm now",
+      "domain": "gcash-update.example",
+      "similarity": 0.89,
+      "marks": ["GCash", "restricted"]
+    },
+    {
+      "id": "v3",
+      "day": 9,
+      "seen": "Sep 12",
+      "lang": "mixed",
+      "lead": "G-Cash security alert! Account mo temporarily blocked.",
+      "cta": "Restore access",
+      "domain": "gcash-help.example",
+      "similarity": 0.92,
+      "marks": ["security alert"]
+    },
+    {
+      "id": "v4",
+      "day": 13,
+      "seen": "Sep 16",
+      "lang": "fil",
+      "lead": "Pansamantalang naka-lock ang GCash account mo.",
+      "cta": "I-verify",
+      "domain": "gcash-verify.example",
+      "similarity": 0.91,
+      "marks": ["GCash", "naka-lock"]
+    },
+    {
+      "id": "v5",
+      "day": 15,
+      "seen": "Sep 18",
+      "lang": "mixed",
+      "lead": "GCash advisory: i-update ang account details mo today.",
+      "cta": "Update here",
+      "domain": "gcash-update.example",
+      "similarity": 0.88,
+      "marks": []
+    },
+    {
+      "id": "v6",
+      "day": 17,
+      "seen": "Sep 20",
+      "lang": "fil",
+      "lead": "I-verify ang GCash account mo sa loob ng 24 oras.",
+      "cta": "Pumunta sa",
+      "domain": "gcash-secure.example",
+      "similarity": 0.87,
+      "marks": []
+    }
+  ],
+  "alert": { "sender": "GCASH-NOTICE", "time": "9:38 AM", "variantId": "v1" },
+  "indicators": [
+    {
+      "tag": "Urgency Cue",
+      "why": "It rushes you (\"today only\", \"account will be blocked\") so you act before you think."
+    },
+    {
+      "tag": "Suspicious URL",
+      "why": "The link doesn't go to a website you can trust. Real banks and e-wallets rarely text you links."
+    },
+    {
+      "tag": "Brand Impersonation",
+      "why": "It uses a bank, e-wallet or company name, but doesn't match how that company really writes to you."
+    },
+    {
+      "tag": "OTP / Account Phishing",
+      "why": "It asks for your OTP or tells you to verify your account. Never share an OTP with anyone."
+    }
+  ],
+  "confidence": 0.97,
+  "app": {
+    "alert": {
+      "back": "Back",
+      "verdict": "Likely scam",
+      "whyFlagged": "Why it was flagged",
+      "wave": "Part of a scam wave",
+      "waveDetail": "Others got this same scam. See the wave",
+      "report": "Report this message",
+      "block": "Block sender"
+    },
+    "inbox": { "title": "Messages", "search": "Search", "scamBadge": "Scam" },
+    "analysis": {
+      "title": "Threat Analysis",
+      "confidence": "Confidence",
+      "message": "MESSAGE",
+      "indicators": "THREAT INDICATORS"
+    },
+    "action": {
+      "title": "Choose an action",
+      "report": "Report message",
+      "block": "Block sender",
+      "question": "What is this message?",
+      "options": [
+        "Smishing / Phishing (scam)",
+        "Spam / unwanted promo",
+        "Legitimate — wrongly flagged"
+      ]
+    }
+  },
+  "maskedNumber": "+63 9•• ••• 0132",
+  "demoAnalyst": "Demo Analyst",
+  "demoAnalystEmail": "demo@bantai.example",
+  "demoMobilePhone": "+639000000132",
+  "portalHost": "portal.bantai.example"
+}

@@ -1,39 +1,42 @@
 /*
- * Landing page composer. One scrollable experience:
+ * Landing page (plan v2, docs/redesign/landing-redesign-plan.md):
  *
- *   Hero → Threat Context → How It Works → Product Showcase →
- *   Campaign Intelligence → Transparency → About → Final CTA
+ *   Hero (one demonstration) > How it works > Highlights > The real app
+ *   (screen recording) > Scam waves > Privacy > Researchers & organizations
+ *   (to /platform) > FAQ > Final CTA
  *
- * Each section owns its own copy, layout, and motion. This file just wires
- * them into the PublicShell.
+ * The Android app is the centre; the portal story lives on /platform.
  */
 
 import React from 'react';
 import { PublicShell } from '../../components/appshell/PublicShell';
 import { Hero } from './sections/Hero';
-import { ThreatContext } from './sections/ThreatContext';
-import { HowItWorks } from './sections/HowItWorks';
-import { ProductShowcase } from './sections/ProductShowcase';
-import { CampaignIntelligence } from './sections/CampaignIntelligence';
-import { Transparency } from './sections/Transparency';
-import { About } from './sections/About';
-import { FinalCta } from './sections/FinalCta';
+import { Tour } from './sections/Tour';
+import {
+  Faq,
+  FinalCall,
+  ForOrganizations,
+  Highlights,
+  Privacy,
+  ScamWaves,
+  Steps,
+} from './sections/Story';
 import './landing.css';
+import './landing-v2.css';
 
 export const LandingPage: React.FC = () => {
-  // Root ref exists so the shared reveal hook (used per-section below) can
-  // observe descendants without each section needing its own observer.
   return (
     <PublicShell>
-      <div className="landing">
+      <div className="landing lv">
         <Hero />
-        <ThreatContext />
-        <HowItWorks />
-        <ProductShowcase />
-        <CampaignIntelligence />
-        <Transparency />
-        <About />
-        <FinalCta />
+        <Steps />
+        <Highlights />
+        <Tour />
+        <ScamWaves />
+        <Privacy />
+        <ForOrganizations />
+        <Faq />
+        <FinalCall />
       </div>
     </PublicShell>
   );

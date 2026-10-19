@@ -42,7 +42,7 @@
 
 .tp__panel-eyebrow {
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -51,7 +51,7 @@
 
 .tp__badge {
   font-family: var(--font-mono, monospace);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   padding: 4px 10px;
   border-radius: 4px;
   letter-spacing: 0.06em;
@@ -123,12 +123,12 @@
 }
 
 .tp__skeleton-value {
-  font-size: 3.6rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--border-default);
-  letter-spacing: -0.02em;
-  font-family: var(--font-mono, monospace);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
 }
 
 .tp__skeleton-value--sub {

@@ -1,0 +1,4 @@
+
+# Landing capture pipeline (dev-only, see web/scripts/landing-capture)
+.landing-raw/
+.env.landingdemo

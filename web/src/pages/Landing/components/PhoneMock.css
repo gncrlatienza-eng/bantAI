@@ -1,0 +1,360 @@
+/*
+ * Light palette from mobile ui/theme/Color.kt (LightColors). Secondary text is
+ * darkened from the app's 60% #3C3C43 (≈3.5:1 on white) to #6C6C70 (5.1:1)
+ * so the replica stays readable on the landing page.
+ */
+.pm {
+  --pm-bg: #f2f2f7;
+  --pm-surface: #ffffff;
+  --pm-label: #000000;
+  --pm-secondary: #6c6c70;
+  --pm-hairline: rgb(60 60 67 / 0.29);
+  --pm-indigo: #5b4fe8;
+  --pm-danger: #d70015;
+  --pm-danger-tint: rgb(255 59 48 / 0.14);
+  --pm-warn: #c93400;
+  --pm-warn-tint: rgb(255 149 0 / 0.16);
+  --pm-blue: #007aff;
+
+  /* One design px, scaled with the landing's shared phone size so this
+     frame matches the AppKit phones (300 design px wide at 1em = calc(10 * var(--u))). */
+  --u: calc(var(--lv-phone, 8.8px) / 10);
+
+  position: relative;
+  width: calc(300 * var(--u));
+  max-width: 100%;
+  aspect-ratio: 30 / 63;
+  margin: 0 auto;
+  padding: calc(9 * var(--u));
+  border-radius: calc(44 * var(--u));
+  background: linear-gradient(160deg, #2a2a2e, #111113 60%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 50px 90px -40px rgba(54, 32, 50, 0.5),
+    0 24px 40px -24px rgba(33, 31, 36, 0.3);
+  font-family:
+    -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--pm-label);
+}
+
+.pm__screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: calc(36 * var(--u));
+  background: var(--pm-bg);
+  font-size: calc(13 * var(--u));
+  line-height: 1.35;
+}
+
+.pm__status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(12 * var(--u)) calc(22 * var(--u)) calc(4 * var(--u));
+  font-size: calc(13 * var(--u));
+  font-weight: 600;
+}
+
+.pm__status-icons {
+  display: inline-flex;
+  gap: calc(3 * var(--u));
+}
+
+.pm__status-icons svg {
+  display: block;
+  width: calc(13 * var(--u));
+  height: calc(13 * var(--u));
+}
+
+/* Punch-hole camera, as on the AppKit phones. */
+.pm__screen::before {
+  content: '';
+  position: absolute;
+  top: calc(10 * var(--u));
+  left: 50%;
+  width: calc(11 * var(--u));
+  height: calc(11 * var(--u));
+  margin-left: calc(-5.5 * var(--u));
+  border-radius: 50%;
+  background: #0b0b0c;
+  z-index: 2;
+}
+
+.pm__home {
+  position: absolute;
+  left: 50%;
+  bottom: calc(8 * var(--u));
+  width: 34%;
+  height: calc(4 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: var(--pm-label);
+  transform: translateX(-50%);
+}
+
+.pm__body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+  /* Clear the home indicator so the last control is never under it. */
+  padding: calc(4 * var(--u)) calc(14 * var(--u)) calc(30 * var(--u));
+}
+
+.pm__back {
+  margin: 0;
+  color: var(--pm-blue);
+  font-size: calc(15 * var(--u));
+}
+
+.pm__title {
+  margin: calc(2 * var(--u)) 0 calc(4 * var(--u));
+  font-size: calc(22 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pm__label {
+  margin: calc(4 * var(--u)) 0 0;
+  font-size: calc(12 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--pm-secondary);
+}
+
+.pm__muted {
+  color: var(--pm-secondary);
+  font-size: calc(12 * var(--u));
+}
+
+.pm__danger {
+  color: var(--pm-danger);
+}
+
+.pm__search {
+  margin: 0;
+  padding: calc(7 * var(--u)) calc(10 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: rgb(118 118 128 / 0.12);
+  color: var(--pm-secondary);
+}
+
+.pm__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: calc(12 * var(--u));
+  background: var(--pm-surface);
+}
+
+.pm__row {
+  display: flex;
+  gap: calc(10 * var(--u));
+  padding: calc(10 * var(--u)) calc(12 * var(--u));
+}
+
+.pm__row + .pm__row {
+  border-top: 0.5px solid var(--pm-hairline);
+}
+
+.pm__avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+  border-radius: 50%;
+  background: #00bcd4;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: calc(14 * var(--u));
+}
+
+.pm__avatar--lg {
+  width: calc(56 * var(--u));
+  height: calc(56 * var(--u));
+  font-size: calc(22 * var(--u));
+  background: #5b4fe8;
+}
+
+.pm__row-main {
+  display: flex;
+  flex-direction: column;
+  gap: calc(3 * var(--u));
+  min-width: 0;
+}
+
+.pm__row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(8 * var(--u));
+}
+
+.pm__row-top b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.pm__row-top .pm__muted {
+  flex: none;
+  white-space: nowrap;
+}
+
+.pm__row-top b.is-unread::before {
+  content: '';
+  display: inline-block;
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  margin-right: calc(5 * var(--u));
+  border-radius: 50%;
+  background: var(--pm-blue);
+  vertical-align: middle;
+}
+
+.pm__row-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--pm-secondary);
+  font-size: calc(12 * var(--u));
+}
+
+.pm__badge {
+  align-self: flex-start;
+  padding: calc(2 * var(--u)) calc(8 * var(--u));
+  border-radius: calc(999 * var(--u));
+  font-size: calc(12 * var(--u));
+  font-weight: 600;
+}
+
+.pm__badge--danger {
+  background: var(--pm-danger-tint);
+  color: var(--pm-danger);
+}
+
+.pm__badge--warn {
+  background: var(--pm-warn-tint);
+  color: var(--pm-warn);
+}
+
+.pm__alert-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  text-align: center;
+}
+
+.pm__alert-head .pm__badge {
+  align-self: center;
+  margin-top: calc(4 * var(--u));
+}
+
+.pm__sender {
+  margin: calc(6 * var(--u)) 0 0;
+  font-size: calc(17 * var(--u));
+  font-weight: 700;
+}
+
+.pm__bubble {
+  margin: 0;
+  padding: calc(9 * var(--u)) calc(12 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: var(--pm-surface);
+}
+
+.pm__card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--u));
+  margin: 0;
+  padding: calc(10 * var(--u)) calc(12 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: var(--pm-surface);
+}
+
+.pm__card-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.pm__reason {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pm__card--wave b {
+  font-weight: 600;
+}
+
+.pm__btn {
+  display: block;
+  padding: calc(10 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: var(--pm-surface);
+  color: var(--pm-indigo);
+  font-weight: 600;
+  text-align: center;
+}
+
+.pm__btn--primary {
+  background: var(--pm-indigo);
+  color: #ffffff;
+}
+
+.pm__meter {
+  display: block;
+  height: calc(6 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: rgb(118 118 128 / 0.16);
+}
+
+.pm__meter span {
+  display: block;
+  height: 100%;
+  border-radius: calc(3 * var(--u));
+  background: var(--pm-danger);
+}
+
+.pm__tags,
+.pm__options {
+  list-style: none;
+}
+
+.pm__tags li::before {
+  content: '';
+  display: inline-block;
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  margin-right: calc(8 * var(--u));
+  border-radius: 50%;
+  background: var(--pm-danger);
+  vertical-align: middle;
+}
+
+.pm__choice.is-selected {
+  box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--pm-indigo);
+}
+
+.pm__options li {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+}
+
+.pm__radio {
+  flex: none;
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+  border-radius: 50%;
+  border: 1.5px solid var(--pm-secondary);
+}
+
+.pm__options li.is-selected .pm__radio {
+  border: calc(4 * var(--u)) solid var(--pm-indigo);
+}

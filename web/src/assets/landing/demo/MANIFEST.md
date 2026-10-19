@@ -1,15 +1,16 @@
 # Landing demo video
 
-| File | What | Size |
-|---|---|---|
-| `bantai-tour.mp4` | H.264, 590×1280, 30 fps, no audio, 20.0 s | 525 KB |
-| `bantai-tour.webm` | VP9, same cut | 388 KB |
-| `bantai-tour-poster.webp` | Frame at 0.6 s (the "All" tour card) | 19 KB |
+| File                      | What                                      | Size   |
+| ------------------------- | ----------------------------------------- | ------ |
+| `bantai-tour.mp4`         | H.264, 590×1280, 30 fps, no audio, 20.0 s | 525 KB |
+| `bantai-tour.webm`        | VP9, same cut                             | 388 KB |
+| `bantai-tour-poster.webp` | Frame at 0.6 s (the "All" tour card)      | 19 KB  |
 
 **Source:** screen recording `SVID_20261017_211741_1.mp4` (BantAI 1.7, light
 theme, first-run tour), shared on Google Drive on 2026-10-17.
 
 **Edits (2026-10-18):**
+
 - Trimmed to 0.9–24.2 s of the source. That drops the first Settings segment,
   which showed a real profile name.
 - Blurred message rows in the inbox (sender, number, preview), keeping the

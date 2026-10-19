@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { assertDisposableDb } from './landing-demo-guard.mjs';
 
 test('accepts a local disposable landing DB', () => {
-  assert.doesNotThrow(() => assertDisposableDb('postgresql://bantai:x@localhost:5434/bantai_shield_landing_1'));
+  assert.doesNotThrow(() =>
+    assertDisposableDb(
+      'postgresql://bantai:x@localhost:5434/bantai_shield_landing_1',
+    ),
+  );
 });
 
 for (const url of [

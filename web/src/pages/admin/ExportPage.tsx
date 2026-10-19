@@ -4,14 +4,14 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   ErrorState,
   LoadingState,
   Metric,
   MetricRow,
+  StatPanel,
 } from '../../components/primitives';
 import {
   getActiveCampaigns,
@@ -27,7 +27,6 @@ import {
   type UserReportItem,
 } from '../../services/reportsService';
 import { csvBlob, saveBlob } from '../../utils/download';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -40,9 +39,6 @@ interface Bundle {
 }
 
 export function ExportPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,19 +86,10 @@ export function ExportPage() {
   }, [load]);
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Administration &middot; Export</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
         title="Export"
-        description="Generate CSVs from live backend records. No export history is displayed — the backend does not expose one."
+        description="CSV files of the records loaded on this page. Reload the page for the newest records."
       />
 
       {loading ? (
@@ -119,97 +106,97 @@ export function ExportPage() {
         />
       ) : bundle ? (
         <>
-          <MetricRow columns={3}>
-            <Metric
-              label="Reports available"
-              value={bundle.reports.length.toLocaleString()}
-            />
-            <Metric
-              label="Model versions"
-              value={bundle.models.length.toLocaleString()}
-            />
-            <Metric
-              label="Campaigns"
-              value={bundle.campaigns.length.toLocaleString()}
-            />
-          </MetricRow>
-
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              flexWrap: 'wrap',
-              marginTop: 24,
-            }}
+          <StatPanel
+            label="Export summary"
+            aside={
+              <>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() =>
+                    exportCsv(
+                      'bantai-reports.csv',
+                      [
+                        'id',
+                        'originalLabel',
+                        'reportedLabel',
+                        'status',
+                        'createdAt',
+                      ],
+                      bundle.reports.map((item) => [
+                        item.id,
+                        item.originalLabel,
+                        item.reportedLabel,
+                        item.status,
+                        item.createdAt,
+                      ]),
+                    )
+                  }
+                >
+                  Export reports
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    exportCsv(
+                      'bantai-models.csv',
+                      ['id', 'versionTag', 'f1Score', 'accuracy', 'isActive'],
+                      bundle.models.map((item) => [
+                        item.id,
+                        item.versionTag,
+                        item.f1Score,
+                        item.accuracy,
+                        item.isActive,
+                      ]),
+                    )
+                  }
+                >
+                  Export models
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    exportCsv(
+                      'bantai-campaigns.csv',
+                      ['id', 'label', 'isActive', 'messageCount', 'domains'],
+                      bundle.campaigns.map((item) => [
+                        item.id,
+                        item.label ?? '',
+                        item.isActive,
+                        item.messageCount,
+                        item.urlDomains.join(';'),
+                      ]),
+                    )
+                  }
+                >
+                  Export campaigns
+                </Button>
+              </>
+            }
           >
-            <Button
-              variant="primary"
-              onClick={() =>
-                exportCsv(
-                  'bantai-reports.csv',
-                  [
-                    'id',
-                    'originalLabel',
-                    'reportedLabel',
-                    'status',
-                    'createdAt',
-                  ],
-                  bundle.reports.map((item) => [
-                    item.id,
-                    item.originalLabel,
-                    item.reportedLabel,
-                    item.status,
-                    item.createdAt,
-                  ]),
-                )
-              }
-            >
-              Export reports
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                exportCsv(
-                  'bantai-models.csv',
-                  ['id', 'versionTag', 'f1Score', 'accuracy', 'isActive'],
-                  bundle.models.map((item) => [
-                    item.id,
-                    item.versionTag,
-                    item.f1Score,
-                    item.accuracy,
-                    item.isActive,
-                  ]),
-                )
-              }
-            >
-              Export models
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                exportCsv(
-                  'bantai-campaigns.csv',
-                  ['id', 'label', 'isActive', 'messageCount', 'domains'],
-                  bundle.campaigns.map((item) => [
-                    item.id,
-                    item.label ?? '',
-                    item.isActive,
-                    item.messageCount,
-                    item.urlDomains.join(';'),
-                  ]),
-                )
-              }
-            >
-              Export campaigns
-            </Button>
-          </div>
+            <MetricRow columns={3}>
+              <Metric
+                label="Reports available"
+                value={bundle.reports.length.toLocaleString()}
+              />
+              <Metric
+                label="Model versions"
+                value={bundle.models.length.toLocaleString()}
+              />
+              <Metric
+                label="Campaigns"
+                value={bundle.campaigns.length.toLocaleString()}
+              />
+            </MetricRow>
+          </StatPanel>
 
           <p
             role="status"
             aria-live="polite"
             style={{
-              margin: '16px 0 0',
-              minHeight: '1.4em',
+              margin: notice ? '0 0 16px' : 0,
               color: notice
                 ? notice.ok
                   ? 'var(--status-verified)'
@@ -219,20 +206,9 @@ export function ExportPage() {
           >
             {notice?.text}
           </p>
-
-          <p
-            style={{
-              margin: '12px 0 0',
-              color: 'var(--text-secondary)',
-              fontSize: '0.85rem',
-            }}
-          >
-            CSVs are generated in the browser from the records loaded on this
-            page. Reload the page to export the latest records.
-          </p>
         </>
       ) : null}
-    </AppShell>
+    </>
   );
 }
 

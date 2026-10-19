@@ -8,6 +8,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditEventType } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { maskSmsBody } from '../sms/sms-privacy-masker';
+import type { ReviewedLabel } from './dto/review-report.dto';
 import { SubmitReportDto } from './dto/submit-report.dto';
 
 // What the Admin Reports page needs to judge a report: the masked body, what
@@ -116,6 +117,7 @@ export class ReportsService {
         status: true,
         note: true,
         adminNote: true,
+        reviewedLabel: true,
         createdAt: true,
         updatedAt: true,
         message: {
@@ -147,6 +149,8 @@ export class ReportsService {
             // reason once it's been accepted or rejected (updatedAt is when).
             note: report.note,
             adminNote: report.adminNote,
+            // Rejected with a label: where the phone should move the text.
+            reviewedLabel: report.reviewedLabel,
             reviewedAt: report.status === 'Pending' ? null : report.updatedAt,
           },
         ],
@@ -165,6 +169,7 @@ export class ReportsService {
         originalLabel: true,
         reportedLabel: true,
         adminNote: true,
+        reviewedLabel: true,
         createdAt: true,
         updatedAt: true,
         note: true,
@@ -197,6 +202,7 @@ export class ReportsService {
         originalLabel: true,
         reportedLabel: true,
         adminNote: true,
+        reviewedLabel: true,
         createdAt: true,
         updatedAt: true,
         note: true,
@@ -264,13 +270,28 @@ export class ReportsService {
   }
 
   // Admin: discard the report — it will not affect retraining.
-  async reject(id: string, actorUserId: string, adminNote?: string) {
+  async reject(
+    id: string,
+    actorUserId: string,
+    adminNote?: string,
+    reviewedLabel?: ReviewedLabel,
+  ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const updated = await tx.userReport.update({
           where: { id, status: 'Pending' },
-          data: { status: 'Rejected', adminNote: adminNote ?? null },
-          select: { id: true, status: true, adminNote: true, updatedAt: true },
+          data: {
+            status: 'Rejected',
+            adminNote: adminNote ?? null,
+            reviewedLabel: reviewedLabel ?? null,
+          },
+          select: {
+            id: true,
+            status: true,
+            adminNote: true,
+            reviewedLabel: true,
+            updatedAt: true,
+          },
         });
         await this.audit.record(
           {

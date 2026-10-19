@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Daily summary: fire at the set time with the app closed, and re-arm after a reboot. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- Explicit rather than implied by the SMS permissions above: this app's whole
@@ -132,6 +135,22 @@
         <receiver
             android:name=".receiver.DeliveryReceiver"
             android:exported="false" />
+
+        <!-- Daily summary alarm; only reachable through BantAI's own PendingIntent. -->
+        <receiver
+            android:name=".data.DailySummaryAlarmReceiver"
+            android:exported="false" />
+
+        <!-- Re-arms the daily summary after a reboot or an update (system broadcasts only). -->
+        <receiver
+            android:name=".data.DailySummaryBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Result of an MMS send (see MmsSender); same protection as above. -->
         <receiver

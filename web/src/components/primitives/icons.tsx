@@ -23,6 +23,7 @@ import {
   MagnifyingGlass,
   X,
   CaretDown,
+  ArrowRight,
   CaretUp,
   CaretUpDown,
   Bell,
@@ -87,6 +88,9 @@ export const SearchIcon = (props: IconProps) => (
 );
 export const ClearIcon = (props: IconProps) => (
   <X size={14} weight="bold" {...props} />
+);
+export const ArrowRightIcon = (props: IconProps) => (
+  <ArrowRight size={14} weight="regular" {...props} />
 );
 export const CaretDownIcon = (props: IconProps) => (
   <CaretDown size={14} weight="regular" {...props} />

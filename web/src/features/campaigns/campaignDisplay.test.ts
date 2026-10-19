@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ACTIVE_WINDOW_MS,
+  countRecentlyActiveCampaigns,
   cleanCampaignLabel,
   displayTitle,
   distinctTitles,
@@ -95,5 +96,33 @@ describe('isRecentlyActive', () => {
   it('treats a never-seen or invalid timestamp as inactive', () => {
     expect(isRecentlyActive(null, now)).toBe(false);
     expect(isRecentlyActive('not a date', now)).toBe(false);
+  });
+});
+
+describe('countRecentlyActiveCampaigns', () => {
+  const now = Date.parse('2026-10-16T12:00:00Z');
+  const recent = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const old = new Date(now - ACTIVE_WINDOW_MS - 1000).toISOString();
+
+  it('counts each recent, unarchived, non-promo cluster once', () => {
+    expect(
+      countRecentlyActiveCampaigns(
+        [
+          { id: 'a', category: 'Bank phishing', lastSeenAt: recent },
+          { id: 'a', category: 'Bank phishing', lastSeenAt: recent },
+          { id: 'b', category: 'Bank phishing', lastSeenAt: old },
+          { id: 'c', category: 'Promo / marketing', lastSeenAt: recent },
+          {
+            id: 'd',
+            category: 'Bank phishing',
+            lastSeenAt: recent,
+            archivedAt: recent,
+          },
+          { id: 'e', category: 'Parcel', lastObserved: recent },
+          { id: 'f', category: 'Parcel', lastSeenAt: null },
+        ],
+        now,
+      ),
+    ).toBe(2);
   });
 });

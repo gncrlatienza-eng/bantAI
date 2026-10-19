@@ -4,11 +4,17 @@ import android.app.Application
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
+import android.provider.ContactsContract
 import android.provider.Telephony
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.bantai.container
+import com.bantai.data.ClassificationProgress
 import com.bantai.data.MessageClassifier
 import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
@@ -19,23 +25,35 @@ import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
 import com.bantai.data.model.scanCutoffMillis
+import com.bantai.data.offline.HistorySortWorker
 import com.bantai.util.BlockHelper
 import com.bantai.util.ContactNames
+import com.bantai.util.NotificationHelper
+import com.bantai.util.NotificationLanding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 private const val TAG = "MessagesViewModel"
 
@@ -138,6 +156,14 @@ class MessagesViewModel(
     private val _filterCounts = MutableStateFlow<Map<MessageFilter, Int>>(emptyMap())
     val filterCounts: StateFlow<Map<MessageFilter, Int>> = _filterCounts.asStateFlow()
 
+    // Settings → Hide Unknown: drops the Unknown chip. The texts stay out of
+    // All either way (with links hidden), so nothing unsafe reappears.
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown
+            .onEach { hidden ->
+                if (hidden && _selectedFilter.value == MessageFilter.UNKNOWN) setFilter(MessageFilter.MESSAGES)
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -155,6 +181,35 @@ class MessagesViewModel(
     @Volatile private var inboxLoaded = false
 
     private var scanJob: Job? = null
+
+    // How far the inbox scan has got, for the "Checking your messages" banner.
+    private val scanProgress = MutableStateFlow<CheckProgress?>(null)
+
+    /** Message ids to show as "Checking…": queued in the scan or awaiting a live verdict. */
+    val checkingIds: StateFlow<Set<Long>> = ClassificationProgress.checking
+
+    /**
+     * First-run/older-history sorting (HistorySortWorker) or the inbox scan,
+     * whichever is running. While the history sort runs, every message without
+     * a verdict yet is still on its way to one, so it shows as "Checking…".
+     */
+    val checkProgress: StateFlow<CheckProgress?> =
+        combine(
+            WorkManager
+                .getInstance(application)
+                .getWorkInfosForUniqueWorkFlow(HistorySortWorker.UNIQUE_NAME)
+                .map { infos ->
+                    infos.firstOrNull { it.state == WorkInfo.State.RUNNING }?.progress?.let { data ->
+                        CheckProgress(
+                            done = data.getInt(HistorySortWorker.KEY_DONE, 0),
+                            total = data.getInt(HistorySortWorker.KEY_TOTAL, 0),
+                            sortingHistory = true,
+                        )
+                    }
+                },
+            scanProgress,
+        ) { sort, scan -> sort ?: scan }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     // Ids already sent this session, whether or not the model answered, so a
     // message that keeps failing can't stall the scan at the front of every
@@ -189,6 +244,7 @@ class MessagesViewModel(
         private const val SCAN_PACING_MS = 700L
         private const val SCAN_BACKOFF_MS = 60_000L
         private const val SCAN_MAX_BACKOFFS = 3
+        private const val STOP_TIMEOUT_MS = 5_000L
 
         private const val FNV_OFFSET_BASIS = -3750763034362895579L
         private const val FNV_PRIME = 1099511628211L
@@ -216,6 +272,19 @@ class MessagesViewModel(
             }
         }
 
+    // A contact saved or renamed while the app runs: names are cached for the
+    // process, so without this the list kept the old number/name until restart.
+    private val contactsObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                ContactNames.clear()
+                providerChanges.tryEmit(Unit)
+            }
+        }
+
+    private var namesRefreshedForGrant = false
+    private var contactsObserverRegistered = false
+
     init {
         OutgoingSms.ensureLoaded(application)
         loadMessages()
@@ -227,6 +296,17 @@ class MessagesViewModel(
         // messages Android wouldn't store stay listed -- both live in pending.
         viewModelScope.launch {
             OutgoingSms.pending.collect { filterMessages(_searchQuery.value) }
+        }
+        // Recently Deleted changes made anywhere -- a restore or delete from
+        // inside a conversation (MessageDetailViewModel), the daily retention
+        // cleanup -- reload the list. Only this screen's own actions used to,
+        // so a restore from a thread didn't show until the app was restarted.
+        viewModelScope.launch {
+            deletedMessagesStore.deletedEntries
+                .map { entries -> entries.mapTo(HashSet()) { it.id } }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { loadMessages() }
         }
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
@@ -241,6 +321,7 @@ class MessagesViewModel(
             true,
             contentObserver,
         )
+        registerContactsObserver()
         // MMS arriving or finishing its download (see MmsDownloader).
         application.contentResolver.registerContentObserver(
             Telephony.Mms.CONTENT_URI,
@@ -261,11 +342,21 @@ class MessagesViewModel(
         // Every block/unblock BantAI makes goes through BlockedSendersStore, so
         // this re-filters the moment the user blocks someone from a thread.
         viewModelScope.launch(Dispatchers.IO) {
-            blockedSendersStore.state.collect { state ->
-                val onDevice = BlockHelper.getBlockedNumbers(application).map { it.number }
-                blockedKeys = (state.blocked + onDevice).map(::normalizeSenderKey).toSet()
-                filterMessages(_searchQuery.value)
-            }
+            blockedSendersStore.state.collect { refreshBlockedKeys() }
+        }
+        viewModelScope.launch {
+            application.container.alertedMessageIds
+                .drop(1)
+                .collect { filterMessages(_searchQuery.value) }
+        }
+        // Blocks made outside BantAI (the system Phone app) only show in
+        // Android's own list: re-read it whenever the app comes back to the front.
+        viewModelScope.launch(Dispatchers.IO) {
+            ProcessLifecycleOwner
+                .get()
+                .lifecycle.currentStateFlow
+                .drop(1)
+                .collect { if (it == Lifecycle.State.STARTED) refreshBlockedKeys() }
         }
         // DataStore's Flow already emits on every write, so this stays live without
         // needing a ContentObserver-style poke — a saved/cleared draft shows up
@@ -291,6 +382,36 @@ class MessagesViewModel(
     override fun onCleared() {
         super.onCleared()
         getApplication<Application>().contentResolver.unregisterContentObserver(contentObserver)
+        getApplication<Application>().contentResolver.unregisterContentObserver(contactsObserver)
+    }
+
+    private suspend fun refreshBlockedKeys() {
+        val app = getApplication<Application>()
+        val onDevice = BlockHelper.getBlockedNumbers(app).map { it.number }
+        blockedKeys = (blockedSendersStore.state.first().blocked + onDevice).map(::normalizeSenderKey).toSet()
+        filterMessages(_searchQuery.value)
+    }
+
+    /** Contacts just became readable: look names up again (once per grant). */
+    fun refreshContactNames() {
+        registerContactsObserver()
+        if (namesRefreshedForGrant) return
+        namesRefreshedForGrant = true
+        ContactNames.clear()
+        loadMessages()
+    }
+
+    // Registered once: a second registration made every contacts change reload twice.
+    private fun registerContactsObserver() {
+        if (contactsObserverRegistered) return
+        contactsObserverRegistered =
+            runCatching {
+                getApplication<Application>().contentResolver.registerContentObserver(
+                    ContactsContract.Contacts.CONTENT_URI,
+                    true,
+                    contactsObserver,
+                )
+            }.isSuccess
     }
 
     /** The screen reports this on every start; only a real change (denied -> granted) reloads. */
@@ -376,65 +497,108 @@ class MessagesViewModel(
                 // even before sign-in or while the backend is unreachable.
                 val stored = classificationStore.classifications.first()
                 val heuristicIds = classificationStore.idsWithSource("heuristic")
+                // Old "safe" labels with no provenance, minus ones the user
+                // reported themselves (those predate the "user_report" tag).
+                val reported =
+                    getApplication<Application>()
+                        .container.alertStateStore.state
+                        .first()
+                        .reportedLocal.keys
+                val recheckIds = heuristicIds + (classificationStore.legacySafeIds() - reported)
                 // Settings -> Scan period: how far back the AI checks. Older
                 // texts keep the on-device check until the user widens it.
                 val cutoff = scanCutoffMillis(scanPeriod)
+                // Once first-run sorting is done, history belongs to
+                // HistorySortWorker and its verdicts are final; this scan only
+                // catches newer texts the live path missed, so old messages
+                // never move after the Setup screen.
+                val sortedAt = runCatching { userPreferences.historySortedAt.first() }.getOrDefault(0L)
                 val pending =
                     allMessages.value
                         .filter { msg ->
                             !msg.isOutgoing &&
                                 msg.timestamp >= cutoff &&
+                                (sortedAt == 0L || msg.timestamp >= sortedAt) &&
                                 msg.id != 0L &&
                                 msg.id != Long.MIN_VALUE &&
                                 msg.id !in scanAttempted &&
-                                needsModelScan(msg.id, stored[msg.id], heuristicIds)
+                                needsModelScan(msg.id, stored[msg.id], recheckIds)
                         }.sortedByDescending { it.timestamp }
-                for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
-                    if (!isActive) return@launch
-                    val results = mutableMapOf<Long, Classification>()
-                    var modelUnavailable = false
-                    for (msg in batch) {
-                        var outcome = classifyForScan(token, msg)
-                        var backoffs = 0
-                        while (outcome == SmsIngestPipeline.ScanOutcome.Unavailable && backoffs < SCAN_MAX_BACKOFFS) {
-                            // Usually the throttle window; a minute clears it.
-                            delay(SCAN_BACKOFF_MS)
-                            backoffs++
-                            outcome = classifyForScan(token, msg)
-                        }
-                        delay(SCAN_PACING_MS)
-                        scanAttempted += msg.id
-                        when (outcome) {
-                            is SmsIngestPipeline.ScanOutcome.Classified -> results[msg.id] = outcome.classification
-                            SmsIngestPipeline.ScanOutcome.Skipped -> Unit
-                            SmsIngestPipeline.ScanOutcome.Unavailable -> {
-                                // Not this message's fault -- let the next session retry it.
-                                scanAttempted -= msg.id
-                                modelUnavailable = true
-                            }
-                        }
-                        if (modelUnavailable) break
+                val pendingIds = pending.map { it.id }
+                ClassificationProgress.begin(pendingIds)
+                if (pending.isNotEmpty()) scanProgress.value = CheckProgress(done = 0, total = pending.size)
+                var scanned = 0
+                try {
+                    scanBatches(token, pending) { id ->
+                        ClassificationProgress.end(listOf(id))
+                        scanned++
+                        scanProgress.value = CheckProgress(done = scanned, total = pending.size)
                     }
-                    // classifyExisting persists each cloud/local result with
-                    // provenance before returning. Keep this map only for the
-                    // immediate in-memory re-sort; rewriting it here would erase
-                    // the local model hash/version or a concurrent cloud result.
-                    if (results.isNotEmpty()) applyScanResults(results)
-                    if (modelUnavailable) return@launch
+                } finally {
+                    // Stopped early (model unavailable, screen gone): whatever is
+                    // left stays "Unverified", not a spinner that never finishes.
+                    ClassificationProgress.end(pendingIds)
+                    scanProgress.value = null
                 }
             }
+    }
+
+    /**
+     * Classifies [pending] newest-first in paced batches; [onChecked] fires as
+     * each message is done. Returns early when the model stays unavailable.
+     */
+    private suspend fun scanBatches(
+        token: String,
+        pending: List<SmsMessage>,
+        onChecked: (Long) -> Unit,
+    ) {
+        for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
+            if (!currentCoroutineContext().isActive) return
+            val results = mutableMapOf<Long, Classification>()
+            var modelUnavailable = false
+            for (msg in batch) {
+                var outcome = classifyForScan(token, msg)
+                var backoffs = 0
+                while (outcome == SmsIngestPipeline.ScanOutcome.Unavailable && backoffs < SCAN_MAX_BACKOFFS) {
+                    // Usually the throttle window; a minute clears it.
+                    delay(SCAN_BACKOFF_MS)
+                    backoffs++
+                    outcome = classifyForScan(token, msg)
+                }
+                delay(SCAN_PACING_MS)
+                scanAttempted += msg.id
+                onChecked(msg.id)
+                when (outcome) {
+                    is SmsIngestPipeline.ScanOutcome.Classified -> results[msg.id] = outcome.classification
+                    SmsIngestPipeline.ScanOutcome.Skipped -> Unit
+                    SmsIngestPipeline.ScanOutcome.Unavailable -> {
+                        // Not this message's fault -- let the next session retry it.
+                        scanAttempted -= msg.id
+                        modelUnavailable = true
+                    }
+                }
+                if (modelUnavailable) break
+            }
+            // classifyExisting persists each cloud/local result with
+            // provenance before returning. Keep this map only for the
+            // immediate in-memory re-sort; rewriting it here would erase
+            // the local model hash/version or a concurrent cloud result.
+            if (results.isNotEmpty()) applyScanResults(results)
+            if (modelUnavailable) return
+        }
     }
 
     private fun needsModelScan(
         messageId: Long,
         stored: Classification?,
-        heuristicIds: Set<Long>,
+        recheckIds: Set<Long>,
     ): Boolean =
-        // Retry known heuristic verdicts after a failed background model job.
-        // Older rows without provenance keep their existing decisions.
+        // Retry heuristic verdicts after a failed background model job, and
+        // legacy "safe" rows with no provenance: testers found scams sitting
+        // in Messages on labels no current model ever gave.
         stored == null ||
             stored == Classification.UNVERIFIED ||
-            messageId in heuristicIds
+            messageId in recheckIds
 
     private suspend fun classifyForScan(
         token: String,
@@ -490,6 +654,18 @@ class MessagesViewModel(
                 if (query.isNotEmpty()) delay(SEARCH_DEBOUNCE_MS)
                 recomputeFilters(query) { isActive }
             }
+    }
+
+    // A tapped Spam notification ("Hidden in your Spam folder") opens that chip.
+    init {
+        viewModelScope.launch {
+            // Let the rest of the constructor run first: launch is immediate on
+            // Main, and this init sits above properties setFilter/setTab use.
+            yield()
+            NotificationLanding.pending.collect {
+                if (NotificationLanding.consume(NotificationLanding.SPAM)) setFilter(MessageFilter.SPAM)
+            }
+        }
     }
 
     fun setFilter(filter: MessageFilter) {
@@ -571,7 +747,10 @@ class MessagesViewModel(
         _suspiciousMessages.value = spam
         _suspiciousTodayCount.value = spam.count { isToday(it.timestamp) }
 
-        val unknown = inbox.filter { ConversationView.UNKNOWN.includes(it) && !it.isOutgoing }
+        // A message the server already alerted on is in Alerts; listing it here
+        // too showed the same scam in two places.
+        val alerted = getApplication<Application>().container.alertedMessageIds.value
+        val unknown = inbox.filter { ConversationView.UNKNOWN.includes(it) && !it.isOutgoing && it.id !in alerted }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
 
@@ -631,6 +810,31 @@ class MessagesViewModel(
         _visibleMessages.value = grouped.getValue(_selectedFilter.value)
         // The skeleton stays until the loaded inbox's grouped list is out.
         if (inboxLoaded) _isLoading.value = false
+    }
+
+    /**
+     * "Mark all read" for the chip on screen (testers only had it in Alerts).
+     * Marks exactly that chip's unread texts, the same slice opening each
+     * conversation from it would mark.
+     */
+    fun markAllRead() {
+        val view = conversationViewFor(_selectedFilter.value)
+        val ids =
+            allMessages.value
+                .filter { !it.isOutgoing && !it.isRead && view.includes(it) }
+                .mapTo(HashSet()) { it.id }
+        if (ids.isEmpty()) return
+        // Their notifications go too, as when each thread is opened.
+        allMessages.value
+            .filter { it.id in ids }
+            .map { it.sender }
+            .distinct()
+            .forEach { NotificationHelper.cancelConversation(getApplication(), it) }
+        allMessages.update { messages -> messages.map { if (it.id in ids) it.copy(isRead = true) else it } }
+        filterMessages(_searchQuery.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            getApplication<Application>().container.smsWriter.markMessagesRead(ids)
+        }
     }
 
     // --- Selection mode -----------------------------------------------------
@@ -737,3 +941,10 @@ class MessagesViewModel(
         }
     }
 }
+
+/** Progress for the "Checking your messages" banner on the Messages screen. */
+data class CheckProgress(
+    val done: Int,
+    val total: Int,
+    val sortingHistory: Boolean = false,
+)

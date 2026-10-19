@@ -168,6 +168,24 @@ describe('PortalNotificationsService', () => {
     );
   });
 
+  it('keeps one registry-mismatch notice per version across days', async () => {
+    const mismatch = {
+      status: 'ready',
+      matchesRegistry: false,
+      versionTag: 'candidate-x',
+    };
+    const keyOn = async (at: Date) => {
+      (models.getServingStatus as jest.Mock).mockResolvedValueOnce(mismatch);
+      const candidates = await service.adminCandidates(ALL_ON, at);
+      return candidates.find((c) => c.type === 'MODEL_REGISTRY_MISMATCH')
+        ?.sourceKey;
+    };
+    const first = await keyOn(now);
+    const nextWeek = await keyOn(new Date('2026-10-07T08:00:00Z'));
+    expect(first).toBe('system-health:mismatch:candidate-x');
+    expect(nextWeek).toBe(first);
+  });
+
   it('cannot mark another user’s notice as read', async () => {
     prisma.portalNotification.updateMany.mockResolvedValue({ count: 0 });
     await expect(

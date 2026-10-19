@@ -292,9 +292,12 @@ class SmsRepository(
     fun getConversationBySender(
         address: String,
         limit: Int = CONVERSATION_LIMIT,
+        // Scams opened from Alerts on purpose (an on-device scam has no alert
+        // page, so its thread is where it's shown): kept despite the filter below.
+        keepScamIds: Set<Long> = emptySet(),
     ): List<SmsMessage> {
         if (!hasReadSmsPermission()) return emptyList()
-        groupThreadIdOf(address)?.let { return groupConversation(it, limit) }
+        groupThreadIdOf(address)?.let { return groupConversation(it, limit, keepScamIds) }
         val messages = mutableListOf<SmsMessage>()
         val stored = storedClassifications()
         val variants = addressVariants(address)
@@ -380,19 +383,24 @@ class SmsRepository(
         // non-blocked messages. Spam is left untouched -- it's still a normal
         // (if hidden-by-default) part of Messages, not an Alerts-only concept.
         // Reversed back to oldest-first for the chat layout.
-        return messages.asReversed().filter { it.isOutgoing || it.classification != Classification.SCAM }
+        return messages.asReversed().filter {
+            it.isOutgoing || it.classification != Classification.SCAM || it.id in keepScamIds
+        }
     }
 
     // A group thread holds MMS only (SMS can't have several recipients).
     private fun groupConversation(
         threadId: Long,
         limit: Int,
+        keepScamIds: Set<Long>,
     ): List<SmsMessage> {
         val messages =
             mms(storedClassifications(), localStore.readOverrides(), localStore.deletedOverrides()) {
                 it.groupThreadId == threadId
             }.sortedByDescending { it.timestamp }.take(limit)
-        return messages.asReversed().filter { it.isOutgoing || it.classification != Classification.SCAM }
+        return messages.asReversed().filter {
+            it.isOutgoing || it.classification != Classification.SCAM || it.id in keepScamIds
+        }
     }
 
     // Backs the Recently Deleted view — queries the full table (not just Inbox) since

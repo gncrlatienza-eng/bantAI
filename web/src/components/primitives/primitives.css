@@ -409,8 +409,9 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 48px 24px;
-  gap: 12px;
+  /* Compact: an empty list should not out-weigh the page around it. */
+  padding: 20px 24px;
+  gap: 8px;
   color: var(--text-secondary);
 }
 
@@ -510,6 +511,17 @@
   font-size: 0.9rem;
 }
 
+.bantai-p-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: var(--surface-raised);
+  color-scheme: light;
+  font-family: var(--font-sans);
+}
+
 /* ---------- ErrorState ---------- */
 
 .bantai-p-errorstate {
@@ -565,9 +577,12 @@
 
 .bantai-p-metric__value {
   margin: 0;
-  font-family: var(--font-mono);
+  /* Numbers in the UI face with tabular figures, not monospace: mono is
+     kept for ids and code, so big KPIs no longer shout. */
+  font-family: var(--font-sans);
   font-size: 1.75rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   line-height: 1.15;
   font-variant-numeric: tabular-nums;

@@ -35,6 +35,20 @@ object AuthApi {
         val lastName: String,
     )
 
+    /**
+     * Privacy & data -> "Help improve scam detection": whether this account
+     * lets the team review its flagged, masked messages as training candidates.
+     */
+    suspend fun trainingOptIn(token: String): Result<Boolean> =
+        HttpClient.get("/auth/me", token = token).mapCatching { body ->
+            JSONObject(body).optBoolean("trainingOptIn", false)
+        }
+
+    suspend fun setTrainingOptIn(
+        token: String,
+        enabled: Boolean,
+    ): Result<Unit> = HttpClient.put("/users/me", JSONObject().put("trainingOptIn", enabled), token = token).map { }
+
     /** The signed-in account's saved name, so signing back in on this phone restores it. */
     suspend fun me(token: String): Result<Profile> =
         HttpClient.get("/auth/me", token = token).mapCatching { body ->

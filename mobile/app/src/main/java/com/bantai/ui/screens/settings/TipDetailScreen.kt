@@ -3,7 +3,6 @@ package com.bantai.ui.screens.settings
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,31 +12,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -181,38 +175,17 @@ fun TipDetailScreen(
     val content = tipContent(tip)
 
     Column(modifier = Modifier.fillMaxSize().background(Black)) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back), tint = White)
-            }
-            Text(
-                stringResource(R.string.tip_detail_tip),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(title = null, onBack = { navController.popBackStack() })
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             // Bottom clearance matches the floating tab bar's footprint (see
             // MainScreen) -- this screen now renders behind that persistent bar.
-            contentPadding = PaddingValues(start = 24.dp, top = 16.dp, end = 24.dp, bottom = LocalBottomBarClearance.current),
+            contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = LocalBottomBarClearance.current),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Title)
+                Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.LargeTitle, lineHeight = 38.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(stringResource(R.string.tip_detail_bantai_education_3_min_read), color = TextSecondary, fontSize = TextSize.Caption)
             }
@@ -222,7 +195,7 @@ fun TipDetailScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .background(Indigo.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .background(Indigo.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
                             .padding(16.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
@@ -237,7 +210,7 @@ fun TipDetailScreen(
                         stringResource(content.quote),
                         color = Indigo,
                         fontSize = TextSize.Footnote,
-                        fontStyle = FontStyle.Italic,
+                        lineHeight = 19.sp,
                     )
                 }
             }

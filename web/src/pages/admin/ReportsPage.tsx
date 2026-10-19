@@ -4,8 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -20,15 +19,17 @@ import {
   StatusBadge,
   type Column,
   type StatusKind,
+  StatPanel,
 } from '../../components/primitives';
 import {
   getAllReports,
   rejectReport,
+  type ReviewedLabel,
   validateReport,
   type UserReportItem,
 } from '../../services/reportsService';
 import { MaskedMessage } from '../../components/masked/MaskedMessage';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import { RejectReportDialog } from './RejectReportDialog';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -124,9 +125,6 @@ function formatStatus(status: string): string {
 }
 
 export function ReportsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
   const [reports, setReports] = useState<UserReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +133,14 @@ export function ReportsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // A pending rejection waiting for the reviewer to say what the text is.
+  // The detail dialog (if open) steps aside meanwhile: two open dialogs would
+  // both handle Escape and Tab. `returnKey` reopens it afterwards.
+  const [rejecting, setRejecting] = useState<{
+    ids: string[];
+    busyKey: string;
+    returnKey: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,18 +209,37 @@ export function ReportsPage() {
   }, [reports]);
 
   // `busyKey` is the report id, or the group's row id for "all" actions.
+  // Reject first asks what the text really is (RejectReportDialog).
   async function handle(
     action: 'validate' | 'reject',
     ids: string[],
     busyKey: string,
   ) {
+    if (action === 'reject') {
+      setRejecting({ ids, busyKey, returnKey: selectedKey });
+      setSelectedKey(null);
+      return;
+    }
+    await review(ids, busyKey, (id) => validateReport(id));
+  }
+
+  async function confirmReject(reviewedLabel: ReviewedLabel) {
+    if (!rejecting) return;
+    const { ids, busyKey, returnKey } = rejecting;
+    await review(ids, busyKey, (id) => rejectReport(id, reviewedLabel));
+    setRejecting(null);
+    setSelectedKey(returnKey);
+  }
+
+  async function review(
+    ids: string[],
+    busyKey: string,
+    act: (id: string) => Promise<unknown>,
+  ) {
     setBusyId(busyKey);
     setActionError(null);
     try {
-      for (const id of ids) {
-        if (action === 'validate') await validateReport(id);
-        else await rejectReport(id);
-      }
+      for (const id of ids) await act(id);
       await load();
     } catch (e) {
       setActionError(errorText(e));
@@ -345,19 +370,10 @@ export function ReportsPage() {
   ];
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Intelligence &middot; Reports</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
-        title="User reports"
-        description="Corrections submitted by users on classifier output. Approve to feed the retraining queue; reject if the user's label is wrong."
+        title="Reports"
+        description="Approve to queue for retraining; reject if the label is wrong."
       />
 
       {error && !loading ? (
@@ -374,18 +390,23 @@ export function ReportsPage() {
         <LoadingState label="Loading reports" />
       ) : (
         <>
-          <MetricRow columns={4}>
-            <Metric label="Pending" value={counts.pending.toLocaleString()} />
-            <Metric
-              label="Approved"
-              value={counts.validated.toLocaleString()}
-            />
-            <Metric label="Rejected" value={counts.rejected.toLocaleString()} />
-            <Metric
-              label="Mismatches"
-              value={counts.mismatches.toLocaleString()}
-            />
-          </MetricRow>
+          <StatPanel label="Report summary">
+            <MetricRow columns={4}>
+              <Metric label="Pending" value={counts.pending.toLocaleString()} />
+              <Metric
+                label="Approved"
+                value={counts.validated.toLocaleString()}
+              />
+              <Metric
+                label="Rejected"
+                value={counts.rejected.toLocaleString()}
+              />
+              <Metric
+                label="Mismatches"
+                value={counts.mismatches.toLocaleString()}
+              />
+            </MetricRow>
+          </StatPanel>
 
           <div
             style={{
@@ -407,12 +428,13 @@ export function ReportsPage() {
             <div style={{ minWidth: 180 }}>
               <Select
                 label="Status"
+                hideLabel
                 value={statusFilter}
                 onChange={(e) =>
                   setStatusFilter(e.target.value as StatusFilter)
                 }
                 options={[
-                  { value: 'all', label: 'All' },
+                  { value: 'all', label: 'All statuses' },
                   { value: 'Pending', label: 'Pending' },
                   { value: 'Validated', label: 'Approved' },
                   { value: 'Rejected', label: 'Rejected' },
@@ -471,7 +493,7 @@ export function ReportsPage() {
             ? `Reported together · ${selected.reports.length} messages`
             : 'Reported message'
         }
-        description="Privacy-masked as stored by the backend. Phone numbers, links, amounts and codes are redacted."
+        description="Numbers, links, amounts and codes are redacted."
         onClose={() => {
           setSelectedKey(null);
           setActionError(null);
@@ -530,7 +552,18 @@ export function ReportsPage() {
           </div>
         )}
       </Dialog>
-    </AppShell>
+
+      <RejectReportDialog
+        open={rejecting !== null}
+        count={rejecting?.ids.length ?? 0}
+        busy={busyId !== null}
+        onCancel={() => {
+          setSelectedKey(rejecting?.returnKey ?? null);
+          setRejecting(null);
+        }}
+        onConfirm={(label) => void confirmReject(label)}
+      />
+    </>
   );
 }
 
@@ -556,6 +589,8 @@ function GroupDetail({
     r.message?.receivedAt ? formatDate(r.message.receivedAt) : null,
   );
   const muted: React.CSSProperties = { color: 'var(--text-secondary)' };
+  // Fixed label column so every value starts at the same edge.
+  const label: React.CSSProperties = { ...muted, width: 104, flexShrink: 0 };
   const summary: React.CSSProperties = {
     display: 'flex',
     gap: 8,
@@ -569,14 +604,14 @@ function GroupDetail({
       <div style={summary}>
         {sameModel && (
           <>
-            <span style={muted}>Model said</span>
+            <span style={label}>Model said</span>
             <StatusBadge
               kind={labelToStatusKind(first.originalLabel)}
               label={first.originalLabel}
             />
           </>
         )}
-        <span style={muted}>User reported</span>
+        <span style={label}>User reported</span>
         <StatusBadge
           kind={labelToStatusKind(first.reportedLabel)}
           label={
@@ -593,7 +628,7 @@ function GroupDetail({
       </div>
       {first.note && (
         <div style={{ ...summary, alignItems: 'flex-start' }}>
-          <span style={muted}>Reporter note</span>
+          <span style={label}>Reporter note</span>
           <MaskedMessage text={first.note} />
         </div>
       )}
@@ -679,6 +714,8 @@ function ReportDetail({ report }: { report: UserReportItem }) {
     fontSize: '0.88rem',
   };
   const muted: React.CSSProperties = { color: 'var(--text-secondary)' };
+  // Fixed label column so every value starts at the same edge.
+  const label: React.CSSProperties = { ...muted, width: 104, flexShrink: 0 };
   return (
     <div>
       <div
@@ -694,7 +731,7 @@ function ReportDetail({ report }: { report: UserReportItem }) {
         <MaskedMessage text={report.message?.body} />
       </div>
       <div style={row}>
-        <span style={muted}>Model said</span>
+        <span style={label}>Model said</span>
         <StatusBadge
           kind={labelToStatusKind(report.originalLabel)}
           label={report.originalLabel}
@@ -707,7 +744,7 @@ function ReportDetail({ report }: { report: UserReportItem }) {
         )}
       </div>
       <div style={row}>
-        <span style={muted}>User reported</span>
+        <span style={label}>User reported</span>
         <StatusBadge
           kind={labelToStatusKind(report.reportedLabel)}
           label={
@@ -719,14 +756,23 @@ function ReportDetail({ report }: { report: UserReportItem }) {
       </div>
       {report.message?.receivedAt && (
         <div style={row}>
-          <span style={muted}>Received</span>
+          <span style={label}>Received</span>
           <span>{formatDate(report.message.receivedAt)}</span>
         </div>
       )}
       {report.note && (
         <div style={{ ...row, alignItems: 'flex-start' }}>
-          <span style={muted}>Reporter note</span>
+          <span style={label}>Reporter note</span>
           <MaskedMessage text={report.note} />
+        </div>
+      )}
+      {report.status === 'Rejected' && report.reviewedLabel && (
+        <div style={row}>
+          <span style={muted}>Reviewer says</span>
+          <StatusBadge
+            kind={labelToStatusKind(report.reviewedLabel)}
+            label={report.reviewedLabel === 'Ham' ? 'Real message' : 'Spam'}
+          />
         </div>
       )}
       {report.adminNote && (

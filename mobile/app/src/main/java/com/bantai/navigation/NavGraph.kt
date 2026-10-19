@@ -1,6 +1,7 @@
 package com.bantai.navigation
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,18 +21,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -39,17 +46,23 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.bantai.R
 import com.bantai.container
 import com.bantai.data.AuthEventBus
 import com.bantai.data.model.ConversationView
+import com.bantai.data.offline.HistorySortWorker
 import com.bantai.ui.components.FloatingTabBar
 import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.components.LocalBottomBarClearance
+import com.bantai.ui.components.LocalCoachMarks
 import com.bantai.ui.components.SCAM_WAVES_TAB_ID
+import com.bantai.ui.components.TrainingConsentPrompt
 import com.bantai.ui.components.tabBarHeight
 import com.bantai.ui.screens.main.BlockedNumbersScreen
 import com.bantai.ui.screens.main.CampaignDetailScreen
 import com.bantai.ui.screens.main.ComposeScreen
+import com.bantai.ui.screens.main.DailySummaryOverlay
+import com.bantai.ui.screens.main.LocalSelectTab
 import com.bantai.ui.screens.main.MainScreen
 import com.bantai.ui.screens.main.MessageDetailScreen
 import com.bantai.ui.screens.main.ReportDetailScreen
@@ -61,6 +74,7 @@ import com.bantai.ui.screens.main.SuspiciousDetailScreen
 import com.bantai.ui.screens.main.TakeActionScreen
 import com.bantai.ui.screens.main.ThreatAnalysisScreen
 import com.bantai.ui.screens.main.UnsafeLinkScreen
+import com.bantai.ui.screens.onboarding.DefaultSmsGateScreen
 import com.bantai.ui.screens.onboarding.OnboardingAllowAccessScreen
 import com.bantai.ui.screens.onboarding.OnboardingConfirmNumberScreen
 import com.bantai.ui.screens.onboarding.OnboardingDefaultSmsScreen
@@ -68,6 +82,8 @@ import com.bantai.ui.screens.onboarding.OnboardingEnterCodeScreen
 import com.bantai.ui.screens.onboarding.OnboardingProfileScreen
 import com.bantai.ui.screens.onboarding.OnboardingProtectedScreen
 import com.bantai.ui.screens.onboarding.OnboardingTermsScreen
+import com.bantai.ui.screens.onboarding.OnboardingTrainingConsentScreen
+import com.bantai.ui.screens.onboarding.SetupScreen
 import com.bantai.ui.screens.onboarding.SplashScreen
 import com.bantai.ui.screens.onboarding.WelcomeScreen
 import com.bantai.ui.screens.settings.EditProfileScreen
@@ -78,6 +94,8 @@ import com.bantai.ui.screens.settings.ScamAwarenessScreen
 import com.bantai.ui.screens.settings.TipDetailScreen
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.GlassFill
+import com.bantai.util.DefaultSmsApp
+import com.bantai.util.NotificationLanding
 import com.bantai.util.rememberIsLowRamDevice
 import com.bantai.viewmodel.AlertsViewModel
 import com.bantai.viewmodel.OnboardingViewModel
@@ -86,6 +104,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Sealed class kept for main-app screens referenced throughout the codebase
@@ -303,13 +322,16 @@ data class RequestedTip(
 private fun idList(raw: String?): List<Long> = raw.orEmpty().split(",").mapNotNull { it.trim().toLongOrNull() }
 
 @Composable
-@Suppress("LongMethod", "CyclomaticComplexMethod") // the app's one route table, kept in one place
+// The app's one route table, kept in one place; one parameter per deep link.
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 fun NavGraph(
     requestedTab: Int? = null,
     requestedConversationSender: String? = null,
     requestedTip: RequestedTip? = null,
     requestedComposeRecipient: String? = null,
     requestedComposeBody: String = "",
+    // Bumped each time the daily summary notification is tapped.
+    requestedSummary: Long? = null,
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -333,9 +355,11 @@ fun NavGraph(
 
     // Settings → "Show Scam Waves tab". Turning it off while on that tab
     // falls back to Messages rather than leaving a tab with no button.
-    val showScamWaves by settingsViewModel.showScamWavesTab.collectAsState()
+    // Waits for the saved value: its "off" placeholder used to bounce the user
+    // off Scam Waves whenever the screen was rebuilt (dark mode, font size).
+    val showScamWaves by settingsViewModel.showScamWavesTabLoaded.collectAsState()
     LaunchedEffect(showScamWaves) {
-        if (!showScamWaves && selectedTab == SCAM_WAVES_TAB_ID) selectedTab = 0
+        if (showScamWaves == false && selectedTab == SCAM_WAVES_TAB_ID) selectedTab = 0
     }
 
     // Jumps to the requested tab on cold start from a notification tap, and again
@@ -359,8 +383,22 @@ fun NavGraph(
         // Route straight back to re-authentication in that case rather than
         // rendering "main" with no valid session (which would then just 401 on
         // every call and bounce here anyway, only after a beat on a dead screen).
+        // A new HistorySortWorker.SORT_GENERATION (this update, or a fresh
+        // install) re-sorts once behind Setup; any other update opens straight in.
+        // Started here or by the worker MainActivity enqueued -- either way Setup.
+        val newGeneration =
+            userData.onboardingComplete && userData.sortGenerationStarted < HistorySortWorker.SORT_GENERATION
+        if (newGeneration) {
+            withContext(Dispatchers.IO) {
+                context.container.userPreferences.startSortGeneration(HistorySortWorker.SORT_GENERATION)
+            }
+        }
+        val needsSetup = newGeneration || userData.historySortedAt == 0L
         startDestination =
             when {
+                // Sorting not finished (first run, killed mid-way, or an update
+                // from before Setup existed): back to Setup, not half-sorted tabs.
+                userData.onboardingComplete && userData.authToken.isNotEmpty() && needsSetup -> "setup"
                 userData.onboardingComplete && userData.authToken.isNotEmpty() -> "main"
                 // Signed out on a phone that's already set up: the landing page,
                 // like Telegram/WhatsApp after logging out.
@@ -381,6 +419,20 @@ fun NavGraph(
         }
     }
 
+    // Default-SMS gate: re-checked on every resume, so switching the default
+    // away in Android Settings and coming back shows the gate again.
+    var isDefaultSms by remember { mutableStateOf(DefaultSmsApp.isDefault(context)) }
+    var showSummary by remember { mutableStateOf(false) }
+    val gateLifecycle = LocalLifecycleOwner.current
+    DisposableEffect(gateLifecycle) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) isDefaultSms = DefaultSmsApp.isDefault(context)
+            }
+        gateLifecycle.lifecycle.addObserver(observer)
+        onDispose { gateLifecycle.lifecycle.removeObserver(observer) }
+    }
+
     // Same logo frame as the launch window until the first screen is known.
     if (startDestination == null) {
         LaunchScreen()
@@ -390,6 +442,9 @@ fun NavGraph(
     val topBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = topBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in BOTTOM_BAR_ROUTES
+    // Signed in but not the default SMS app: the gate covers everything.
+    val inSignedInApp = currentRoute != null && currentRoute !in UNGATED_ROUTES
+    val showDefaultSmsGate = !isDefaultSms && inSignedInApp
 
     // Gesture navigation leaves only a thin handle (~16-24dp) at the bottom;
     // 3-button navigation is a ~48dp row. On the latter the floating pill
@@ -403,14 +458,24 @@ fun NavGraph(
             else -> tabBarHeight(docked = false) + FLOATING_BAR_MARGIN + systemNavHeight + CONTENT_BOTTOM_GAP
         }
 
-    CompositionLocalProvider(LocalBottomBarClearance provides bottomBarClearance) {
+    CompositionLocalProvider(
+        LocalBottomBarClearance provides bottomBarClearance,
+        LocalSelectTab provides { selectedTab = it },
+    ) {
         Box(modifier = Modifier.fillMaxSize().background(Black)) {
             // Shared between the screen content (the blur source) and the pill (the
             // blurred surface) -- Haze reads whatever's been drawn to this state's
             // source(s) each frame the pill is on top of them. Wraps the whole
             // NavHost (not just one screen) so the pill glassifies whatever
             // browsing screen happens to be behind it.
-            Box(modifier = Modifier.fillMaxSize().then(if (lowRam) Modifier else Modifier.hazeSource(hazeState))) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .then(if (lowRam) Modifier else Modifier.hazeSource(hazeState))
+                        // The gate says messages stay hidden: keep TalkBack from reading them too.
+                        .then(if (showDefaultSmsGate) Modifier.clearAndSetSemantics {} else Modifier),
+            ) {
                 NavHost(
                     navController = navController,
                     startDestination = startDestination!!,
@@ -493,7 +558,7 @@ fun NavGraph(
                             // that skips itself straight forward again.
                             val next =
                                 if (viewModel.signingIn && viewModel.firstName.value.isNotBlank()) {
-                                    "onboarding_protected"
+                                    "onboarding_training_consent"
                                 } else {
                                     "onboarding_profile"
                                 }
@@ -525,17 +590,67 @@ fun NavGraph(
                     }
 
                     composable("onboarding_profile") {
+                        val scope = rememberCoroutineScope()
                         OnboardingProfileScreen(
                             navController = navController,
                             viewModel = viewModel,
-                            onNext = { navController.navigate("onboarding_protected") },
+                            onNext = {
+                                if (viewModel.userData.value.onboardingComplete) {
+                                    // Returning user who only had to re-enter a name:
+                                    // straight back in, not the new-user steps.
+                                    scope.launch {
+                                        navController.navigate(viewModel.returningUserRoute()) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                } else {
+                                    navController.navigate("onboarding_training_consent")
+                                }
+                            },
                         )
+                    }
+
+                    // Signed in by now, so the answer is saved to the account. A
+                    // failed save still moves on (the one-time prompt asks again).
+                    composable("onboarding_training_consent") {
+                        var saving by remember { mutableStateOf(false) }
+                        val toProtected = {
+                            navController.navigate("onboarding_protected") {
+                                popUpTo("onboarding_training_consent") { inclusive = true }
+                            }
+                        }
+                        OnboardingTrainingConsentScreen(saving = saving) { enabled ->
+                            saving = true
+                            settingsViewModel.answerTrainingConsent(
+                                enabled = enabled,
+                                onDone = { toProtected() },
+                                onFailed = {
+                                    saving = false
+                                    Toast
+                                        .makeText(context, R.string.training_consent_save_failed, Toast.LENGTH_LONG)
+                                        .show()
+                                    toProtected()
+                                },
+                            )
+                        }
                     }
 
                     composable("onboarding_protected") {
                         OnboardingProtectedScreen(
                             viewModel = viewModel,
                             onFinish = {
+                                navController.navigate("setup") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+
+                    // First-run sorting + tutorial; the tabs stay out of reach
+                    // until recent messages are sorted (HistorySortWorker).
+                    composable("setup") {
+                        SetupScreen(
+                            onDone = {
                                 navController.navigate("main") {
                                     popUpTo(0) { inclusive = true }
                                 }
@@ -545,6 +660,8 @@ fun NavGraph(
 
                     composable("main") {
                         MainScreen(navController, settingsViewModel, alertsViewModel, selectedTab = selectedTab)
+                        // Asks people who onboarded before the consent step, once.
+                        TrainingConsentPrompt(settingsViewModel)
                     }
 
                     // Main app sub-screens
@@ -747,7 +864,7 @@ fun NavGraph(
                             alertsBadge = unseenAlerts,
                             hazeState = hazeState,
                             docked = true,
-                            showScamWaves = showScamWaves,
+                            showScamWaves = showScamWaves == true,
                             onSelect = onSelectTab,
                         )
                         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -767,13 +884,77 @@ fun NavGraph(
                             selected = selectedTab,
                             alertsBadge = unseenAlerts,
                             hazeState = hazeState,
-                            showScamWaves = showScamWaves,
+                            showScamWaves = showScamWaves == true,
                             onSelect = onSelectTab,
                         )
                     }
                 }
             }
+            // Only inside the signed-in app: never over sign-in or onboarding.
+            if (showSummary && !showDefaultSmsGate && inSignedInApp) {
+                val toTab: (Int) -> Unit = { tab ->
+                    showSummary = false
+                    selectedTab = tab
+                    if (currentRoute != "main" && !navController.popBackStack("main", inclusive = false)) {
+                        navController.navigate("main") { launchSingleTop = true }
+                    }
+                }
+                DailySummaryOverlay(
+                    onDismiss = { showSummary = false },
+                    onOpenMessages = { toTab(0) },
+                    onOpenAlerts = { toTab(1) },
+                )
+            }
+            if (showDefaultSmsGate) {
+                DefaultSmsGateScreen(
+                    onRoleResult = { isDefaultSms = DefaultSmsApp.isDefault(context) },
+                    onSignOut = {
+                        settingsViewModel.signOut {
+                            navController.navigate(Screen.Welcome.route) {
+                                popUpTo(navController.graph.id) { inclusive = true }
+                            }
+                        }
+                    },
+                )
+            }
         }
+    }
+
+    // Lets a walkthrough step open the tab its control lives on.
+    val coachMarks = LocalCoachMarks.current
+    DisposableEffect(coachMarks) {
+        coachMarks?.selectTab = { selectedTab = it }
+        onDispose { coachMarks?.selectTab = null }
+    }
+
+    // Signed out (any of the three Sign out buttons, Delete account, or an
+    // expired session): nothing from the last session may resurface on the next
+    // sign-in -- a pending summary card, the tab they left on, or a paused tour.
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == Screen.Welcome.route) {
+            showSummary = false
+            selectedTab = 0
+            if (coachMarks?.isShowing == true) coachMarks.finish()
+        }
+    }
+
+    // No walkthrough over the default-SMS gate; it starts once the gate clears.
+    LaunchedEffect(showDefaultSmsGate, showSummary) { coachMarks?.suspended = showDefaultSmsGate || showSummary }
+
+    // A "Scam blocked" notification opens Settings -> Blocked numbers, once the app is up.
+    val landing by NotificationLanding.pending.collectAsState()
+    LaunchedEffect(landing, currentRoute) {
+        if (landing == NotificationLanding.BLOCKED &&
+            currentRoute == Screen.Main.route &&
+            NotificationLanding.consume(NotificationLanding.BLOCKED)
+        ) {
+            navController.navigate(Screen.BlockedNumbers.route)
+        }
+    }
+
+    // The daily summary notification opens its recap card over the app.
+    LaunchedEffect(requestedSummary) {
+        if (requestedSummary != null) showSummary = true
     }
 
     // A failed-send notification deep-links straight into that conversation rather
@@ -797,9 +978,15 @@ fun NavGraph(
         val sender = requestedConversationSender ?: return@LaunchedEffect
         val conversationExists =
             withContext(Dispatchers.IO) {
+                // Texts in Recently Deleted don't count: a notification for a
+                // conversation deleted since then opened an empty thread.
+                val deleted =
+                    context.container.deletedMessagesStore.deletedEntries
+                        .first()
+                        .mapTo(HashSet()) { it.id }
                 context.container.smsRepository
-                    .getConversationBySender(sender, limit = 1)
-                    .isNotEmpty()
+                    .getConversationBySender(sender, limit = EXISTS_CHECK_LIMIT)
+                    .any { it.id !in deleted }
             }
         if (conversationExists) {
             navController.navigate(Screen.Detail.createRoute(sender))
@@ -817,3 +1004,27 @@ fun NavGraph(
         navController.navigate(Screen.Compose.createRoute(recipient, requestedComposeBody))
     }
 }
+
+// Routes before sign-in finishes: the gate never covers these. The onboarding
+// step that asks for the default role is one of them, so it can still be skipped
+// there -- the gate then catches it once the app itself opens.
+private val UNGATED_ROUTES =
+    setOf(
+        "splash",
+        Screen.Welcome.route,
+        Screen.SignIn.route,
+        "onboarding_default_sms",
+        "onboarding_allow_access",
+        "onboarding_confirm_number",
+        "onboarding_enter_code",
+        "onboarding_terms",
+        "onboarding_profile",
+        // Asked right after sign-in; the gate (and the summary card) used to cover it.
+        "onboarding_training_consent",
+        "onboarding_protected",
+        // The first inbox sort and tutorial run before the gate, not under it.
+        "setup",
+    )
+
+// How many of a conversation's newest texts are checked before a notification opens it.
+private const val EXISTS_CHECK_LIMIT = 50

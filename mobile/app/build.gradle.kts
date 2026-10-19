@@ -311,8 +311,8 @@ android {
         applicationId = "com.bantai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 8
+        versionName = "1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -488,6 +488,8 @@ dependencies {
     // parsers, small pure functions), no Android framework/instrumentation needed,
     // so plain JUnit4 is enough without pulling in Robolectric.
     testImplementation(libs.junit)
+    // The real org.json, so the response parsers can be tested (android.jar only has stubs).
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
 }

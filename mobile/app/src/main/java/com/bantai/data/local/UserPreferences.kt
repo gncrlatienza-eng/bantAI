@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.bantai.data.model.SCAN_PERIODS
 import com.bantai.data.model.SCAN_PERIOD_ALL
+import com.bantai.util.SmsSourceId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -27,6 +28,21 @@ data class UserData(
     val suspiciousAlerts: Boolean = true,
     val spamAlerts: Boolean = true,
     val autoBlockNotice: Boolean = true,
+    // Off by default (Gio, 2026-10-14): a scam goes to Alerts first and the
+    // user decides. Testers found silent auto-blocks confusing.
+    val autoBlockScams: Boolean = false,
+    // When first-run sorting finished its blocking pass (0 = not yet). Until
+    // then the app shows the Setup screen instead of half-sorted tabs.
+    val historySortedAt: Long = 0L,
+    // HistorySortWorker.SORT_GENERATION whose sort has begun / fully finished.
+    // Bumping the generation re-sorts every phone once; other updates don't.
+    val sortGenerationStarted: Int = 0,
+    val sortGenerationDone: Int = 0,
+    // The "Help improve scam detection" question was answered on this phone
+    // (onboarding or the one-time prompt). Kept when the same account signs
+    // back in (it was asked again on every sign-in); cleared for a different one.
+    val trainingConsentAsked: Boolean = false,
+    val sortGenerationStartedAt: Long = 0L,
     // Off by default: asking the carrier for delivery reports is extra traffic
     // some carriers don't support, so it's the user's choice to turn on.
     val deliveryReports: Boolean = false,
@@ -49,6 +65,12 @@ class UserPreferences(
         val SUSPICIOUS_ALERTS = booleanPreferencesKey("suspicious_alerts")
         val SPAM_ALERTS = booleanPreferencesKey("spam_alerts")
         val AUTO_BLOCK_NOTICE = booleanPreferencesKey("auto_block_notice")
+        val AUTO_BLOCK_SCAMS = booleanPreferencesKey("auto_block_scams")
+        val HISTORY_SORTED_AT = longPreferencesKey("history_sorted_at")
+        val SORT_GEN_STARTED = intPreferencesKey("sort_gen_started")
+        val SORT_GEN_DONE = intPreferencesKey("sort_gen_done")
+        val TRAINING_CONSENT_ASKED = booleanPreferencesKey("training_consent_asked")
+        val SORT_GEN_STARTED_AT = longPreferencesKey("sort_gen_started_at")
         val DELIVERY_REPORTS = booleanPreferencesKey("delivery_reports")
         val PHONE_NUMBER = stringPreferencesKey("phone_number")
         val EMAIL_ADDRESS = stringPreferencesKey("email_address")
@@ -56,6 +78,15 @@ class UserPreferences(
         val TEXT_SCALE = stringPreferencesKey("text_scale")
         val MY_NUMBER = stringPreferencesKey("my_number")
         val SHOW_SCAM_WAVES_TAB = booleanPreferencesKey("show_scam_waves_tab")
+        val HIDE_UNKNOWN = booleanPreferencesKey("hide_unknown")
+        val TRAINING_OPT_IN = booleanPreferencesKey("training_opt_in")
+        val TUTORIALS_SEEN = stringSetPreferencesKey("tutorials_seen")
+        val SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
+        val SUMMARY_MINUTE = intPreferencesKey("daily_summary_minute")
+
+        // The account whose local state (labels, alert marks, finished sort)
+        // this phone holds; kept across sign-out. See LocalAccountData.
+        val LOCAL_DATA_ACCOUNT = stringPreferencesKey("local_data_account")
     }
 
     // The JWT is a bearer credential, not just text, so it's kept out of
@@ -85,6 +116,12 @@ class UserPreferences(
                 suspiciousAlerts = prefs[Keys.SUSPICIOUS_ALERTS] ?: true,
                 spamAlerts = prefs[Keys.SPAM_ALERTS] ?: true,
                 autoBlockNotice = prefs[Keys.AUTO_BLOCK_NOTICE] ?: true,
+                autoBlockScams = prefs[Keys.AUTO_BLOCK_SCAMS] ?: false,
+                historySortedAt = prefs[Keys.HISTORY_SORTED_AT] ?: 0L,
+                sortGenerationStarted = prefs[Keys.SORT_GEN_STARTED] ?: 0,
+                sortGenerationDone = prefs[Keys.SORT_GEN_DONE] ?: 0,
+                trainingConsentAsked = prefs[Keys.TRAINING_CONSENT_ASKED] ?: false,
+                sortGenerationStartedAt = prefs[Keys.SORT_GEN_STARTED_AT] ?: 0L,
                 deliveryReports = prefs[Keys.DELIVERY_REPORTS] ?: false,
                 phoneNumber = prefs[Keys.PHONE_NUMBER] ?: "",
                 emailAddress = prefs[Keys.EMAIL_ADDRESS] ?: "",
@@ -92,17 +129,34 @@ class UserPreferences(
             )
         }
 
+    /**
+     * Returns true when a different account than the one this phone's local
+     * data belongs to just signed in: the caller wipes that data
+     * (LocalAccountData) and Setup sorts the inbox again for the new account.
+     */
     suspend fun savePhoneAuth(
         token: String,
         phoneNumber: String,
-    ) {
+    ): Boolean {
         secureTokenStore.saveToken(token)
+        // Account-scoped SMS sourceId key for whoever just signed in.
+        SmsSourceId.bindAccount(context, token)
+        val account = SmsSourceId.jwtSubject(token) ?: phoneNumber
+        var accountChanged = false
         context.dataStore.edit { prefs ->
+            val previous = prefs[Keys.LOCAL_DATA_ACCOUNT]
+            accountChanged = previous != null && previous != account
+            prefs[Keys.LOCAL_DATA_ACCOUNT] = account
+            if (accountChanged) {
+                prefs[Keys.HISTORY_SORTED_AT] = 0L
+                prefs.remove(Keys.TRAINING_CONSENT_ASKED)
+            }
             prefs[Keys.PHONE_NUMBER] = phoneNumber
             // A mobile session has one authoritative sign-in identity. Remove
             // the old email-backed value when upgrading an App 1.1 install.
             prefs.remove(Keys.EMAIL_ADDRESS)
         }
+        return accountChanged
     }
 
     /** Clears only the session token — used when the backend rejects it (401), not a full sign-out. */
@@ -123,6 +177,10 @@ class UserPreferences(
             prefs[Keys.LAST_NAME] = safeLast
             prefs[Keys.AVATAR_COLOR] = safeColor
         }
+    }
+
+    suspend fun setTrainingConsentAsked() {
+        context.dataStore.edit { prefs -> prefs[Keys.TRAINING_CONSENT_ASKED] = true }
     }
 
     suspend fun setOnboardingComplete() {
@@ -152,6 +210,42 @@ class UserPreferences(
         }
     }
 
+    suspend fun saveHistorySortedAt(at: Long) {
+        context.dataStore.edit { prefs -> prefs[Keys.HISTORY_SORTED_AT] = at }
+    }
+
+    /**
+     * Starts sort [generation] once: clears historySortedAt so Setup shows
+     * again. Atomic, so the worker and the start-up check can both call it.
+     * Returns true if this call started it.
+     */
+    suspend fun startSortGeneration(generation: Int): Boolean {
+        var started = false
+        context.dataStore.edit { prefs ->
+            if ((prefs[Keys.SORT_GEN_STARTED] ?: 0) < generation) {
+                prefs[Keys.SORT_GEN_STARTED] = generation
+                prefs[Keys.SORT_GEN_STARTED_AT] = System.currentTimeMillis()
+                prefs[Keys.HISTORY_SORTED_AT] = 0L
+                started = true
+            }
+        }
+        return started
+    }
+
+    suspend fun saveSortGenerationDone(generation: Int) {
+        context.dataStore.edit { prefs -> prefs[Keys.SORT_GEN_DONE] = generation }
+    }
+
+    // Read on its own so the Setup screen doesn't wait on the token store.
+    val historySortedAt: Flow<Long> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.HISTORY_SORTED_AT] ?: 0L }
+
+    suspend fun saveAutoBlockScams(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.AUTO_BLOCK_SCAMS] = enabled }
+    }
+
     suspend fun saveDeliveryReports(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.DELIVERY_REPORTS] = enabled }
     }
@@ -166,6 +260,71 @@ class UserPreferences(
 
     suspend fun saveShowScamWavesTab(show: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.SHOW_SCAM_WAVES_TAB] = show }
+    }
+
+    // Hides the Unknown chip, Unknown alerts and their notifications for users
+    // who find them too much. Unknown texts still stay out of All with their
+    // links hidden, so hiding them doesn't make anyone less safe.
+    val hideUnknown: Flow<Boolean> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.HIDE_UNKNOWN] ?: false }
+
+    suspend fun saveHideUnknown(hide: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.HIDE_UNKNOWN] = hide }
+    }
+
+    // This phone's copy of the account's "Help improve scam detection" choice
+    // (User.trainingOptIn on the server; Privacy & data). It also covers
+    // reports: off, no report is ever sent, so flagged texts offer Block only
+    // and Real/Spam just moves the text on this phone. Off until the server
+    // says otherwise; written whenever the choice is read or saved.
+    val trainingOptIn: Flow<Boolean> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.TRAINING_OPT_IN] ?: false }
+
+    suspend fun saveTrainingOptIn(optedIn: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.TRAINING_OPT_IN] = optedIn }
+    }
+
+    // Walkthrough tours already shown on this phone (see CoachMarks).
+    val tutorialsSeen: Flow<Set<String>> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.TUTORIALS_SEEN] ?: emptySet() }
+
+    suspend fun markTutorialSeen(tour: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.TUTORIALS_SEEN] = (prefs[Keys.TUTORIALS_SEEN] ?: emptySet()) + tour
+        }
+    }
+
+    // Settings → Replay tutorial: every tour shows again on its screen.
+    suspend fun resetTutorials() {
+        context.dataStore.edit { prefs -> prefs.remove(Keys.TUTORIALS_SEEN) }
+    }
+
+    // The evening recap notification: on by default, at 8:00 PM unless changed.
+    val dailySummaryEnabled: Flow<Boolean> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.SUMMARY_ENABLED] ?: true }
+
+    // Minutes after midnight, local time.
+    val dailySummaryMinute: Flow<Int> =
+        context.dataStore.data
+            .catch { emit(emptyPreferences()) }
+            .map { it[Keys.SUMMARY_MINUTE] ?: DEFAULT_SUMMARY_MINUTE }
+
+    suspend fun saveDailySummary(
+        enabled: Boolean,
+        minuteOfDay: Int,
+    ) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.SUMMARY_ENABLED] = enabled
+            prefs[Keys.SUMMARY_MINUTE] = minuteOfDay
+        }
     }
 
     // Read on its own, without userData's token store, so MainActivity can
@@ -207,18 +366,46 @@ class UserPreferences(
     // Appearance and the finished device setup (default SMS app, permissions,
     // terms) belong to the phone, not the account -- signing out shouldn't reset
     // the theme or send the user through setup again, only back to sign-in.
-    suspend fun clearAll() {
+    // [keepLocalData] (sign-out) also keeps the finished inbox sort and whose
+    // it is, so the same account signing back in isn't re-sorted; Delete
+    // account passes false.
+    suspend fun clearAll(keepLocalData: Boolean = false) {
+        // Sessions signed in before 1.6 never recorded an owner: record it now,
+        // or the next sign-in couldn't tell a different account apart.
+        val token = secureTokenStore.getToken()
         secureTokenStore.clear()
+        // The next account on this phone must not inherit this one's sourceId key.
+        SmsSourceId.clearAccount(context)
         context.dataStore.edit { prefs ->
-            val theme = prefs[Keys.THEME_MODE]
-            val textScale = prefs[Keys.TEXT_SCALE]
-            val myNumber = prefs[Keys.MY_NUMBER]
-            val setupDone = prefs[Keys.ONBOARDING_COMPLETE]
+            if (keepLocalData && prefs[Keys.LOCAL_DATA_ACCOUNT] == null) {
+                val owner = SmsSourceId.jwtSubject(token) ?: prefs[Keys.PHONE_NUMBER]
+                if (owner != null) prefs[Keys.LOCAL_DATA_ACCOUNT] = owner
+            }
+            val keep: Set<Preferences.Key<*>> =
+                buildSet {
+                    addAll(listOf(Keys.THEME_MODE, Keys.TEXT_SCALE, Keys.MY_NUMBER, Keys.ONBOARDING_COMPLETE))
+                    // Phone-level choices, like the theme.
+                    addAll(listOf(Keys.HIDE_UNKNOWN, Keys.TUTORIALS_SEEN, Keys.SUMMARY_ENABLED, Keys.SUMMARY_MINUTE))
+                    if (keepLocalData) {
+                        addAll(
+                            listOf(
+                                Keys.LOCAL_DATA_ACCOUNT,
+                                Keys.HISTORY_SORTED_AT,
+                                Keys.SORT_GEN_STARTED,
+                                Keys.SORT_GEN_DONE,
+                                Keys.SORT_GEN_STARTED_AT,
+                                Keys.TRAINING_CONSENT_ASKED,
+                            ),
+                        )
+                    }
+                }
+            val kept = prefs.asMap().filterKeys { it in keep }
             prefs.clear()
-            if (myNumber != null) prefs[Keys.MY_NUMBER] = myNumber
-            if (theme != null) prefs[Keys.THEME_MODE] = theme
-            if (textScale != null) prefs[Keys.TEXT_SCALE] = textScale
-            if (setupDone != null) prefs[Keys.ONBOARDING_COMPLETE] = setupDone
+            @Suppress("UNCHECKED_CAST")
+            kept.forEach { (key, value) -> prefs[key as Preferences.Key<Any>] = value }
         }
     }
 }
+
+// 8:00 PM.
+const val DEFAULT_SUMMARY_MINUTE = 20 * 60

@@ -11,14 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -62,12 +60,15 @@ import com.bantai.R
 import com.bantai.data.model.LocalCampaign
 import com.bantai.data.model.OTHER_SCAM_CATEGORY
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.CoachIds
+import com.bantai.ui.components.FilterPill
+import com.bantai.ui.components.LocalCoachMarks
 import com.bantai.ui.components.MessageRowSkeleton
 import com.bantai.ui.components.StateMessage
+import com.bantai.ui.components.coachTarget
+import com.bantai.ui.theme.BantaiShapes
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
-import com.bantai.ui.theme.Indigo
-import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.SystemGray
@@ -104,13 +105,20 @@ fun CampaignsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showEnded by rememberSaveable { mutableStateOf(false) }
+    val coachStep = LocalCoachMarks.current?.currentTarget
+    LaunchedEffect(coachStep) {
+        if (coachStep == CoachIds.WAVES_TITLE || coachStep == CoachIds.WAVES_CHIPS) showEnded = false
+    }
 
     // The ViewModel outlives this tab. Each time the tab comes on screen it
     // refreshes only if a text arrived or a verdict changed since the last
     // load (the tab itself stays composed in the background, see MainScreen).
     // It refreshes in place -- the skeleton only shows before the first load.
     val tabActive = LocalTabActive.current
-    LaunchedEffect(tabActive) { if (tabActive) viewModel.refreshIfStale() }
+    LaunchedEffect(tabActive) {
+        viewModel.isTabActive = tabActive
+        if (tabActive) viewModel.refreshIfStale()
+    }
 
     val now = System.currentTimeMillis()
     val waves =
@@ -137,6 +145,7 @@ fun CampaignsScreen(
                 color = White,
                 fontWeight = FontWeight.Bold,
                 fontSize = TextSize.LargeTitle,
+                modifier = Modifier.coachTarget(CoachIds.WAVES_TITLE),
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -147,6 +156,13 @@ fun CampaignsScreen(
         }
         Spacer(Modifier.height(12.dp))
         WaveChips(showEnded = showEnded, onSelect = { showEnded = it })
+        // What Active/Inactive mean (the 30-day rule) and how long waves are kept.
+        Text(
+            stringResource(if (showEnded) R.string.waves_inactive_explainer else R.string.waves_active_explainer),
+            color = TextSecondary,
+            fontSize = TextSize.Footnote,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+        )
         // A fixed gap outside the scrolling list: contentPadding's top only
         // applies at rest, so scrolled cards used to run right up against the
         // bottom edge of the Active / Inactive chips.
@@ -186,29 +202,16 @@ private fun WaveChips(
     showEnded: Boolean,
     onSelect: (Boolean) -> Unit,
 ) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 20.dp),
+    Row(
+        modifier = Modifier.padding(horizontal = 20.dp).coachTarget(CoachIds.WAVES_CHIPS),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(listOf(false, true)) { ended ->
-            val isSelected = ended == showEnded
-            Box(
-                modifier =
-                    Modifier
-                        .heightIn(min = 36.dp)
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(if (isSelected) Indigo else SurfaceElevated)
-                        .clickable { onSelect(ended) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    stringResource(if (ended) R.string.waves_tab_ended else R.string.waves_tab_active),
-                    color = if (isSelected) OnIndigo else White,
-                    fontSize = TextSize.Subhead,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                )
-            }
+        listOf(false, true).forEach { ended ->
+            FilterPill(
+                label = stringResource(if (ended) R.string.waves_tab_ended else R.string.waves_tab_active),
+                selected = ended == showEnded,
+                onClick = { onSelect(ended) },
+            )
         }
     }
 }
@@ -263,10 +266,10 @@ private fun WaveCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(BantaiShapes.Large)
                 .background(SurfaceElevated)
                 .clickable(onClick = onClick)
-                .padding(14.dp),
+                .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconTile(category.icon, if (isActive) Danger else SystemGray)
@@ -294,7 +297,7 @@ private fun WaveCard(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            SmsLinkSafety.hideLinks(wave.messages.first().body),
+            SmsLinkSafety.maskSensitive(wave.messages.first().body),
             color = TextSecondary,
             fontSize = TextSize.Footnote,
             lineHeight = 18.sp,

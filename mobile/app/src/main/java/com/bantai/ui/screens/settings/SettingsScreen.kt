@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudDone
@@ -50,10 +52,11 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -92,17 +95,31 @@ import com.bantai.data.model.SCAN_PERIOD_MONTHLY
 import com.bantai.data.model.SCAN_PERIOD_WEEKLY
 import com.bantai.data.remote.ApiConfig
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.BantaiAlertDialog
+import com.bantai.ui.components.CoachIds
+import com.bantai.ui.components.LocalCoachMarks
+import com.bantai.ui.components.coachTarget
+import com.bantai.ui.screens.main.LocalSelectTab
 import com.bantai.ui.screens.main.LocalTabActive
+import com.bantai.ui.theme.AvatarCoral
+import com.bantai.ui.theme.AvatarGreen
+import com.bantai.ui.theme.AvatarIndigo
+import com.bantai.ui.theme.AvatarOrange
+import com.bantai.ui.theme.AvatarPink
+import com.bantai.ui.theme.AvatarPurple
+import com.bantai.ui.theme.AvatarRed
 import com.bantai.ui.theme.AvatarTeal
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.GlassStroke
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
+import com.bantai.ui.theme.SystemGray
 import com.bantai.ui.theme.TabTitleTopSpacing
 import com.bantai.ui.theme.TextScale
 import com.bantai.ui.theme.TextSecondary
@@ -129,6 +146,45 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val textScale by viewModel.textScale.collectAsState()
     val showScamWavesTab by viewModel.showScamWavesTab.collectAsState()
+    val hideUnknown by viewModel.hideUnknown.collectAsState()
+    val selectTab = LocalSelectTab.current
+    var showReplayConfirm by remember { mutableStateOf(false) }
+    if (showReplayConfirm) {
+        BantaiAlertDialog(
+            onDismissRequest = { showReplayConfirm = false },
+            title = {
+                Text(
+                    stringResource(R.string.settings_replay_confirm_title),
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    stringResource(R.string.settings_replay_confirm_body),
+                    color = TextSecondary,
+                    fontSize = TextSize.Subhead,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showReplayConfirm = false
+                    viewModel.replayTutorial { selectTab(0) }
+                }) {
+                    Text(
+                        stringResource(R.string.settings_replay_confirm_yes),
+                        color = IosBlue,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReplayConfirm = false }) {
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
+                }
+            },
+        )
+    }
     val context = LocalContext.current
 
     val avatarColorParsed =
@@ -159,7 +215,6 @@ fun SettingsScreen(
     var developerOptionsExpanded by rememberSaveable { mutableStateOf(false) }
     // Theme, accent and text size took most of the screen as three always-open
     // segmented controls; one row with the current choices opens them.
-    var appearanceExpanded by rememberSaveable { mutableStateOf(false) }
     // Dual-SIM only: the SIM every message goes out on (see SimChoice.sendSlot).
     // Re-read each time the tab comes back (it stays composed), so a SIM put
     // in or taken out since shows up.
@@ -181,7 +236,7 @@ fun SettingsScreen(
     }
 
     if (showSignOutDialog) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showSignOutDialog = false },
             title = { Text(stringResource(R.string.settings_sign_out), color = White, fontWeight = FontWeight.Bold) },
             text = {
@@ -192,7 +247,7 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         showSignOutDialog = false
                         viewModel.signOut {
@@ -201,10 +256,8 @@ fun SettingsScreen(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Danger),
-                    shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text(stringResource(R.string.settings_sign_out_2), color = OnAccent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.settings_sign_out_2), color = Danger, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
@@ -212,14 +265,12 @@ fun SettingsScreen(
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
             },
-            containerColor = SurfaceElevated,
         )
     }
 
     if (showScanPeriodDialog) {
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showScanPeriodDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_scan_period),
@@ -264,7 +315,7 @@ fun SettingsScreen(
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = null,
         )
     }
 
@@ -277,9 +328,8 @@ fun SettingsScreen(
 
         LaunchedEffect(Unit) { viewModel.clearSimulateStatus() }
 
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showSimulateSmsDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_simulate_incoming_sms),
@@ -355,9 +405,8 @@ fun SettingsScreen(
 
         LaunchedEffect(Unit) { viewModel.clearOnnxBenchmarkStatus() }
 
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showOnnxBenchmarkDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_onnx_latency_benchmark),
@@ -402,9 +451,8 @@ fun SettingsScreen(
             viewModel.checkBackendConnection()
         }
 
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { showBackendCheckDialog = false },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(R.string.settings_backend_connection),
@@ -457,7 +505,7 @@ fun SettingsScreen(
             color = White,
             fontWeight = FontWeight.Bold,
             fontSize = TextSize.LargeTitle,
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = 20.dp).coachTarget(CoachIds.SETTINGS_TITLE),
         )
 
         // Profile hero -- centered photo + name, not a list row, matching the
@@ -502,7 +550,14 @@ fun SettingsScreen(
             )
         }
 
+        // A walkthrough step on a row further down scrolls it into view first.
+        val listState = rememberLazyListState()
+        val coachStep = LocalCoachMarks.current?.currentTarget
+        LaunchedEffect(coachStep) {
+            settingsCoachItem(coachStep)?.let { listState.animateScrollToItem(it) }
+        }
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             contentPadding =
                 PaddingValues(
@@ -516,7 +571,7 @@ fun SettingsScreen(
             // iOS-style inset grouped list: one card per topic, each under a
             // small caps heading, so related settings read as a set.
             item {
-                SettingsGroup("Notifications") {
+                SettingsGroup(stringResource(R.string.settings_group_notifications)) {
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
                         title = stringResource(R.string.notifications_notifications),
@@ -550,43 +605,50 @@ fun SettingsScreen(
             }
 
             item {
-                SettingsGroup("Appearance") {
-                    SettingsRow(
-                        icon = Icons.Outlined.Palette,
-                        title = stringResource(R.string.settings_appearance_row),
-                        // Just the theme: all three ("Automatic · White · Default")
-                        // was too long for the row; opening it shows the rest.
-                        value = stringResource(themeLabel(themeMode)),
-                        onClick = { appearanceExpanded = !appearanceExpanded },
-                        trailingIcon = if (appearanceExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                SettingsGroup(stringResource(R.string.settings_group_appearance)) {
+                    // One row each with the current value; tapping opens a small
+                    // pop-up menu (iOS Settings' pattern) instead of an expanding
+                    // panel of segmented controls.
+                    MenuSettingRow(
+                        icon = Icons.Outlined.DarkMode,
+                        title = stringResource(R.string.settings_theme),
+                        options = ThemeMode.entries.map { it to themeLabel(it) },
+                        selected = themeMode,
+                        onSelect = viewModel::setThemeMode,
                     )
-                    AnimatedVisibility(visible = appearanceExpanded) {
-                        Column {
-                            RowDivider()
-                            AppearanceRow(
-                                selected = themeMode,
-                                onSelect = viewModel::setThemeMode,
-                            )
-                            RowDivider()
-                            TextSizeRow(
-                                selected = textScale,
-                                onSelect = viewModel::setTextScale,
-                            )
-                        }
-                    }
+                    RowDivider()
+                    MenuSettingRow(
+                        icon = Icons.Outlined.FormatSize,
+                        title = stringResource(R.string.settings_text_size),
+                        options = TextScale.entries.map { it to it.label },
+                        selected = textScale,
+                        onSelect = viewModel::setTextScale,
+                    )
                     RowDivider()
                     SettingsSwitchRow(
+                        modifier = Modifier.coachTarget(CoachIds.SETTINGS_WAVES),
                         icon = Icons.Outlined.Layers,
                         title = stringResource(R.string.settings_show_scam_waves),
-                        subtitle = stringResource(R.string.settings_show_scam_waves_detail),
                         checked = showScamWavesTab,
                         onCheckedChange = viewModel::setShowScamWavesTab,
+                    )
+                    RowDivider()
+                    SettingsSwitchRow(
+                        modifier = Modifier.coachTarget(CoachIds.SETTINGS_UNKNOWN),
+                        icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                        title = stringResource(R.string.settings_hide_unknown),
+                        // On = the tab shows, the same direction as Scam Waves above.
+                        checked = !hideUnknown,
+                        onCheckedChange = { viewModel.setHideUnknown(!it) },
                     )
                 }
             }
 
             item {
-                SettingsGroup("Tips") {
+                SettingsGroup(
+                    stringResource(R.string.settings_group_tips),
+                    modifier = Modifier.coachTarget(CoachIds.SETTINGS_TIPS),
+                ) {
                     SettingsRow(
                         icon = Icons.AutoMirrored.Filled.Article,
                         title = stringResource(R.string.settings_scam_awareness_tips),
@@ -598,20 +660,30 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_how_bantai_works),
                         onClick = { navController.navigate(Screen.SettingsHowItWorks.route) },
                     )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.Outlined.School,
+                        title = stringResource(R.string.settings_replay_tutorial),
+                        // Straight to Messages, where the walkthrough starts; it
+                        // carries on in Alerts and the first Unknown conversation.
+                        onClick = { showReplayConfirm = true },
+                    )
                 }
             }
 
             item {
-                SettingsGroup("Privacy & Support") {
+                SettingsGroup(stringResource(R.string.settings_group_privacy)) {
                     ServerConnectionRow(status = serverStatus, onCheck = viewModel::checkServer)
                     RowDivider()
                     SettingsRow(
+                        modifier = Modifier.coachTarget(CoachIds.SETTINGS_PRIVACY),
                         icon = Icons.Filled.Lock,
                         title = stringResource(R.string.privacy_data_privacy_data),
                         onClick = { navController.navigate(Screen.SettingsPrivacy.route) },
                     )
                     RowDivider()
                     SettingsRow(
+                        modifier = Modifier.coachTarget(CoachIds.SETTINGS_SUPPORT),
                         icon = Icons.AutoMirrored.Filled.Help,
                         title = stringResource(R.string.settings_contact_support),
                         onClick = {
@@ -630,7 +702,7 @@ fun SettingsScreen(
             // everyday settings above.
             if (BuildConfig.DEBUG) {
                 item {
-                    SettingsGroup("Developer") {
+                    SettingsGroup(stringResource(R.string.settings_group_developer)) {
                         SettingsRow(
                             icon = Icons.Filled.Code,
                             title = stringResource(R.string.settings_developer_options),
@@ -712,6 +784,7 @@ private fun SettingsRow(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     value: String? = null,
     trailingIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
     indented: Boolean = false,
@@ -719,19 +792,19 @@ private fun SettingsRow(
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(start = if (indented) 32.dp else 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+                .heightIn(min = 48.dp)
+                .padding(start = if (indented) 32.dp else 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
+        SettingsIconTile(icon)
         Spacer(Modifier.width(12.dp))
         Text(
             title,
             color = White,
-            fontWeight = FontWeight.Medium,
-            fontSize = TextSize.Subhead,
+            fontSize = TextSize.Body,
             modifier = Modifier.weight(1f),
         )
         if (value != null) {
@@ -765,23 +838,23 @@ private fun SettingsRow(
 private fun SettingsSwitchRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                .heightIn(min = 48.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
+        SettingsIconTile(icon)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = TextSize.Subhead)
-            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption)
+            Text(title, color = White, fontSize = TextSize.Body)
         }
         Spacer(Modifier.width(12.dp))
         Switch(
@@ -797,9 +870,10 @@ private fun SettingsSwitchRow(
 @Composable
 private fun SettingsGroup(
     title: String,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column {
+    Column(modifier) {
         Text(
             title.uppercase(),
             color = TextSecondary,
@@ -817,107 +891,123 @@ private fun SettingsGroup(
     }
 }
 
-// Inset to the row text (16dp padding + 18dp icon + 12dp gap), as in iOS.
+// The list item (one per group) a walkthrough step needs on screen.
+private fun settingsCoachItem(step: String?): Int? =
+    when (step) {
+        CoachIds.SETTINGS_TITLE -> ITEM_NOTIFICATIONS
+        CoachIds.SETTINGS_WAVES, CoachIds.SETTINGS_UNKNOWN -> ITEM_APPEARANCE
+        CoachIds.SETTINGS_TIPS -> ITEM_TIPS
+        CoachIds.SETTINGS_SUPPORT, CoachIds.SETTINGS_PRIVACY -> ITEM_PRIVACY
+        else -> null
+    }
+
+// The list's items, in order: one per group.
+private const val ITEM_NOTIFICATIONS = 0
+private const val ITEM_APPEARANCE = 1
+private const val ITEM_TIPS = 2
+private const val ITEM_PRIVACY = 3
+
+// Inset to the row text (16dp padding + 28dp tile + 12dp gap), as in iOS.
 @Composable
 private fun RowDivider() {
-    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 46.dp))
+    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 56.dp))
+}
+
+// iOS Settings' small colored square behind each row's glyph: rows can be
+// found by color at a glance, and the page stops reading as one grey list.
+@Composable
+private fun SettingsIconTile(icon: ImageVector) {
+    Box(
+        modifier = Modifier.size(28.dp).background(settingsTileColor(icon), RoundedCornerShape(7.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = OnAccent, modifier = Modifier.size(17.dp))
+    }
+}
+
+// One color per kind of setting, picked like iOS: red for alerts, green for
+// the SIM, purple for looks, grey for privacy and developer tools.
+private fun settingsTileColor(icon: ImageVector): Color {
+    val name = icon.name.substringAfterLast('.')
+    return when (name) {
+        "Notifications" -> AvatarRed
+        "Schedule" -> AvatarIndigo
+        "SimCard" -> AvatarGreen
+        "Block" -> AvatarCoral
+        "Palette", "DarkMode" -> AvatarPurple
+        "FormatSize" -> AvatarIndigo
+        "Layers", "Article" -> AvatarOrange
+        "HelpOutline", "Lock", "Code", "Wifi", "BugReport", "Speed" -> SystemGray
+        "Psychology" -> AvatarPink
+        "School" -> AvatarTeal
+        else -> AvatarIndigo
+    }
 }
 
 // Automatic / Light / Dark. This was an on/off Dark switch, so once flipped
 // there was no way back to following the phone.
+// A setting with a few fixed choices: the row shows the current one, and a tap
+// opens a small menu with a check on it.
 @Composable
-private fun AppearanceRow(
-    selected: ThemeMode,
-    onSelect: (ThemeMode) -> Unit,
-) {
-    SegmentedSettingRow(
-        icon = Icons.Outlined.DarkMode,
-        title = stringResource(R.string.settings_theme),
-        options =
-            listOf(
-                ThemeMode.SYSTEM to R.string.settings_theme_automatic,
-                ThemeMode.LIGHT to R.string.settings_theme_light,
-                ThemeMode.DARK to R.string.settings_theme_dark,
-            ),
-        selected = selected,
-        onSelect = onSelect,
-    )
-}
-
-// Makes all app text bigger for anyone who finds it hard to read (older users
-// especially, the people scam texts target most). The sample line below the
-// choices shows the size live, since the whole screen resizes as you tap.
-@Composable
-private fun TextSizeRow(
-    selected: TextScale,
-    onSelect: (TextScale) -> Unit,
-) {
-    SegmentedSettingRow(
-        icon = Icons.Outlined.FormatSize,
-        title = stringResource(R.string.settings_text_size),
-        options = TextScale.entries.map { it to it.label },
-        selected = selected,
-        onSelect = onSelect,
-        footer = {
-            Text(
-                stringResource(R.string.settings_text_size_sample),
-                color = TextSecondary,
-                fontSize = TextSize.Body,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-        },
-    )
-}
-
-// iOS-style segmented control under an icon + title, one row in a settings card.
-@Composable
-@Suppress("LongParameterList")
-private fun <T> SegmentedSettingRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+@Suppress("LongParameterList") // the row, its choices, then the callback
+private fun <T> MenuSettingRow(
+    icon: ImageVector,
     title: String,
     options: List<Pair<T, Int>>,
     selected: T,
     onSelect: (T) -> Unit,
-    footer: @Composable () -> Unit = {},
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(title, color = White, fontWeight = FontWeight.Medium, fontSize = TextSize.Subhead)
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Hairline.copy(alpha = 0.35f))
-                    .padding(3.dp),
-        ) {
-            options.forEach { (value, label) ->
-                val isSelected = value == selected
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .heightIn(min = 40.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) SurfaceElevated else Color.Transparent)
-                            .selectable(selected = isSelected, role = Role.RadioButton) { onSelect(value) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        stringResource(label),
-                        color = White,
-                        fontSize = TextSize.Subhead,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1,
+    var open by remember { mutableStateOf(false) }
+    val current = options.firstOrNull { it.first == selected }?.second
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { open = true }
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SettingsIconTile(icon)
+        Spacer(Modifier.width(12.dp))
+        Text(title, color = White, fontSize = TextSize.Body, modifier = Modifier.weight(1f))
+        Box {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (current != null) Text(stringResource(current), color = TextSecondary, fontSize = TextSize.Body)
+                Icon(
+                    Icons.Filled.UnfoldMore,
+                    contentDescription = null,
+                    tint = TextTertiary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(
+                expanded = open,
+                onDismissRequest = { open = false },
+                containerColor = SurfaceElevated,
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                options.forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(label), color = White, fontSize = TextSize.Body) },
+                        trailingIcon = {
+                            if (value == selected) {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = Indigo,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        },
+                        onClick = {
+                            open = false
+                            onSelect(value)
+                        },
                     )
                 }
             }
         }
-        footer()
     }
 }
 
@@ -946,9 +1036,8 @@ private fun SendSimDialog(
 ) {
     val automatic = stringResource(R.string.settings_sending_sim_auto)
     val options = listOf<Pair<Int?, String>>(null to automatic) + sims.map { it.slot to it.label }
-    AlertDialog(
+    BantaiAlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceElevated,
         title = { Text(stringResource(R.string.settings_sending_sim), color = White, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -978,7 +1067,7 @@ private fun SendSimDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = null,
     )
 }
 

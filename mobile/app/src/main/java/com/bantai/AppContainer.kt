@@ -12,6 +12,13 @@ import com.bantai.data.local.DeletedMessagesStore
 import com.bantai.data.local.DraftsStore
 import com.bantai.data.local.UserPreferences
 import com.bantai.mms.MmsDownloader
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * One shared instance of each repository/store for the whole app. Screens,
@@ -33,6 +40,26 @@ class AppContainer(
     val blockedSendersStore by lazy { BlockedSendersStore(appContext) }
     val alertStateStore by lazy { AlertStateStore(appContext) }
     val mmsDownloader by lazy { MmsDownloader(appContext) }
+
+    /**
+     * SMS row ids that have a server alert (published by AlertsViewModel).
+     * The server alerts on scams the phone files as Unknown (scored under 90%),
+     * so these leave the Unknown chip: every scam lives in Alerts, once.
+     */
+    val alertedMessageIds = MutableStateFlow<Set<Long>>(emptySet())
+
+    /**
+     * Whether reports may be sent: the account's "Help improve scam detection"
+     * choice, kept hot so screens can read it synchronously when deciding what
+     * to offer. False until DataStore answers (a few ms after launch).
+     */
+    val shareReports: StateFlow<Boolean> by lazy {
+        userPreferences.trainingOptIn.stateIn(
+            CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            SharingStarted.Eagerly,
+            false,
+        )
+    }
 }
 
 /** The app's shared [AppContainer], reachable from any Context. */

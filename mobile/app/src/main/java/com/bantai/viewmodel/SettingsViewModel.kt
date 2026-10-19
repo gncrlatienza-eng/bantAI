@@ -4,8 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bantai.container
+import com.bantai.data.DailySummaryScheduler
+import com.bantai.data.LocalAccountData
 import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.local.DEFAULT_SUMMARY_MINUTE
 import com.bantai.data.local.UserData
 import com.bantai.data.remote.ApiConfig
 import com.bantai.data.remote.ApiException
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 class SettingsViewModel(
     application: Application,
@@ -85,6 +89,9 @@ class SettingsViewModel(
     private val _deliveryReports = MutableStateFlow(false)
     val deliveryReports: StateFlow<Boolean> = _deliveryReports.asStateFlow()
 
+    private val _autoBlockScams = MutableStateFlow(false)
+    val autoBlockScams: StateFlow<Boolean> = _autoBlockScams.asStateFlow()
+
     private val _autoBlockNotice = MutableStateFlow(true)
     val autoBlockNotice: StateFlow<Boolean> = _autoBlockNotice.asStateFlow()
 
@@ -96,20 +103,33 @@ class SettingsViewModel(
     private val _simulateStatus = MutableStateFlow<String?>(null)
     val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
 
+    /**
+     * Edit profile starts from what's saved. This ViewModel lives as long as the
+     * activity, so without it, typing then Back without saving showed the
+     * unsaved text the next time the screen opened.
+     */
+    fun resetEdits() {
+        val data = _userData.value
+        _editFirstName.value = data.firstName
+        _editLastName.value = data.lastName
+        _editAvatarColor.value = data.avatarColor
+        viewModelScope.launch { _editMyNumber.value = userPreferences.myNumber.first() }
+    }
+
     init {
         viewModelScope.launch {
-            userPreferences.myNumber.collect { _editMyNumber.value = it }
-        }
-        viewModelScope.launch {
+            // _trainingOptIn is declared further down; let construction finish.
+            yield()
             userPreferences.userData.collect { data ->
                 _userData.value = data
-                _editFirstName.value = data.firstName
-                _editLastName.value = data.lastName
-                _editAvatarColor.value = data.avatarColor
+                // Signed out by any path (Sign out, Delete account, an expired
+                // session): the next sign-in must not see this account's answer.
+                if (data.authToken.isEmpty()) _trainingOptIn.value = null
                 _smishingAlerts.value = data.smishingAlerts
                 _suspiciousAlerts.value = data.suspiciousAlerts
                 _spamAlerts.value = data.spamAlerts
                 _autoBlockNotice.value = data.autoBlockNotice
+                _autoBlockScams.value = data.autoBlockScams
                 _deliveryReports.value = data.deliveryReports
                 _scanPeriod.value = data.scanPeriod
             }
@@ -232,13 +252,56 @@ class SettingsViewModel(
     val showScamWavesTab: StateFlow<Boolean> =
         userPreferences.showScamWavesTab.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** The same setting, but null until it has actually been read. */
+    val showScamWavesTabLoaded: StateFlow<Boolean?> =
+        userPreferences.showScamWavesTab
+            .map<Boolean, Boolean?> { it }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     fun setShowScamWavesTab(show: Boolean) {
         viewModelScope.launch { userPreferences.saveShowScamWavesTab(show) }
+    }
+
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setHideUnknown(hide: Boolean) {
+        viewModelScope.launch { userPreferences.saveHideUnknown(hide) }
+    }
+
+    val dailySummaryEnabled: StateFlow<Boolean> =
+        userPreferences.dailySummaryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val dailySummaryMinute: StateFlow<Int> =
+        userPreferences.dailySummaryMinute.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_SUMMARY_MINUTE)
+
+    // Saves, then restarts the daily cycle from the new time (or cancels it).
+    fun setDailySummary(
+        enabled: Boolean,
+        minuteOfDay: Int,
+    ) {
+        viewModelScope.launch {
+            userPreferences.saveDailySummary(enabled, minuteOfDay)
+            DailySummaryScheduler.schedule(getApplication())
+        }
+    }
+
+    // Clears the "seen" marks first, so the tour that [onReady] opens plays.
+    fun replayTutorial(onReady: () -> Unit) {
+        viewModelScope.launch {
+            userPreferences.resetTutorials()
+            onReady()
+        }
     }
 
     fun toggleDeliveryReports(value: Boolean) {
         _deliveryReports.value = value
         viewModelScope.launch { userPreferences.saveDeliveryReports(value) }
+    }
+
+    fun toggleAutoBlockScams(value: Boolean) {
+        _autoBlockScams.value = value
+        viewModelScope.launch { userPreferences.saveAutoBlockScams(value) }
     }
 
     fun toggleAutoBlockNotice(value: Boolean) {
@@ -293,13 +356,94 @@ class SettingsViewModel(
     // one.
     fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
-            clearLocalSession()
+            // Keeps the inbox's labels, alert marks and finished sort for the
+            // same account signing back in; a different account wipes them at
+            // sign-in (UserPreferences.savePhoneAuth / LocalAccountData).
+            userPreferences.clearAll(keepLocalData = true)
+            OutgoingSms.clearAll(getApplication())
+            // Lives as long as the activity: the next sign-in must not see this
+            // account's answer before the server's (it flashed the consent prompt).
+            _trainingOptIn.value = null
             onComplete()
         }
     }
 
     private val _deletingAccount = MutableStateFlow(false)
     val deletingAccount: StateFlow<Boolean> = _deletingAccount.asStateFlow()
+
+    // Privacy & data -> "Help improve scam detection". Null until read from the
+    // server (or when signed out / offline), so the switch never shows a guess.
+    private val _trainingOptIn = MutableStateFlow<Boolean?>(null)
+    val trainingOptIn: StateFlow<Boolean?> = _trainingOptIn.asStateFlow()
+
+    private val _trainingOptInSaving = MutableStateFlow(false)
+    val trainingOptInSaving: StateFlow<Boolean> = _trainingOptInSaving.asStateFlow()
+
+    fun loadTrainingOptIn() {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) return@launch
+            AuthApi.trainingOptIn(token).onSuccess {
+                _trainingOptIn.value = it
+                userPreferences.saveTrainingOptIn(it)
+            }
+        }
+    }
+
+    /**
+     * The onboarding / one-time "Help improve scam detection" answer. Saved on
+     * the server first. A failed save still ends the question (with a toast
+     * pointing to Settings) rather than asking again on every launch.
+     */
+    fun answerTrainingConsent(
+        enabled: Boolean,
+        onDone: () -> Unit,
+        onFailed: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (saved) {
+                _trainingOptIn.value = enabled
+                userPreferences.saveTrainingOptIn(enabled)
+                userPreferences.setTrainingConsentAsked()
+                onDone()
+            } else {
+                // Still counts as asked: the one-time question must never trap the
+                // user (an unreachable or older backend failed every save, so it
+                // came straight back). The toast points to Settings for later.
+                userPreferences.setTrainingConsentAsked()
+                onFailed()
+            }
+        }
+    }
+
+    /** The account was already opted in (e.g. on another phone): nothing to ask. */
+    fun markTrainingConsentAsked() {
+        viewModelScope.launch { userPreferences.setTrainingConsentAsked() }
+    }
+
+    /** Saves the choice on the server; puts the switch back and calls [onFailed] if it can't. */
+    fun setTrainingOptIn(
+        enabled: Boolean,
+        onFailed: () -> Unit,
+    ) {
+        if (_trainingOptInSaving.value) return
+        val previous = _trainingOptIn.value
+        _trainingOptIn.value = enabled
+        _trainingOptInSaving.value = true
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (saved) {
+                userPreferences.saveTrainingOptIn(enabled)
+            } else {
+                _trainingOptIn.value = previous
+                onFailed()
+            }
+            _trainingOptInSaving.value = false
+        }
+    }
 
     /**
      * Privacy & data -> Delete account, after its typed confirmation: deletes
@@ -322,24 +466,11 @@ class SettingsViewModel(
         }
     }
 
-    // Everything this phone keeps for the signed-in account. Shared by Sign out
-    // and Delete account so the two can't drift apart.
+    // Delete account: everything this phone keeps for the account, including
+    // the per-message state sign-out keeps (see LocalAccountData).
     private suspend fun clearLocalSession() {
         userPreferences.clearAll()
-        // Per-message local stores are keyed by device SMS provider row id,
-        // not by account -- without this, whatever the previous account had
-        // classified/soft-deleted/drafted stays attached to the same local
-        // ids and silently reappears (wrong classifications, "deleted"
-        // messages back in the inbox, stale reply drafts) for the next
-        // account that signs in on this device.
-        getApplication<Application>().container.classificationStore.clear()
-        getApplication<Application>().container.deletedMessagesStore.clearAll()
-        getApplication<Application>().container.draftsStore.clearAll()
-        getApplication<Application>().container.backendMessageIdStore.clear()
-        getApplication<Application>().container.campaignMatchStore.clear()
-        getApplication<Application>().container.alertStateStore.clearAll()
-        OutgoingSms.clearAll(getApplication())
-        getApplication<Application>().container.blockedSendersStore.clearBlocked()
+        LocalAccountData.wipe(getApplication())
     }
 
     // Feeds a synthetic message through the same pipeline SmsReceiver uses for a

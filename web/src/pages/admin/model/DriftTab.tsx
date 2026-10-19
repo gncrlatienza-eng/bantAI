@@ -30,11 +30,13 @@ import {
   NoteDialog,
   Notice,
   SectionHeader,
+  StatPanel,
   errorText,
   formatDateTime,
   humanize,
   type NoteRequest,
 } from './shared';
+import { HowThisWorks } from '../adminDisplay';
 
 const INVESTIGATION_STATUS: Record<
   DriftInvestigationStatus,
@@ -343,43 +345,52 @@ export function DriftTab() {
 
   return (
     <>
-      <MetricRow columns={4}>
-        <Metric
-          label="Current signal"
-          value={status.triggered ? signalLabel(status.reason) : 'None'}
-        />
-        <Metric
-          label="Validated since promotion"
-          value={`${status.validatedCount.toLocaleString()} / ${status.thresholds.validatedReports}`}
-        />
-        <Metric
-          label="Serving macro-F1"
-          value={status.currentF1 != null ? status.currentF1.toFixed(3) : '—'}
-        />
-        <Metric label="Open investigations" value={openCount} />
-      </MetricRow>
-
-      <p
-        style={{
-          ...MUTED,
-          margin: '14px 0 0',
-          fontSize: '0.9rem',
-          maxWidth: '80ch',
-        }}
+      <StatPanel
+        label="Drift summary"
+        status={
+          status.triggered
+            ? {
+                tone: 'warn',
+                text: `Drift signal: ${signalLabel(status.reason)}. Open an investigation to review it.`,
+              }
+            : undefined
+        }
+        facts={[
+          {
+            label: 'Auto-retraining',
+            value: retrainingEnabled ? 'On' : 'Off',
+          },
+        ]}
+        aside={
+          <HowThisWorks align="end">
+            A signal fires when {status.thresholds.validatedReports} reports are
+            validated since the last promotion, when macro-F1 falls more than{' '}
+            {(status.thresholds.f1Drop * 100).toFixed(0)} points below the best
+            prior version, or when the Page-Hinkley test (λ ={' '}
+            {status.thresholds.pageHinkleyLambda}, at least{' '}
+            {status.thresholds.pageHinkleyMinSamples} trusted scores) detects a
+            sustained drop in confidence. Retraining requests are queued with
+            the AI service and trained offline, then return as new candidates on
+            the Overview tab.
+          </HowThisWorks>
+        }
       >
-        A signal fires when {status.thresholds.validatedReports} reports are
-        validated since the last promotion, when macro-F1 falls more than{' '}
-        {(status.thresholds.f1Drop * 100).toFixed(0)} points below the best
-        prior version, or when the Page-Hinkley test (λ ={' '}
-        {status.thresholds.pageHinkleyLambda}, at least{' '}
-        {status.thresholds.pageHinkleyMinSamples} trusted scores) detects a
-        sustained drop in confidence. Automatic retraining is{' '}
-        <strong style={{ color: 'var(--text-primary)' }}>
-          {retrainingEnabled ? 'enabled' : 'disabled'}
-        </strong>{' '}
-        for this deployment; requests are queued with the AI service and trained
-        offline, then return as new candidates on the Overview tab.
-      </p>
+        <MetricRow columns={4}>
+          <Metric
+            label="Current signal"
+            value={status.triggered ? signalLabel(status.reason) : 'None'}
+          />
+          <Metric
+            label="Validated since promotion"
+            value={`${status.validatedCount.toLocaleString()} / ${status.thresholds.validatedReports}`}
+          />
+          <Metric
+            label="Serving macro-F1"
+            value={status.currentF1 != null ? status.currentF1.toFixed(3) : '—'}
+          />
+          <Metric label="Open investigations" value={openCount} />
+        </MetricRow>
+      </StatPanel>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
         <Button
@@ -441,7 +452,7 @@ export function DriftTab() {
         <SectionHeader
           id="drift-investigations-title"
           title="Investigations"
-          description="Each investigation keeps the signal and metrics that opened it, the notes taken while reviewing it, and the finding that closed it."
+          description="Each keeps its signal, notes and closing finding."
         />
         <DataTable<DriftInvestigation>
           ariaLabel="Drift investigations"
@@ -451,7 +462,7 @@ export function DriftTab() {
           emptyState={
             <EmptyState
               title="No investigations"
-              description="Open one when a signal fires or when reports suggest the model is slipping."
+              description="Open one when a signal fires or the model slips."
             />
           }
         />
@@ -464,7 +475,7 @@ export function DriftTab() {
         <SectionHeader
           id="retraining-jobs-title"
           title="Retraining requests"
-          description="Queued means the AI service accepted the request. Training happens offline; the resulting model returns as a candidate for review."
+          description="Trained offline; results return as candidates."
         />
         <DataTable<RetrainingJob>
           ariaLabel="Retraining requests"
@@ -474,7 +485,7 @@ export function DriftTab() {
           emptyState={
             <EmptyState
               title="No retraining requests"
-              description="Requests from the hourly check, manual triggers and investigations appear here."
+              description="Hourly, manual and investigation requests appear here."
             />
           }
         />

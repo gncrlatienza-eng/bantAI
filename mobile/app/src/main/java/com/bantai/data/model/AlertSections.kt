@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // the Alerts tab's page rules, kept together
+
 package com.bantai.data.model
 
 import com.bantai.data.remote.SmsApi
@@ -34,7 +36,8 @@ fun SmsApi.AlertSummary.kind(): AlertKind =
  * - [REPORTED]: texts the user reported (Ham/Spam/Scam), with where the review
  *   stands. Reporting *is* reviewing: it files the text under the chosen label
  *   and moves the alert here. Takes priority: once reported, nothing is left to decide.
- * - [BLOCKED]: scams whose sender BantAI blocked -- a record, nothing to do.
+ * - [BLOCKED]: scams whose sender is blocked. Not shown in Alerts (see
+ *   [visibleAlerts]): blocked numbers live in Settings → Blocked numbers.
  *
  * There used to be a separate "Reviewed" page fed by a "Mark as reviewed"
  * button/swipe; it duplicated what a report already says, so it's gone.
@@ -52,6 +55,44 @@ fun SmsApi.AlertSummary.tab(): AlertTab =
         report != null -> AlertTab.REPORTED
         kind() == AlertKind.BLOCKED -> AlertTab.BLOCKED
         else -> AlertTab.TO_REVIEW
+    }
+
+/**
+ * An Unknown verdict waiting on the user: not a scam call and not reported.
+ * Settings → Hide Unknown takes these out of Alerts.
+ */
+fun SmsApi.AlertSummary.isUnknownVerdict(): Boolean = report == null && !isScamVerdict()
+
+/**
+ * Done-with alerts older than [Retention.ALERT_HISTORY_DAYS], which Alerts
+ * stops showing so it doesn't fill up forever: a report BantAI already
+ * reviewed (aged from its review), or a scam whose sender is blocked. To
+ * Review and still-pending reports never expire -- they need the user.
+ */
+fun SmsApi.AlertSummary.isExpired(nowMillis: Long): Boolean {
+    val cutoff = Retention.cutoff(Retention.ALERT_HISTORY_DAYS, nowMillis)
+    return when (tab()) {
+        AlertTab.TO_REVIEW -> false
+        AlertTab.BLOCKED -> receivedMillis(receivedAt) in 1 until cutoff
+        AlertTab.REPORTED -> {
+            val r = report
+            val finishedAt = r?.let { receivedMillis(it.reviewedAt ?: it.createdAt ?: createdAt) } ?: 0L
+            r != null && r.status != REPORT_PENDING && finishedAt in 1 until cutoff
+        }
+    }
+}
+
+/**
+ * What Alerts shows: no expired history, no blocked senders (those are in
+ * Settings → Blocked numbers), and no Unknown when the user hid it.
+ */
+fun visibleAlerts(
+    alerts: List<SmsApi.AlertSummary>,
+    hideUnknown: Boolean,
+    nowMillis: Long,
+): List<SmsApi.AlertSummary> =
+    alerts.filter {
+        it.tab() != AlertTab.BLOCKED && !it.isExpired(nowMillis) && !(hideUnknown && it.isUnknownVerdict())
     }
 
 /**

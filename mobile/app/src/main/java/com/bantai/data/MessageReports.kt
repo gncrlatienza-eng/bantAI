@@ -7,6 +7,7 @@ import com.bantai.data.model.Classification
 import com.bantai.data.remote.ApiException
 import com.bantai.data.remote.ReportsApi
 import com.bantai.data.remote.VerificationApi
+import com.bantai.util.NotificationHelper
 import com.bantai.util.SenderReplyKind
 import com.bantai.util.replyKindFor
 import kotlinx.coroutines.flow.first
@@ -15,7 +16,8 @@ import java.util.UUID
 /**
  * Filing a user's correction (Ham/Spam/Scam) for one or more messages, shared
  * by Take Action and the thread's quick "It's a real message / It's spam"
- * buttons. Reports feed AI retraining and admin review (POST /reports).
+ * buttons. Reports go to admin review (POST /reports), and validated ones can
+ * become training data -- only with "Help improve scam detection" on.
  */
 object MessageReports {
     /** One message to report: its backend id when known, else the device row to resolve (or register) it from. */
@@ -32,7 +34,7 @@ object MessageReports {
      * fine; all of them already reported says so, as a single report always has.
      * A successful report also re-files the message on the phone ([refile]).
      */
-    @Suppress("LongParameterList") // one report's fields; notes/blocked default for quick flags
+    @Suppress("LongParameterList", "ReturnCount") // one report's fields; reports off, signed out, then send
     suspend fun submit(
         context: Context,
         sender: String,
@@ -45,10 +47,19 @@ object MessageReports {
             context.container.userPreferences.userData
                 .first()
                 .authToken
+        // "Help improve scam detection" off: nothing leaves the phone. The message
+        // still moves where the user put it, just without a report behind it.
+        if (!context.container.userPreferences.trainingOptIn
+                .first()
+        ) {
+            targets.forEach { refile(context, it.localMessageId, reportedLabel, blocked) }
+            return Result.success(Unit)
+        }
         if (token.isEmpty()) return Result.failure(Exception(context.getString(R.string.take_action_error_sign_in)))
         val groupId = if (targets.size > 1) UUID.randomUUID().toString() else null
         val results = targets.map { submitOne(context, token, it, reportedLabel, notes, groupId, blocked) }
         if (results.any { it.isSuccess } && reportedLabel == "Scam") fileSenderReport(token, sender)
+        if (results.any { it.isSuccess }) NotificationHelper.sendReportReceived(context)
         val failures = results.filter { it.isFailure }
         return when {
             failures.isEmpty() -> Result.success(Unit)
@@ -118,7 +129,8 @@ object MessageReports {
                 blocked -> Classification.SCAM
                 else -> Classification.UNKNOWN
             }
-        store.setClassification(localMessageId, label)
+        // Tagged so a later model pass never overwrites the user's own call.
+        store.setClassification(localMessageId, label, source = "user_report")
     }
 
     // Corroborating evidence so several users reporting the same number can get it

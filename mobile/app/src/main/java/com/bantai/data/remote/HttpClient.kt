@@ -1,7 +1,9 @@
 package com.bantai.data.remote
 
 import com.bantai.data.AuthEventBus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -83,46 +85,82 @@ internal object HttpClient {
         body: JSONObject? = null,
         token: String? = null,
         timeoutMs: Int,
+    ): Result<String> {
+        val url = runCatching { URL(ApiConfig.BASE_URL + path) }.getOrElse { return Result.failure(it) }
+        return requestUrl(url, method, body, token, timeoutMs)
+    }
+
+    /**
+     * Runs one request so that coroutine cancellation (e.g. the SMS receiver's
+     * withTimeoutOrNull) actually stops it. HttpURLConnection's connect/read
+     * block a thread and ignore cancellation, so on its own a cancelled caller
+     * still waited for the blocking call to finish -- up to connect+read
+     * timeouts -- before its offline fallback could run (audit ANDROID-01).
+     * The blocking work runs in a child coroutine; when the caller is
+     * cancelled, disconnect() closes the socket, which makes the blocked call
+     * throw immediately and lets cancellation complete promptly.
+     */
+    internal suspend fun requestUrl(
+        url: URL,
+        method: String,
+        body: JSONObject? = null,
+        token: String? = null,
+        timeoutMs: Int,
     ): Result<String> =
         withContext(Dispatchers.IO) {
-            runCatching {
-                val connection = URL(ApiConfig.BASE_URL + path).openConnection() as HttpURLConnection
-                try {
-                    connection.requestMethod = method
-                    if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
-                    connection.connectTimeout = timeoutMs
-                    connection.readTimeout = timeoutMs
-                    if (body != null) {
-                        connection.setRequestProperty("Content-Type", "application/json")
-                        connection.doOutput = true
-                        connection.outputStream.use { it.write(body.toString().toByteArray()) }
-                    }
-
-                    val status = connection.responseCode
-                    val isOk = status in HTTP_OK_MIN..HTTP_OK_MAX
-
-                    // A 401 means this token is dead regardless of which endpoint hit it —
-                    // surface that once, centrally, rather than each of the 5+ call sites
-                    // needing its own check.
-                    if (status == HTTP_UNAUTHORIZED) AuthEventBus.notifySessionExpired()
-
-                    val text =
-                        (if (isOk) connection.inputStream else connection.errorStream)
-                            ?.bufferedReader()
-                            ?.use { it.readText() }
-                            .orEmpty()
-                    if (!isOk) throw ApiException(status, parseErrorMessage(text, status))
-                    text
-                } catch (e: java.io.IOException) {
-                    // Only tear the socket down on a transport failure. On success the
-                    // body stream was fully read and closed above, which hands the
-                    // keep-alive socket back to the pool -- disconnect() would discard it
-                    // and make the next call pay a fresh TCP+TLS handshake (several round
-                    // trips on weak cellular signal).
-                    connection.disconnect()
-                    throw e
-                }
+            val connection =
+                runCatching { url.openConnection() as HttpURLConnection }
+                    .getOrElse { return@withContext Result.failure(it) }
+            val call = async { runCatching { execute(connection, method, body, token, timeoutMs) } }
+            try {
+                call.await()
+            } catch (e: CancellationException) {
+                connection.disconnect()
+                throw e
             }
+        }
+
+    private fun execute(
+        connection: HttpURLConnection,
+        method: String,
+        body: JSONObject?,
+        token: String?,
+        timeoutMs: Int,
+    ): String =
+        try {
+            connection.requestMethod = method
+            if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
+            if (body != null) {
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+                connection.outputStream.use { it.write(body.toString().toByteArray()) }
+            }
+
+            val status = connection.responseCode
+            val isOk = status in HTTP_OK_MIN..HTTP_OK_MAX
+
+            // A 401 means this token is dead regardless of which endpoint hit it —
+            // surface that once, centrally, rather than each of the 5+ call sites
+            // needing its own check.
+            if (status == HTTP_UNAUTHORIZED) AuthEventBus.notifySessionExpired()
+
+            val text =
+                (if (isOk) connection.inputStream else connection.errorStream)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
+            if (!isOk) throw ApiException(status, parseErrorMessage(text, status))
+            text
+        } catch (e: java.io.IOException) {
+            // Only tear the socket down on a transport failure. On success the
+            // body stream was fully read and closed above, which hands the
+            // keep-alive socket back to the pool -- disconnect() would discard it
+            // and make the next call pay a fresh TCP+TLS handshake (several round
+            // trips on weak cellular signal).
+            connection.disconnect()
+            throw e
         }
 
     private fun parseErrorMessage(

@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.provider.Telephony
 import android.util.Log
+import com.bantai.BuildConfig
 
 private const val TAG = "DefaultSmsApp"
 
@@ -29,8 +30,8 @@ object DefaultSmsApp {
                 null
             }
         val byPackage = Telephony.Sms.getDefaultSmsPackage(context) == context.packageName
-        // Temporary: confirms on the Samsung that the two answers disagree.
-        Log.i(TAG, "role=$byRole package=$byPackage")
+        // Confirms on the Samsung that the two answers disagree. Debug only: this runs on every SMS.
+        if (BuildConfig.DEBUG) Log.i(TAG, "role=$byRole package=$byPackage")
         return byRole ?: byPackage
     }
 }

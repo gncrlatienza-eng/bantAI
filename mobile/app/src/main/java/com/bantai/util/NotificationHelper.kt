@@ -5,9 +5,12 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -20,6 +23,7 @@ import com.bantai.data.model.isGroupKey
 import com.bantai.data.model.normalizeSenderKey
 import com.bantai.data.remote.TipsApi
 import com.bantai.receiver.NotificationActionReceiver
+import com.bantai.util.NotificationLanding
 
 @Suppress("TooManyFunctions") // one builder per notification kind
 object NotificationHelper {
@@ -27,8 +31,10 @@ object NotificationHelper {
 
     /** Intent extra read by MainActivity to deep-link a notification tap to a tab. */
     const val EXTRA_NAVIGATE_TO = "navigate_to"
+    const val EXTRA_LANDING = "landing"
     const val TARGET_ALERTS = "alerts"
     const val TARGET_MESSAGES = "messages"
+    const val TARGET_DAILY_SUMMARY = "daily_summary"
 
     /** Safety tip to open from its notification, and (for a campaign tip) the wave it belongs to. */
     const val EXTRA_TIP_ID = "tip_id"
@@ -41,12 +47,16 @@ object NotificationHelper {
      * Tints the notification icon backdrop in the shade: the middle of the app
      * icon's gradient (#6366F1 -> #4338CA), so it reads as the same indigo.
      */
-    private val BRAND_INDIGO = 0xFF534FDE.toInt()
+    internal val BRAND_INDIGO = 0xFF534FDE.toInt()
 
-    private const val SMISHING_CHANNEL_ID = "bantai_smishing"
+    // "_v2" since 1.7: each now has its own sound, and Android never lets an
+    // existing channel change its sound, so these are new channels and the
+    // old ids are deleted (see LEGACY_CHANNEL_IDS).
+    private const val SMISHING_CHANNEL_ID = "bantai_smishing_v2"
     private const val SUSPICIOUS_CHANNEL_ID = "bantai_suspicious"
-    private const val SPAM_CHANNEL_ID = "bantai_spam"
-    private const val MESSAGE_CHANNEL_ID = "bantai_messages"
+    private const val SPAM_CHANNEL_ID = "bantai_spam_v2"
+    private const val MESSAGE_CHANNEL_ID = "bantai_messages_v2"
+    private val LEGACY_CHANNEL_IDS = listOf("bantai_smishing", "bantai_spam", "bantai_messages")
     private const val SEND_STATUS_CHANNEL_ID = "bantai_send_status"
     private const val SMISHING_CHANNEL_NAME = "Smishing Alerts"
     private const val SUSPICIOUS_CHANNEL_NAME = "Suspicious Alerts"
@@ -55,9 +65,22 @@ object NotificationHelper {
     private const val SEND_STATUS_CHANNEL_NAME = "Send Status"
     private const val TIPS_CHANNEL_ID = "bantai_tips"
     private const val TIPS_CHANNEL_NAME = "Safety tips"
+    private const val REPORTS_CHANNEL_ID = "bantai_reports"
+    private const val REPORTS_CHANNEL_NAME = "Report updates"
+    private const val REPORT_RECEIVED_NOTIF_ID = 0x5245_5054 // "REPT"
 
-    /** Derives a stable-ish notification id from a sender, same formula used across the app. */
-    fun notifIdFor(sender: String): Int = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+    /**
+     * One scam/suspicious/spam alert notification per sender. It used to mix in
+     * the time, so nothing could ever clear it: it stayed in the shade after the
+     * alert was opened or marked read. Now opening the alert, its thread, or
+     * Mark all read clears it.
+     */
+    fun alertNotifId(sender: String): Int = ("alert:" + normalizeSenderKey(sender)).hashCode() and Int.MAX_VALUE
+
+    fun cancelAlert(
+        context: Context,
+        sender: String,
+    ) = cancel(context, alertNotifId(sender))
 
     /**
      * One notification per conversation: a new text replaces the previous one
@@ -89,7 +112,7 @@ object NotificationHelper {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun notifySafely(
+    internal fun notifySafely(
         context: Context,
         notifId: Int,
         notification: Notification,
@@ -105,6 +128,7 @@ object NotificationHelper {
     // this app can run on, so no SDK_INT guard is needed here.
     fun createNotificationChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        LEGACY_CHANNEL_IDS.forEach { runCatching { manager.deleteNotificationChannel(it) } }
 
         val smishingChannel =
             NotificationChannel(
@@ -114,6 +138,7 @@ object NotificationHelper {
             ).apply {
                 description = "Alerts for detected smishing messages"
                 enableVibration(true)
+                setSound(soundUri(context, "alert_scam"), NOTIFICATION_AUDIO)
             }
 
         val suspiciousChannel =
@@ -129,9 +154,11 @@ object NotificationHelper {
             NotificationChannel(
                 SPAM_CHANNEL_ID,
                 SPAM_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW,
+                // DEFAULT, not LOW: LOW never plays a sound, and spam now has its own.
+                NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 description = "Unsolicited promotional or marketing messages"
+                setSound(soundUri(context, "alert_spam"), NOTIFICATION_AUDIO)
             }
 
         val messageChannel =
@@ -141,6 +168,7 @@ object NotificationHelper {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "Ordinary incoming SMS — BantAI acting as your default messaging app"
+                setSound(soundUri(context, "alert_message"), NOTIFICATION_AUDIO)
             }
 
         val sendStatusChannel =
@@ -157,11 +185,111 @@ object NotificationHelper {
         manager.createNotificationChannel(spamChannel)
         manager.createNotificationChannel(messageChannel)
         manager.createNotificationChannel(sendStatusChannel)
+        createTipsChannel(manager)
+        createReportsChannel(manager)
+        SummaryNotification.createChannel(manager)
+    }
+
+    private fun createTipsChannel(manager: NotificationManager) {
         manager.createNotificationChannel(
             NotificationChannel(TIPS_CHANNEL_ID, TIPS_CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "New scam warnings and safety tips from the BantAI team"
             },
         )
+    }
+
+    private val NOTIFICATION_AUDIO: AudioAttributes =
+        AudioAttributes
+            .Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+    // By name, not numeric id: Android stores this URI in the channel for good,
+    // and an id can shift in a later build. res/raw/keep.xml keeps the files.
+    private fun soundUri(
+        context: Context,
+        rawName: String,
+    ): Uri = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/raw/$rawName")
+
+    private fun createReportsChannel(manager: NotificationManager) {
+        manager.createNotificationChannel(
+            NotificationChannel(
+                REPORTS_CHANNEL_ID,
+                REPORTS_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "Confirms your reports and tells you when the BantAI team has reviewed them"
+            },
+        )
+    }
+
+    /** Right after a report is filed: thanks, and what happens next. */
+    fun sendReportReceived(context: Context) {
+        sendReportNotification(
+            context,
+            REPORT_RECEIVED_NOTIF_ID,
+            context.getString(R.string.report_notif_received_title),
+            context.getString(R.string.report_notif_received_body),
+        )
+    }
+
+    /**
+     * The BantAI team reviewed one of the user's reports ([key] = its message id).
+     * [unblocked]: a rejected Scam report whose auto-block was just lifted.
+     */
+    fun sendReportReviewed(
+        context: Context,
+        key: String,
+        accepted: Boolean,
+        unblocked: String? = null,
+    ) {
+        val (title, body) =
+            if (accepted) {
+                R.string.report_notif_accepted_title to R.string.report_notif_accepted_body
+            } else {
+                R.string.report_notif_rejected_title to R.string.report_notif_rejected_body
+            }
+        val text =
+            unblocked?.let { context.getString(R.string.report_notif_rejected_unblocked_body, it) }
+                ?: context.getString(body)
+        val notifId = ("report:$key").hashCode() and Int.MAX_VALUE
+        sendReportNotification(context, notifId, context.getString(title), text)
+    }
+
+    // Tapping opens Alerts, where Reported shows each report's status.
+    private fun sendReportNotification(
+        context: Context,
+        notifId: Int,
+        title: String,
+        body: String,
+    ) {
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(EXTRA_LANDING, NotificationLanding.REPORTS)
+                putExtra(IntentToken.EXTRA, IntentToken.get(context))
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                notifId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val notification =
+            NotificationCompat
+                .Builder(context, REPORTS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(BRAND_INDIGO)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+        notifySafely(context, notifId, notification)
     }
 
     /**
@@ -204,8 +332,8 @@ object NotificationHelper {
     }
 
     /**
-     * A scam whose sender BantAI has already blocked. Nothing to decide, so the
-     * copy points at the alert as a chance to learn what the scam looked like.
+     * A scam whose sender BantAI has already blocked. Nothing to decide; blocked
+     * senders live in Settings -> Blocked numbers (not Alerts), so the tap opens that.
      */
     fun sendScamBlockedNotice(
         context: Context,
@@ -217,6 +345,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_ALERTS)
+                putExtra(EXTRA_LANDING, NotificationLanding.BLOCKED)
                 putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =
@@ -232,7 +361,7 @@ object NotificationHelper {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(BRAND_INDIGO)
                 .setContentTitle("Scam blocked — $safe")
-                .setContentText("BantAI blocked a scam text. Tap to see what it looked like.")
+                .setContentText("BantAI blocked a scam text. Tap to see your blocked numbers.")
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
@@ -327,6 +456,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_NAVIGATE_TO, TARGET_MESSAGES)
+                putExtra(EXTRA_LANDING, NotificationLanding.SPAM)
                 putExtra(IntentToken.EXTRA, IntentToken.get(context))
             }
         val pendingIntent =

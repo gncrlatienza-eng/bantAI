@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 import type { CampaignCluster } from '../../services/campaignsService';
 
@@ -107,17 +113,23 @@ describe('CampaignsList (admin)', () => {
     expect(within(table).queryByText('Loan offers')).toBeNull();
     expect(within(table).queryByText(/Promo/)).toBeNull();
     expect(within(table).queryByText(/cluster-82|Unlabeled/)).toBeNull();
-    expect(
-      screen.getByText(/1 promo, 1 retired with no messages, 1 archived/),
-    ).toBeTruthy();
+    // What the filters hide is counted on the More filters button.
+    const more = screen.getByRole('button', {
+      name: 'More filters · 3 hidden',
+    });
+    expect(more.getAttribute('title')).toBe(
+      '1 promo, 1 retired with no messages, 1 archived',
+    );
   });
 
   it('offers the bulk archive only with campaigns:manage', async () => {
     render(<CampaignsList role="admin" />);
+    // The clean-up lives with the filters that hide those clusters.
+    fireEvent.click(
+      await screen.findByRole('button', { name: /More filters/ }),
+    );
     expect(
-      await screen.findByRole('button', {
-        name: 'Archive 1 empty retired cluster',
-      }),
+      screen.getByRole('button', { name: 'Archive 1 empty retired cluster' }),
     ).toBeTruthy();
   });
 
@@ -125,6 +137,7 @@ describe('CampaignsList (admin)', () => {
     permission.value = false;
     render(<CampaignsList role="admin" />);
     await screen.findByText('Bank phishing (BDO)');
+    fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
     expect(screen.queryByRole('button', { name: /Archive/ })).toBeNull();
   });
 
@@ -155,6 +168,7 @@ describe('CampaignsList (admin)', () => {
     expect(screen.queryByRole('tab', { name: /Archived/ })).toBeNull();
     expect(within(table).queryByText('E-wallet phishing (GCash)')).toBeNull();
 
+    fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
     fireEvent.click(screen.getByLabelText('Show archived'));
     expect(within(table).getByText('E-wallet phishing (GCash)')).toBeTruthy();
     expect(within(table).getByText('Archived')).toBeTruthy();
@@ -171,7 +185,9 @@ describe('CampaignsList (admin)', () => {
       }),
     );
     render(<CampaignsList role="admin" />);
-    await screen.findByText(/active campaigns? in the last 30 days/);
+    await waitFor(() =>
+      expect(screen.queryByText('Loading campaigns…')).toBeNull(),
+    );
     fireEvent.click(screen.getByRole('tab', { name: /Inactive/ }));
     const table = screen.getByRole('table', { name: 'Campaigns' });
 

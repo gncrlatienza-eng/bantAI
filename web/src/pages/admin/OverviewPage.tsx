@@ -6,8 +6,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   Metric,
@@ -19,7 +19,6 @@ import {
   LoadingState,
   ErrorState,
   type Column,
-  type StatusKind,
 } from '../../components/primitives';
 import {
   getPendingReports,
@@ -27,8 +26,9 @@ import {
 } from '../../services/reportsService';
 import {
   getActiveCampaigns,
-  type CampaignCluster,
+  getInactiveCampaigns,
 } from '../../services/campaignsService';
+import { countRecentlyActiveCampaigns } from '../../features/campaigns/campaignDisplay';
 import {
   getHealthStatus,
   getReadinessStatus,
@@ -37,7 +37,23 @@ import {
 } from '../../services/healthService';
 import { getPortalOrganizations } from '../../services/portalOrganizationsService';
 import { getAnalyticsSummary } from '../../services/analyticsService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+import {
+  SectionHeading,
+  ShortId,
+  StatusCard,
+  classificationKind,
+  databaseKind,
+  formatUptime,
+  healthKind,
+} from './adminDisplay';
+
+// Same frame as StatPanel, so every summary card in the portal matches.
+const PANEL = {
+  background: 'var(--surface-raised)',
+  border: '1px solid var(--border-default)',
+  borderRadius: 10,
+  padding: 20,
+} as const;
 import {
   getAdminMobileSync,
   type AdminMobileSyncSummary,
@@ -45,19 +61,6 @@ import {
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'The backend request failed.';
-}
-
-function toStatusKind(label: string | null | undefined): StatusKind {
-  switch (label) {
-    case 'Scam':
-      return 'threat';
-    case 'Spam':
-      return 'suspicious';
-    case 'Ham':
-      return 'verified';
-    default:
-      return 'unknown';
-  }
 }
 
 interface ReportRow {
@@ -75,7 +78,7 @@ function toReportRow(item: UserReportItem): ReportRow {
     originalLabel: item.originalLabel,
     reportedLabel: item.reportedLabel,
     status: item.status,
-    submitter: item.user?.id ?? item.userId ?? 'Account record unavailable',
+    submitter: item.user?.id ?? item.userId ?? '',
     createdAt: new Date(item.createdAt).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -87,19 +90,30 @@ const REPORT_COLUMNS: Column<ReportRow>[] = [
   {
     key: 'submitter',
     header: 'Reporter',
-    render: (r) => r.submitter,
+    render: (r) =>
+      r.submitter ? <ShortId id={r.submitter} /> : 'Account record unavailable',
     width: '20%',
   },
   {
     key: 'originalLabel',
     header: 'Model said',
-    render: (r) => <StatusBadge kind={toStatusKind(r.originalLabel)} />,
+    render: (r) => (
+      <StatusBadge
+        kind={classificationKind(r.originalLabel)}
+        label={r.originalLabel}
+      />
+    ),
     width: '18%',
   },
   {
     key: 'reportedLabel',
     header: 'Reporter says',
-    render: (r) => <StatusBadge kind={toStatusKind(r.reportedLabel)} />,
+    render: (r) => (
+      <StatusBadge
+        kind={classificationKind(r.reportedLabel)}
+        label={r.reportedLabel}
+      />
+    ),
     width: '18%',
   },
   {
@@ -124,23 +138,15 @@ interface SystemStatus {
   readinessError: string | null;
 }
 
-export function isOk(status: string | undefined | null): boolean {
-  if (!status) return false;
-  // Negated values ("unreachable", "unready") contain a healthy word; reject
-  // them first. 'reachable' is what GET /api/health/ready returns for the DB.
-  if (/^(un|not)/i.test(status.trim())) return false;
-  return /(ok|ready|reachable|healthy|operational|up)/i.test(status);
-}
-
 export function OverviewPage() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   // null = this staff role may not read that source (or it failed); each
   // panel degrades on its own instead of the whole Overview erroring out.
   const [totalReports, setTotalReports] = useState<number | null>(null);
   const [pending, setPending] = useState<UserReportItem[] | null>(null);
-  const [campaigns, setCampaigns] = useState<CampaignCluster[] | null>(null);
+  // Same definition as the Campaigns "Active" tab: a message in 30 days.
+  const [activeCampaigns, setActiveCampaigns] = useState<number | null>(null);
   const [orgCount, setOrgCount] = useState<number | null>(null);
   const [mobileSync, setMobileSync] = useState<AdminMobileSyncSummary | null>(
     null,
@@ -161,18 +167,20 @@ export function OverviewPage() {
       // Each source has its own staff permission (reports:read,
       // campaigns:manage, access_requests:manage, overview:read). A role
       // without one of them still gets the rest of the Overview.
-      const [summary, pendingReports, activeCampaigns, orgs, sync] =
+      const [summary, pendingReports, campaignLists, orgs, sync] =
         await Promise.all([
           getAnalyticsSummary().catch(() => null),
           getPendingReports().catch(() => null),
-          getActiveCampaigns().catch(() => null),
+          Promise.all([getActiveCampaigns(), getInactiveCampaigns()]).catch(
+            () => null,
+          ),
           getPortalOrganizations().catch(() => null),
           // Mobile sync is additive telemetry. Keep the rest of the overview
           // usable if this newer endpoint is temporarily unavailable during a
           // staggered backend/web deployment.
           getAdminMobileSync().catch(() => null),
         ]);
-      if (!summary && !pendingReports && !activeCampaigns && !sync) {
+      if (!summary && !pendingReports && !campaignLists && !sync) {
         throw new Error(
           'None of the Overview sources answered. Check the backend and your staff permissions.',
         );
@@ -180,7 +188,11 @@ export function OverviewPage() {
       // Exact all-time count (the /reports list is capped at 100 rows).
       setTotalReports(summary?.totalReports ?? null);
       setPending(pendingReports);
-      setCampaigns(activeCampaigns);
+      setActiveCampaigns(
+        campaignLists
+          ? countRecentlyActiveCampaigns(campaignLists.flat(), Date.now())
+          : null,
+      );
       setOrgCount(Array.isArray(orgs) ? orgs.length : null);
       setMobileSync(sync);
 
@@ -214,35 +226,8 @@ export function OverviewPage() {
     n == null ? '—' : n.toLocaleString();
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>System Administration &middot; Overview</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
-      <PageHeader
-        title="System Administration Overview"
-        description="Situation across BantAI's threat intelligence pipeline, model reviews, and platform health."
-        meta={
-          loading
-            ? 'Loading live telemetry...'
-            : `${fmt(mobileSync?.classifiedMessages)} mobile classifications · ${fmt(totalReports)} reports · ${fmt(campaigns?.length)} active campaigns · ${fmt(
-                orgCount,
-              )} organizations`
-        }
-        actions={
-          <Button
-            variant="secondary"
-            onClick={() => void navigate('/admin/reports')}
-          >
-            Open reports queue
-          </Button>
-        }
-      />
+    <>
+      <PageHeader title="Overview" />
 
       {error && !loading && (
         <div
@@ -278,123 +263,63 @@ export function OverviewPage() {
 
       {!error && !loading && (
         <>
-          <section style={{ marginBottom: 20 }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                marginBottom: 12,
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-                Mobile sync activity
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void navigate('/admin/mobile-sync')}
-              >
-                Open mobile sync
-              </Button>
-            </div>
-            <div
-              style={{
-                background: 'var(--surface-raised)',
-                borderRadius: 8,
-                padding: '20px 24px',
-              }}
-            >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                  gap: 24,
-                }}
-              >
+          <section style={{ marginBottom: 28 }}>
+            <SectionHeading
+              title="Messages"
+              actionLabel="View messages"
+              onAction={() => void navigate('/admin/messages')}
+            />
+            <div style={PANEL}>
+              <MetricRow columns={4}>
                 <Metric
                   label="Synced accounts"
                   value={(mobileSync?.syncedAccounts ?? 0).toLocaleString()}
-                  meta="with mobile SMS metadata"
                 />
                 <Metric
                   label="Classified"
                   value={(mobileSync?.classifiedMessages ?? 0).toLocaleString()}
-                  meta="received from mobile"
                 />
                 <Metric
                   label="Scam"
                   value={(mobileSync?.scamCount ?? 0).toLocaleString()}
-                  meta="privacy-safe detections"
                 />
                 <Metric
                   label="Spam"
                   value={(mobileSync?.spamCount ?? 0).toLocaleString()}
-                  meta="privacy-safe detections"
                 />
-              </div>
+              </MetricRow>
             </div>
           </section>
 
-          <section
-            style={{
-              background: 'var(--surface-raised)',
-              borderRadius: 8,
-              padding: '20px 24px',
-              marginBottom: 20,
-            }}
-          >
-            <MetricRow columns={4}>
-              <Metric
-                label="Reports received"
-                value={fmt(totalReports)}
-                meta="all-time submissions"
-              />
-              <Metric
-                label="Pending review"
-                value={fmt(pending?.length)}
-                meta="not yet resolved"
-              />
-              <Metric
-                label="Active campaigns"
-                value={fmt(campaigns?.length)}
-                meta="clusters detected"
-              />
-              <Metric
-                label="Client organizations"
-                value={(orgCount ?? 0).toLocaleString()}
-                meta="portal accounts"
-              />
-            </MetricRow>
+          <section style={{ marginBottom: 28 }}>
+            <SectionHeading
+              title="Reports and campaigns"
+              actionLabel="View campaigns"
+              onAction={() => void navigate('/admin/campaigns')}
+            />
+            <div style={PANEL}>
+              <MetricRow columns={4}>
+                <Metric label="Reports received" value={fmt(totalReports)} />
+                <Metric label="Pending review" value={fmt(pending?.length)} />
+                <Metric
+                  label="Active campaigns"
+                  value={fmt(activeCampaigns)}
+                  meta="last 30 days"
+                />
+                <Metric
+                  label="Client organizations"
+                  value={(orgCount ?? 0).toLocaleString()}
+                />
+              </MetricRow>
+            </div>
           </section>
 
-          <section style={{ marginBottom: 20 }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                marginBottom: 12,
-              }}
-            >
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                }}
-              >
-                System status
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void navigate('/admin/system')}
-              >
-                Open system
-              </Button>
-            </div>
+          <section style={{ marginBottom: 28 }}>
+            <SectionHeading
+              title="System status"
+              actionLabel="View system"
+              onAction={() => void navigate('/admin/system')}
+            />
             <div
               style={{
                 display: 'grid',
@@ -402,166 +327,58 @@ export function OverviewPage() {
                 gap: 12,
               }}
             >
-              <article
-                style={{
-                  background: 'var(--surface-raised)',
-                  borderRadius: 8,
-                  padding: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                }}
+              <StatusCard
+                label="Backend API"
+                detail={
+                  sys.health ? formatUptime(sys.health.uptime) : undefined
+                }
               >
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  Backend API
-                </span>
                 {sys.health ? (
-                  <>
-                    <StatusBadge
-                      kind={isOk(sys.health.status) ? 'verified' : 'threat'}
-                      label={sys.health.status}
-                    />
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {sys.health.service} v{sys.health.version} · uptime{' '}
-                      {Math.round(sys.health.uptime)}s
-                    </span>
-                  </>
+                  <StatusBadge
+                    kind={healthKind(sys.health.status)}
+                    label={sys.health.status}
+                  />
                 ) : (
                   <StatusBadge
                     kind="unknown"
                     label={sys.healthError ?? 'unreachable'}
                   />
                 )}
-              </article>
-
-              <article
-                style={{
-                  background: 'var(--surface-raised)',
-                  borderRadius: 8,
-                  padding: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  Database
-                </span>
+              </StatusCard>
+              <StatusCard label="Database">
                 {sys.readiness ? (
-                  <>
-                    <StatusBadge
-                      kind={
-                        isOk(sys.readiness.database) ? 'verified' : 'threat'
-                      }
-                      label={sys.readiness.database}
-                    />
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      readiness: {sys.readiness.status}
-                    </span>
-                  </>
+                  <StatusBadge
+                    kind={databaseKind(
+                      sys.readiness.database,
+                      sys.readiness.status,
+                    )}
+                    label={sys.readiness.database}
+                  />
                 ) : (
                   <StatusBadge
                     kind="unknown"
                     label={sys.readinessError ?? 'unreachable'}
                   />
                 )}
-              </article>
-
-              <article
-                style={{
-                  background: 'var(--surface-raised)',
-                  borderRadius: 8,
-                  padding: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  Model service
-                </span>
+              </StatusCard>
+              <StatusCard label="Model service">
                 <InfoBadge>Live proxy</InfoBadge>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  Backend proxies classification to the Python AI service.
-                </span>
-              </article>
+              </StatusCard>
             </div>
           </section>
 
           <section>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                marginBottom: 12,
-              }}
-            >
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                }}
-              >
-                Pending reports
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void navigate('/admin/reports')}
-              >
-                Open queue
-              </Button>
-            </div>
+            <SectionHeading
+              title="Pending reports"
+              actionLabel="View queue"
+              onAction={() => void navigate('/admin/review/reports')}
+            />
             <DataTable<ReportRow>
               ariaLabel="Pending user reports"
               rowKey={(r) => r.id}
               rows={reportRows}
               columns={REPORT_COLUMNS}
-              onRowClick={() => void navigate('/admin/reports')}
+              onRowClick={() => void navigate('/admin/review/reports')}
               emptyState={
                 pending === null ? (
                   <EmptyState
@@ -579,7 +396,7 @@ export function OverviewPage() {
           </section>
         </>
       )}
-    </AppShell>
+    </>
   );
 }
 

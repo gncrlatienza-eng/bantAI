@@ -30,6 +30,27 @@ const PlatformPage = lazyPage(
   () => import('../pages/Platform'),
   (m) => m.PlatformPage,
 );
+/* Signed-in layouts (sidebar + top bar), mounted once per portal. */
+const AdminLayout = lazyPage(
+  () => import('./PortalLayouts'),
+  (m) => m.AdminLayout,
+);
+const AdminLanding = lazyPage(
+  () => import('./PortalLayouts'),
+  (m) => m.AdminLanding,
+);
+const AdminHub = lazyPage(
+  () => import('./PortalLayouts'),
+  (m) => m.AdminHub,
+);
+const AdminSettingsHub = lazyPage(
+  () => import('./PortalLayouts'),
+  (m) => m.AdminSettingsHub,
+);
+const ShieldLayout = lazyPage(
+  () => import('./PortalLayouts'),
+  (m) => m.ShieldLayout,
+);
 
 const AdminOverviewPage = lazyPage(
   () => import('../pages/admin/OverviewPage'),
@@ -43,13 +64,9 @@ const AdminCampaignDetailPage = lazyPage(
   () => import('../pages/admin/CampaignDetailPage'),
   (m) => m.CampaignDetailPage,
 );
-const AdminModelPage = lazyPage(
-  () => import('../pages/admin/ModelPage'),
-  (m) => m.ModelPage,
-);
-const AdminSystemPage = lazyPage(
-  () => import('../pages/admin/SystemPage'),
-  (m) => m.SystemPage,
+const AdminMessagesPage = lazyPage(
+  () => import('../pages/admin/MobileSyncPage'),
+  (m) => m.MobileSyncPage,
 );
 const AdminReportsPage = lazyPage(
   () => import('../pages/admin/ReportsPage'),
@@ -59,37 +76,73 @@ const AdminSenderReportsPage = lazyPage(
   () => import('../pages/admin/SenderReportsPage'),
   (m) => m.SenderReportsPage,
 );
-const AdminUsersPage = lazyPage(
-  () => import('../pages/admin/UsersPage'),
-  (m) => m.UsersPage,
+const AdminReviewQueueTab = lazyPage(
+  () => import('../pages/admin/model/ReviewQueueTab'),
+  (m) => m.ReviewQueueTab,
 );
-const AdminSettingsPage = lazyPage(
-  () => import('../pages/admin/SettingsPage'),
-  (m) => m.SettingsPage,
+const AdminModelLifecycleTab = lazyPage(
+  () => import('../pages/admin/model/ModelLifecycleTab'),
+  (m) => m.ModelLifecycleTab,
 );
-const AdminExportPage = lazyPage(
-  () => import('../pages/admin/ExportPage'),
-  (m) => m.ExportPage,
+const AdminDriftTab = lazyPage(
+  () => import('../pages/admin/model/DriftTab'),
+  (m) => m.DriftTab,
 );
-const AdminTipsPage = lazyPage(
-  () => import('../pages/admin/TipsPage'),
-  (m) => m.TipsPage,
+const AdminDatasetTab = lazyPage(
+  () => import('../pages/admin/model/DatasetTab'),
+  (m) => m.DatasetTab,
 );
-const AdminMobileSyncPage = lazyPage(
-  () => import('../pages/admin/MobileSyncPage'),
-  (m) => m.MobileSyncPage,
+const AdminModelErrorsTab = lazyPage(
+  () => import('../pages/admin/ModelPage'),
+  (m) => m.FpFnTab,
 );
 const AdminAccessRequestsPage = lazyPage(
   () => import('../pages/admin/AccessRequestsPage'),
   (m) => m.AccessRequestsPage,
 );
+const AdminUsersPage = lazyPage(
+  () => import('../pages/admin/UsersPage'),
+  (m) => m.UsersPage,
+);
 const AdminApiKeysPage = lazyPage(
   () => import('../pages/admin/ApiKeysPage'),
   (m) => m.ApiKeysPage,
 );
-const AdminAuditPage = lazyPage(
+const AdminTipsPage = lazyPage(
+  () => import('../pages/admin/TipsPage'),
+  (m) => m.TipsPage,
+);
+const AdminServerHealthTab = lazyPage(
+  () => import('../pages/admin/SystemPage'),
+  (m) => m.ServerHealthTab,
+);
+const AdminApiLogsTab = lazyPage(
+  () => import('../pages/admin/SystemPage'),
+  (m) => m.ApiLogsTab,
+);
+const AdminDbStorageTab = lazyPage(
+  () => import('../pages/admin/SystemPage'),
+  (m) => m.DbStorageTab,
+);
+const AdminAuditEventsPanel = lazyPage(
   () => import('../pages/admin/AuditPage'),
-  (m) => m.AuditPage,
+  (m) => m.AuditEventsPanel,
+);
+const AdminExportPage = lazyPage(
+  () => import('../pages/admin/ExportPage'),
+  (m) => m.ExportPage,
+);
+const AdminProfileSettings = lazyPage(
+  () => import('../pages/admin/SettingsPage'),
+  (m) => m.ProfileSettings,
+);
+const AdminNotificationSettings = lazyPage(
+  () => import('../pages/admin/SettingsPage'),
+  (m) => m.NotificationSettings,
+);
+const AdminNotificationsInbox = lazyPage(
+  () => import('../pages/admin/SettingsPage'),
+  (m) => m.NotificationsInbox,
 );
 
 const ClientOverviewPage = lazyPage(
@@ -104,22 +157,61 @@ const ClientCampaignDetailPage = lazyPage(
   () => import('../pages/client/CampaignDetailPage'),
   (m) => m.CampaignDetailPage,
 );
-const ClientSettingsPage = lazyPage(
+const ClientNotificationsPage = lazyPage(
   () => import('../pages/client/SettingsPage'),
-  (m) => m.SettingsPage,
+  (m) => m.NotificationsPage,
 );
 const ClientHelpPage = lazyPage(
   () => import('../pages/client/HelpPage'),
   (m) => m.HelpPage,
 );
-const ClientExportPage = lazyPage(
-  () => import('../pages/client/ExportPage'),
-  (m) => m.ExportPage,
-);
 const ClientApiPage = lazyPage(
   () => import('../pages/client/ApiPage'),
   (m) => m.ApiPage,
 );
+const ClientAccountPage = lazyPage(
+  () => import('../pages/client/AccountPage'),
+  (m) => m.AccountPage,
+);
+
+/*
+ * Retired admin URLs → their new home (relative to /admin). Query-string
+ * tabs from the old Model and System pages map through the hubs below.
+ */
+const ADMIN_REDIRECTS: Array<[string, string]> = [
+  ['reports', '/admin/review/reports'],
+  ['sender-reports', '/admin/review/senders'],
+  ['mobile-sync', '/admin/messages'],
+  ['classification', '/admin/messages'],
+  ['concept-drift', '/admin/model/drift'],
+  ['dataset', '/admin/model/dataset'],
+  ['fpfn', '/admin/model/errors'],
+  ['timeline', '/admin/campaigns'],
+  ['access-requests', '/admin/customers/requests'],
+  ['users', '/admin/customers/accounts'],
+  ['shield-api', '/admin/customers/api'],
+  ['audit', '/admin/system/audit'],
+  ['export', '/admin/system/exports'],
+  ['server', '/admin/system/health'],
+  ['api-logs', '/admin/system/logs'],
+  ['db-storage', '/admin/system/storage'],
+];
+
+const MODEL_LEGACY_TABS: Record<string, string> = {
+  overview: '/admin/model/overview',
+  drift: '/admin/model/drift',
+  dataset: '/admin/model/dataset',
+  fpfn: '/admin/model/errors',
+  review: '/admin/review/detections',
+  classification: '/admin/messages',
+};
+
+const SYSTEM_LEGACY_TABS: Record<string, string> = {
+  server: '/admin/system/health',
+  'api-logs': '/admin/system/logs',
+  'db-storage': '/admin/system/storage',
+  audit: '/admin/system/audit',
+};
 
 const AccountPage = lazyPage(
   () => import('../pages/account/AccountPage'),
@@ -173,7 +265,9 @@ const PrimitivesPage = import.meta.env.DEV
 function lifecycle(group: RouteGroup, page: React.ReactNode) {
   return (
     <LifecycleRoute group={group}>
-      <React.Suspense fallback={<LoadingState label="Loading page" />}>
+      <React.Suspense
+        fallback={<LoadingState label="Loading page" fullScreen />}
+      >
         {page}
       </React.Suspense>
     </LifecycleRoute>
@@ -203,7 +297,9 @@ export function AppRoutes() {
       <Route
         path="/android"
         element={
-          <React.Suspense fallback={<LoadingState label="Loading page" />}>
+          <React.Suspense
+            fallback={<LoadingState label="Loading page" fullScreen />}
+          >
             <AndroidPage />
           </React.Suspense>
         }
@@ -211,7 +307,9 @@ export function AppRoutes() {
       <Route
         path="/platform"
         element={
-          <React.Suspense fallback={<LoadingState label="Loading page" />}>
+          <React.Suspense
+            fallback={<LoadingState label="Loading page" fullScreen />}
+          >
             <PlatformPage />
           </React.Suspense>
         }
@@ -308,38 +406,23 @@ export function AppRoutes() {
       <Route path="/profile" element={<Navigate to="/account" replace />} />
       <Route path="/settings" element={<Navigate to="/account" replace />} />
 
-      {/* Shield portal. These client-named components remain only as a source
-          folder during the migration; the public information architecture is
-          Shield and contains approved campaign intelligence only. */}
-      <Route
-        path="/shield"
-        element={<Navigate to="/shield/overview" replace />}
-      />
-      <Route
-        path="/shield/overview"
-        element={clientPage(<ClientOverviewPage />)}
-      />
-      <Route
-        path="/shield/campaigns"
-        element={clientPage(<ClientCampaignsPage />)}
-      />
-      <Route
-        path="/shield/campaigns/:id"
-        element={clientPage(<ClientCampaignDetailPage />)}
-      />
-      <Route path="/shield/api" element={clientPage(<ClientApiPage />)} />
-      <Route
-        path="/shield/exports"
-        element={clientPage(<ClientExportPage />)}
-      />
-      <Route
-        path="/shield/notifications"
-        element={clientPage(<ClientSettingsPage notifications />)}
-      />
-      <Route
-        path="/shield/documentation"
-        element={clientPage(<ClientHelpPage />)}
-      />
+      {/* Shield portal: one layout around every screen. Approved campaign
+          intelligence only; account and notifications sit in the top bar. */}
+      <Route path="/shield" element={clientPage(<ShieldLayout />)}>
+        <Route index element={<Navigate to="/shield/overview" replace />} />
+        <Route path="overview" element={<ClientOverviewPage />} />
+        <Route path="campaigns" element={<ClientCampaignsPage />} />
+        <Route path="campaigns/:id" element={<ClientCampaignDetailPage />} />
+        <Route path="api" element={<ClientApiPage />} />
+        <Route path="notifications" element={<ClientNotificationsPage />} />
+        <Route path="documentation" element={<ClientHelpPage />} />
+        <Route path="account" element={<ClientAccountPage />} />
+        {/* Export is now an action on each campaign. */}
+        <Route
+          path="exports"
+          element={<Navigate to="/shield/campaigns" replace />}
+        />
+      </Route>
 
       {/* Legacy client URLs are retained as safe redirects while server-side
           authorization migrates. No retired data surface remains mounted. */}
@@ -366,7 +449,7 @@ export function AppRoutes() {
       />
       <Route
         path="/client/export"
-        element={<Navigate to="/shield/exports" replace />}
+        element={<Navigate to="/shield/campaigns" replace />}
       />
       <Route
         path="/client/help"
@@ -381,86 +464,60 @@ export function AppRoutes() {
         element={<Navigate to="/shield/notifications" replace />}
       />
 
-      {/* Admin Portal Routes */}
-      <Route
-        path="/admin/overview"
-        element={adminPage(<AdminOverviewPage />)}
-      />
-      <Route path="/admin/reports" element={adminPage(<AdminReportsPage />)} />
-      <Route
-        path="/admin/sender-reports"
-        element={adminPage(<AdminSenderReportsPage />)}
-      />
-      <Route
-        path="/admin/mobile-sync"
-        element={adminPage(<AdminMobileSyncPage />)}
-      />
-      <Route path="/admin/model" element={adminPage(<AdminModelPage />)} />
-      {/* Model sub-routes now live as tabs on /admin/model. Deep links redirect. */}
-      <Route
-        path="/admin/concept-drift"
-        element={<Navigate to="/admin/model?tab=drift" replace />}
-      />
-      <Route
-        path="/admin/dataset"
-        element={<Navigate to="/admin/model?tab=dataset" replace />}
-      />
-      <Route
-        path="/admin/classification"
-        element={<Navigate to="/admin/model?tab=classification" replace />}
-      />
-      <Route
-        path="/admin/fpfn"
-        element={<Navigate to="/admin/model?tab=fpfn" replace />}
-      />
-      <Route
-        path="/admin/campaigns"
-        element={adminPage(<AdminCampaignsPage />)}
-      />
-      <Route
-        path="/admin/campaigns/:id"
-        element={adminPage(<AdminCampaignDetailPage />)}
-      />
-      {/* Timeline was a chronological list of campaigns; the Campaign Detail
-          absorbs the drill-down and Campaigns list gives the flat view. */}
-      <Route
-        path="/admin/timeline"
-        element={<Navigate to="/admin/campaigns" replace />}
-      />
-      <Route path="/admin/users" element={adminPage(<AdminUsersPage />)} />
-      <Route
-        path="/admin/shield-api"
-        element={adminPage(<AdminApiKeysPage />)}
-      />
-      <Route path="/admin/audit" element={adminPage(<AdminAuditPage />)} />
-      <Route
-        path="/admin/access-requests"
-        element={adminPage(<AdminAccessRequestsPage />)}
-      />
-      <Route path="/admin/export" element={adminPage(<AdminExportPage />)} />
-      <Route path="/admin/system" element={adminPage(<AdminSystemPage />)} />
-      {/* System sub-routes now live as tabs on /admin/system. Deep links redirect. */}
-      <Route
-        path="/admin/server"
-        element={<Navigate to="/admin/system" replace />}
-      />
-      <Route
-        path="/admin/api-logs"
-        element={<Navigate to="/admin/system?tab=api-logs" replace />}
-      />
-      <Route
-        path="/admin/db-storage"
-        element={<Navigate to="/admin/system?tab=db-storage" replace />}
-      />
-      <Route path="/admin/tips" element={adminPage(<AdminTipsPage />)} />
-      <Route
-        path="/admin/settings"
-        element={adminPage(<AdminSettingsPage />)}
-      />
-      <Route
-        path="/admin/notifications"
-        element={adminPage(<AdminSettingsPage notifications />)}
-      />
+      {/* Admin portal: one layout (sidebar + top bar) around every screen.
+          Hubs (Review, Model, Customers, System, Settings) show their
+          screens as URL tabs; see src/navigation/portalNav.tsx. */}
+      <Route path="/admin" element={adminPage(<AdminLayout />)}>
+        <Route index element={<AdminLanding />} />
+        <Route path="overview" element={<AdminOverviewPage />} />
+        <Route path="review" element={<AdminHub id="review" />}>
+          <Route path="reports" element={<AdminReportsPage />} />
+          <Route path="senders" element={<AdminSenderReportsPage />} />
+          <Route path="detections" element={<AdminReviewQueueTab />} />
+        </Route>
+        <Route path="campaigns" element={<AdminCampaignsPage />} />
+        <Route path="campaigns/:id" element={<AdminCampaignDetailPage />} />
+        <Route path="messages" element={<AdminMessagesPage />} />
+        <Route
+          path="model"
+          element={<AdminHub id="model" legacyTabs={MODEL_LEGACY_TABS} />}
+        >
+          <Route path="overview" element={<AdminModelLifecycleTab />} />
+          <Route path="drift" element={<AdminDriftTab />} />
+          <Route path="dataset" element={<AdminDatasetTab />} />
+          <Route path="errors" element={<AdminModelErrorsTab />} />
+        </Route>
+        <Route path="customers" element={<AdminHub id="customers" />}>
+          <Route path="requests" element={<AdminAccessRequestsPage />} />
+          <Route path="accounts" element={<AdminUsersPage />} />
+          <Route path="api" element={<AdminApiKeysPage />} />
+        </Route>
+        <Route path="tips" element={<AdminTipsPage />} />
+        <Route
+          path="system"
+          element={<AdminHub id="system" legacyTabs={SYSTEM_LEGACY_TABS} />}
+        >
+          <Route path="health" element={<AdminServerHealthTab />} />
+          <Route path="logs" element={<AdminApiLogsTab />} />
+          <Route path="storage" element={<AdminDbStorageTab />} />
+          <Route path="audit" element={<AdminAuditEventsPanel />} />
+          <Route path="exports" element={<AdminExportPage />} />
+        </Route>
+        <Route path="settings" element={<AdminSettingsHub />}>
+          <Route path="profile" element={<AdminProfileSettings />} />
+          <Route path="notifications" element={<AdminNotificationSettings />} />
+        </Route>
+        <Route path="notifications" element={<AdminNotificationsInbox />} />
+
+        {/* Old admin URLs (bookmarks, docs, thesis screenshots) keep working. */}
+        {ADMIN_REDIRECTS.map(([from, to]) => (
+          <Route
+            key={from}
+            path={from}
+            element={<Navigate to={to} replace />}
+          />
+        ))}
+      </Route>
 
       {/* Dev-only design token surface */}
       {TokensPage && (

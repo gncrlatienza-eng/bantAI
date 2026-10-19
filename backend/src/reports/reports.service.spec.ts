@@ -231,6 +231,7 @@ describe('ReportsService', () => {
           status: 'Pending',
           note: 'Asked for my OTP',
           adminNote: null,
+          reviewedLabel: null,
           createdAt,
           updatedAt: createdAt,
           message: {
@@ -267,6 +268,7 @@ describe('ReportsService', () => {
                 createdAt,
                 note: 'Asked for my OTP',
                 adminNote: null,
+                reviewedLabel: null,
                 reviewedAt: null,
               },
             ],
@@ -286,6 +288,7 @@ describe('ReportsService', () => {
           status: 'Rejected',
           note: null,
           adminNote: 'Legitimate promo from the telco',
+          reviewedLabel: 'Spam',
           createdAt,
           updatedAt,
           message: {
@@ -306,8 +309,16 @@ describe('ReportsService', () => {
         createdAt,
         note: null,
         adminNote: 'Legitimate promo from the telco',
+        reviewedLabel: 'Spam',
         reviewedAt: updatedAt,
       });
+    });
+
+    it('selects reviewedLabel so the phone can move a rejected report', async () => {
+      mockPrisma.userReport.findMany.mockResolvedValue([]);
+      await service.findMine('user-1');
+      const select = mockPrisma.userReport.findMany.mock.calls[0][0].select;
+      expect(select.reviewedLabel).toBe(true);
     });
 
     it('never selects the message body or sender', async () => {
@@ -459,7 +470,36 @@ describe('ReportsService', () => {
       expect(mockPrisma.userReport.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'r1', status: 'Pending' },
-          data: { status: 'Rejected', adminNote: 'Spam is correct' },
+          data: {
+            status: 'Rejected',
+            adminNote: 'Spam is correct',
+            reviewedLabel: null,
+          },
+        }),
+      );
+    });
+
+    it('saves what the text really is when the reviewer gives a label', async () => {
+      mockPrisma.userReport.update.mockResolvedValue({
+        id: 'r1',
+        status: 'Rejected',
+        reviewedLabel: 'Ham',
+      });
+      const result = await service.reject(
+        'r1',
+        'admin-1',
+        'Real bank OTP',
+        'Ham',
+      );
+      expect(result).toMatchObject({ reviewedLabel: 'Ham' });
+      expect(mockPrisma.userReport.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            status: 'Rejected',
+            adminNote: 'Real bank OTP',
+            reviewedLabel: 'Ham',
+          },
+          select: expect.objectContaining({ reviewedLabel: true }),
         }),
       );
     });

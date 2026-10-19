@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -29,7 +29,6 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.ReportGmailerrorred
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -69,6 +69,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.container
+import com.bantai.data.ClassificationDiagnostics
 import com.bantai.data.OutgoingSms
 import com.bantai.data.model.Classification
 import com.bantai.data.model.ConversationView
@@ -81,8 +82,14 @@ import com.bantai.data.model.summarizeThread
 import com.bantai.navigation.Screen
 import com.bantai.navigation.rememberSafePopBack
 import com.bantai.ui.components.AISummaryBottomSheet
+import com.bantai.ui.components.BantaiAlertDialog
 import com.bantai.ui.components.ChatThreadSkeleton
+import com.bantai.ui.components.CoachIds
+import com.bantai.ui.components.CoachStep
+import com.bantai.ui.components.CoachTour
+import com.bantai.ui.components.CoachTourLauncher
 import com.bantai.ui.components.StateMessage
+import com.bantai.ui.components.coachTarget
 import com.bantai.ui.components.rememberSmsSendPermission
 import com.bantai.ui.screens.main.thread.DayDivider
 import com.bantai.ui.screens.main.thread.DeletedActionsBar
@@ -103,7 +110,6 @@ import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
 import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Surface
-import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
@@ -122,6 +128,7 @@ import com.bantai.util.serviceCodeLabel
 import com.bantai.viewmodel.MessageDetailViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Caps the AI Summary's TF-IDF scoring pass to the most recent incoming
@@ -182,6 +189,7 @@ fun MessageDetailScreen(
     var replyingTo by remember(sender) { mutableStateOf<SmsMessage?>(null) }
     val replyQuotes by viewModel.replyQuotes.collectAsState()
     val clipboard = LocalClipboardManager.current
+    val diagnosticsScope = rememberCoroutineScope()
     val senderVerification by viewModel.senderVerification.collectAsState()
     val cloudVerification by viewModel.cloudVerification.collectAsState()
     val cloudVerificationNote by viewModel.cloudVerificationNote.collectAsState()
@@ -197,6 +205,7 @@ fun MessageDetailScreen(
 
     LaunchedEffect(sender) {
         viewModel.showDeletedOnly(deletedView)
+        viewModel.keepScamIds = highlightIds
         viewModel.loadConversation(sender)
         if (!deletedView) viewModel.markAsRead(sender)
         viewModel.loadSenderDetails(sender)
@@ -302,6 +311,8 @@ fun MessageDetailScreen(
     // blocked (that would cut off the real sender's OTPs and notices), but it
     // doesn't vouch for the content either. See TrustedSenders.
     val isTrusted = TrustedSenders.isTrusted(sender, senderVerification?.familiarity)
+    // Already blocked: Block is no longer offered (it reappeared after blocking).
+    val senderBlocked by viewModel.senderBlocked.collectAsState()
     val hasSuspicious = !isTrusted && conversation.any { it.classification == Classification.SCAM }
     val hasUnknown = !isTrusted && conversation.any { it.classification == Classification.UNKNOWN }
     // For the Real / Spam / Scam card: any Unknown message, trusted name or not.
@@ -333,13 +344,18 @@ fun MessageDetailScreen(
     // registers) the backend id from the device row, and hides the option that
     // would repeat the current label. Defaults to the flagged message, else the
     // newest incoming message in the slice being shown.
+    // "Help improve detection" off: no Report anywhere in the thread. Real/Spam
+    // still move the texts, on this phone only; a scam can still be blocked.
+    val shareReports by context.container.shareReports
+        .collectAsState()
+
     fun openReport(
         target: SmsMessage? = null,
         action: String = "",
         canBlock: Boolean = true,
     ) {
         // Blocking a trusted name would also cut off the real company.
-        val allowBlock = canBlock && !isTrusted
+        val allowBlock = canBlock && !isTrusted && !senderBlocked
         val message =
             target
                 ?: conversation.lastOrNull { it.classification.isFlagged }
@@ -443,11 +459,12 @@ fun MessageDetailScreen(
             onDismiss = { showAISummary = false },
             onViewFullAnalysis = {
                 showAISummary = false
+                // Reports off and a trusted name: Take Action would have nothing to offer.
+                if (shareReports || !isTrusted) openReport()
                 // Same reasoning as the in-thread warning banners below: Take
                 // Action is the only screen with a working Report/Block entry
                 // point, ThreatAnalysisScreen's action button is permanently
                 // disabled.
-                openReport()
             },
         )
     }
@@ -473,9 +490,8 @@ fun MessageDetailScreen(
             conversation
                 .filter { !it.isOutgoing && it.classification == Classification.UNKNOWN && it.id > 0 }
                 .map { it.id }
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { pendingFlag = null },
-            containerColor = SurfaceElevated,
             title = {
                 Text(
                     stringResource(if (toSpam) R.string.thread_flag_spam_title else R.string.thread_flag_real_title),
@@ -485,7 +501,14 @@ fun MessageDetailScreen(
             },
             text = {
                 Text(
-                    stringResource(if (toSpam) R.string.thread_flag_spam_detail else R.string.thread_flag_real_detail),
+                    stringResource(
+                        when {
+                            !shareReports && toSpam -> R.string.thread_flag_spam_detail_local
+                            !shareReports -> R.string.thread_flag_real_detail_local
+                            toSpam -> R.string.thread_flag_spam_detail
+                            else -> R.string.thread_flag_real_detail
+                        },
+                    ),
                     color = TextSecondary,
                     fontSize = TextSize.Subhead,
                 )
@@ -497,6 +520,8 @@ fun MessageDetailScreen(
                         val message =
                             when {
                                 !reported -> R.string.thread_flag_moved_not_sent
+                                !shareReports && toSpam -> R.string.thread_flag_moved_spam_local
+                                !shareReports -> R.string.thread_flag_moved_messages_local
                                 toSpam -> R.string.thread_flag_moved_spam
                                 else -> R.string.thread_flag_moved_messages
                             }
@@ -523,9 +548,8 @@ fun MessageDetailScreen(
     }
 
     permanentDeleteIds?.let { ids ->
-        AlertDialog(
+        BantaiAlertDialog(
             onDismissRequest = { permanentDeleteIds = null },
-            containerColor = SurfaceElevated,
             title = {
                 Text(pluralStringResource(R.plurals.messages_delete_forever_title, ids.size, ids.size), color = White)
             },
@@ -610,7 +634,7 @@ fun MessageDetailScreen(
                                 tint = if (selectedIds.isNotEmpty()) Danger else TextTertiary,
                             )
                         }
-                    } else {
+                    } else if (shareReports) {
                         IconButton(
                             onClick = {
                                 viewModel.exitSelectionMode()
@@ -648,9 +672,9 @@ fun MessageDetailScreen(
                         modifier = Modifier.align(Alignment.CenterStart),
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
+                            Icons.AutoMirrored.Filled.ArrowBackIos,
                             contentDescription = stringResource(R.string.action_back),
-                            tint = White,
+                            tint = IosBlue,
                         )
                     }
                     Column(
@@ -743,16 +767,22 @@ fun MessageDetailScreen(
                             // message's long-press menu still reports its own sender.
                             if (!isGroup) {
                                 ThreadMenu(
-                                    enabled = conversation.any { !it.isOutgoing },
+                                    enabled = conversation.any { !it.isOutgoing } && (shareReports || !isTrusted),
                                     // Pick which bubbles to report rather than guessing the
                                     // newest one; the likeliest one starts selected.
-                                    onReport = {
-                                        val start =
-                                            conversation.lastOrNull { it.classification.isFlagged }
-                                                ?: conversation.lastOrNull { !it.isOutgoing }
-                                        start?.let { viewModel.enterSelectionMode(it.id) }
-                                    },
-                                    onBlock = if (isTrusted) null else ({ openReport(action = "block") }),
+                                    onReport =
+                                        if (shareReports) {
+                                            {
+                                                val start =
+                                                    conversation.lastOrNull { it.classification.isFlagged }
+                                                        ?: conversation.lastOrNull { !it.isOutgoing }
+                                                start?.let { viewModel.enterSelectionMode(it.id) }
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                    onBlock =
+                                        if (isTrusted || senderBlocked) null else ({ openReport(action = "block") }),
                                 )
                             }
                         }
@@ -776,12 +806,24 @@ fun MessageDetailScreen(
                     detail = stringResource(R.string.thread_scam_detail),
                     tint = Danger,
                     actions =
-                        listOf(
-                            VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
-                                openReport(action = "report")
-                            },
-                            VerdictAction(stringResource(R.string.thread_banner_review), Danger) { openReport() },
-                        ),
+                        when {
+                            shareReports ->
+                                listOf(
+                                    VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
+                                        openReport(action = "report")
+                                    },
+                                    VerdictAction(stringResource(R.string.thread_banner_review), Danger) {
+                                        openReport()
+                                    },
+                                )
+                            isTrusted || senderBlocked -> emptyList()
+                            else ->
+                                listOf(
+                                    VerdictAction(stringResource(R.string.alert_block_sender), Danger) {
+                                        openReport(action = "block")
+                                    },
+                                )
+                        },
                 )
             } else if (needsAnswer) {
                 // A trusted name keeps its spoof explanation under "Why?"; Scam
@@ -797,8 +839,12 @@ fun MessageDetailScreen(
                     busy = flagging,
                     onRealMessage = { pendingFlag = "Ham" },
                     onSpam = { pendingFlag = "Spam" },
-                    onReportScam = { openReport(action = PRESELECT_REPORT_SCAM) },
+                    // Reports off: Scam is a block, which a trusted name can't take.
+                    onReportScam =
+                        if (shareReports || !isTrusted) ({ openReport(action = PRESELECT_REPORT_SCAM) }) else null,
+                    modifier = Modifier.coachTarget(CoachIds.VERDICT_ACTIONS),
                 )
+                CoachTourLauncher(THREAD_TOUR, enabled = !flagging)
             } else if (spoofWarning != null) {
                 // A trusted name whose text gives itself away (asks for an OTP,
                 // links off-site) but wasn't left Unknown: Report only --
@@ -808,11 +854,15 @@ fun MessageDetailScreen(
                     detail = spoofWarning,
                     tint = Suspicious,
                     actions =
-                        listOf(
-                            VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
-                                openReport(action = "report", canBlock = false)
-                            },
-                        ),
+                        if (shareReports) {
+                            listOf(
+                                VerdictAction(stringResource(R.string.thread_banner_report), IosBlue) {
+                                    openReport(action = "report", canBlock = false)
+                                },
+                            )
+                        } else {
+                            emptyList()
+                        },
                 )
             }
 
@@ -982,7 +1032,7 @@ fun MessageDetailScreen(
                     messageActions(
                         message = msg,
                         canReply = !deletedView && (isValidSmsRecipient(sender) || isGroup),
-                        canReport = !deletedView && !msg.isOutgoing,
+                        canReport = shareReports && !deletedView && !msg.isOutgoing,
                         onReply = { replyingTo = msg },
                         onCopy = {
                             clipboard.setText(AnnotatedString(shareableText(msg)))
@@ -993,6 +1043,13 @@ fun MessageDetailScreen(
                         onSelect = { viewModel.enterSelectionMode(msg.id) },
                         onRetry = { retryFailedMessage(msg) },
                         onDelete = { permanentDeleteIds = setOf(msg.id) },
+                        onCopyDiagnostics = {
+                            diagnosticsScope.launch {
+                                val text = ClassificationDiagnostics.build(context.applicationContext, msg)
+                                clipboard.setText(AnnotatedString(text))
+                                Toast.makeText(context, R.string.thread_diagnostics_copied, Toast.LENGTH_LONG).show()
+                            }
+                        },
                     ),
                 onDismiss = { focused = null },
             ) {
@@ -1008,3 +1065,10 @@ fun MessageDetailScreen(
         }
     }
 }
+
+// Shown the first time an Unknown thread opens: what the three answers do.
+private val THREAD_TOUR =
+    CoachTour(
+        key = "thread_unknown_v1",
+        steps = listOf(CoachStep(CoachIds.VERDICT_ACTIONS, R.string.coach_verdict_title, R.string.coach_verdict_body)),
+    )

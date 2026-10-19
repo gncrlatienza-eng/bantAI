@@ -226,9 +226,29 @@ object SmsIngestPipeline {
         timeoutMs: Int = ApiConfig.SMS_TIMEOUT_MS,
         conversationKey: String = sender,
     ) {
-        // Notification ID: XOR of sender hash and truncated timestamp avoids
-        // the collision caused by System.currentTimeMillis().toInt() overflow.
-        val notificationId = (sender.hashCode() xor (System.currentTimeMillis() ushr 10).toInt()) and Int.MAX_VALUE
+        // The row is already in the inbox; show it as "Checking…" until a
+        // verdict (or the offline caution) lands, not as "Unverified".
+        val tracked = listOfNotNull(messageId)
+        ClassificationProgress.begin(tracked)
+        try {
+            runClassifyAndNotify(context, token, sender, body, receivedAt, messageId, timeoutMs, conversationKey)
+        } finally {
+            ClassificationProgress.end(tracked)
+        }
+    }
+
+    @Suppress("LongParameterList") // one value per piece of the incoming SMS
+    private suspend fun runClassifyAndNotify(
+        context: Context,
+        token: String,
+        sender: String,
+        body: String,
+        receivedAt: Long,
+        messageId: Long?,
+        timeoutMs: Int,
+        conversationKey: String,
+    ) {
+        val notificationId = NotificationHelper.alertNotifId(sender)
         val notification = NotificationTarget(sender, body, notificationId, messageId, conversationKey)
 
         if (token.isNotEmpty()) {
@@ -243,10 +263,9 @@ object SmsIngestPipeline {
             // under the limit but then reads slowly could otherwise take up to
             // ~2x timeoutMs, which for the receiver's 5s budget can eat the
             // entire goAsync() window before the offline fallback ever runs and
-            // leave the message with no notification at all. The underlying
-            // blocking HttpURLConnection call isn't itself interrupted -- it
-            // keeps running on its IO thread until its own timeout -- but the
-            // pipeline moves on immediately rather than waiting for it.
+            // leave the message with no notification at all. On timeout,
+            // HttpClient disconnects the blocked HttpURLConnection, so this
+            // returns promptly instead of waiting out the blocking I/O.
             val outcome =
                 withTimeoutOrNull(timeoutMs.toLong()) {
                     SmsApi.ingest(
@@ -355,7 +374,7 @@ object SmsIngestPipeline {
                 persistHistoricalCloudResult(context, message.id, Classification.UNKNOWN, result)
                 return ScanOutcome.Classified(Classification.UNKNOWN, matchedRemotely = true)
             }
-            autoBlockSender(context, token, message.sender)
+            if (autoBlockEnabled(context)) autoBlockSender(context, token, message.sender)
         }
         persistHistoricalCloudResult(context, message.id, route.classification, result)
         return ScanOutcome.Classified(route.classification, matchedRemotely = true)
@@ -373,19 +392,7 @@ object SmsIngestPipeline {
     ): ScanOutcome =
         try {
             val result = ModelCRuntime.classify(context, message.body)
-            val classification = onDeviceClassificationFor(context, message.sender, result.decision.classification)
-            context.container.classificationStore.setOnDeviceClassificationIfNoCloud(
-                messageId = message.id,
-                classification = classification,
-                modelVersion = result.modelVersion,
-                modelSha256 = result.modelSha256,
-                score = result.decision.score,
-            )
-            // A cloud verdict or existing scam/user block may have won the race.
-            val effective =
-                context.container.classificationStore.snapshotFor(message.id)
-                    ?: classification
-            ScanOutcome.Classified(effective, matchedRemotely = false)
+            ScanOutcome.Classified(applyHistoricalOnDeviceResult(context, message, result), matchedRemotely = false)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (modelFailure: Exception) {
@@ -545,6 +552,14 @@ object SmsIngestPipeline {
             source = serverClassificationEvidence(result).provenance,
             score = result.score,
         )
+        // Auto-block is opt-in (Settings → Notifications). Off, the scam waits
+        // in Alerts for the user to block or report it.
+        if (!autoBlockEnabled(context)) {
+            notifyHighRiskOrFallback(context, target, { it.smishingAlerts }) {
+                NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)
+            }
+            return true
+        }
         autoBlockSender(context, token, target.sender)
         // Settings → Notifications → "Auto-block notice". It used to read the
         // smishing toggle, so the auto-block switch did nothing.
@@ -629,6 +644,31 @@ object SmsIngestPipeline {
             .take(MAX_EXTRACTED_DOMAINS)
             .toList()
 
+    /**
+     * Cloud and on-device disagree: cloud Spam vs a Model C Scam (which is only
+     * labelled when confident, see routeModelCProbabilities). The Scam stands,
+     * so the text reaches Alerts. Same escalate-only rule as the re-sort; the
+     * on-device verdict already sent its notification.
+     */
+    private suspend fun keepsOnDeviceScam(
+        context: Context,
+        messageId: Long?,
+        cloud: Classification,
+    ): Boolean {
+        if (messageId == null || cloud != Classification.SPAM) return false
+        val store = context.container.classificationStore
+        val local = store.provenanceFor(messageId)
+        return local?.source == "on_device_model_c" && store.snapshotFor(messageId) == Classification.SCAM
+    }
+
+    // Fails safe to "don't block": blocking is the step that can hide a real message.
+    internal suspend fun autoBlockEnabled(context: Context): Boolean =
+        runCatching {
+            context.container.userPreferences.userData
+                .first()
+                .autoBlockScams
+        }.getOrDefault(false)
+
     // Reads a single notification-toggle flag, defaulting to enabled if the
     // preference can't be read at all -- a broken read must never silently
     // suppress a smishing/suspicious alert the user never actually turned off.
@@ -646,6 +686,22 @@ object SmsIngestPipeline {
     // When the corresponding toggle is off, the SMS still needs to be surfaced
     // somehow -- silently dropping it entirely would hide real messages, not
     // just quiet the high-priority channel the user opted out of.
+    // Unknown verdicts. Silent when Settings → Hide Unknown is on: the text is
+    // still filed under Unknown (out of All, links hidden), just not announced.
+    private suspend fun notifyUnknown(
+        context: Context,
+        target: NotificationTarget,
+    ) {
+        if (context.container.userPreferences.hideUnknown
+                .first()
+        ) {
+            return
+        }
+        notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
+            NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
+        }
+    }
+
     private suspend fun notifyHighRiskOrFallback(
         context: Context,
         target: NotificationTarget,
@@ -677,6 +733,7 @@ object SmsIngestPipeline {
 
         val route = routeServerClassification(result)
         if (handledAsScam(context, token, target, result, route)) return
+        if (keepsOnDeviceScam(context, target.messageId, route.classification)) return
         persistClassification(
             context,
             target.messageId,
@@ -700,9 +757,7 @@ object SmsIngestPipeline {
                     NotificationHelper.sendSmishingAlert(context, target.sender, target.notificationId)
                 }
             AlertKind.SUSPICIOUS ->
-                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
-                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
-                }
+                notifyUnknown(context, target)
             // Unlike smishing/suspicious, turning spam off means no notification at
             // all rather than a plain-message fallback: the SMS is still filed in
             // the Spam folder, so nothing is hidden, and promos are exactly the
@@ -734,6 +789,12 @@ object SmsIngestPipeline {
         // (that requires a real backend result) or "spam" (it has no way to
         // detect promotional content at all).
         val classification = MessageClassifier.classify(target.body)
+        // The cloud failed or timed out, but Model C (ModelCClassificationWorker)
+        // may already have answered. A keyword guess must never replace a model
+        // verdict: overwriting an on-device Scam with "unverified" put scams
+        // in Messages. The model's own result handles the notification.
+        val existing = target.messageId?.let { context.container.classificationStore.provenanceFor(it) }
+        if (existing?.source != null && existing.source != "heuristic") return
         // Persist the actual heuristic result ("unknown" or "unverified"), not a
         // hardcoded value -- MessagesViewModel/MessageDetailScreen/MessagesScreen
         // all treat the two differently (review bucket + warning banner vs. a
@@ -742,9 +803,7 @@ object SmsIngestPipeline {
         persistClassification(context, target.messageId, classification, source = "heuristic")
         when (classification) {
             Classification.UNKNOWN -> {
-                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
-                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
-                }
+                notifyUnknown(context, target)
             }
             // A quiet fallback is only a normal incoming message, not a trust claim.
             else ->
@@ -758,6 +817,36 @@ object SmsIngestPipeline {
         }
     }
 
+    /**
+     * Saves a Model C verdict for a message already in the inbox, silently (no
+     * notification for old texts). Shared by the inbox scan and the first-run
+     * HistorySortWorker, which runs the model once per identical text and
+     * applies the result to every copy. Returns the label now in effect: a
+     * cloud verdict or an existing scam/user label may have won the race.
+     */
+    internal suspend fun applyHistoricalOnDeviceResult(
+        context: Context,
+        message: SmsMessage,
+        result: ModelCResult,
+        escalate: Boolean = false,
+    ): Classification {
+        val classification = onDeviceClassificationFor(context, message.sender, result.decision.classification)
+        val store = context.container.classificationStore
+        store.setOnDeviceClassificationIfNoCloud(
+            messageId = message.id,
+            classification = classification,
+            modelVersion = result.modelVersion,
+            modelSha256 = result.modelSha256,
+            score = result.decision.score,
+        )
+        // A one-time re-sort may lift an older Spam label (cloud or not) to
+        // Scam when the local model is confident: testers found scams in Spam.
+        if (escalate && classification == Classification.SCAM && result.decision.highRisk) {
+            store.escalateToScam(message.id, result.modelVersion, result.modelSha256, result.decision.score)
+        }
+        return store.snapshotFor(message.id) ?: classification
+    }
+
     /** Applies a durable local Model C result after WorkManager finishes inference. */
     internal suspend fun applyOnDeviceModelResult(
         context: Context,
@@ -765,15 +854,28 @@ object SmsIngestPipeline {
         result: ModelCResult,
     ) {
         val decision = result.decision
+        // Trusted / user-unblocked senders' Scam reads as UNKNOWN here.
+        val local = onDeviceClassificationFor(context, message.sender, decision.classification)
         val written =
             context.container.classificationStore.setOnDeviceClassificationIfNoCloud(
                 messageId = message.id,
-                classification = onDeviceClassificationFor(context, message.sender, decision.classification),
+                classification = local,
                 modelVersion = result.modelVersion,
                 modelSha256 = result.modelSha256,
                 score = decision.score,
             )
-        if (!written) return
+        // Cloud already said Spam: a confident on-device Scam still lifts it (escalate-only).
+        val escalated =
+            !written &&
+                local == Classification.SCAM &&
+                decision.highRisk &&
+                context.container.classificationStore.escalateToScam(
+                    message.id,
+                    result.modelVersion,
+                    result.modelSha256,
+                    decision.score,
+                )
+        if (!written && !escalated) return
         // Record model provenance without sender, message ID or message content.
         Log.i(
             TAG,
@@ -784,7 +886,7 @@ object SmsIngestPipeline {
             NotificationTarget(
                 sender = message.sender,
                 body = message.body,
-                notificationId = (message.sender.hashCode() xor (message.timestamp ushr 10).toInt()) and Int.MAX_VALUE,
+                notificationId = NotificationHelper.alertNotifId(message.sender),
                 messageId = message.id,
             )
         when {
@@ -797,9 +899,7 @@ object SmsIngestPipeline {
                     NotificationHelper.sendSpamAlert(context, target.sender, target.notificationId)
                 }
             decision.requiresReview ->
-                notifyHighRiskOrFallback(context, target, { it.suspiciousAlerts }) {
-                    NotificationHelper.sendSuspiciousAlert(context, target.sender, target.notificationId)
-                }
+                notifyUnknown(context, target)
             else -> Unit
         }
     }

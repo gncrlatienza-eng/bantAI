@@ -7,8 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -22,6 +21,7 @@ import {
   StatusBadge,
   type Column,
   type StatusKind,
+  StatPanel,
 } from '../../components/primitives';
 import { useStaffPermission } from '../../components/common/StaffPermissionGate';
 import { MaskedMessage } from '../../components/masked/MaskedMessage';
@@ -34,7 +34,6 @@ import {
   type SenderReportDetail,
 } from '../../services/senderReportsService';
 import { displayTitle } from '../../features/campaigns/campaignDisplay';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
@@ -122,8 +121,6 @@ function groupReports(reports: PendingSenderReport[]): SenderGroup[] {
 }
 
 export function SenderReportsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const canManage = useStaffPermission('verification:manage');
 
   const [reports, setReports] = useState<PendingSenderReport[]>([]);
@@ -258,19 +255,10 @@ export function SenderReportsPage() {
   ];
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(p) => void navigate(p)}
-      topbarContext={<span>Intelligence &middot; Sender reports</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
         title="Sender reports"
-        description={`Numbers reported as scam senders from the mobile app. Senders are pseudonymous. A sender can be confirmed as fraud once ${MINIMUM_CORROBORATING_REPORTS} or more different users report it in the same window.`}
+        description={`Confirm as fraud after ${MINIMUM_CORROBORATING_REPORTS}+ different users report it.`}
       />
 
       {error && !loading ? (
@@ -287,21 +275,23 @@ export function SenderReportsPage() {
         <LoadingState label="Loading sender reports" />
       ) : (
         <>
-          <MetricRow columns={3}>
-            <Metric
-              label="Pending reports"
-              value={reports.length.toLocaleString()}
-            />
-            <Metric
-              label="Reported senders"
-              value={groups.length.toLocaleString()}
-            />
-            <Metric
-              label="Ready to confirm"
-              value={corroborated.toLocaleString()}
-              meta={`${MINIMUM_CORROBORATING_REPORTS}+ independent reports`}
-            />
-          </MetricRow>
+          <StatPanel label="Sender report summary">
+            <MetricRow columns={3}>
+              <Metric
+                label="Pending reports"
+                value={reports.length.toLocaleString()}
+              />
+              <Metric
+                label="Reported senders"
+                value={groups.length.toLocaleString()}
+              />
+              <Metric
+                label="Ready to confirm"
+                value={corroborated.toLocaleString()}
+                meta={`${MINIMUM_CORROBORATING_REPORTS}+ independent reports`}
+              />
+            </MetricRow>
+          </StatPanel>
 
           {notice && (
             <div
@@ -340,7 +330,7 @@ export function SenderReportsPage() {
         size="lg"
         open={viewing !== null && confirming === null}
         title={viewing ? `Reported number · ${viewing.alias}` : ''}
-        description="The phone number itself is never stored, only a code for it. Below is everything this number has sent to BantAI users, with personal details hidden."
+        description="Only a code for the number is stored. Personal details are hidden."
         onClose={() => setViewing(null)}
         actions={
           <>
@@ -420,7 +410,7 @@ export function SenderReportsPage() {
           </div>
         )}
       </Dialog>
-    </AppShell>
+    </>
   );
 }
 

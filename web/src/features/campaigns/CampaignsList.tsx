@@ -199,6 +199,10 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
   const [showPromo, setShowPromo] = useState(false);
   const [showEmpty, setShowEmpty] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const extraFiltersOn = [showPromo, showEmpty, showArchived].filter(
+    Boolean,
+  ).length;
   const [finding, setFinding] = useState(false);
   const [sortKey, setSortKey] = useState<string>('lastSeen');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
@@ -524,7 +528,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
           key: 'messageCount',
           header: 'Messages',
           render: (r) => r.linkedMessageCount.toLocaleString(),
-          align: 'right',
+          align: 'center',
           sortable: true,
           width: '10%',
         },
@@ -532,7 +536,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
           key: 'lastSeen',
           header: 'Last seen',
           render: (r) => lastSeenLabel(r.lastSeenAt, now),
-          align: 'right',
+          align: 'center',
           sortable: true,
           width: '13%',
         },
@@ -540,7 +544,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
           key: 'domainCount',
           header: 'Domains',
           render: (r) => r.domainCount.toLocaleString(),
-          align: 'right',
+          align: 'center',
           sortable: true,
           width: '9%',
         },
@@ -618,7 +622,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
           key: 'lastSeen',
           header: 'Last observed',
           render: (r) => lastSeenLabel(r.lastSeenAt, now),
-          align: 'right',
+          align: 'center',
           sortable: true,
           width: '14%',
         },
@@ -647,32 +651,26 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
   const hiddenCount = adminView
     ? adminView.hiddenPromo + adminView.hiddenEmpty + adminView.hiddenArchived
     : 0;
+  const hiddenSummary = adminView
+    ? [
+        adminView.hiddenPromo > 0 &&
+          `${adminView.hiddenPromo.toLocaleString()} promo`,
+        adminView.hiddenEmpty > 0 &&
+          `${adminView.hiddenEmpty.toLocaleString()} retired with no messages`,
+        adminView.hiddenArchived > 0 &&
+          `${adminView.hiddenArchived.toLocaleString()} archived`,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : '';
 
   return (
     <>
       <div ref={topRef} style={{ scrollMarginTop: 16 }} />
       {tabCounts && (
         <>
-          <p
-            style={{ margin: '16px 0 8px', color: 'var(--text-secondary)' }}
-            aria-live="polite"
-          >
-            {loading
-              ? 'Loading campaigns…'
-              : `${plural(tabCounts.active, 'active campaign')} in the last 30 days` +
-                (adminView && hiddenCount > 0
-                  ? ` · ${hiddenCount.toLocaleString()} hidden (${[
-                      adminView.hiddenPromo > 0 &&
-                        `${adminView.hiddenPromo.toLocaleString()} promo`,
-                      adminView.hiddenEmpty > 0 &&
-                        `${adminView.hiddenEmpty.toLocaleString()} retired with no messages`,
-                      adminView.hiddenArchived > 0 &&
-                        `${adminView.hiddenArchived.toLocaleString()} archived`,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')})`
-                  : '')}
-          </p>
+          {/* The tabs carry the active / inactive counts; what the filters
+              hide is counted on the More filters button. */}
           <Tabs
             label="Campaign status"
             activeId={bucket}
@@ -722,6 +720,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
             <div style={{ minWidth: 200 }}>
               <Select
                 label="Category"
+                hideLabel
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 options={[
@@ -730,51 +729,19 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
                 ]}
               />
             </div>
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                minHeight: 44,
-              }}
+            <Button
+              variant="ghost"
+              aria-expanded={moreFiltersOpen}
+              aria-controls="campaign-more-filters"
+              title={hiddenSummary || undefined}
+              onClick={() => setMoreFiltersOpen((open) => !open)}
             >
-              <input
-                type="checkbox"
-                checked={showPromo}
-                onChange={(e) => setShowPromo(e.target.checked)}
-              />
-              Show promo / marketing
-            </label>
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                minHeight: 44,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showEmpty}
-                onChange={(e) => setShowEmpty(e.target.checked)}
-              />
-              Show retired clusters with no messages
-            </label>
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                minHeight: 44,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
-              Show archived
-            </label>
+              {extraFiltersOn > 0
+                ? `More filters · ${extraFiltersOn} on`
+                : hiddenCount > 0
+                  ? `More filters · ${hiddenCount.toLocaleString()} hidden`
+                  : 'More filters'}
+            </Button>
           </>
         )}
         {adminView && canManageCampaigns && (
@@ -787,12 +754,61 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
             {finding ? 'Looking…' : 'Find new waves'}
           </Button>
         )}
-        {adminView && canManageCampaigns && adminView.emptyRetired > 0 && (
-          <Button variant="secondary" onClick={() => setConfirmArchive(true)}>
-            Archive {plural(adminView.emptyRetired, 'empty retired cluster')}
-          </Button>
-        )}
       </div>
+
+      {/* Rarely changed visibility filters sit behind "More filters" so the
+          main row stays search + category + actions (Visa filter pattern). */}
+      {adminView && moreFiltersOpen && (
+        <div
+          id="campaign-more-filters"
+          style={{
+            display: 'flex',
+            gap: 20,
+            flexWrap: 'wrap',
+            margin: '-4px 0 16px',
+          }}
+        >
+          {(
+            [
+              ['Show promo / marketing', showPromo, setShowPromo],
+              [
+                'Show retired clusters with no messages',
+                showEmpty,
+                setShowEmpty,
+              ],
+              ['Show archived', showArchived, setShowArchived],
+            ] as const
+          ).map(([label, checked, set]) => (
+            <label
+              key={label}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                minHeight: 44,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => set(e.target.checked)}
+              />
+              {label}
+            </label>
+          ))}
+          {/* Clean-up for the clusters these filters hide. */}
+          {canManageCampaigns && adminView.emptyRetired > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              style={{ alignSelf: 'center', marginLeft: 'auto' }}
+              onClick={() => setConfirmArchive(true)}
+            >
+              Archive {plural(adminView.emptyRetired, 'empty retired cluster')}
+            </Button>
+          )}
+        </div>
+      )}
 
       {notice && (
         <div
@@ -917,7 +933,7 @@ export function CampaignsList({ role, onCampaignClick }: CampaignsListProps) {
           description={`This archives ${plural(
             adminView?.emptyRetired ?? 0,
             'cluster',
-          )} that are retired from matching and never had a message linked to them. Most are leftovers from earlier offline-clustering runs. Nothing is deleted; tick “Show archived” to see them again.`}
+          )} that are retired from matching and never had a message linked to them. Most are leftovers from earlier offline-clustering runs. Nothing is deleted; tick “Show archived” under More filters to see them again.`}
           onClose={() => {
             if (!archiving) setConfirmArchive(false);
           }}

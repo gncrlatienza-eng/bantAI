@@ -1,6 +1,11 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Button, Dialog } from '../../../components/primitives';
 
+// Shared with every screen now; re-exported so the Model tabs keep importing
+// them from here.
+export { SectionHeader, StatPanel } from '../../../components/primitives';
+import { formatCompactDateTime } from '../../../utils/dateFormat';
+
 export function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
 }
@@ -20,13 +25,7 @@ export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatCompactDateTime(d);
 }
 
 export function humanize(value: string): string {
@@ -39,50 +38,6 @@ export const MONO = {
   fontFamily: 'var(--font-mono)',
   fontSize: '0.85rem',
 } as const;
-
-export function SectionHeader({
-  id,
-  title,
-  description,
-  actions,
-}: {
-  id?: string;
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'space-between',
-        gap: 12,
-        flexWrap: 'wrap',
-        marginBottom: 12,
-      }}
-    >
-      <div>
-        <h2 id={id} style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-          {title}
-        </h2>
-        {description && (
-          <p
-            style={{
-              ...MUTED,
-              margin: '4px 0 0',
-              fontSize: '0.9rem',
-              maxWidth: '70ch',
-            }}
-          >
-            {description}
-          </p>
-        )}
-      </div>
-      {actions && <div style={{ display: 'flex', gap: 8 }}>{actions}</div>}
-    </div>
-  );
-}
 
 export function Notice({
   tone,

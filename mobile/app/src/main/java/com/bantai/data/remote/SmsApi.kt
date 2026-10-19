@@ -84,6 +84,11 @@ object SmsApi {
         val note: String? = null,
         val adminNote: String? = null,
         val reviewedAt: String? = null,
+        /**
+         * Set when the team rejects the report: what the text really is
+         * ("Ham" or "Spam"), so the phone can file it there. Null otherwise.
+         */
+        val reviewedLabel: String? = null,
     )
 
     data class IndicatorTag(
@@ -196,7 +201,11 @@ object SmsApi {
 
     internal fun parseAlerts(json: JSONArray): List<AlertSummary> {
         val count = json.length()
-        return List(count) { i -> parseAlert(json.getJSONObject(i)) }
+        // One malformed entry (e.g. a message deleted on the server) must not
+        // sink the whole list, or report polling retries forever.
+        return (0 until count).mapNotNull { i ->
+            json.optJSONObject(i)?.let { runCatching { parseAlert(it) }.getOrNull() }
+        }
     }
 
     private fun parseAlert(json: JSONObject): AlertSummary {
@@ -225,6 +234,7 @@ object SmsApi {
                         createdAt = it.optNullableString("createdAt"),
                         note = it.optNullableString("note"),
                         adminNote = it.optNullableString("adminNote"),
+                        reviewedLabel = it.optNullableString("reviewedLabel"),
                         // /reports/mine sends reviewedAt; the alerts list sends
                         // updatedAt, which is the review time once it's left Pending.
                         reviewedAt =

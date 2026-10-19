@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAccountState } from '../context/AccountStateContext';
 import type { RouteGroup } from '../services/accountService';
+import { LoadingState } from '../components/primitives/LoadingState';
 import '../pages/RequestAccess/request-access.css';
 
 /*
@@ -15,24 +16,7 @@ import '../pages/RequestAccess/request-access.css';
  */
 
 function Pending() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      data-theme="mineral"
-      style={{
-        minHeight: '100svh',
-        background: 'var(--surface-canvas)',
-        colorScheme: 'light',
-        display: 'grid',
-        placeItems: 'center',
-        color: 'var(--text-secondary)',
-        font: '500 0.9rem var(--font-sans)',
-      }}
-    >
-      Loading your account…
-    </div>
-  );
+  return <LoadingState label="Loading your account…" fullScreen />;
 }
 
 function Unavailable({ onRetry }: { onRetry: () => void }) {

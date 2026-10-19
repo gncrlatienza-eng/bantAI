@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   DataTable,
@@ -13,6 +12,7 @@ import {
   MetricRow,
   StatusBadge,
   type Column,
+  StatPanel,
 } from '../../components/primitives';
 import {
   createSafetyTip,
@@ -22,7 +22,13 @@ import {
   type SafetyTip,
   type SafetyTipInput,
 } from '../../services/tipsService';
-import { ADMIN_SIDEBAR_GROUPS } from './adminNav';
+
+const ONE_LINE = {
+  display: 'block',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+} as const;
 
 // The campaign categories the AI and the app use (ai/service/campaign_naming.py,
 // mobile LocalCampaigns.kt). A tip tagged with one shows on every scam wave of
@@ -61,8 +67,6 @@ function formatDate(value: string) {
 }
 
 export function TipsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [tips, setTips] = useState<SafetyTip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,12 +172,14 @@ export function TipsPage() {
     {
       key: 'title',
       header: 'Guidance',
+      // Each line ends in an ellipsis inside its own column (the cell-level
+      // truncate class cannot reach block children); hover shows the tip.
       render: (tip) => (
-        <span>
-          <strong>{tip.title}</strong>
+        <span style={{ display: 'block', maxWidth: 420 }} title={tip.body}>
+          <strong style={ONE_LINE}>{tip.title}</strong>
           <span
             style={{
-              display: 'block',
+              ...ONE_LINE,
               marginTop: 3,
               color: 'var(--text-secondary)',
               fontSize: '0.85rem',
@@ -183,7 +189,6 @@ export function TipsPage() {
           </span>
         </span>
       ),
-      truncate: true,
     },
     {
       key: 'audience',
@@ -232,19 +237,10 @@ export function TipsPage() {
   ];
 
   return (
-    <AppShell
-      role="admin"
-      groups={ADMIN_SIDEBAR_GROUPS}
-      brandInitial="B"
-      brandLabel="BantAI Admin"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Administration &middot; Tips</span>}
-      footer={<span style={{ fontSize: '0.85rem' }}>Authenticated admin</span>}
-    >
+    <>
       <PageHeader
-        title="Safety tips"
-        description="Published tips appear in the BantAI app under Settings → Scam awareness → Latest warnings. A tip with a campaign also appears on that scam wave in the app. Tips never include message bodies, model details, or training data."
+        title="Tips"
+        description="Published tips show in the app under Scam awareness."
         actions={<Button onClick={openCreate}>Create tip</Button>}
       />
       {error && !loading ? (
@@ -261,10 +257,15 @@ export function TipsPage() {
         <LoadingState label="Loading safety tips" />
       ) : (
         <>
-          <MetricRow columns={2}>
-            <Metric label="Total tips" value={tips.length.toLocaleString()} />
-            <Metric label="Published" value={publishedCount.toLocaleString()} />
-          </MetricRow>
+          <StatPanel label="Tips summary">
+            <MetricRow columns={2}>
+              <Metric label="Total tips" value={tips.length.toLocaleString()} />
+              <Metric
+                label="Published"
+                value={publishedCount.toLocaleString()}
+              />
+            </MetricRow>
+          </StatPanel>
           <div style={{ marginTop: 20 }}>
             <DataTable
               ariaLabel="Safety tips"
@@ -274,7 +275,7 @@ export function TipsPage() {
               emptyState={
                 <EmptyState
                   title="No safety tips yet"
-                  description="Create a draft, then publish it when the guidance is ready for mobile clients."
+                  description="Create a draft, then publish it."
                   action={<Button onClick={openCreate}>Create tip</Button>}
                 />
               }
@@ -325,7 +326,7 @@ export function TipsPage() {
           </label>
           <Input
             label="Region (optional)"
-            helpText="For your own records. The app does not filter tips by region yet."
+            helpText="For your records only; the app doesn't filter by region."
             value={draft.region ?? ''}
             onChange={(event) =>
               setDraft((current) => ({
@@ -336,7 +337,7 @@ export function TipsPage() {
           />
           <Input
             label="Campaign (optional)"
-            helpText="Leave empty for a general tip. Otherwise type a campaign category (pick one from the list), the campaign's name, or its ID. The tip then also shows on matching scam waves in the app."
+            helpText="Leave empty for a general tip, or pick a category to show it on matching scam waves."
             list="tip-campaign-categories"
             value={draft.campaign ?? ''}
             onChange={(event) =>
@@ -362,7 +363,7 @@ export function TipsPage() {
                 }))
               }
             />
-            Publish to the app (shows under Latest warnings)
+            Publish to the app
           </label>
           {actionError && (
             <p
@@ -404,7 +405,7 @@ export function TipsPage() {
           </>
         }
       />
-    </AppShell>
+    </>
   );
 }
 

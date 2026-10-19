@@ -17,6 +17,7 @@ import {
   DataTable,
   type Column,
   type StatusKind,
+  StatPanel,
 } from '../../components/primitives';
 import {
   getAnalyticsSummary,
@@ -165,17 +166,19 @@ export function AnalyticsView() {
 
   return (
     <>
-      <MetricRow columns={3}>
-        <Metric
-          label="Messages classified"
-          value={data.totalMessages.toLocaleString()}
-        />
-        <Metric
-          label="User reports submitted"
-          value={data.totalReports.toLocaleString()}
-        />
-        <Metric label="Distinct classifications" value={labelRows.length} />
-      </MetricRow>
+      <StatPanel label="Analytics summary">
+        <MetricRow columns={3}>
+          <Metric
+            label="Messages classified"
+            value={data.totalMessages.toLocaleString()}
+          />
+          <Metric
+            label="User reports submitted"
+            value={data.totalReports.toLocaleString()}
+          />
+          <Metric label="Distinct classifications" value={labelRows.length} />
+        </MetricRow>
+      </StatPanel>
 
       <section style={{ marginTop: 32 }}>
         <h2 style={{ fontSize: '1.05rem', margin: '0 0 6px' }}>

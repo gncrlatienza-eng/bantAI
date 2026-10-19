@@ -7,12 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CloudQueue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,10 +28,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bantai.R
-import com.bantai.navigation.Screen
+import com.bantai.ui.components.GroupedFooter
+import com.bantai.ui.components.GroupedSectionHeader
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.components.ListSkeleton
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.components.UnblockConfirmDialog
+import com.bantai.ui.components.groupedItem
 import com.bantai.ui.theme.*
 import com.bantai.util.BlockHelper
 import com.bantai.viewmodel.BlockedNumbersViewModel
@@ -83,33 +84,10 @@ fun BlockedNumbersScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        // Top bar
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(R.string.blocked_numbers_blocked_numbers),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.blocked_numbers_blocked_numbers),
+            onBack = { navController.popBackStack() },
+        )
 
         if (isLoading) {
             ListSkeleton(rows = 6)
@@ -144,11 +122,8 @@ fun BlockedNumbersScreen(
                 contentPadding = PaddingValues(bottom = LocalBottomBarClearance.current),
             ) {
                 item {
-                    Text(
+                    GroupedSectionHeader(
                         "${blockedNumbers.size} sender${if (blockedNumbers.size != 1) "s" else ""} blocked",
-                        color = TextSecondary,
-                        fontSize = TextSize.Footnote,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                     )
                 }
                 if (serverOnlyCount > 0) {
@@ -166,20 +141,21 @@ fun BlockedNumbersScreen(
                         )
                     }
                 }
-                items(blockedNumbers, key = { it.id }) { entry ->
-                    BlockedRow(
-                        entry = entry,
-                        // A blocked sender's thread is hidden from Messages; this is
-                        // where its old conversation is still reachable.
-                        onOpen = { navController.navigate(Screen.Detail.createRoute(entry.number)) },
-                        onUnblock = { numberToUnblock = entry },
-                    )
-                    HorizontalDivider(
-                        color = Hairline,
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(start = 52.dp),
-                    )
+                // A blocked number is blocked: tapping it only offers to unblock,
+                // it doesn't open the conversation.
+                itemsIndexed(blockedNumbers, key = { _, entry -> entry.id }) { index, entry ->
+                    Column(Modifier.groupedItem(index, blockedNumbers.lastIndex)) {
+                        BlockedRow(entry = entry, onUnblock = { numberToUnblock = entry })
+                        if (index != blockedNumbers.lastIndex) {
+                            HorizontalDivider(
+                                color = Hairline,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(start = 48.dp),
+                            )
+                        }
+                    }
                 }
+                item { GroupedFooter(stringResource(R.string.retention_blocked_messages)) }
             }
         }
     }
@@ -188,15 +164,16 @@ fun BlockedNumbersScreen(
 @Composable
 private fun BlockedRow(
     entry: BlockHelper.BlockedEntry,
-    onOpen: () -> Unit,
     onUnblock: () -> Unit,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onOpen)
-                .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                .clickable(
+                    onClickLabel = stringResource(R.string.blocked_numbers_unblock_cd, entry.name ?: entry.number),
+                    onClick = onUnblock,
+                ).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -223,13 +200,12 @@ private fun BlockedRow(
                 fontSize = TextSize.Footnote,
             )
         }
-        IconButton(onClick = onUnblock) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = stringResource(R.string.blocked_numbers_unblock_cd, entry.name ?: entry.number),
-                tint = TextSecondary,
-            )
-        }
+        Text(
+            stringResource(R.string.blocked_numbers_unblock),
+            color = IosBlue,
+            fontSize = TextSize.Subhead,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }
 

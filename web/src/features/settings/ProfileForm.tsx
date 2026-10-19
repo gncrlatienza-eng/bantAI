@@ -1,10 +1,12 @@
 /*
  * Shared profile form used by client and admin settings pages.
  *
- * Loads the current user, edits firstName/lastName/email in place, and
- * calls updateMyProfile. Read-only rows for role and, when one is on record,
- * phone (backend does not expose write endpoints for those on this route).
- * Portal accounts are email-only, so most have no phone.
+ * Loads the current user, edits firstName/lastName in place, and calls
+ * updateMyProfile. Email (the sign-in identity), role and, when one is on
+ * record, phone are read-only: the backend rejects login-email changes on
+ * this route because they skipped re-authentication and new-inbox
+ * verification (audit AUTH-02). Portal accounts are email-only, so most have
+ * no phone.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -13,7 +15,6 @@ import {
   ErrorState,
   Input,
   LoadingState,
-  StatusBadge,
 } from '../../components/primitives';
 import { getCurrentUser, type CurrentUser } from '../../services/authService';
 import { updateMyProfile } from '../../services/usersService';
@@ -26,7 +27,6 @@ export function ProfileForm() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,7 +40,6 @@ export function ProfileForm() {
       setUser(me);
       setFirstName(me.firstName ?? '');
       setLastName(me.lastName ?? '');
-      setEmail(me.email ?? '');
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -60,7 +59,6 @@ export function ProfileForm() {
       const next = await updateMyProfile({
         firstName: firstName.trim() || undefined,
         lastName: lastName.trim() || undefined,
-        email: email.trim() || undefined,
       });
       setUser(next);
       setSaveMessage('Profile saved.');
@@ -115,11 +113,10 @@ export function ProfileForm() {
           </>
         )}
         <span style={{ color: 'var(--text-secondary)' }}>Role</span>
-        <span>
-          <StatusBadge
-            kind={user.role === 'ADMIN' ? 'suspicious' : 'unknown'}
-            label={user.role}
-          />
+        {/* A role is a fact, not a warning: StatusBadge colors are for
+            classifications, so the role is plain text. */}
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+          {user.role.charAt(0) + user.role.slice(1).toLowerCase()}
         </span>
       </div>
 
@@ -138,9 +135,10 @@ export function ProfileForm() {
       <Input
         label="Email"
         type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        value={user.email ?? ''}
+        readOnly
         autoComplete="email"
+        helpText="Your sign-in email can't be changed here."
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

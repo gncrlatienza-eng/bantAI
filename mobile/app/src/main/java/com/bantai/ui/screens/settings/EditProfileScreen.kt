@@ -9,8 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -27,10 +25,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.bantai.R
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.*
 import com.bantai.ui.theme.OnAccent
 import com.bantai.ui.theme.OnIndigo
+import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.SettingsViewModel
@@ -55,6 +55,7 @@ fun EditProfileScreen(
     val isSaving by viewModel.profileSaving.collectAsState()
 
     var showSaved by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { viewModel.resetEdits() }
 
     val parsedColor =
         remember(avatarColor) {
@@ -71,32 +72,10 @@ fun EditProfileScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.action_back),
-                    tint = White,
-                )
-            }
-            Text(
-                stringResource(R.string.edit_profile_edit_profile),
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = TextSize.Headline,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.edit_profile_edit_profile),
+            onBack = { navController.popBackStack() },
+        )
 
         Column(
             modifier =
@@ -145,10 +124,15 @@ fun EditProfileScreen(
                 singleLine = true,
                 isError = firstNameError != null,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                shape = RoundedCornerShape(14.dp),
+                // Filled, borderless field like iOS; a red edge only on error.
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Indigo,
-                        unfocusedBorderColor = BorderColor,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceElevated,
+                        unfocusedContainerColor = SurfaceElevated,
+                        errorContainerColor = SurfaceElevated,
                         focusedTextColor = White,
                         unfocusedTextColor = White,
                         errorBorderColor = Danger,
@@ -187,10 +171,15 @@ fun EditProfileScreen(
                 singleLine = true,
                 isError = lastNameError != null,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                shape = RoundedCornerShape(14.dp),
+                // Filled, borderless field like iOS; a red edge only on error.
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Indigo,
-                        unfocusedBorderColor = BorderColor,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceElevated,
+                        unfocusedContainerColor = SurfaceElevated,
+                        errorContainerColor = SurfaceElevated,
                         focusedTextColor = White,
                         unfocusedTextColor = White,
                         errorBorderColor = Danger,
@@ -229,10 +218,15 @@ fun EditProfileScreen(
                 isError = myNumberError != null,
                 placeholder = { Text("09171234567", color = TextTertiary) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                shape = RoundedCornerShape(14.dp),
+                // Filled, borderless field like iOS; a red edge only on error.
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Indigo,
-                        unfocusedBorderColor = BorderColor,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceElevated,
+                        unfocusedContainerColor = SurfaceElevated,
+                        errorContainerColor = SurfaceElevated,
                         focusedTextColor = White,
                         unfocusedTextColor = White,
                         errorBorderColor = Danger,
@@ -293,7 +287,7 @@ fun EditProfileScreen(
                         contentColor = OnIndigo,
                         disabledContentColor = TextSecondary,
                     ),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
             ) {
                 Text(
                     stringResource(if (isSaving) R.string.edit_profile_saving else R.string.edit_profile_save_changes),

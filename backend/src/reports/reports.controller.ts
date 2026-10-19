@@ -15,7 +15,7 @@ import { StaffGuard } from '../auth/guards/staff.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { PortalLicensed } from '../access-control/portal-route.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ReviewReportDto } from './dto/review-report.dto';
+import { RejectReportDto, ReviewReportDto } from './dto/review-report.dto';
 import { SubmitReportDto } from './dto/submit-report.dto';
 import { ReportsService } from './reports.service';
 
@@ -87,8 +87,13 @@ export class ReportsController {
   reject(
     @Request() req: { user: { userId: string } },
     @Param('id') id: string,
-    @Body() dto: ReviewReportDto,
+    @Body() dto: RejectReportDto,
   ) {
-    return this.reportsService.reject(id, req.user.userId, dto.adminNote);
+    return this.reportsService.reject(
+      id,
+      req.user.userId,
+      dto.adminNote,
+      dto.reviewedLabel,
+    );
   }
 }

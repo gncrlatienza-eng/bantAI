@@ -11,9 +11,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.lifecycleScope
+import com.bantai.data.DailySummaryScheduler
+import com.bantai.data.ReportStatusWorker
+import com.bantai.data.RetentionWorker
 import com.bantai.data.TipCheckWorker
+import com.bantai.data.offline.HistorySortWorker
 import com.bantai.navigation.NavGraph
 import com.bantai.navigation.RequestedTip
+import com.bantai.ui.components.CoachMarkHost
 import com.bantai.ui.components.LaunchScreen
 import com.bantai.ui.theme.BantAITheme
 import com.bantai.ui.theme.TextScale
@@ -21,6 +27,8 @@ import com.bantai.ui.theme.ThemeMode
 import com.bantai.ui.theme.isDark
 import com.bantai.util.IntentToken
 import com.bantai.util.NotificationHelper
+import com.bantai.util.NotificationLanding
+import kotlinx.coroutines.launch
 
 // smsto:/sms: are the schemes Android's own Contacts and Dialer apps use for
 // "Send message" / "Message" actions (ACTION_SENDTO with that data, or
@@ -52,6 +60,19 @@ class MainActivity : ComponentActivity() {
     // it belongs to when it's a campaign tip.
     private val requestedTip = mutableStateOf<RequestedTip?>(null)
     private val requestedComposeBody = mutableStateOf("")
+    private val requestedSummary = mutableStateOf<Long?>(null)
+
+    // Opening (or returning to) the app after the summary time, with nothing shown
+    // yet today: the recap card opens right away instead of waiting on a
+    // notification the phone's battery manager may have held back.
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            if (DailySummaryScheduler.claimIfDue(this@MainActivity)) {
+                requestedSummary.value = System.currentTimeMillis()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,7 +86,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         NotificationHelper.createNotificationChannels(this)
         TipCheckWorker.schedule(this)
-        applyIntent(intent)
+        ReportStatusWorker.schedule(this)
+        RetentionWorker.schedule(this)
+        lifecycleScope.launch { DailySummaryScheduler.schedule(this@MainActivity) }
+        // Resumes the background half of first-run sorting after a restart.
+        HistorySortWorker.enqueue(this)
+        // Only a fresh launch: a recreation (dark mode, font size) used to replay
+        // the old notification intent and reopen its card or screen.
+        if (savedInstanceState == null) applyIntent(intent)
         val themeModeFlow = this.container.userPreferences.themeMode
         val textScaleFlow = this.container.userPreferences.textScale
         setContent {
@@ -91,13 +119,16 @@ class MainActivity : ComponentActivity() {
                 darkTheme = dark,
                 textScale = TextScale.fromValue(storedTextScale).factor,
             ) {
-                NavGraph(
-                    requestedTab = requestedTab.value,
-                    requestedConversationSender = requestedConversationSender.value,
-                    requestedTip = requestedTip.value,
-                    requestedComposeRecipient = requestedComposeRecipient.value,
-                    requestedComposeBody = requestedComposeBody.value,
-                )
+                CoachMarkHost {
+                    NavGraph(
+                        requestedTab = requestedTab.value,
+                        requestedConversationSender = requestedConversationSender.value,
+                        requestedTip = requestedTip.value,
+                        requestedComposeRecipient = requestedComposeRecipient.value,
+                        requestedComposeBody = requestedComposeBody.value,
+                        requestedSummary = requestedSummary.value,
+                    )
+                }
             }
         }
     }
@@ -122,6 +153,11 @@ class MainActivity : ComponentActivity() {
                 .getStringExtra(NotificationHelper.EXTRA_TIP_ID)
                 ?.takeIf { trusted }
                 ?.let { RequestedTip(it, intent.getStringExtra(NotificationHelper.EXTRA_TIP_WAVE_KEY)) }
+        if (trusted) NotificationLanding.pending.value = intent.getStringExtra(NotificationHelper.EXTRA_LANDING)
+        val target = intent.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
+        if (trusted && target == NotificationHelper.TARGET_DAILY_SUMMARY) {
+            requestedSummary.value = System.currentTimeMillis()
+        }
         val compose = resolveComposeRequest(intent)
         requestedComposeRecipient.value = compose?.first
         requestedComposeBody.value = compose?.second.orEmpty()

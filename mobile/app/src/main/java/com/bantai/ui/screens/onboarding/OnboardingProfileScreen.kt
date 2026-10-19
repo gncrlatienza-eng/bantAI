@@ -30,7 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.ui.components.OnboardingHeader
@@ -59,6 +60,7 @@ import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.components.SectionLabel
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
@@ -122,7 +124,7 @@ fun OnboardingProfileScreen(
                 .padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        ProfileBackButton(onClick = navController::popBackStack)
+        ProfileBackButton(onClick = dropUnlessResumed { navController.popBackStack() })
         Spacer(Modifier.height(24.dp))
 
         AnimatedVisibility(visible = visible, enter = staggeredEnter(DELAY_HEADER_MS)) {
@@ -162,9 +164,9 @@ fun OnboardingProfileScreen(
 private fun ProfileBackButton(onClick: () -> Unit) {
     IconButton(onClick = onClick) {
         Icon(
-            Icons.AutoMirrored.Filled.ArrowBack,
+            Icons.AutoMirrored.Filled.ArrowBackIos,
             contentDescription = stringResource(R.string.action_back),
-            tint = White,
+            tint = IosBlue,
         )
     }
 }

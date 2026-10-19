@@ -3,10 +3,16 @@ package com.bantai.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -20,7 +26,7 @@ import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
-enum class BadgeType { CONTACT, SAFE, UNVERIFIED, SPAM, UNKNOWN, BLOCKED }
+enum class BadgeType { CONTACT, SAFE, UNVERIFIED, CHECKING, SPAM, UNKNOWN, BLOCKED }
 
 data class MessageItem(
     val sender: String,
@@ -45,6 +51,9 @@ fun StatusBadge(type: BadgeType) {
         // (offline / no token / request failed) -- "nothing found" and "verified
         // clean" must not read the same way to the user.
         BadgeType.UNVERIFIED -> BadgePill("Unverified", Surface, TextSecondary, TextSecondary)
+        // Not a verdict yet: the message is queued or waiting on the model.
+        // Distinct from UNVERIFIED, which means the check already gave up.
+        BadgeType.CHECKING -> CheckingPill()
         BadgeType.SPAM -> BadgePill("Spam", Suspicious.copy(alpha = 0.18f), Suspicious, Suspicious)
         BadgeType.UNKNOWN -> BadgePill("Unknown", Surface, TextSecondary, null)
         // "Scam", not "Blocked": an on-device Model C verdict sets this label
@@ -68,5 +77,25 @@ private fun BadgePill(
                 .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(label, color = textColor, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun CheckingPill() {
+    Row(
+        modifier =
+            Modifier
+                .background(Surface, RoundedCornerShape(100.dp))
+                .border(1.dp, TextSecondary, RoundedCornerShape(100.dp))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(9.dp),
+            color = TextSecondary,
+            strokeWidth = 1.5.dp,
+        )
+        Spacer(Modifier.width(4.dp))
+        Text("Checking…", color = TextSecondary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
     }
 }

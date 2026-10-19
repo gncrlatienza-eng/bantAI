@@ -292,7 +292,10 @@ describe('AuthService', () => {
     email.send.mockResolvedValue(undefined);
 
     await expect(
-      service.requestClientEmailOtp({ email: ' Client@Example.com ' }),
+      (service as any).requestEmailOtp(
+        ' Client@Example.com ',
+        'CLIENT_SIGN_IN',
+      ),
     ).resolves.toEqual({
       message: 'If the account is eligible, a verification code has been sent.',
     });
@@ -504,7 +507,7 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.requestClientEmailOtp({ email: 'client@example.com' }),
+      (service as any).requestEmailOtp('client@example.com', 'CLIENT_SIGN_IN'),
     ).resolves.toEqual({
       message: 'If the account is eligible, a verification code has been sent.',
     });
@@ -531,7 +534,7 @@ describe('AuthService', () => {
     jwt.signAsync.mockResolvedValue('client-jwt');
 
     await expect(
-      service.verifyClientEmailOtp({ email: emailAddress, otp: '123456' }),
+      service.verifyPortalEmailOtp({ email: emailAddress, otp: '123456' }),
     ).resolves.toMatchObject({
       access_token: 'client-jwt',
       audience: AuthAudience.CLIENT,

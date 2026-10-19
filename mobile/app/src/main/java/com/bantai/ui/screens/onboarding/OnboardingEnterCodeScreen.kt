@@ -27,7 +27,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
 import com.bantai.R
 import com.bantai.navigation.Screen
@@ -63,6 +64,7 @@ import com.bantai.ui.components.PrimaryButton
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
 import com.bantai.ui.theme.TextSize
@@ -91,7 +93,7 @@ fun OnboardingEnterCodeScreen(
         viewModel.onboardingAuthComplete.collect {
             if (viewModel.userData.value.onboardingComplete) {
                 val needsName = viewModel.firstName.value.isBlank()
-                val route = if (needsName) Screen.OnboardingProfile.route else Screen.Main.route
+                val route = if (needsName) Screen.OnboardingProfile.route else viewModel.returningUserRoute()
                 navController.navigate(route) {
                     popUpTo(0) { inclusive = true }
                 }
@@ -146,11 +148,11 @@ fun OnboardingEnterCodeScreen(
                 .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        IconButton(onClick = { navController.popBackStack() }) {
+        IconButton(onClick = dropUnlessResumed { navController.popBackStack() }) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
+                Icons.AutoMirrored.Filled.ArrowBackIos,
                 contentDescription = stringResource(R.string.action_back),
-                tint = White,
+                tint = IosBlue,
             )
         }
         Spacer(Modifier.height(16.dp))

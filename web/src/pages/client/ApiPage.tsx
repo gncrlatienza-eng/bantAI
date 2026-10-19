@@ -1,15 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AppShell, PageHeader } from '../../components/appshell/AppShell';
+import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
+  DataTable,
   EmptyState,
   ErrorState,
-  LoadingState,
+  Input,
+  Metric,
+  MetricRow,
+  SectionHeader,
+  StatPanel,
+  StatusBadge,
+  type Column,
 } from '../../components/primitives';
 import { ROUTES } from '../../constants/routes';
+import { formatCompactDateTime } from '../../utils/dateFormat';
 import { useAccountState } from '../../context/AccountStateContext';
-import { logout } from '../../services/authService';
 import {
   createShieldApiKey,
   listShieldApiKeys,
@@ -20,7 +27,6 @@ import {
   type ShieldApiScope,
   type ShieldApiUsage,
 } from '../../services/shieldApiKeysService';
-import { useClientSidebarGroups } from './clientNav';
 
 const scopeOptions: { value: ShieldApiScope; label: string }[] = [
   { value: 'READ_CAMPAIGNS', label: 'Campaigns' },
@@ -28,13 +34,14 @@ const scopeOptions: { value: ShieldApiScope; label: string }[] = [
   { value: 'READ_MASKED_MESSAGES', label: 'Reviewed masked messages' },
   { value: 'EXPORT_CAMPAIGNS', label: 'Campaign exports' },
 ];
+const SCOPE_LABEL = Object.fromEntries(
+  scopeOptions.map((option) => [option.value, option.label]),
+) as Record<string, string>;
 const displayDate = (value: string | null) =>
-  value ? new Date(value).toLocaleString() : 'Never';
+  value ? formatCompactDateTime(new Date(value)) : 'Never';
 
 export function ApiPage() {
-  const groups = useClientSidebarGroups();
   const navigate = useNavigate();
-  const location = useLocation();
   const workspace = useAccountState().state?.workspace;
   const organizationId = workspace?.organizationId;
   // Key management is only offered when the license includes API access;
@@ -105,32 +112,103 @@ export function ApiPage() {
     }
   }
 
+  const keyColumns: Column<ShieldApiKey>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (key) => (
+        <span style={{ display: 'grid', gap: 4, justifyItems: 'start' }}>
+          <strong style={{ fontWeight: 600 }}>{key.name}</strong>
+          <StatusBadge
+            kind={key.status === 'ACTIVE' ? 'verified' : 'unknown'}
+            label={key.status.charAt(0) + key.status.slice(1).toLowerCase()}
+          />
+        </span>
+      ),
+    },
+    {
+      key: 'key',
+      header: 'Key',
+      render: (key) => (
+        <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+          {key.keyPrefix}••••{key.keySuffix}
+        </code>
+      ),
+    },
+    {
+      key: 'scopes',
+      header: 'Scopes',
+      render: (key) =>
+        key.scopes
+          .map((scope) => SCOPE_LABEL[scope] ?? scope.toLowerCase())
+          .join(', '),
+    },
+    {
+      key: 'lastUsedAt',
+      header: 'Last used',
+      render: (key) => displayDate(key.lastUsedAt),
+    },
+    {
+      key: 'expiresAt',
+      header: 'Expires',
+      render: (key) => (key.expiresAt ? displayDate(key.expiresAt) : 'Never'),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (key) =>
+        key.status === 'ACTIVE' ? (
+          <span style={{ display: 'inline-flex', gap: 8 }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => void manage('rotate', key.id)}
+            >
+              Rotate
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => void manage('revoke', key.id)}
+            >
+              Revoke
+            </Button>
+          </span>
+        ) : null,
+    },
+  ];
+
+  const recentColumns: Column<ShieldApiUsage['recent'][number]>[] = [
+    {
+      key: 'createdAt',
+      header: 'Time',
+      render: (item) => displayDate(item.createdAt),
+    },
+    {
+      key: 'route',
+      header: 'Request',
+      render: (item) => (
+        <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+          {item.method} {item.route}
+        </code>
+      ),
+    },
+    {
+      key: 'statusCode',
+      header: 'Status',
+      align: 'right',
+      render: (item) => item.statusCode ?? 'Pending',
+    },
+  ];
+
   return (
-    <AppShell
-      role="client"
-      groups={groups}
-      brandInitial="S"
-      brandLabel="BantAI Shield"
-      currentPath={location.pathname}
-      onNavigate={(path) => void navigate(path)}
-      topbarContext={<span>Shield &middot; API</span>}
-      topbarUtility={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout();
-            void navigate('/login');
-          }}
-        >
-          Sign out
-        </Button>
-      }
-      footer={<span>Shield intelligence subscription</span>}
-    >
+    <>
       <PageHeader
         title="Shield API"
-        description="Create read-only keys for published campaign intelligence. Keys belong to your Shield account."
+        description="Read-only keys for published campaign intelligence."
       />
       {!organizationId ? (
         <EmptyState
@@ -156,113 +234,63 @@ export function ApiPage() {
             <section
               role="status"
               aria-label="New API secret"
-              style={{
-                padding: 20,
-                background: 'var(--surface-raised)',
-                marginBottom: 24,
-              }}
+              className="bantai-secret"
             >
-              <strong>Copy this secret now. It will not be shown again.</strong>
-              <code
-                style={{
-                  display: 'block',
-                  overflowWrap: 'anywhere',
-                  marginTop: 12,
-                }}
-              >
-                {secret}
-              </code>
-              <Button variant="secondary" onClick={() => setSecret('')}>
-                I have saved it
-              </Button>
+              <SectionHeader
+                title="Copy this secret now"
+                description="It is shown once. Store it in your secrets manager before leaving this page."
+                actions={
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setSecret('')}
+                  >
+                    I’ve saved it
+                  </Button>
+                }
+              />
+              <code className="bantai-secret__value">{secret}</code>
             </section>
           )}
           {usage && (
-            <section
-              aria-label="Your API usage"
-              style={{
-                padding: 20,
-                background: 'var(--surface-raised)',
-                marginBottom: 24,
-              }}
+            <StatPanel
+              label="API usage"
+              facts={[
+                {
+                  label: 'Rate limit',
+                  value: `${usage.rateLimitPerKeyPerMinute} requests / min per key`,
+                },
+              ]}
             >
-              <h2>Your usage</h2>
-              <p>
-                This period: {usage.requestsThisPeriod.toLocaleString()} /{' '}
-                {usage.monthlyQuota.toLocaleString()} requests · Today:{' '}
-                {usage.requestsToday.toLocaleString()} · Limit:{' '}
-                {usage.rateLimitPerKeyPerMinute} requests/minute per key
-              </p>
-              <p>
-                Recent success rate:{' '}
-                {usage.recentSuccessRate === null
-                  ? 'No completed requests'
-                  : `${(usage.recentSuccessRate * 100).toFixed(1)}%`}
-              </p>
-              {usage.recent.length > 0 && (
-                <div>
-                  <h3>Recent activity</h3>
-                  <ul>
-                    {usage.recent.map((item, index) => (
-                      <li key={`${item.keyId}-${item.createdAt}-${index}`}>
-                        {new Date(item.createdAt).toLocaleString()} ·{' '}
-                        {item.method} {item.route} ·{' '}
-                        {item.statusCode ?? 'Pending'}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </section>
+              <MetricRow columns={3}>
+                <Metric
+                  label="This period"
+                  value={usage.requestsThisPeriod.toLocaleString()}
+                  meta={`of ${usage.monthlyQuota.toLocaleString()} requests`}
+                />
+                <Metric
+                  label="Today"
+                  value={usage.requestsToday.toLocaleString()}
+                />
+                <Metric
+                  label="Success rate"
+                  value={
+                    usage.recentSuccessRate === null
+                      ? '—'
+                      : `${(usage.recentSuccessRate * 100).toFixed(1)}%`
+                  }
+                  meta={
+                    usage.recentSuccessRate === null
+                      ? 'No completed requests yet'
+                      : 'Recent requests'
+                  }
+                />
+              </MetricRow>
+            </StatPanel>
           )}
-          <section
-            aria-labelledby="create-key-heading"
-            style={{
-              padding: 20,
-              background: 'var(--surface-raised)',
-              marginBottom: 24,
-            }}
-          >
-            <h2 id="create-key-heading">Create API key</h2>
-            <label style={{ display: 'grid', gap: 6, maxWidth: 420 }}>
-              Key name
-              <input
-                value={name}
-                maxLength={120}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-            <fieldset style={{ border: 0, padding: 0, marginTop: 16 }}>
-              <legend>Read scopes</legend>
-              {scopeOptions.map(({ value, label }) => (
-                <label key={value} style={{ display: 'block', marginTop: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={scopes.includes(value)}
-                    onChange={(event) =>
-                      setScopes(
-                        event.target.checked
-                          ? [...scopes, value]
-                          : scopes.filter((scope) => scope !== value),
-                      )
-                    }
-                  />{' '}
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-            <Button
-              disabled={busy || !name.trim() || scopes.length === 0}
-              onClick={() => void manage('create')}
-            >
-              {busy ? 'Working…' : 'Create key'}
-            </Button>
-          </section>
-          <section aria-labelledby="keys-heading">
-            <h2 id="keys-heading">Your API keys</h2>
-            {loading ? (
-              <LoadingState label="Loading API keys…" />
-            ) : error && keys.length === 0 ? (
+          <section aria-labelledby="keys-heading" style={{ marginBottom: 32 }}>
+            <SectionHeader id="keys-heading" title="API keys" />
+            {error && keys.length === 0 && !loading ? (
               <ErrorState
                 title="API keys unavailable"
                 description={error}
@@ -272,64 +300,94 @@ export function ApiPage() {
                   </Button>
                 }
               />
-            ) : keys.length === 0 ? (
-              <EmptyState
-                title="No API keys"
-                description="Create a key to access the read-only Shield API."
-              />
             ) : (
-              <ul
-                style={{
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: 0,
-                  display: 'grid',
-                  gap: 12,
-                }}
-              >
-                {keys.map((key) => (
-                  <li
-                    key={key.id}
-                    style={{ padding: 20, background: 'var(--surface-raised)' }}
-                  >
-                    <strong>{key.name}</strong>{' '}
-                    <span>({key.status.toLowerCase()})</span>
-                    <code style={{ display: 'block', marginTop: 8 }}>
-                      {key.keyPrefix}••••••••{key.keySuffix}
-                    </code>
-                    <p>
-                      Created {displayDate(key.createdAt)} · Last used{' '}
-                      {displayDate(key.lastUsedAt)} · Expires{' '}
-                      {key.expiresAt ? displayDate(key.expiresAt) : 'Never'}
-                    </p>
-                    <p>Scopes: {key.scopes.join(', ')}</p>
-                    {key.status === 'ACTIVE' && (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <Button
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => void manage('rotate', key.id)}
-                        >
-                          Rotate
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          disabled={busy}
-                          onClick={() => void manage('revoke', key.id)}
-                        >
-                          Revoke
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <DataTable<ShieldApiKey>
+                ariaLabel="Your API keys"
+                rowKey={(key) => key.id}
+                rows={keys}
+                columns={keyColumns}
+                loading={loading}
+                emptyState={
+                  <EmptyState
+                    title="No API keys"
+                    description="Create a key below to call the read-only Shield API."
+                  />
+                }
+              />
             )}
-            {error && keys.length > 0 && <p role="alert">{error}</p>}
+            {error && keys.length > 0 && (
+              <p role="alert" style={{ color: 'var(--status-threat)' }}>
+                {error}
+              </p>
+            )}
           </section>
+          <section
+            aria-labelledby="create-key-heading"
+            className="bantai-formcard"
+          >
+            <SectionHeader
+              id="create-key-heading"
+              title="Create API key"
+              description="Keys are read-only. Give each integration only the scopes it needs."
+            />
+            <div style={{ display: 'grid', gap: 16, maxWidth: 420 }}>
+              <Input
+                label="Key name"
+                value={name}
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+              />
+              <fieldset className="bantai-checkgroup">
+                <legend>Read scopes</legend>
+                {scopeOptions.map(({ value, label }) => (
+                  <label key={value}>
+                    <input
+                      type="checkbox"
+                      checked={scopes.includes(value)}
+                      onChange={(event) =>
+                        setScopes(
+                          event.target.checked
+                            ? [...scopes, value]
+                            : scopes.filter((scope) => scope !== value),
+                        )
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              <div>
+                <Button
+                  disabled={busy || !name.trim() || scopes.length === 0}
+                  onClick={() => void manage('create')}
+                >
+                  {busy ? 'Working…' : 'Create key'}
+                </Button>
+              </div>
+            </div>
+          </section>
+          {usage && usage.recent.length > 0 && (
+            <section
+              aria-labelledby="recent-requests-heading"
+              style={{ marginTop: 32 }}
+            >
+              <SectionHeader
+                id="recent-requests-heading"
+                title="Recent requests"
+              />
+              <DataTable<ShieldApiUsage['recent'][number]>
+                ariaLabel="Recent API requests"
+                rowKey={(item) =>
+                  `${item.keyId}-${item.createdAt}-${item.route}`
+                }
+                rows={usage.recent}
+                columns={recentColumns}
+              />
+            </section>
+          )}
         </>
       )}
-    </AppShell>
+    </>
   );
 }
 

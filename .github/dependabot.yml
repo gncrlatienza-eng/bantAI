@@ -1,18 +1,45 @@
 version: 2
+
+# One PR for all minor/patch bumps and one for all major bumps per folder,
+# opened against develop (our integration branch) once a month.
 updates:
   - package-ecosystem: npm
     directory: /backend
+    target-branch: develop
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+      major:
+        update-types: [major]
   - package-ecosystem: npm
     directory: /web
+    target-branch: develop
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+      major:
+        update-types: [major]
   - package-ecosystem: pip
     directory: /ai
+    target-branch: develop
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+      major:
+        update-types: [major]
   - package-ecosystem: gradle
     directory: /mobile
+    target-branch: develop
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+      major:
+        update-types: [major]

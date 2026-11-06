@@ -2,10 +2,10 @@
 # Python 3.11 recommended.
 
 # --- Inference service ---
-fastapi>=0.110
-uvicorn[standard]>=0.29
-pydantic>=2.6
-pydantic-settings>=2.2
+fastapi>=0.162.0
+uvicorn[standard]>=0.54.0
+pydantic>=2.14.2
+pydantic-settings>=2.16.2
 
 # --- Model / training ---
 # Exact pins below, not ranges. History, because it took two tries to get
@@ -35,11 +35,11 @@ pydantic-settings>=2.2
 # and [CLS] embeddings are bit-for-bit identical to 4.57.6 on 500 holdout
 # messages, with the holdout confusion matrix unchanged. This clears 4 of the 7
 # pip-audit findings; the other 3 have no fixed release yet (see ci.yml).
-transformers==5.17.0        # processing_class, not tokenizer= (removed in 5.x);
+transformers==5.22.1        # processing_class, not tokenizer= (removed in 5.x);
                             # see the exact-pin rationale above for why ==, not >=.
-torch>=2.2
+torch>=2.15.0
 sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
-datasets==5.0.1
+datasets==5.1.0
 accelerate==1.15.0
 huggingface-hub==1.31.0      # transitive via transformers/datasets, declared and
                             # pinned exactly for the same reason as the scipy pin
@@ -52,7 +52,7 @@ scipy>=1.11                 # exact binomial test (retraining/promotion.py).
                             # explicitly because we import it directly -- a
                             # transitive pin is free to disappear.
 pandas>=2.2
-numpy>=1.26
+numpy>=2.5.4
 
 # --- Explainability (Sprint 3, WBS 3.3.6) ---
 # Optional: service/explainer.py falls back to the keyword tagger when this is

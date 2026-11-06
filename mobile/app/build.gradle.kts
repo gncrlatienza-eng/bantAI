@@ -458,15 +458,15 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.accompanist.permissions)
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.datastore:datastore-preferences:1.3.0")
     // 1.0.0 is the last stable release — the 1.1.0-alpha* line has never
     // graduated past alpha, and SecureTokenStore's whole job is protecting the
     // one credential this app has, which shouldn't rest on a pre-release build.
-    implementation("androidx.security:security-crypto:1.0.0")
+    implementation("androidx.security:security-crypto:1.1.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     // Release inference uses ONNX Runtime and the SentencePiece tokenizer custom op.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.1")
     implementation("com.microsoft.onnxruntime:onnxruntime-extensions-android:0.13.0")
     // Real backdrop blur for the nav bar's selection pill (2026-09-16) -- glass
     // that actually blurs the screen content behind it, not just a translucent

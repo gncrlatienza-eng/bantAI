@@ -4,7 +4,7 @@
 # --- Inference service ---
 fastapi>=0.110
 uvicorn[standard]>=0.29
-pydantic>=2.6
+pydantic>=2.14.2
 pydantic-settings>=2.2
 
 # --- Model / training ---

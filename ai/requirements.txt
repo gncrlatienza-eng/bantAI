@@ -47,7 +47,7 @@ huggingface-hub==1.31.0      # transitive via transformers/datasets, declared an
                             # this is the version that actually resolved alongside
                             # the pins above.
 scikit-learn>=1.4           # train/val split + metrics + TF-IDF + HDBSCAN
-scipy>=1.11                 # exact binomial test (retraining/promotion.py).
+scipy>=1.18.1                 # exact binomial test (retraining/promotion.py).
                             # Ships as a scikit-learn dependency, but declared
                             # explicitly because we import it directly -- a
                             # transitive pin is free to disappear.

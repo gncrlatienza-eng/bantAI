@@ -41,7 +41,7 @@ torch>=2.2
 sentencepiece>=0.2.0        # XLM-RoBERTa SentencePiece tokenizer (250K vocab)
 datasets==5.0.1
 accelerate==1.15.0
-huggingface-hub==1.31.0      # transitive via transformers/datasets, declared and
+huggingface-hub==2.4.0      # transitive via transformers/datasets, declared and
                             # pinned exactly for the same reason as the scipy pin
                             # below -- a transitive pin is free to disappear, and
                             # this is the version that actually resolved alongside

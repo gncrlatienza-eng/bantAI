@@ -26,6 +26,13 @@ updates:
   - package-ecosystem: pip
     directory: /ai
     target-branch: develop
+    # Only bump a requirement when its current range no longer allows the new
+    # version. Raising ">=" floors forced numpy/scipy releases that need Python 3.12.
+    versioning-strategy: increase-if-necessary
+    ignore:
+      # Dependabot drops the "+cpu" local version, which would swap in the much
+      # larger CUDA build. Update torch by hand.
+      - dependency-name: torch
     schedule:
       interval: monthly
     groups:

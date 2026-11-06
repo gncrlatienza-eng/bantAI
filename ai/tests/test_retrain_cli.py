@@ -1,0 +1,315 @@
+"""Unit tests for the retraining CLI's source resolution (WBS 4.3.5).
+
+Only the argument-to-source wiring is covered here -- the pipeline itself is
+tested in ``test_retraining_pipeline.py``. What matters at this layer is that
+a report store is never consulted by accident and never *skipped* by accident,
+since both mistakes produce a run that looks entirely normal afterwards.
+"""
+
+import importlib.util
+import os
+import sys
+from types import SimpleNamespace
+
+import pytest
+
+from retraining.reports import FileReportSource, NullReportSource
+from service.retrain_queue import QUEUED, enqueue, list_jobs
+
+# scripts/ is not a package (the scripts insert "." on sys.path and are run as
+# files), so load retrain.py by path rather than importing it.
+_SPEC = importlib.util.spec_from_file_location(
+    "retrain_cli",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "retrain.py"),
+)
+retrain = importlib.util.module_from_spec(_SPEC)
+sys.modules["retrain_cli"] = retrain
+_SPEC.loader.exec_module(retrain)
+
+
+def resolve(argv, env=None, monkeypatch=None):
+    """Parse ``argv`` and resolve a report source from it."""
+    for name in (retrain.ENV_BACKEND_URL,):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in (env or {}).items():
+        monkeypatch.setenv(name, value)
+    args = retrain.build_parser().parse_args(argv)
+    return retrain._build_report_source(args)
+
+
+# --- the default ------------------------------------------------------------
+def test_no_flags_gives_the_null_source(monkeypatch):
+    source, error = resolve([], monkeypatch=monkeypatch)
+    assert error is None
+    assert isinstance(source, NullReportSource)
+
+
+def test_environment_alone_never_turns_the_database_on(monkeypatch):
+    """A configured backend URL is not consent to consult it. Inferring the
+    source from ambient environment is how a run ends up reporting reports it
+    was never asked to fetch -- or, worse, silently switching stores between
+    two runs someone is comparing."""
+    source, error = resolve(
+        [],
+        env={
+            retrain.ENV_BACKEND_URL: "http://localhost:3000/api",
+        },
+        monkeypatch=monkeypatch,
+    )
+    assert error is None
+    assert isinstance(source, NullReportSource)
+
+
+# --- file source ------------------------------------------------------------
+def test_reports_dir_gives_a_file_source(tmp_path, monkeypatch):
+    source, error = resolve(["--reports-dir", str(tmp_path)], monkeypatch=monkeypatch)
+    assert error is None
+    assert isinstance(source, FileReportSource)
+
+
+def test_missing_reports_dir_is_an_error(tmp_path, monkeypatch):
+    source, error = resolve(["--reports-dir", str(tmp_path / "nope")], monkeypatch=monkeypatch)
+    assert source is None
+    assert "does not exist" in error
+
+
+# --- live database reports are intentionally disabled ----------------------
+def test_explicit_url_is_rejected_in_privacy_first_mode(monkeypatch):
+    source, error = resolve(
+        ["--reports-url", "http://localhost:3000/api", "--reports-api-key", "k"],
+        monkeypatch=monkeypatch,
+    )
+    assert source is None
+    assert "privacy-first" in error
+    assert "--reports-dir" in error
+
+
+def test_bare_flag_is_rejected_even_with_a_backend_environment(monkeypatch):
+    source, error = resolve(
+        ["--reports-url"],
+        env={
+            retrain.ENV_BACKEND_URL: "http://backend:3000/api",
+        },
+        monkeypatch=monkeypatch,
+    )
+    assert source is None
+    assert "privacy-first" in error
+
+
+def test_bare_flag_is_rejected_without_an_environment(monkeypatch):
+    source, error = resolve(["--reports-url"], monkeypatch=monkeypatch)
+    assert source is None
+    assert "privacy-first" in error
+
+
+def test_reports_api_key_cannot_reenable_live_ingestion(monkeypatch):
+    source, error = resolve(["--reports-url", "http://localhost:3000/api"], monkeypatch=monkeypatch)
+    assert source is None
+    assert "privacy-first" in error
+
+
+def test_the_two_sources_are_mutually_exclusive(tmp_path, monkeypatch):
+    source, error = resolve(
+        ["--reports-dir", str(tmp_path), "--reports-url", "http://x/api"],
+        monkeypatch=monkeypatch,
+    )
+    assert source is None
+    assert "mutually exclusive" in error
+
+
+def test_export_is_rejected_without_a_consented_offline_source(monkeypatch):
+    source, error = resolve(
+        ["--export-reports", "out.csv"],
+        monkeypatch=monkeypatch,
+    )
+    assert source is None
+    assert "privacy-first" in error
+
+
+# --- export -----------------------------------------------------------------
+class _StubSource:
+    def __init__(self, reports):
+        self._reports = reports
+
+    def fetch(self, since=None):
+        return self._reports
+
+    def describe(self):
+        return "database:stub (status=Validated)"
+
+
+def test_export_writes_the_documented_columns(tmp_path, capsys):
+    from datetime import datetime, timezone
+
+    from retraining.reports import ValidatedReport
+
+    out = tmp_path / "nested" / "validated.csv"
+    reports = [
+        ValidatedReport(
+            text="Your account is suspended.",
+            label="Scam",
+            report_id="rpt-1",
+            validated_at=datetime(2026, 8, 12, 14, 30, tzinfo=timezone.utc),
+        ),
+        ValidatedReport(text="undated one", label="Ham"),
+    ]
+
+    assert retrain._export_reports(_StubSource(reports), str(out)) == 0
+
+    lines = out.read_text(encoding="utf-8").splitlines()
+    # Exactly the header datasets/reports/README.md documents, so the file
+    # drops straight into --reports-dir on the GPU machine.
+    assert lines[0] == "text,label,report_id,validated_at"
+    assert lines[1] == "Your account is suspended.,Scam,rpt-1,2026-08-12T14:30:00+00:00"
+    assert lines[2] == "undated one,Ham,,"
+
+
+def test_export_round_trips_through_the_file_source(tmp_path):
+    """The export is only useful if FileReportSource can read it back -- that
+    round trip is the entire point of the flag."""
+    from datetime import datetime, timezone
+
+    from retraining.reports import ValidatedReport
+
+    out = tmp_path / "validated.csv"
+    original = ValidatedReport(
+        text="you won a prize",
+        label="Scam",
+        report_id="rpt-9",
+        validated_at=datetime(2026, 8, 12, 14, 30, tzinfo=timezone.utc),
+    )
+    retrain._export_reports(_StubSource([original]), str(out))
+
+    (restored,) = list(FileReportSource(str(tmp_path)).fetch())
+    assert restored == original
+
+
+def test_empty_export_says_so_out_loud(tmp_path, capsys):
+    """A silent empty CSV is how a GPU run "includes reports" while consuming
+    none."""
+    out = tmp_path / "validated.csv"
+    retrain._export_reports(_StubSource([]), str(out))
+    assert "consumes no corrections" in capsys.readouterr().out
+
+
+# --- main() exit codes ------------------------------------------------------
+def test_main_exits_2_on_a_bad_source(monkeypatch, capsys):
+    code = retrain.main(["--reports-url", "http://localhost:3000/api", "--dry-run"])
+    assert code == 2
+    assert "privacy-first" in capsys.readouterr().err
+
+
+def test_main_exits_2_before_any_live_report_request(tmp_path, capsys):
+    labeled = tmp_path / "labeled"
+    labeled.mkdir()
+    (labeled / "d.csv").write_text(
+        "text,label\n" + "\n".join(f"message {i},Ham" for i in range(20)) + "\n",
+        encoding="utf-8",
+    )
+
+    code = retrain.main(
+        [
+            "--dry-run",
+            "--labeled-dir",
+            str(labeled),
+            "--runs-root",
+            str(tmp_path / "runs"),
+            "--reports-url",
+            "http://localhost:3000/api",
+            "--reports-api-key",
+            "k",
+        ]
+    )
+    assert code == 2
+    assert "privacy-first" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("bad", ["not-a-date", "2026-13-99"])
+def test_main_rejects_an_unparseable_since(bad, capsys):
+    assert retrain.main(["--since", bad, "--dry-run"]) == 2
+    assert "ISO-8601" in capsys.readouterr().err
+
+
+# --- draining the retrain queue (Reymark's audit, item 5) --------------------
+class _Run:
+    def __init__(self, dry_run):
+        self.dry_run = dry_run
+
+
+def _args(queue_path, complete_queue, dataset_version=None):
+    return SimpleNamespace(queue_path=queue_path, complete_queue=complete_queue, dataset_version=dataset_version)
+
+
+def test_complete_queue_drains_after_a_real_run(tmp_path, capsys):
+    """A real retrain is what every outstanding trigger was asking for."""
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop")
+    enqueue(path, "page_hinkley")
+
+    retrain._reconcile_queue(_args(path, complete_queue=True), _Run(dry_run=False))
+
+    assert not [j for j in list_jobs(path) if j.status == QUEUED]
+    assert "Marked 2 queued retrain job(s) completed" in capsys.readouterr().out
+
+
+def test_a_dry_run_never_drains_the_queue(tmp_path):
+    """A dry run trains nothing, so it answers no trigger."""
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop")
+
+    retrain._reconcile_queue(_args(path, complete_queue=True), _Run(dry_run=True))
+
+    assert len([j for j in list_jobs(path) if j.status == QUEUED]) == 1
+
+
+def test_a_real_run_without_the_flag_says_the_queue_is_still_waiting(tmp_path, capsys):
+    """Silence here is what let the backlog sit unnoticed."""
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop")
+
+    retrain._reconcile_queue(_args(path, complete_queue=False), _Run(dry_run=False))
+
+    out = capsys.readouterr().out
+    assert "1 retrain job(s) still queued" in out
+    assert "--complete-queue" in out
+    assert len([j for j in list_jobs(path) if j.status == QUEUED]) == 1
+
+
+def test_nothing_is_printed_when_the_queue_is_empty(tmp_path, capsys):
+    retrain._reconcile_queue(_args(str(tmp_path / "queue.jsonl"), complete_queue=False), _Run(dry_run=False))
+    assert capsys.readouterr().out == ""
+
+
+# --- frozen dataset identity (audit 2026-09-30, finding 6) -------------------
+def test_a_versioned_run_drains_only_its_own_snapshot(tmp_path, capsys):
+    path = str(tmp_path / "queue.jsonl")
+    enqueue(path, "f1_drop", "dataset-a")
+    enqueue(path, "page_hinkley", "dataset-b")
+    enqueue(path, "legacy")
+
+    retrain._reconcile_queue(_args(path, complete_queue=True, dataset_version="dataset-a"), _Run(dry_run=False))
+
+    left = {j.trigger for j in list_jobs(path) if j.status == QUEUED}
+    assert left == {"page_hinkley", "legacy"}
+    out = capsys.readouterr().out
+    assert "Marked 1 queued retrain job(s) completed" in out
+    assert "dataset-b" in out and "(unversioned)" in out
+
+
+def _check_args(reports_dir, dataset_version):
+    return SimpleNamespace(reports_dir=reports_dir, dataset_version=dataset_version)
+
+
+def test_dataset_version_requires_the_matching_snapshot_export(tmp_path):
+    export = tmp_path / "reports"
+    export.mkdir()
+    row = '{"text": "[URL]", "label": "Scam", "dataset_version": "dataset-a"}\n'
+    (export / "dataset-a.jsonl").write_text(row, encoding="utf-8")
+
+    assert retrain._check_dataset_version(_check_args(str(export), "dataset-a")) is None
+    assert "not --dataset-version" in retrain._check_dataset_version(_check_args(str(export), "dataset-b"))
+    assert "needs --reports-dir" in retrain._check_dataset_version(_check_args(None, "dataset-a"))
+    assert retrain._check_dataset_version(_check_args(None, None)) is None
+
+    (export / "extra.csv").write_text("text,label\nhi,Ham\n", encoding="utf-8")
+    assert "without dataset_version" in retrain._check_dataset_version(_check_args(str(export), "dataset-a"))

@@ -2,9 +2,11 @@ package com.bantai.ui.screens.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,240 +18,773 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.container
+import com.bantai.data.LocalScamAlerts
+import com.bantai.data.model.AGE_BUCKETS
+import com.bantai.data.model.AlertSection
+import com.bantai.data.model.AlertTab
+import com.bantai.data.model.ConversationView
+import com.bantai.data.model.ReportFilter
+import com.bantai.data.model.ReportSection
+import com.bantai.data.model.SenderReports
+import com.bantai.data.model.THIS_WEEK
+import com.bantai.data.model.TODAY
+import com.bantai.data.model.reportCounts
+import com.bantai.data.model.reportKey
+import com.bantai.data.model.reportSections
+import com.bantai.data.model.sectionAlerts
+import com.bantai.data.model.tab
+import com.bantai.data.model.unseenAlerts
 import com.bantai.data.remote.SmsApi
 import com.bantai.navigation.Screen
+import com.bantai.ui.components.CoachIds
+import com.bantai.ui.components.FilterPill
+import com.bantai.ui.components.GroupedDivider
+import com.bantai.ui.components.GroupedSectionHeader
+import com.bantai.ui.components.ListSkeleton
+import com.bantai.ui.components.LocalCoachMarks
+import com.bantai.ui.components.ReportStatusLine
+import com.bantai.ui.components.SegmentedControl
+import com.bantai.ui.components.StateMessage
+import com.bantai.ui.components.SwipeActionsRow
+import com.bantai.ui.components.SwipeGroupScope
+import com.bantai.ui.components.coachTarget
+import com.bantai.ui.components.groupedItem
+import com.bantai.ui.components.swipeActionFor
 import com.bantai.ui.theme.Black
-import com.bantai.ui.theme.Danger
+import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.TabTitleTopSpacing
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.TextTertiary
 import com.bantai.ui.theme.White
+import com.bantai.util.MessageTime
+import com.bantai.util.TrustedSenders
+import com.bantai.util.isResumed
 import com.bantai.viewmodel.AlertsViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
-private const val ALERTS_POLL_INTERVAL_MS = 5_000L
+// Where a row's text column starts (4dp start + 14dp unseen-dot gutter + 24dp
+// icon + 10dp gap); the inset hairlines line up with it, as in iOS lists.
+private val ROW_TEXT_INSET = 52.dp
 
+// Empty/error states fill this much of the list's height and center in it, so
+// they sit in the visible middle rather than behind the floating tab bar.
+private const val EMPTY_STATE_HEIGHT = 0.7f
+
+// The Reported page's Waiting / Accepted / Declined control with its top gap.
+private val REPORT_FILTER_HEIGHT_ESTIMATE = 56.dp
+
+// An empty/error state, centered in EMPTY_STATE_HEIGHT of the list. On pages
+// without the Reported filter it drops by [inset] * (1 - EMPTY_STATE_HEIGHT / 2):
+// exactly what keeps its center level with Reported's, whose list is [inset]
+// shorter and starts [inset] lower.
+private fun LazyListScope.centeredState(
+    inset: Dp,
+    content: @Composable (Modifier) -> Unit,
+) {
+    item {
+        Column {
+            Spacer(Modifier.height(inset * (1 - EMPTY_STATE_HEIGHT / 2)))
+            content(Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT))
+        }
+    }
+}
+
+/**
+ * Alerts tab, as four pages picked with chips like the Messages tab's
+ * filters (see AlertTab): To review, Reviewed, Reported, Blocked. Every alert
+ * is on exactly one page, and a line under the chips says what the page is
+ * for. Rows are grouped Today / This Week / Earlier; a blue dot and bold
+ * sender mark alerts not opened yet, and a chip gets a dot when its page has
+ * any, so the tab's count always leads somewhere. Seen/reviewed state is
+ * phone-only (AlertStateStore); reports come from the backend.
+ */
 @Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod") // one screen: pages, report filter, swipe actions
 fun AlertsScreen(
     navController: NavController,
     innerPadding: PaddingValues,
     viewModel: AlertsViewModel = viewModel(),
 ) {
+    // Tabs stay composed when hidden, so "on screen" is the tab being active,
+    // not this screen being composed (the fast poll used to run on every tab).
+    val tabActive = LocalTabActive.current
+    DisposableEffect(viewModel, tabActive) {
+        viewModel.isScreenVisible = tabActive
+        onDispose { viewModel.isScreenVisible = false }
+    }
     val alerts by viewModel.alerts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val tab by viewModel.tab.collectAsState()
+    val alertState by viewModel.alertState.collectAsState()
 
-    // The ViewModel is scoped to the nav backstack, not this composable, so it
-    // only loads once per app session on its own — poll while this screen is
-    // actually on screen so new alerts (e.g. a message just ingested) show up
-    // without needing to relaunch the app. Cancels/restarts automatically as
-    // this composable leaves/re-enters composition.
-    LaunchedEffect(Unit) {
-        while (isActive) {
-            delay(ALERTS_POLL_INTERVAL_MS)
-            viewModel.loadAlerts(silent = true)
+    val unseen =
+        remember(alerts, alertState) {
+            unseenAlerts(alerts, alertState.initialized, alertState.seen).map { it.messageId }.toSet()
+        }
+    val tabsWithNew =
+        remember(alerts, unseen) {
+            alerts.filter { it.messageId in unseen }.map { it.tab() }.toSet()
+        }
+    val sections = remember(alerts, tab) { sectionAlerts(alerts, tab) }
+    val reportFilter by viewModel.reportFilter.collectAsState()
+    val ageFilter by viewModel.ageFilter.collectAsState()
+    val coachStep = LocalCoachMarks.current?.currentTarget
+    LaunchedEffect(coachStep) {
+        if (coachStep == CoachIds.ALERT_TABS || coachStep == CoachIds.ALERT_FIRST_ROW) {
+            viewModel.setTab(AlertTab.TO_REVIEW)
+        }
+    }
+    // Opening a page (or new alerts arriving) lands on the newest age that has
+    // something, so To Review never opens on an empty Today while This week waits.
+    // A user's own pick of an empty age stays put.
+    val sectionTitles = sections.map { it.title }
+    LaunchedEffect(tab, sectionTitles) {
+        if (sectionTitles.isNotEmpty() && ageFilter !in sectionTitles) viewModel.setAgeFilter(sectionTitles.first())
+    }
+    val reportSections = remember(alerts, reportFilter) { reportSections(alerts, reportFilter) }
+    val reportCounts = remember(alerts) { reportCounts(alerts) }
+    // Blocked senders aren't in Alerts (they're in Settings → Blocked numbers).
+    // "Help improve detection" off: nobody reviews anything from this phone, so
+    // Alerts is just the scam list, with no page chips.
+    val shareReports by LocalContext.current.container.shareReports
+        .collectAsState()
+    val tabs = if (shareReports) listOf(AlertTab.TO_REVIEW, AlertTab.REPORTED) else listOf(AlertTab.TO_REVIEW)
+    val showTabs = tabs.size > 1
+    LaunchedEffect(tabs, tab) { if (tab !in tabs) viewModel.setTab(AlertTab.TO_REVIEW) }
+    val density = LocalDensity.current
+    // Measured once the Reported page shows its filter; the estimate is its
+    // height at the default font size.
+    var reportFilterHeight by remember { mutableStateOf(REPORT_FILTER_HEIGHT_ESTIMATE) }
+
+    // Every alert routes to SmishingAlertScreen -- the alert-detail screen.
+    fun onAlertClick(alert: SmsApi.AlertSummary) {
+        viewModel.markSeen(alert)
+        // An on-device scam has no server alert to open: show it in its
+        // conversation, whose verdict banner offers Report and Block.
+        val localId = LocalScamAlerts.localIdOf(alert.messageId)
+        if (localId != null) {
+            navController.navigate(Screen.Detail.createRoute(alert.sender, ConversationView.ALL, listOf(localId)))
+        } else {
+            navController.navigate(Screen.SmishingAlert.createRoute(alert.messageId))
         }
     }
 
-    LazyColumn(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(Black)
-                .statusBarsPadding(),
-        contentPadding =
-            PaddingValues(
-                start = 20.dp,
-                top = 16.dp,
-                end = 20.dp,
-                bottom = innerPadding.calculateBottomPadding() + 24.dp,
-            ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    // Swipe left on a To Review row -> Report / Block, straight into Take
+    // Action with that option picked, without opening the alert first.
+    fun onSwipeAction(
+        alert: SmsApi.AlertSummary,
+        action: String,
     ) {
-        item {
-            Text("Alerts", color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(7.dp)
-                            .background(if (alerts.isEmpty()) Safe else Suspicious, CircleShape),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    if (alerts.isEmpty()) "All threats reviewed" else "${alerts.size} threat${if (alerts.size == 1) "" else "s"} flagged",
-                    color = TextSecondary,
-                    fontSize = 14.sp,
+        // A quick double tap on the action must not open Take Action twice.
+        if (!navController.isResumed()) return
+        viewModel.markSeen(alert)
+        val localScamId = LocalScamAlerts.localIdOf(alert.messageId)
+        navController.navigate(
+            Screen.TakeAction.createRoute(
+                messageId = if (localScamId != null) "" else alert.messageId,
+                sender = alert.sender,
+                localId = localScamId ?: alert.localId,
+                action = action,
+                canBlock = !alert.senderBlocked && !TrustedSenders.isBuiltIn(alert.sender),
+            ),
+        )
+    }
+
+    // One report opens its own page (review status, the user's note, the
+    // message); a sender with several opens the list of them first.
+    fun onReportClick(row: SenderReports) {
+        row.reports.flatten().forEach(viewModel::markSeen)
+        val route =
+            if (row.reports.size == 1) {
+                Screen.ReportDetail.createRoute(reportKey(row.latest))
+            } else {
+                Screen.SenderReports.createRoute(row.key)
+            }
+        navController.navigate(route)
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        // The title, chips and page description stay pinned while only the
+        // list below scrolls. Rows sit in iOS inset-grouped cards (see
+        // GroupedList.kt), one card per section, like Settings.
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(Black)
+                    .statusBarsPadding(),
+        ) {
+            Spacer(Modifier.height(TabTitleTopSpacing))
+            AlertsTitle(hasUnseen = unseen.isNotEmpty(), onMarkAllSeen = viewModel::markAllSeen)
+            Spacer(Modifier.height(10.dp))
+            if (showTabs) {
+                AlertTabChips(
+                    tabs = tabs,
+                    selected = tab,
+                    tabsWithNew = tabsWithNew,
+                    onSelect = viewModel::setTab,
+                    modifier = Modifier.coachTarget(CoachIds.ALERT_TABS),
                 )
             }
-            Spacer(Modifier.height(4.dp))
-        }
-
-        when {
-            isLoading ->
-                item {
-                    Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = TextSecondary, modifier = Modifier.size(20.dp))
-                    }
+            // Every page's blurb is laid out and only the selected one shown, so
+            // this block is as tall as the longest at any width or font size:
+            // switching pages never moves the list (or its empty state) below.
+            Box(Modifier.padding(start = 20.dp, end = 20.dp, top = if (showTabs) 10.dp else 0.dp)) {
+                tabs.forEach { page ->
+                    Text(
+                        stringResource(page.aboutRes()),
+                        color = TextSecondary,
+                        fontSize = TextSize.Footnote,
+                        lineHeight = 18.sp,
+                        modifier = if (page == tab) Modifier else Modifier.alpha(0f).clearAndSetSemantics {},
+                    )
                 }
-            errorMessage != null ->
-                item {
-                    Text(errorMessage ?: "Could not load alerts", color = Danger, fontSize = 13.sp)
-                }
-            alerts.isEmpty() ->
-                item {
-                    Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "No alerts yet — you'll see flagged messages here.",
-                            color = TextSecondary,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
-            else ->
-                alerts.forEach { alert ->
-                    val blocked = alert.status.equals("Blocked", ignoreCase = true)
-                    item {
-                        AlertCard(
-                            alert = alert,
-                            blocked = blocked,
-                            onClick = {
-                                navController.navigate(
-                                    if (blocked) {
-                                        Screen.SmishingAlert.createRoute(alert.messageId)
-                                    } else {
-                                        Screen.ThreatAnalysis.createRoute(alert.messageId)
-                                    },
-                                )
-                            },
-                        )
-                    }
-                }
+            }
+            val showReportFilter = shareReports && reportCounts.isNotEmpty()
+            val showAgeFilter = tab == AlertTab.TO_REVIEW && sections.isNotEmpty()
+            val insetForControl = !showAgeFilter && tab != AlertTab.REPORTED && showReportFilter
+            if (showAgeFilter) {
+                AgeFilterControl(
+                    selected = ageFilter,
+                    withNew =
+                        sections
+                            .filter { s -> s.alerts.any { it.messageId in unseen } }
+                            .mapTo(HashSet()) { it.title },
+                    onSelect = viewModel::setAgeFilter,
+                    modifier =
+                        Modifier
+                            .onSizeChanged { reportFilterHeight = with(density) { it.height.toDp() } }
+                            .padding(start = 20.dp, end = 20.dp, top = 14.dp)
+                            // With no page chips, the tour points here instead. After
+                            // the padding, so the ring hugs the control itself.
+                            .then(if (showTabs) Modifier else Modifier.coachTarget(CoachIds.ALERT_TABS)),
+                )
+            }
+            if (tab == AlertTab.REPORTED && showReportFilter) {
+                ReportFilterControl(
+                    selected = reportFilter,
+                    onSelect = viewModel::setReportFilter,
+                    modifier =
+                        Modifier
+                            .onSizeChanged { reportFilterHeight = with(density) { it.height.toDp() } }
+                            .padding(start = 20.dp, end = 20.dp, top = 14.dp),
+                )
+            }
+            // A fixed gap outside the scrolling list: the section headers' own
+            // top space only applies at rest, so scrolled rows used to run into
+            // the Waiting / Accepted / Declined control (and the page text above).
+            Spacer(Modifier.height(8.dp))
+            AlertsList(
+                state =
+                    AlertsListState(
+                        isLoading = isLoading,
+                        errorMessage = errorMessage,
+                        tab = tab,
+                        sections = sections,
+                        unseen = unseen,
+                        reportSections = reportSections,
+                        reportFilter = reportFilter,
+                        ageFilter = ageFilter,
+                        // Keeps an empty page's message at the same height as on a page with a control.
+                        stateInset = if (insetForControl) reportFilterHeight else 0.dp,
+                    ),
+                bottomPadding = innerPadding.calculateBottomPadding() + 24.dp,
+                onClick = ::onAlertClick,
+                onReportClick = ::onReportClick,
+                onRetry = { viewModel.loadAlerts() },
+                onSwipeAction = ::onSwipeAction,
+                reportsOn = shareReports,
+            )
         }
     }
 }
 
-@Composable
-private fun AlertCard(
-    alert: SmsApi.AlertSummary,
-    blocked: Boolean,
-    onClick: () -> Unit,
-) {
-    val accent = if (blocked) Danger else Suspicious
-    val icon: ImageVector = if (blocked) Icons.Default.Block else Icons.Default.Warning
+private data class AlertsListState(
+    val isLoading: Boolean,
+    val errorMessage: String?,
+    val tab: AlertTab,
+    val sections: List<AlertSection>,
+    val unseen: Set<String>,
+    val reportSections: List<ReportSection>,
+    val reportFilter: ReportFilter,
+    // To Review / Blocked: which age (Today, This Week, Earlier) is showing.
+    val ageFilter: String,
+    // The Reported page's filter height when it's showing there; see centeredState.
+    val stateInset: Dp,
+)
 
-    Column(
+// Waiting / Accepted / Declined.
+@Composable
+private fun ReportFilterControl(
+    selected: ReportFilter,
+    onSelect: (ReportFilter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val filters = ReportFilter.entries
+    SegmentedControl(
+        labels = filters.map { stringResource(it.labelRes()) },
+        selectedIndex = filters.indexOf(selected),
+        onSelect = { onSelect(filters[it]) },
+        modifier = modifier,
+    )
+}
+
+private fun ReportFilter.labelRes(): Int =
+    when (this) {
+        ReportFilter.WAITING -> R.string.reports_filter_waiting
+        ReportFilter.ACCEPTED -> R.string.reports_filter_accepted
+        ReportFilter.NOT_ACCEPTED -> R.string.reports_filter_not_accepted
+    }
+
+private fun ReportFilter.emptyRes(): Int =
+    when (this) {
+        ReportFilter.WAITING -> R.string.reports_empty_waiting
+        ReportFilter.ACCEPTED -> R.string.reports_empty_accepted
+        ReportFilter.NOT_ACCEPTED -> R.string.reports_empty_not_accepted
+    }
+
+@Composable
+private fun AlertsTitle(
+    hasUnseen: Boolean,
+    onMarkAllSeen: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.alerts_title),
+            color = White,
+            fontWeight = FontWeight.Bold,
+            fontSize = TextSize.LargeTitle,
+            modifier = Modifier.weight(1f),
+        )
+        if (hasUnseen) {
+            Text(
+                stringResource(R.string.alerts_mark_all_read),
+                color = IosBlue,
+                fontSize = TextSize.Body,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onMarkAllSeen).padding(8.dp),
+            )
+        }
+    }
+}
+
+// Same chip style as the Messages tab's filters. No counts (they read as
+// clutter); a blue dot marks a page holding alerts not opened yet.
+@Composable
+private fun AlertTabChips(
+    tabs: List<AlertTab>,
+    selected: AlertTab,
+    tabsWithNew: Set<AlertTab>,
+    onSelect: (AlertTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // A scrolling Row (not a LazyRow) so [modifier] -- the walkthrough's
+    // spotlight -- wraps exactly the pills, at any screen width or text size.
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tabs.forEach { tab ->
+                val label = stringResource(tab.titleRes())
+                val hasNew = tab in tabsWithNew
+                FilterPill(
+                    label = label,
+                    selected = tab == selected,
+                    onClick = { onSelect(tab) },
+                    hasNew = hasNew,
+                    description = if (hasNew) stringResource(R.string.alerts_cd_tab_has_new, label) else label,
+                )
+            }
+        }
+    }
+}
+
+// Today / This week / Earlier, the same control as Reported's Waiting /
+// Accepted / Declined, so To Review and Blocked switch between ages instead
+// of one long scroll. A dot marks an age holding alerts not opened yet.
+@Composable
+private fun AgeFilterControl(
+    selected: String,
+    withNew: Set<String>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val labels = listOf(R.string.alerts_age_today, R.string.alerts_age_week, R.string.alerts_age_earlier)
+    SegmentedControl(
+        labels = labels.map { stringResource(it) },
+        selectedIndex = AGE_BUCKETS.indexOf(selected).coerceAtLeast(0),
+        onSelect = { onSelect(AGE_BUCKETS[it]) },
+        dotted = AGE_BUCKETS.indices.filterTo(HashSet()) { AGE_BUCKETS[it] in withNew },
+        modifier = modifier,
+    )
+}
+
+private fun ageEmptyRes(bucket: String): Int =
+    when (bucket) {
+        TODAY -> R.string.alerts_age_empty_today
+        THIS_WEEK -> R.string.alerts_age_empty_week
+        else -> R.string.alerts_age_empty_earlier
+    }
+
+@Composable
+@Suppress("LongParameterList") // list state + one callback per row action
+private fun ColumnScope.AlertsList(
+    state: AlertsListState,
+    bottomPadding: Dp,
+    onClick: (SmsApi.AlertSummary) -> Unit,
+    onReportClick: (SenderReports) -> Unit,
+    onRetry: () -> Unit,
+    onSwipeAction: (SmsApi.AlertSummary, String) -> Unit,
+    reportsOn: Boolean,
+) {
+    val errorMessage = state.errorMessage
+    val listState = rememberLazyListState()
+    // The walkthrough points at the first row: make sure it's the one on screen.
+    val coachStep = LocalCoachMarks.current?.currentTarget
+    LaunchedEffect(coachStep) { if (coachStep == CoachIds.ALERT_FIRST_ROW) listState.scrollToItem(0) }
+    SwipeGroupScope(scrolling = listState.isScrollInProgress) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = bottomPadding),
+        ) {
+            when {
+                state.isLoading ->
+                    item { ListSkeleton(rows = 5) }
+                errorMessage != null ->
+                    centeredState(state.stateInset) { modifier ->
+                        StateMessage(
+                            icon = Icons.Outlined.CloudOff,
+                            title = stringResource(R.string.alerts_load_failed),
+                            detail = errorMessage,
+                            actionLabel = stringResource(R.string.action_retry),
+                            onAction = onRetry,
+                            modifier = modifier,
+                        )
+                    }
+                state.sections.isEmpty() ->
+                    centeredState(state.stateInset) { modifier -> EmptyAlerts(state.tab, modifier) }
+                state.tab == AlertTab.REPORTED && state.reportSections.isEmpty() ->
+                    item {
+                        StateMessage(
+                            icon = Icons.Outlined.Flag,
+                            title = stringResource(state.reportFilter.emptyRes()),
+                            modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+                        )
+                    }
+                state.tab == AlertTab.REPORTED ->
+                    state.reportSections.forEach { section ->
+                        item { GroupedSectionHeader(section.title) }
+                        reportRows(section.rows, onReportClick)
+                    }
+                else -> ageRows(state, onClick, onSwipeAction, reportsOn)
+            }
+        }
+    }
+}
+
+// One age (Today / This week / Earlier) of To Review or Blocked, or a quiet
+// note when that age is empty.
+private fun LazyListScope.ageRows(
+    state: AlertsListState,
+    onClick: (SmsApi.AlertSummary) -> Unit,
+    onSwipeAction: (SmsApi.AlertSummary, String) -> Unit,
+    reportsOn: Boolean,
+) {
+    val shown = state.sections.firstOrNull { it.title == state.ageFilter }
+    if (shown == null) {
+        item {
+            StateMessage(
+                icon = Icons.Outlined.VerifiedUser,
+                iconTint = Safe,
+                title = stringResource(ageEmptyRes(state.ageFilter)),
+                modifier = Modifier.fillParentMaxHeight(EMPTY_STATE_HEIGHT),
+            )
+        }
+        return
+    }
+    item { Spacer(Modifier.height(12.dp)) }
+    alertRows(
+        tab = state.tab,
+        sectionAlerts = shown.alerts,
+        unseen = state.unseen,
+        onClick = onClick,
+        onSwipeAction = onSwipeAction,
+        firstSection = true,
+        reportsOn = reportsOn,
+    )
+}
+
+@Suppress("LongParameterList") // the page, its rows, then one callback per row action
+private fun LazyListScope.alertRows(
+    tab: AlertTab,
+    sectionAlerts: List<SmsApi.AlertSummary>,
+    unseen: Set<String>,
+    onClick: (SmsApi.AlertSummary) -> Unit,
+    onSwipeAction: (SmsApi.AlertSummary, String) -> Unit,
+    firstSection: Boolean,
+    reportsOn: Boolean,
+) {
+    itemsIndexed(sectionAlerts, key = { _, alert -> alert.messageId }) { index, alert ->
+        Column(Modifier.groupedItem(index, sectionAlerts.lastIndex)) {
+            // Only To Review has something left to decide, so only it swipes.
+            SwipeActionsRow(
+                key = alert.messageId,
+                enabled = tab == AlertTab.TO_REVIEW,
+                action =
+                    swipeActionFor(
+                        canBlock = !alert.senderBlocked && !TrustedSenders.isBuiltIn(alert.sender),
+                        reportsOn = reportsOn,
+                    ),
+                onAction = { action -> onSwipeAction(alert, action) },
+                background = SurfaceElevated,
+                modifier = if (firstSection && index == 0) Modifier.coachTarget(CoachIds.ALERT_FIRST_ROW) else Modifier,
+            ) {
+                AlertRow(
+                    alert = alert,
+                    tab = tab,
+                    unseen = alert.messageId in unseen,
+                    onClick = { onClick(alert) },
+                )
+            }
+            if (index != sectionAlerts.lastIndex) GroupedDivider(startInset = ROW_TEXT_INSET)
+        }
+    }
+}
+
+// One row per sender: every report about them with this outcome, so someone
+// reported five times is one row ("5 reports"), not five.
+private fun LazyListScope.reportRows(
+    rows: List<SenderReports>,
+    onClick: (SenderReports) -> Unit,
+) {
+    itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
+        Column(Modifier.groupedItem(index, rows.lastIndex)) {
+            AlertRow(
+                alert = row.latest,
+                tab = AlertTab.REPORTED,
+                unseen = false,
+                onClick = { onClick(row) },
+                secondLine = { SenderReportsLine(row) },
+            )
+            if (index != rows.lastIndex) GroupedDivider(startInset = ROW_TEXT_INSET)
+        }
+    }
+}
+
+// "Reported as spam" (plus "4 messages" for one report of several texts), or
+// for several reports "Reported as scam, 3 reports" -- just "3 reports" when
+// the user labelled them differently.
+@Composable
+private fun SenderReportsLine(row: SenderReports) {
+    val report = row.latest.report ?: return
+    if (row.reports.size == 1) {
+        val messages = row.reports.first().size
+        ReportStatusLine(
+            report,
+            suffix =
+                if (messages > 1) {
+                    pluralStringResource(R.plurals.alerts_report_group_messages, messages, messages)
+                } else {
+                    null
+                },
+        )
+    } else {
+        val sameLabel =
+            row.reports
+                .map { it.first().report?.reportedLabel }
+                .distinct()
+                .size == 1
+        ReportStatusLine(
+            report,
+            suffix = pluralStringResource(R.plurals.reports_count, row.reports.size, row.reports.size),
+            showLabel = sameLabel,
+        )
+    }
+}
+
+// The saved contact name when there is one, else the number or sender ID.
+@Composable
+private fun SmsApi.AlertSummary.displaySender(): String {
+    val unknown = stringResource(R.string.unknown_sender)
+    return senderName ?: sender.ifEmpty { unknown }
+}
+
+@Composable
+private fun EmptyAlerts(
+    tab: AlertTab,
+    modifier: Modifier = Modifier,
+) {
+    val (title, detail) =
+        when (tab) {
+            AlertTab.TO_REVIEW, AlertTab.BLOCKED -> R.string.alerts_empty_title to R.string.alerts_empty_detail
+            AlertTab.REPORTED -> R.string.alerts_empty_reported_title to R.string.alerts_empty_reported_detail
+        }
+    StateMessage(
+        icon = Icons.Outlined.VerifiedUser,
+        iconTint = Safe,
+        title = stringResource(title),
+        detail = stringResource(detail),
+        modifier = modifier,
+    )
+}
+
+// Each page has its own glyph and color, so a row says where it belongs even
+// out of context: orange warning to review, indigo flag.
+private data class RowStyle(
+    val icon: ImageVector,
+    val tint: Color,
+    val label: Int,
+)
+
+@Composable
+private fun AlertTab.rowStyle(): RowStyle =
+    when (this) {
+        AlertTab.TO_REVIEW, AlertTab.BLOCKED ->
+            RowStyle(Icons.Outlined.WarningAmber, Suspicious, R.string.alerts_needs_review)
+        AlertTab.REPORTED -> RowStyle(Icons.Outlined.Flag, Indigo, R.string.alerts_tab_reported)
+    }
+
+@Composable
+@Suppress("LongMethod") // icon + up to three text lines, kept together
+private fun AlertRow(
+    alert: SmsApi.AlertSummary,
+    tab: AlertTab,
+    unseen: Boolean,
+    onClick: () -> Unit,
+    // Replaces the message preview: Reported rows show where the report stands.
+    secondLine: (@Composable () -> Unit)? = null,
+) {
+    val style = tab.rowStyle()
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SurfaceElevated, RoundedCornerShape(16.dp))
                 .clickable(onClick = onClick)
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(start = 4.dp, end = 12.dp, top = 11.dp, bottom = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(38.dp)
-                        .background(accent.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        // Unseen indicator -- the same blue dot the Messages tab uses for unread.
+        Box(modifier = Modifier.width(14.dp), contentAlignment = Alignment.Center) {
+            if (unseen) Box(Modifier.size(9.dp).background(IosBlue, CircleShape))
+        }
+        Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                style.icon,
+                contentDescription = stringResource(style.label),
+                tint = style.tint,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    alert.sender,
+                    alert.displaySender(),
                     color = White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
+                    // Bold until opened, like an unread mail.
+                    fontWeight = if (unseen) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = TextSize.Body,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    formatAlertTime(alert.receivedAt),
+                    color = TextSecondary,
+                    fontSize = TextSize.Footnote,
+                    maxLines = 1,
+                )
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = TextTertiary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            if (secondLine != null) {
+                secondLine()
+            } else {
+                Text(
+                    alert.body,
+                    color = if (unseen) White else TextSecondary,
+                    fontSize = TextSize.Subhead,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            Text(formatAlertTime(alert.receivedAt), color = TextSecondary, fontSize = 13.sp)
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = TextTertiary,
-                modifier = Modifier.size(18.dp),
-            )
         }
-
-        Text(
-            alert.body,
-            color = TextSecondary,
-            fontSize = 14.sp,
-            lineHeight = 19.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-
-        StatusPill(
-            label = if (blocked) "Auto-blocked" else "Suspicious",
-            color = accent,
-        )
     }
 }
 
-private fun formatAlertTime(iso: String): String =
-    try {
-        val zoned = Instant.parse(iso).atZone(ZoneId.systemDefault())
-        if (zoned.toLocalDate() == ZonedDateTime.now().toLocalDate()) {
-            zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
-        } else {
-            zoned.format(DateTimeFormatter.ofPattern("MMM d"))
-        }
-    } catch (_: Exception) {
-        ""
+private fun AlertTab.titleRes(): Int =
+    when (this) {
+        AlertTab.TO_REVIEW, AlertTab.BLOCKED -> R.string.alerts_tab_to_review
+        AlertTab.REPORTED -> R.string.alerts_tab_reported
     }
 
-@Composable
-private fun StatusPill(
-    label: String,
-    color: Color,
-) {
-    Box(
-        modifier =
-            Modifier
-                .background(color.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
-                .padding(horizontal = 9.dp, vertical = 3.dp),
-    ) {
-        Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+private fun AlertTab.aboutRes(): Int =
+    when (this) {
+        AlertTab.TO_REVIEW, AlertTab.BLOCKED -> R.string.alerts_about_to_review
+        AlertTab.REPORTED -> R.string.alerts_about_reported
     }
+
+// Same labels as the Messages list ("2:14 PM", "Yesterday", "Mon", "Sep 12",
+// "7/20/24"), so an inbox scan's years-old scams don't read as this year.
+@Composable
+private fun formatAlertTime(iso: String): String {
+    val millis = runCatching { Instant.parse(iso).toEpochMilli() }.getOrNull() ?: return ""
+    return MessageTime.listLabel(LocalContext.current, millis)
 }

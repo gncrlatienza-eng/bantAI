@@ -27,6 +27,9 @@ Raw sources (Kaggle, NTC, phone-inbox exports)
         ▼
 datasets/labeled/bantai_labeled.csv  (the training set)
         │
+        ├── [2b] Targeted augmentation ── scripts/augment_scam_dataset.py
+        │         (thin Scam families only; written to datasets/augmented/ for
+        │          human review, merged back by hand — never automatically)
         ▼
 [3] Preprocessing ── preprocessing/  (NFKC + PII masking; SAME code path used
         │             at both training and inference time)
@@ -285,6 +288,170 @@ four should be inspected after every rebuild.
 
 ---
 
+## Stage 3b — Targeted augmentation of the Scam class — 2026-09-16
+
+**Code:** `scripts/augment_scam_dataset.py` · **Tests:** `tests/test_augment_scam_dataset.py` · **Output:** `datasets/augmented/` — the batch **CSVs are gitignored** (roughly half of each batch is wording-level variants of real user messages, so the file carries real SMS content), while the per-batch **summary JSON is kept**, since it is counts only and is what the manuscript cites.
+
+**Why.** The 2026-09-16 error analysis of the frozen holdout found the model's
+scam misses are not spread evenly. Miss rate tracks training support almost
+exactly: 0.5% of gambling bait missed (768 training rows) against 50% of fake
+job offers (14 rows). This is a data problem, not a threshold problem — 29 of
+the 38 missed scams scored below 0.10, so no cutoff could have caught them.
+
+The generator fills four thin families up to a target, mixing **variants** of
+real seed messages with **authored** rows from a template bank. Gambling Bait
+is deliberately excluded: it needs nothing, and adding to it would deepen the
+imbalance that caused this.
+
+**Nothing here is merged automatically.** The script writes to
+`datasets/augmented/` for human review; merging into
+`datasets/labeled/bantai_labeled.csv` stays a deliberate manual step.
+
+### The four constraints that make this safe, and why each is easy to get wrong
+
+**1. Varying links, amounts or numbers accomplishes nothing.** `preprocess`
+replaces them with `<URL>`/`<AMOUNT>`/`<PHONE>`/`<OTP>` before the model sees
+anything, so a "variant" that swaps only the link is byte-identical after
+masking and is de-duplicated away. Variation has to live in wording, sentence
+structure and language mix.
+
+**2. A variant of a holdout message is training on the test set.** Seeds are
+checked against the frozen holdout and excluded; no generated row may ever
+enter it. The holdout stays 100% real, or the headline number stops meaning
+anything.
+
+**3. Synthetic rows train, they never validate.** See RETRAINING.md § "Stage 2"
+— a candidate scoring its own templates in validation would report "learned our
+templates" as "better at detecting scams", inflating the numbers that justify a
+promotion.
+
+**4. Language mix is a correctness constraint, not a style preference.**
+Measured on the 2026-09-16 pool, `po` appears in **7.7% of Ham and 0.5% of real
+Scam** — a marker of ordinary Filipino politeness, not of fraud. A first pass
+of this generator wrote `po` into **53%** of its rows; merging that would have
+taught the model `po → Scam` and produced false alarms on exactly the polite
+messages real users send. Templates are therefore tagged by language, and the
+Taglish share is a **quota on accepted rows** measured from the real pool at run
+time — not a per-attempt probability. (Sampling per attempt skewed it 14× above
+target: the English bank exhausts, so English candidates are mostly rejected as
+near-duplicates while the rare Tagalog ones are always novel and always
+accepted. Rejection sampling reshapes any distribution fed through it.)
+
+### Provenance is mandatory, not decoration
+
+Every row carries `origin` (`variant` / `authored`), the `seed_id` it came
+from, and its `category`, so synthetic rows can be counted, excluded from
+validation, and **ablated** — trained with and without — to show what the
+augmentation actually bought. The run's JSON summary records the RNG seed, the
+per-category origin split, the synthetic share of the Scam class, and every
+exclusion count.
+
+### Three self-checks the script runs on every batch
+
+| Check | What it catches |
+|---|---|
+| Synthetic share of the Scam class, capped at **30%** | Past this the model is mostly learning our writing style rather than how scams read |
+| Marker distribution (`po`, `ninyo/kayo`, ALL-CAPS) against real Ham and real Scam | A correlation the batch would *invent* |
+| Tagger agreement per category | Rows the indicator tagger does not re-read as their own category |
+
+The third check was added 2026-09-17 and is the one worth explaining. The
+`category` column is **asserted** by the generator — an authored row is filed
+under the template bank it came from, never re-checked — while the target
+counts, and the miss-rate-per-family analysis that set those targets, are all
+denominated in `service/indicator_tags.py`. Current batch:
+
+| Category | Rows | Tagger agreement | Was, before the 2026-09-17 template rewrite |
+|---|---|---|---|
+| Unsolicited Credit Offer | 120 | 112 (93%) | 51 rows, 82% — and **51 of 120 requested** |
+| Brand Impersonation | 227 | 198 (87%) | 211 rows, 94% |
+| Fake Job Offer | 97 | 83 (86%) | 136 rows, **42%** |
+| Personal Info Request | 70 | 45 (64%) | 65 rows, **32%** — and **65 of 132 requested** |
+
+The rewrite is described under "Bank rewritten" below. Fake Job Offer produced
+*fewer* rows than before (136 → 97) and that is the intended direction: 61 of
+the old 136 came from a single template no real scam resembles, so the old
+count was volume, not support. Personal Info Request's remaining 64% splits
+70% authored / 58% variant — the variant half comes from real seeds, so what is
+left there is the tagger's own lexicon gap on real messages, not a template
+problem.
+
+⚠️ **Open — not yet decided.** A row the tagger cannot see is a row that (a)
+will not count toward its category's target on the next run, so the target is
+never met and the next batch requests the same volume again, (b) cannot appear
+as support for the weak family it was written for when the augmentation is
+evaluated, and (c) reaches users without the indicator that explains the alert.
+Two opposite fixes are possible and only a human reading the rows can tell them
+apart: the templates drifted off-category, or the tagger's keyword list is too
+narrowly phrased for how the family actually reads. **The second is plausible —
+it is the same gap already found and fixed four times (Bug History §9, §11,
+§14, §16).** Measured against the real Scam pool: 17 rows use job-scam
+vocabulary the `Fake Job Offer` list does not carry (`hiring`, `job opening`,
+`salary`, `daily payout`, `encoder`, `typist`), against 14 currently tagged —
+so the "14 training rows" that justified this whole stage may itself be an
+undercount of roughly half. That same vocabulary hits **12 of 12,138 Ham rows
+(0.1%)**, so widening it there is cheap. The equivalent probes for `Personal
+Info Request` and `Unsolicited Credit Offer` hit 1.1% and 1.8% of Ham, so those
+two need individually-chosen phrases, not a broad sweep.
+
+Widening the lexicon changes the per-family miss rates already quoted in
+adviser-facing documents and changes what users see in production, so it is
+recorded here for a decision rather than actioned.
+
+### The review loop closes through a file, not a code edit
+
+Reviewing a batch means marking rows that are not really scams in a
+`correct_label` column. When such a row is a **variant**, the judgement is
+really about the *real* message it came from — so that seed is excluded from
+every future batch. `rejected_seed_ids()` reads any CSV in `datasets/augmented/`
+with a filled `correct_label`, so the loop closes by reviewing a file rather
+than by editing the script.
+
+Found necessary 2026-09-16: a review rejected 53 variants; 20 of their seeds
+were fixed by the label corrections that followed, and 2 were not — and those 2
+seeded 10 fresh variants on the very next run.
+
+A second, blunter guard (`SUSPECT_SEED`) drops any seed mentioning DLSL, DITO,
+telco or student/tuition vocabulary. Real institutional notices were sitting in
+the pool labeled Scam, so variants of them were fabricating "scams" out of
+genuine messages. It is deliberately over-broad — it also skips genuine scams
+impersonating those brands, which costs a few seeds and risks nothing, because
+seeds are the one input where a wrong row is copied three more times. It is a
+**stopgap for the generator only**; the rows are still in the training data,
+which is the larger problem, and
+`scripts/make_institutional_scam_review_sheet.py` exists to get them re-labeled
+through the normal correction workflow.
+
+### Bug found 2026-09-17 — a Tagalog CTA inside an English template
+
+One English-bank template used the `{cta_tl}` slot:
+
+```
+"{wallet} Alert: someone tried to change your registered number. If this was not you, {cta_tl}: {link}"
+```
+
+The row is *drawn* as English, so it never counts against the Taglish quota,
+but it still ships `po` to the model — the quota machinery cannot see it. It
+put `po` into 3 rows of a 462-row batch, lifting the marker to **1.52% against
+the 0.53% real-Scam rate**, roughly 3×.
+
+The marker table did not flag it and, honestly, no rate threshold would have:
+its rule is `synthetic > max(3 × real_scam, real_scam + 5pp)`, and for a marker
+this rare the `+5pp` floor is unreachable — but even a 1pp floor sits above
+1.52%. 3 rows in 462 is real and is simply too small for a distribution check
+to see. The invariant belongs on the **template bank**, not on the output
+distribution, so the test asserts no English template contains a `{cta_tl}`
+slot. Fixed, batch regenerated (`po` now 0.9%, 4 rows of 463).
+
+**Run:**
+
+```bash
+cd ai
+.venv/Scripts/python.exe scripts/augment_scam_dataset.py --sample   # eyeball, writes nothing
+.venv/Scripts/python.exe scripts/augment_scam_dataset.py            # full batch to datasets/augmented/
+```
+
+---
+
 ## Stage 4 — Preprocessing (train == inference)
 
 **Code:** `preprocessing/` (`normalization.py`, `masking.py`, `pipeline.py`)
@@ -303,9 +470,22 @@ the model sees different text at inference than it learned on.
 
 1. **NFKC normalization** — folds full-width characters, look-alike Unicode,
    collapses whitespace.
-2. **Regex PII masking** — replaces `<EMAIL>`, `<URL>`, `<PHONE>`, `<AMOUNT>`,
-   `<OTP>` in that order. Tuned for Philippine formats (`₱5k` shorthand,
-   `hxxp` de-fanged links, PH mobile/landline formats).
+2. **Regex masking of structured identifiers** — replaces `<EMAIL>`, `<URL>`,
+   `<PHONE>`, `<AMOUNT>`, `<OTP>` in that order. Tuned for Philippine formats
+   (`₱5k` shorthand, `hxxp` de-fanged links, PH mobile/landline formats).
+
+**⚠️ Masked is not anonymous** (Reymark's audit, items 17-18, 2026-09-16).
+Reviewer probes confirmed what the regexes imply: **names, addresses, and 9+
+digit identifiers that aren't phone-shaped (TINs, reference numbers) pass
+through untouched**, as does anything identifying expressed in words. `<OTP>`
+covers 4-8 digit runs only. So masked text is *reduced-risk*, not
+de-identified, and every downstream artifact built from it — snapshot CSVs,
+the holdout set, `disagreements.json`, Colab/Drive exports — stays personal
+data and must be handled as such. Wherever this project's docs previously said
+"PII masked", read it as this narrower claim. Widening coverage (a `<NUMBER>`
+placeholder, or NER for names) changes the model's input distribution, so it
+cannot be switched on under a deployed checkpoint without retraining and
+re-measuring — future work, deliberately not done quietly.
 
 **Why this stage matters beyond privacy:** it also caused the most serious bug
 found in this pipeline — see Bug History §1.
@@ -355,13 +535,32 @@ that aren't URLs, obfuscated links, empty input).
 | Model selection | best epoch by **macro-F1**, not accuracy or final epoch |
 | Class-weighted loss | **enabled** (`config.class_weighted_loss`) |
 
-**Class-weighted loss (added 2026-07-29).** The dataset is ~62% Ham / 21% Spam
-/ 17% Scam. With the standard loss every mistake costs the same, so Ham errors
-dominate purely by being more numerous and the model is rewarded for guessing
-Ham whenever it is unsure. Each class is instead weighted by
-`n_samples / (n_classes * class_count)` — on the current split that is
-**Ham 0.539, Spam 1.422, Scam 2.260**, i.e. a Scam mistake costs **4.2× a Ham
-mistake**.
+**Class-weighted loss (added 2026-07-29).** With the standard loss every
+mistake costs the same, so Ham errors dominate purely by being more numerous
+and the model is rewarded for guessing Ham whenever it is unsure. Each class
+is instead weighted by `n_samples / (n_classes * class_count)`. On the
+2026-07-29 model's training split (~62% Ham / 21% Spam / 17% Scam) that was
+**Ham 0.539, Spam 1.422, Scam 2.260** — a Scam mistake cost **4.2× a Ham
+mistake**. The pool has shifted since (raw phone-inbox exports skew heavily
+promotional, and Scam messages dedupe harder — mass-blast gambling/lottery templates are
+mostly identical text once PII is masked out, e.g. `...libre 1q2w3e7.ca` and
+`...libre 1q2w3e8.ca` both normalize to `...libre <URL>` and collapse to one
+training row instead of two; a real personal Ham conversation almost never
+does this. Measured directly on the 2026-08-26 rebuild: deduplication
+(`retraining/snapshot.py`, which compares *masked* text — `build_dataset.py`'s
+own earlier dedup pass only catches literal identical raw text, a smaller and
+separate step) dropped Scam rows at **25.5%** vs. Ham's 15.6% and Spam's
+1.8%. Combined with 498 real Scam rows being permanently walled off into the
+2026-08-18 holdout carve-out, Scam fell from 2,620 rows (deployed model's
+original pool) to 1,784 (candidate's), even though the pool overall grew
+~20%.
+
+On the 2026-08-27 candidate's training pool (Ham 53.8% / Spam 36.8% /
+Scam 9.4% of 18,938 rows) the same formula gives **Ham 0.620, Spam 0.906,
+Scam 3.539** — a Scam mistake now costs **~5.7× a Ham mistake**. Weights are
+computed at runtime from whatever pool is actually training, so this doesn't
+require a code change on every retrain — only the documentation here needed
+updating.
 
 Expected effect: Scam recall up (the class that matters — a missed scam
 defrauds a user, a misfiled promo annoys them), Ham precision slightly down,
@@ -445,9 +644,194 @@ own RRL already establishes the comparison systems fall short.
 
 ### Not yet done
 
-Nothing outstanding on evaluation as of run 3 — bucket-level (post-threshold)
-results are now measured, see `docs/development/AI_MODEL_RESULTS.md` and
-`scripts/evaluate_buckets.py`.
+Bucket-level (post-threshold) results are measured, see
+`docs/development/AI_MODEL_RESULTS.md` and `scripts/evaluate_buckets.py`.
+
+**WBS 6.4.6** (confusion matrix on a genuinely held-out 20%) is prepped but
+not yet run — see the next section.
+
+### Permanent held-out test set (Sprint 6, WBS 6.4.6 prep) — 2026-08-18
+
+Every number above, including run 3's 0.9438, was measured on the same
+80/20 stratified split (`training/dataset.py`, seed 42) that gets
+regenerated from the full labeled dataset every time — not a set of rows
+permanently set aside and never trained on. Fine for day-to-day development;
+not the stronger claim a defense should be able to make.
+
+`scripts/create_holdout_set.py` carves one out: groups the dataset by
+*masked* text first (same de-duplication key as the train/val split, for the
+same reason — a near-duplicate landing on both sides is leakage under a
+different name), then moves whole groups — never a partial group — to
+`datasets/holdout/holdout.csv`, physically outside `datasets/labeled/` so
+neither `training/dataset.py` nor `retraining/snapshot.py` can ever glob
+them back in. No exclusion logic needed anywhere else; the rows are just not
+in the pool.
+
+**Run 2026-08-18:** 3,236 rows (2,986 masked-text groups) held out; 13,536
+rows remain for training. `datasets/holdout/manifest.json` (tracked in git;
+the raw CSV is not, same policy as the rest of `datasets/`) records the
+seed, counts, and a SHA-256 of the holdout file.
+
+⚠️ **Honest limitation, stated because it matters for 6.4.6:** this only
+protects models trained *after* 2026-08-18. The deployed checkpoint (run 3,
+2026-07-29) and the 2026-08-17 retraining candidate were both trained on the
+full pool before this split existed, so some of `holdout.csv`'s rows were
+almost certainly in their training data. **Neither can be honestly graded
+against this holdout set.** It becomes valid starting with the next model
+trained from this point forward — which, depending on the adviser's
+decision on the 2026-08-17 candidate (see § "Stage 5b — measured limits"),
+may be sooner than it sounds.
+
+#### Holdout results for the promoted model (`v2026-08-27T09-46-20Z`)
+
+The 2026-08-27 candidate is the first model trained after the freeze, so the
+first one this holdout can grade honestly. Two layers, both on the same 3,236
+rows:
+
+- **Raw label** (`scripts/evaluate_holdout.py`, WBS 6.4.6): macro-F1
+  **0.9614**; Scam recall 93.5% (32/491 missed).
+  `evaluation/holdout_confusion_2026-09-16T07-45-54Z.json`.
+- **What users see after routing** (`scripts/evaluate_holdout_buckets.py`,
+  added 2026-09-13): **15/491 real scams shown as safe (3.05%)**, **4/1,787
+  legitimate messages blocked (0.22%)**, 20/3,236 left as unknown (0.62%).
+  `evaluation/holdout_buckets_2026-09-16T07-57-15Z.json`. Both runs report
+  `HOLDOUT integrity: ok` and `CHECKPOINT integrity: ok`, so they are pinned
+  to a known test set and a known checkpoint.
+
+**⚠️ These replace the figures first reported on 2026-08-27** (macro-F1
+0.9592, Scam recall 92.4%, 17/498 shown as safe, 3/1,785 blocked). The model
+did not change — the labels did. A blind review on 2026-09-16 of every
+holdout message carrying institutional or telco wording found **7 mislabelled
+rows** (5 Scam→Spam, 2 Scam→Ham): real messages from a school and from telcos
+that the rule cascade had called fraud. Six of the 38 scams the model was
+credited with "missing" were therefore never scams. **The correction did not
+only flatter the model** — legitimate messages wrongly blocked rose from 3 to
+4, a true false positive the old label had concealed. Original labels, review
+sheet, dated backup and the reasoning are recorded in
+`datasets/holdout/manifest.json` under `revisions`; the same pass corrected 99
+rows in the training pool, which the next retrain will pick up. This is a
+better estimate of the same model, not a better model.
+
+Quote the post-routing script in the thesis, not `evaluate_buckets.py`: that
+one draws a fresh split from `datasets/labeled/`, so its numbers move as the
+dataset changes.
+
+#### `build_dataset.py` did not know the holdout carve-out existed — 2026-08-26
+
+Found while folding a new phone-export batch (nine more `Raw/PHONE-SMS-INBOX_*.csv`
+files, 2026-07-25 through 2026-08-01) into the training pool for the "compare
+initial vs. a freshly retrained model" run. `scripts/build_dataset.py` rebuilds
+`bantai_labeled.csv` **from the original raw sources** (Kaggle/NTC/phone
+exports) — it has no idea `create_holdout_set.py` ever physically moved 20%
+of that file out to `datasets/holdout/holdout.csv`. Re-running it after the
+2026-08-18 carve-out silently put **100% of the holdout set back into the
+training pool** (verified by masked-text overlap before the fix landed).
+
+Fixed by making `build_dataset.py` itself exclude any row whose masked text
+(same `preprocessing.preprocess` key `create_holdout_set.py` and
+`training/dataset.py` already use) appears in `datasets/holdout/holdout.csv`,
+so a future rebuild can't quietly re-contaminate the holdout set again —
+confirmed zero overlap after the fix. Also fixed in the same pass: one raw
+export (`PHONE-SMS-INBOX_20260731-143748.csv`) had a body padded with
+trailing NUL bytes, which `csv.DictReader` cannot survive at all; NULs are
+now stripped from each raw file's text before parsing.
+
+**Net effect on the training pool** (holdout correctly excluded both before
+and after): 11,942 → **18,938** unique (masked-text) rows, +58.6%, from the
+new raw batch. Label mix: Ham 7,530→12,355, Spam 3,835→6,926, Scam
+2,171→2,290. A fine-tune ran on this pool the same day
+(`models/retraining_runs/2026-08-26T14-29-53Z`, Colab T4) — see the
+"Adviser sign-off" section below for the gate's verdict
+(`evaluation/retraining_run_2026-08-26.json`).
+
+One more environment issue found in the same run, unrelated to the data —
+and it took two tries to actually close out. `requirements.txt` pinned
+`transformers>=4.46` with no upper bound, and Colab's install grabbed a
+5.0.0-5.0.x release that had (temporarily) dropped the `warmup_ratio`
+argument `training/train.py` passes to `TrainingArguments`. First fix:
+pinned `<5.0`; the retry succeeded. A version check pulled from that same
+Colab tab afterwards printed `transformers 5.15.0`, which briefly read as
+"v5 is fine again, the bad window was narrow" — **wrong conclusion.** That
+reading came from a *later*, unrelated re-run of the tab's original
+(unpinned) install cell, not from the run that had actually trained the
+candidate. Verified locally instead of trusting the live-session number
+twice over: `transformers==5.15.0` still throws the identical crash on a
+clean install; `transformers==4.57.6` (what `>=4.46,<5.0` resolves to) does
+not, and a full `Trainer(...)` construction against this project's real
+`training/config.py` values passes cleanly under it. Corrected 2026-08-27 to
+exact pins — `transformers==4.57.6`, `datasets==4.0.0`, `accelerate==1.14.0`,
+`huggingface-hub==0.36.2` — in `requirements.txt` and both `colab/*.ipynb`
+notebooks. The `datasets`/`accelerate` values aren't a guess either: pip
+resolved them locally alongside `transformers==4.57.6` independent of
+Colab, and they matched what the live session reported for those two
+packages specifically — only its transformers reading was stale.
+
+**Upgraded to transformers 5.x — 2026-09-16.** The `<5.0` pin above was a
+hold, not a verdict, and holding it indefinitely meant carrying seven
+security advisories that only applied to the pinned versions. Now
+`transformers==5.17.0`, `datasets==5.0.1`, `accelerate==1.15.0`,
+`huggingface-hub==1.31.0` in `requirements.txt` and both `colab/*.ipynb`.
+
+`warmup_ratio` is gone from `TrainingArguments` for good in 5.x, so
+`training/train.py` computes the equivalent step count itself
+(`warmup_steps_for`), mirroring what Trainer's own arithmetic did: steps per
+epoch = ceil(rows / (batch × devices)), total = ceil(epochs × that), warmup =
+ceil(total × ratio). `config.warmup_ratio` stays the knob; only the way it
+reaches Trainer changed. The one test that asserted `warmup_ratio` is
+accepted now skips under 5.x, with that as its stated reason rather than
+being deleted.
+
+Verified before this landed: the full suite passes under 5.17
+(441 passed, 1 skipped — the one above); `pip-audit -r requirements.txt`
+with **no ignore flags** reports no known vulnerabilities, so CI's seven
+`--ignore-vuln` suppressions were dropped rather than carried forward; and —
+the check that actually matters for a dependency bump — the deployed
+checkpoint scored against the frozen holdout under 5.17 reproduces the
+committed 2026-08-27 result **exactly**: same macro-F1 (0.9592), same
+per-class metrics, same confusion matrix cell for cell
+(`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`, produced under
+4.57.6). A library upgrade that quietly shifted predictions would be far
+worse than one that failed loudly, so this was compared rather than assumed. The
+argument behind them (all needed an attacker-controlled Hub repo, and this
+codebase only loads its own local checkpoint) was sound but is now moot; a
+stale ignore list is where a genuinely relevant CVE would eventually hide.
+
+#### Two more silent data-corruption bugs, found in a pre-flight audit — 2026-08-27
+
+Maxene asked for everything to be checked before what was meant to be the
+*last* retraining run. A three-agent audit against the live repo found two
+more bugs the 2026-08-26 candidate had already trained under:
+
+1. **163 human-confirmed review corrections were missing from training
+   data.** `scripts/apply_review_corrections.py` exists specifically to
+   re-overlay human `DISAGREE` verdicts onto `bantai_labeled.csv` after every
+   rebuild — it wasn't run (or its effect didn't survive) after the
+   2026-08-26 rebuild. Checked against 8 historical review sheets: 220 rows
+   already matched, 163 didn't — a human had confirmed the correct label
+   once, and the 08-26 rebuild silently reverted it. Root-cause fixed by
+   wiring the correction step directly into `build_dataset.py`'s `main()`,
+   so a rebuild can no longer skip it by omission.
+2. **The correction script itself only knew about 8 hardcoded filenames.**
+   `apply_review_corrections.py`'s `SHEETS` list named each of the 8
+   pre-existing review sheets individually. Two new sheets reviewed the same
+   day (`review_sheet_2026-08-26.csv`, 694 rows;
+   `review_sheet_backlog_gap_2026-08-26.csv`, 67 rows) weren't on that list,
+   so the first attempt at re-running the corrected pipeline silently applied
+   zero rows from either — caught only because the run's printed per-sheet
+   breakdown didn't mention them. Fixed by switching to auto-discovery of
+   any `review_sheet*.csv` in `datasets/audit/`, closing the same class of
+   bug as (1) one level up.
+
+With both fixed, a full rebuild applied **328** corrections total (163
+historical + 165 new) — up from the 163 the 08-26 candidate trained under.
+Holdout disjointness (`datasets/holdout/holdout.csv` vs. the rebuilt
+`bantai_labeled.csv`, masked-text key) was reconfirmed at exactly 0 overlap,
+and the local `.venv` was reinstalled to match the corrected pins above
+before this data was trusted for training. A fine-tune ran on this fully
+corrected pool the same day
+(`models/retraining_runs/2026-08-27T09-46-20Z`, Colab T4) — see the
+"Adviser sign-off" section for the gate's verdict
+(`evaluation/retraining_run_2026-08-27.json`).
 
 ---
 
@@ -486,7 +870,7 @@ rather than depending on whether a real model happens to be installed locally.
 2026-07-30; SHAP integration (3.3.6) shipped the same session; this entry is
 the 3.1.2 sign-off pass.
 
-**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (17 tests)
+**Code:** `service/indicator_tags.py` · **Tests:** `tests/test_indicator_tags.py` (20 tests)
 
 The manuscript's Stage 6 (Explainability and Tip Retrieval) specifies SHAP
 computing a Shapley value per token, then mapping the top contributing tokens
@@ -500,7 +884,9 @@ exhaustive list — WBS 3.1.2 exists to decide the rest.
 | Tag | Source |
 |---|---|
 | Prize Lure | manuscript-named |
-| Suspicious URL | manuscript-named (structural: shortener or non-whitelisted domain) |
+| Suspicious URL | manuscript-named (structural: shortener or non-whitelisted domain; since 2026-09-29 also links written without `http://`/`www.` — Scam messages tagged 21.6% → 54.0% on the unseen holdout, Ham 2.29% → 2.35%) |
+
+Brand Impersonation (2026-09-29): brand names now match as whole words only, and the telco counts only when written "DITO" (Tagalog *dito* = "here" was tagging gambling texts as DITO impersonation). Scam messages tagged 4.1% → 9.4% on the unseen holdout; Ham in the training corpus 0.72% → 0.25%.
 | Brand Impersonation | manuscript-named (structural: named brand + suspicious link) |
 | Urgency Cue | manuscript-named |
 | Gambling Bait | grounded in `build_dataset.py`'s `GAMBLING_HARD`/`GAMBLING_SOFT` |
@@ -543,7 +929,7 @@ reader can always distinguish a real Shapley value from a heuristic.
 | Step | Time |
 |---|---|
 | Classification (+ embedding) | **~50 ms** |
-| Real SHAP attribution | **13–26 s** |
+| Real SHAP attribution | **13–26 s** (re-measured 2026-09-21/23: ~27 s median, up to ~90 s on long messages; ~5 s at a 100-sample budget, same tags) |
 
 SHAP is roughly **300–500× slower** than classification, which settles the
 design question: asynchronous explanation is required, not merely tidy. The
@@ -580,6 +966,38 @@ as automatically final:
 
 Dictionary contents are final for Sprint 3 as of this pass.
 
+### 5.3.7 polish pass (2026-08-18) — measured against every real Scam row
+
+WBS 5.3.7 asks to polish the dictionary "based on observed outputs." The
+2026-08-04 pass above was a manual review; this one is a measurement:
+`scripts/analyze_indicator_coverage.py` runs the keyword tagger over every
+labeled Spam/Scam row and reports what fraction get no tag at all.
+
+**Spam's zero-tag rate (84.9%) is expected, not a gap.** Most Spam in the
+dataset is ordinary telco/real-estate marketing — "Enjoy GoWATCH 599, unli
+data for 7 days" has no scam indicator because it isn't trying to deceive
+anyone. The dictionary tags *scam-like* patterns, not "any unsolicited
+message," so a high Spam zero-tag rate is the tagger working correctly.
+
+**Scam's zero-tag rate (48.6%) is the real signal** — these are the messages
+a user most needs a "why" for. The words most common in the untagged
+remainder pointed at one cluster: a second wave of Tagalog online-betting
+vocabulary (W+, T1BET, Epicwin, Betso88, COD63/COD99-style "recharge and
+receive daily cash" schemes) distinct from the `GAMBLING_HARD`-derived terms
+already present, plus a phishing phrasing gap — "...to avoid Deactivation" —
+that the existing "will be deactivated" entry doesn't cover. Both closed in
+`indicator_tags.py` (see the comments at each addition for the exact
+frequencies measured and the Ham false-positive check, all <0.1%).
+
+**Result: Scam zero-tag rate 48.6% → 40.0%.** Not zero — a hand-curated
+keyword dictionary structurally can't be exhaustive, and 40% is still a real
+number worth another pass later, likely once WBS 3.3.6's real SHAP path has
+run against enough live traffic to say something keyword matching can't.
+Left there rather than chased further this round: the remaining untagged
+messages are a long tail (real-estate ads misclassified upstream, one-off
+scam wordings), not another concentrated cluster the way the two fixes above
+were.
+
 ---
 
 ## Stage 9 — Campaign clustering — Sprint 3, WBS 3.3.4 / 3.3.5
@@ -604,16 +1022,20 @@ different semantic spaces.
 |---|---|---|
 | Decides | join a *known* campaign | discover a *new* campaign |
 | Method | cosine vs. active centroids, corroborated by wording | HDBSCAN over the buffer |
-| Parameter | similarity ≥ **0.999** ⚠️, or a corroborated relaxed bar | `min_cluster_size` = **5** |
+| Parameter | similarity ≥ **0.998** ⚠️, or a corroborated relaxed bar | `min_cluster_size` = **5** |
 | Cost | microseconds | seconds–minutes |
 
 ⚠️ The manuscript specifies **0.85** here. That value was measured to attach
-54.5% of *unrelated* messages and has been re-calibrated to 0.999 under WBS
-5.3.6 ("re-evaluate thresholds against real campaign data"). Because 0.999
-leaves only ~0.0008 of usable margin, the same WBS item added an independent
-**lexical** second signal that can corroborate a relaxed embedding score — see
+54.5% of *unrelated* messages and was re-calibrated to 0.999 under WBS 5.3.6
+("re-evaluate thresholds against real campaign data"), then to **0.998** on
+2026-08-30 when the underlying model was promoted (the mechanism and
+rationale are unchanged; only the checkpoint the number is calibrated against
+changed). Because that bar leaves only a fraction of a percent of usable
+margin, the same WBS item added an independent **lexical** second signal that
+can corroborate a relaxed embedding score — see
 [Stage 5b — measured limits](#stage-5b--measured-limits--sprint-5-wbs-536)
-below for both. `min_cluster_size` is unchanged. HDBSCAN comes from
+below for both, including the 2026-08-30 re-measurement. `min_cluster_size`
+is unchanged. HDBSCAN comes from
 `sklearn.cluster.HDBSCAN` (scikit-learn ≥ 1.3) rather than the standalone
 `hdbscan` package — same algorithm, one less dependency, and sklearn was
 already required for the train/val split. Clustering uses euclidean distance on
@@ -728,12 +1150,35 @@ random strangers, both scored against that campaign's centroid:
 |---|---|---|
 | **0.85** (manuscript) | 100.0% | **54.5%** |
 | 0.99 | 100.0% | 30.5% |
-| **0.999** (adopted) | **93.8%** | **2.6%** |
+| **0.999** (adopted 2026-08-26) | **93.8%** | **2.6%** |
 | 0.9995 | 87.9% | 0.5% |
 
 At the manuscript's value the fast path attached a **majority of unrelated
-messages** to existing campaigns. `DEFAULT_SIMILARITY_THRESHOLD` is now
-`0.999`; the mechanism is unchanged, only the constant.
+messages** to existing campaigns. This table was measured against the
+`v2026-07-29-run3` checkpoint, live at the time of the 2026-08-26 adviser
+sign-off below — see the 2026-08-30 addendum for the currently-deployed
+model's numbers.
+
+> **⚠️ Stale as of 2026-08-30 — re-measured, not updated in place.** The
+> 2026-08-30 model promotion (§ "Candidate promoted") re-embedded the entire
+> corpus against a new checkpoint, which silently invalidated this table —
+> `ai/evaluation/match_threshold_calibration.json` was overwritten in place
+> with the new checkpoint's numbers rather than saved under a new filename,
+> so the table above no longer matches the file it cites. Caught and
+> corrected 2026-09-11 (fact-check pass ahead of the adviser/panel email).
+> `DEFAULT_SIMILARITY_THRESHOLD` is now **0.998**, not 0.999 — re-tuned to
+> reproduce the same approved trade-off under the new embedding space.
+> Re-measured, not assumed: **94.8% recall / 2.8% false-match** at 0.998
+> against the current checkpoint (`ai/service/campaign.py`'s own inline
+> comment already carried this correctly; only this narrative section had
+> drifted). Close to the 2026-08-26 approval, not identical — worth a line
+> in any adviser follow-up rather than treated as a silent continuation.
+> **Lesson for next time:** evaluation artifacts that get compared across
+> model versions should be saved under timestamped filenames (as
+> `retraining_run_*.json` and `holdout_confusion_*.json` already do), not
+> overwritten in place — this is the same "silent overwrite loses history"
+> failure mode already fixed once for campaign-cluster snapshots (Stage 9b),
+> recurring here in a different file.
 
 #### No layer of this model does better
 
@@ -831,6 +1276,12 @@ deviates from the manuscript's stated 0.85 *further* than 0.999 does, not less.
 Recorded here so the option is visible rather than buried in a JSON file —
 **pending adviser sign-off alongside the three items already flagged.**
 
+> **Confirmed 2026-08-26** — the adviser verbally signed off on all three
+> flagged items (the 0.85→0.999 match-threshold recalibration, the hybrid
+> lexical corroboration signal, and the `min_cluster_size=5`/27.4% blob left
+> visible rather than retuned), per Gio. See WBS 5.3.6. This re-centering
+> option itself remains not adopted, per the reasoning above.
+
 #### De-duplication, and the blob it exposes
 
 The clustering population was never de-duplicated, though training always was.
@@ -920,6 +1371,16 @@ wording, so it cannot be rigged in the lexical gate's favour. It still shows
 **+5.2pp recall for +0.6pp false matches**, so the gain is real rather than an
 artifact of how ground truth was built.
 
+> **⚠️ Stale as of 2026-08-30.** Table above is `v2026-07-29-run3`, live at
+> the time of the 2026-08-26 sign-off. Re-measured against the promoted
+> checkpoint (`v2026-08-27T09-46-20Z`) at the current 0.998 threshold: `lexical`
+> baseline 94.8% recall / 2.8% false → 99.6% / 3.2% with hybrid; `hdbscan`
+> baseline 59.5% / 3.0% → 63.1% / 3.6% with hybrid, i.e. **+3.6pp recall for
+> +0.7pp false matches** — smaller than the +5.2pp measured here, but the
+> mechanism held rather than needing retuning. See "Re-measured 2026-08-30"
+> below the promotion note for the full current picture; this table is kept
+> as the historical record of what the 2026-08-26 sign-off actually approved.
+
 Gate choices, all measured:
 
 - **0.99 hybrid gate** — 0.95/0.97/0.98/0.99 produce *identical* recall once
@@ -940,8 +1401,9 @@ recalibration.
 
 The two baseline rows above differ by ~50pp, and that gap is a finding in its
 own right. Under `hdbscan` grouping, only **44.4%** of a cluster's own held-out
-members re-match their own centroid at 0.999. The offline pass is producing
-clusters the fast path then cannot recognise.
+members re-match their own centroid at 0.999 — **59.5% at 0.998 under the
+promoted checkpoint** (re-measured 2026-08-30, still well short of 100%). The
+offline pass is producing clusters the fast path then cannot recognise.
 
 This is consistent with the diffuse "generic scam" region documented above: at
 `min_cluster_size = 5` on de-duplicated data, HDBSCAN groups messages that are
@@ -951,14 +1413,457 @@ fast path, correctly, declines to call them the same campaign later.
 It is a second, independent argument that the `min_cluster_size` question needs
 settling with the adviser rather than being left at the manuscript default.
 
+#### ✅ Adviser sign-off received — 2026-08-26
+
+Maxene walked the adviser through the deviations documented in this section
+(prepared as a standalone briefing, `Campaign-Matching Sign-Off`) and got
+verbal approval to proceed. Recorded here as Track B's own contemporaneous
+note; **not** a substitute for `docs/development/WBS.md`/`DEV_LOG.md`, which
+are Gio's to update per `CLAUDE.md`'s ownership rule — flag this to him for
+those files rather than editing them directly.
+
+Approved, per the adviser:
+1. **0.85 → 0.999** campaign-match threshold (the core recalibration; see
+   "The 0.85 threshold sits inside the distribution of unrelated messages"
+   above).
+2. **The hybrid lexical second signal** (`service/lexical.py`, the
+   domain/hybrid/embedding tiers) as an addition beyond what the manuscript
+   describes.
+3. **Not adopting embedding re-centering**, despite it measuring best under
+   the hostile (hdbscan) referee — adviser agreed with the recommendation to
+   decline it (see "Re-centering the embedding — measured, not adopted"
+   above).
+
+4. **`min_cluster_size` stays at 5** (the manuscript's value, de-duplication
+   on by default — the existing documented default above, not a change from
+   it). 2026-08-26: adviser confirmed blanket approval of every change
+   *as documented in this section*, which covers this item since it was
+   already the standing default rather than an open deviation.
+
+5. **Confidence-threshold routing** — per-class thresholds (Ham 0.50, Spam
+   0.60, Scam 0.90), the 0.15 margin gate, and the fourth "unknown" bucket, in
+   place of the manuscript's single shared threshold pair (deviations log A3).
+   *Added 2026-09-21 from Maxene's own account of the conversation, given
+   2026-09-18.* This section originally listed items 1–4 only, because it was
+   written from the briefing document, which covered the campaign items; the
+   routing design shipped in Sprint 2 and was not in that document. Maxene was
+   in the conversation and this note was reconstructed afterwards, so her
+   account governs. Still open, if it can be recalled: which parts of the
+   routing (the thresholds, the margin gate, the Ham/Spam/Scam naming) were
+   actually discussed.
+
+**Deliberately not covered by this sign-off:** whether to promote a
+retraining candidate — a separate branch (see `RETRAINING.md` and
+[[bantai-stage5b-threshold-finding]]). The 2026-08-17 and 2026-08-26
+candidates are both now moot: a third run on 2026-08-27 supersedes them,
+trained on the same 18,938-row pool as 08-26 but with the two data-corruption
+bugs above fixed (all 328 known human-review corrections applied, not just
+163) and dependency versions locked exactly rather than left to re-resolve.
+This was explicitly meant to be the last retraining run before locking a
+candidate for the thesis. Gate verdict: **promote** (macro-F1 0.9225 →
+0.9461, 193 fixes vs. 76 regressions, p≈0 — full numbers and interpretation
+in `evaluation/retraining_run_2026-08-27.json`). Not acted on for the same
+reason the first two weren't: promoting invalidates the Sprint 5 calibration
+numbers that the adviser sign-off above just closed out, so it needs its own
+conversation rather than riding in on this one — this 08-27 candidate is the
+one meant for that conversation. The WBS 6.4.6 holdout-contamination caveat
+is a disclosure, not a decision, and stays open independent of this
+sign-off — and this candidate has now actually cleared it: the first genuinely
+clean WBS 6.4.6 confusion matrix, run the same day, scored **macro-F1 0.9592**
+on 3,236 never-seen holdout rows (`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`).
+Per-class: Ham F1 0.976 (0.22% false-positive rate — 4 of 1,785), Spam F1
+0.952, Scam F1 0.949 but **92.4% recall — 38 of 498 real scams missed
+(7.6%)**, the honest weak point to lead with in any adviser/defense
+conversation, not the strong headline number.
+
+#### Exploratory: candidate embedding space compared, not adopted — 2026-08-28
+
+Ran the full Stage 5b calibration cascade (`embed_dataset.py` →
+`cluster_campaigns.py` → `calibrate_match_threshold.py` →
+`calibrate_hybrid_match.py` ×2 → `compare_embedding_centering.py` ×2) a
+second time, against the 2026-08-27 candidate's checkpoint instead of the
+deployed one — purely to see what this section's numbers *would* become if
+that candidate is promoted. **Every file this section's numbers describe was
+backed up first** (`evaluation/exploratory_backup/`, suffixed
+`approved-2026-07-29-run3`; the matching `datasets/processed/exploratory_backup/`
+copies were deleted 2026-09-23 -- they were regenerable and the embeddings file
+carried 16,772 real message texts) and
+the live/deployed-model versions are unchanged; nothing above this note is
+stale. Full side-by-side written up as a standalone artifact for the adviser
+conversation (`Retrain Candidate Review`) — summary here for the repo record:
+
+- **Why this needs re-running at all, mechanically:** a better classifier
+  collapses each class harder toward one prototype — that is largely *why*
+  it classifies better — which also makes unrelated same-class messages look
+  more alike to each other. Measured: mean cosine similarity between
+  unrelated message pairs is **0.47** under the deployed embedding, **0.688**
+  under the candidate's. Every threshold calibrated against the old number
+  needs re-checking, not assumed to carry over.
+- **Clustering:** 238 clusters (deployed) → **299 clusters** (candidate),
+  same population, same settings.
+- **Match threshold sweep:** the candidate is cleaner at every threshold
+  above ~0.98 (e.g. at 0.999: 91.3% recall / 0.4% false-match, vs. the
+  deployed model's 93.8% / 2.6%). The deployed model's *approved* operating
+  point (0.999 → 93.8%/2.6%) is reproduced almost exactly by the candidate
+  one notch lower, at **0.998** (94.8%/2.8%) — if promoted, 0.998 matches
+  what was actually signed off on; carrying 0.999 forward unchanged would be
+  stricter than the approved trade-off, not equivalent to it.
+- **Hybrid match, HDBSCAN referee:** embedding-only baseline recall **44.4%
+  → 58.0%** at a comparable false-match rate — a real improvement in how
+  well the candidate's embeddings alone separate genuine campaigns.
+- **Re-centering — worth reopening, not re-deciding by default:** under the
+  lexical referee the ranking is basically unchanged from what was already
+  declined. Under the HDBSCAN referee it is not: re-centering's edge over
+  raw goes from **+20.2pp (64.6% vs. 44.4%)**, already measured and
+  declined above, to **+32.4pp (91.8% vs. 59.4%)** under the candidate. The
+  original objection (a fitted mean vector needs re-fitting every retrain)
+  is unchanged, but the gain it was weighed against nearly doubled — this
+  is an explicit open question for the adviser if promotion happens, not an
+  assumption that item 3 of the 08-26 sign-off still holds as-is.
+
+**Status at the time: informational only** — no threshold, no cluster file,
+no service config changed as a result of this pass on its own. **Superseded
+two days later:** the 2026-08-30 promotion below acted on these exact
+findings (the 0.998 threshold, the re-embedded clusters) — so this section is
+no longer purely exploratory in hindsight, it's the measurement that
+preceded the decision. Left worded in the past tense it was written in
+rather than rewritten as if foreseeing that outcome.
+
+#### ✅ Model C promoted — 2026-09-27, on adviser approval
+
+Unlike the 2026-08-30 promotion below, this one went to the adviser first. The
+deviations document (items 18 and 19) asked whether Model C should replace the
+deployed checkpoint; the adviser replied "Acknowledged. You may proceed.", which
+the team confirmed as approval of every item in it.
+
+**What Model C is.** `v2026-09-21-colab-C`: trained on real messages only (no
+generated scams) with class weights softened to the square root of inverse
+frequency (`class_weight_power = 0.5`). Chosen over A and B by rules written
+before training; the full four-model comparison is in the adviser document
+and `evaluation/fair_gate_holdout_2026-09-23T05-34-08Z.json`.
+
+| On the frozen holdout (3,236) | Previous (`v2026-08-27`) | **Model C** |
+|---|---|---|
+| Macro-F1 | 0.961 | **0.964** |
+| Scam recall | 93.5% (32 missed) | **95.7%** (21 missed) |
+| Ham flagged as Scam | **5** | 10 |
+| Scams shown to users as safe | 15 | **10** |
+| Legitimate messages blocked | **4** | 8 |
+
+The gate run on the holdout rejects C on significance overall (McNemar
+p = 0.48); on scams alone C is better (12 gained vs 1 lost, p = 0.003, chosen
+after seeing results). The holdout has been scored by four candidates, so
+these are comparative evidence rather than an untouched final test.
+
+**Campaign matching, rebuilt for C** (the step skipped on 2026-08-30):
+embeddings re-generated from C (21,571 real messages; generated rows excluded),
+re-clustered into 321 campaigns, and the threshold re-calibrated. The same rule
+as 2026-08-30 — reproduce the approved trade-off — now points to **0.999**:
+
+| C's threshold | lexical recall/FMR | hdbscan recall/FMR | hybrid (lexical / hdbscan) |
+|---|---|---|---|
+| 0.998 | 96.0% / 4.0% | 69.6% / 4.5% | — |
+| **0.999** | **93.9% / 0.5%** | **61.1% / 0.7%** | 99.3% / 1.1%, 65.3% / 1.6% |
+
+Against the previous checkpoint at 0.998 (94.8%/2.8% and 59.5%/3.0%), C finds a
+similar or larger share of campaign members with roughly four times fewer
+false attachments.
+
+**Not part of this promotion:** the scam-campaign separation fix (item 19) is
+approved but deliberately follows as its own change, so a regression can be
+attributed to one or the other.
+
+#### ⚠️ Candidate promoted — 2026-08-30, not on adviser sign-off
+
+**This is not the same kind of event as the "Adviser sign-off received"
+section above, and is recorded separately on purpose.** The 2026-08-26
+sign-off covered the 0.85→0.999 recalibration, the hybrid lexical signal, and
+declining re-centering — all discussed with the adviser directly. What
+follows was **not**: Maxene asked Claude (this assistant) "if you were the
+adviser, what would you suggest," got an opinion on the four questions the
+`Retrain Candidate Review` artifact posed, and asked for it to be acted on
+directly rather than taken to the actual adviser first. Recorded here in full
+so nobody — including future-Maxene — mistakes this for a real second sign-off.
+
+**What changed:**
+1. **Model promoted.** `models/xlm-roberta-smishing/` now serves the
+   2026-08-27 candidate (`v2026-08-27T09-46-20Z`, clean holdout macro-F1
+   0.9592). The prior live checkpoint (`v2026-07-29-run3`) was renamed to
+   `models/xlm-roberta-smishing.pre-2026-08-27-promotion-backup/`, not
+   deleted — rollback is a directory rename back, per `RETRAINING.md` §
+   Rollback. **Registered and activated in the backend's `ModelVersions`
+   table** the same day, once Docker + the backend were up (`ModelRegistry`
+   directly, mirroring `register_incumbent.py`'s pattern — `f1_score` recorded
+   is the clean holdout macro-F1 0.9592, not the gate's own-split 0.9461, with
+   the distinction noted in the row's own `notes` field). `check_served_version()`
+   in `service/main.py` will report a match on next AI-service restart.
+2. **Match threshold moved 0.999 → 0.998** (`service/campaign.py:DEFAULT_SIMILARITY_THRESHOLD`),
+   to reproduce the trade-off actually approved on 2026-08-26 (93.8%/2.6%)
+   under the new embedding space, rather than carry 0.999 forward unchanged
+   and become stricter than what was signed off on. Full reasoning in the
+   updated docstring there.
+3. **`datasets/processed/campaign_clusters.json` re-embedded and re-clustered**
+   for real against the promoted checkpoint (`scripts/embed_dataset.py` →
+   `scripts/cluster_campaigns.py`), since campaign centroids are meaningless
+   against a different embedding space (`RETRAINING.md` § Rollback).
+   ⚠️ **But not pushed to the backend until 2026-09-12.** The live service
+   reads centroids from the backend, which kept the old checkpoint's 221
+   clusters (seeded 2026-08-04), so for 13 days campaign matching compared
+   new-model embeddings against old-model centroids. Found when Gio asked
+   where the regenerated clusters were. Fixed with the new
+   `scripts/sync_campaigns_to_backend.py`: 299 new clusters active, the 221
+   old ones switched off (kept, not deleted). The same sync also stopped the
+   backend hiding official links (`globe.com.ph`, `go.gcash.com`, `glbe.co`):
+   the old clusters had copied Spam-cluster domains into link suppression.
+   Both files are gitignored: `campaign_clusters.json` (contains real SMS
+   text, regenerable) exists only on Maxene's machine; the backup checkpoint
+   below also has a copy in Google Drive (see the rollback note).
+4. **Embedding re-centering: left off, unchanged.** Claude's recommendation
+   was explicitly to *not* flip this yet — the maintenance-cost objection
+   from 2026-08-26 hasn't changed, only measured on one embedding space so
+   far. Flagged as: revisit after the *next* retrain confirms the larger gain
+   isn't a one-off.
+5. **Scam recall (92.4%, 38/498 missed on the clean holdout) recorded as a
+   named limitation**, not silently accepted — see §3.3 of the review
+   artifact and the holdout evaluation file.
+
+**What did not happen:** the actual adviser has not seen this candidate,
+this threshold move, or this promotion. This entry exists so that when that
+conversation does happen, it's clear the model already changed on the AI
+service's disk beforehand, on Maxene's own authority, informed by an AI
+assistant's opinion standing in for the adviser's — and that the adviser's
+actual view might differ from what got shipped. If the adviser disagrees with
+any of the above, rollback is: rename `xlm-roberta-smishing/` back out,
+rename `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` back to
+`xlm-roberta-smishing/`, revert `service/campaign.py`'s threshold to 0.999,
+re-run `embed_dataset.py` → `cluster_campaigns.py` against the restored
+checkpoint, then `sync_campaigns_to_backend.py --apply` and restart the AI
+service.
+
+**Off-machine copy of the rollback checkpoint (added 2026-09-13):** the
+backup directory above is gitignored, so until now it existed only on
+Maxene's laptop. Its six top-level files (everything needed to serve the
+model; the leftover `checkpoint-2091/` training state is excluded) are
+zipped at `MyDrive/bantai/xlm-roberta-smishing-v2026-07-29-run3-rollback.zip`
+(803 MB). To restore: unzip into `ai/models/xlm-roberta-smishing/`. Check
+that the sha256 of `model.safetensors` equals
+`cd46599c7beea1dd82241b8f72f61c572de3fa92b1f56f75bfbe1769a86d7f3f`, the value
+in the zipped `version.json`, verified when the zip was made. Ask Maxene for
+the share link; it's deliberately not in this public repo.
+
+#### Re-measured 2026-08-30 — full current picture, after promotion
+
+Consolidates the individual stale-flags above into one place. Everything
+below is re-measured against the promoted checkpoint (`v2026-08-27T09-46-20Z`)
+and its `DEFAULT_SIMILARITY_THRESHOLD = 0.998`; sourced from
+`ai/service/campaign.py`'s own inline comment (which was updated correctly at
+promotion time) and the regenerated `ai/evaluation/match_threshold_calibration.json`
+/ `hybrid_match_calibration_{lexical,hdbscan}.json` — the narrative sections
+above this point were not, until this fact-check pass (2026-09-11):
+
+| grouping | embedding-only @ 0.998 | with hybrid (0.99 / 0.45) |
+|---|---|---|
+| `lexical` (friendly referee) | 94.8% recall / 2.8% false | 99.6% / 3.2% |
+| `hdbscan` (hostile referee) | 59.5% recall / 3.0% false | 63.1% / 3.6% |
+
+The hdbscan row is still the one that counts, for the same reason as before.
+**+3.6pp recall for +0.7pp false matches** — smaller than the +5.2pp
+originally measured (2026-08-26, against `v2026-07-29-run3`), but the
+mechanism held rather than needing retuning after the model changed
+underneath it, which was exactly the risk the hybrid signal was added to
+guard against.
+
+Production gate constants (`HYBRID_EMBEDDING_GATE = 0.99`, `LEXICAL_GATE =
+0.45`) were **not** re-tuned for the new embedding space — the numbers above
+measure how the *existing* gates perform against the new checkpoint, not a
+fresh calibration sweep. Whether re-tuning them would do better is an open
+question, not yet measured.
+
+**Why this fell out of sync:** the 2026-08-30 promotion re-ran the
+calibration scripts (to know what to expect) and separately overwrote the
+evaluation JSON files those scripts write to — but nothing re-generates this
+narrative section from those files automatically, so the prose kept
+describing the pre-promotion model until this pass caught it. Same
+root cause as the threshold-table staleness above: evaluation artifacts
+compared across model versions need timestamped filenames, not in-place
+overwrites, so a change like this can't silently take the surrounding prose
+out of date again.
+
+#### ⚠️ The promoted candidate would fail the gate as it stands now — 2026-09-14
+
+Reymark's 2026-09-14 audit (item 11) pointed out that the promotion gate
+checked only macro-F1 and McNemar, so a candidate could get worse at catching
+scams and still pass. That had already happened. The 2026-08-27 candidate's
+own gate run (`models/retraining_runs/2026-08-27T09-46-20Z/decision.json`)
+records 19 validation scams it newly missed and 8 it newly caught — **11 fewer
+of the 357 validation scams than the incumbent, -3.1pp Scam recall** — inside a
+decisive 193-vs-76 overall win. (357 recomputed by rebuilding that run's
+validation split from its snapshot with the same seed.)
+
+The gate now has a third check, a Scam-recall floor (`RETRAINING.md` Stage 4):
+the candidate may not lose more than 1pp of Scam recall. **Under it, this
+candidate would have been rejected.** It stays live — the gate change is not
+retroactive, and whether to keep the promotion is the adviser's call, still
+pending — but two things change for that conversation:
+- The clean-holdout Scam recall of 92.4% (§ holdout evaluation above) was
+  previously described as a limitation *without a clean baseline to compare
+  against*. There is now a same-rows comparison on the gate's split, and on it
+  the candidate is worse at Scam than the model it replaced.
+- Caveat, pointing the other way: the incumbent may have trained on some of
+  those validation rows (`pipeline.py` module docstring), which flatters it.
+  How much of the -3.1pp is that advantage is unmeasured.
+
+Also not in the manuscript, which specifies McNemar + F1 floor only — a
+Category B addition for the deviation log.
+
 #### Open: centroid drift is uncalibrated
 
 `campaign_evolution.py` deliberately shares this threshold, so that "same
-campaign" means one thing everywhere. Raising it to 0.999 tightens continuity
-matching between snapshots too — and **that use was not calibrated**, because
-no archived snapshots existed to measure real centroid drift against. If
-campaigns begin reporting as *dissolved + new* rather than *continuing*, this
-is the first thing to check; the fix is a separate constant there.
+campaign" means one thing everywhere. The threshold move (0.999 → 0.998,
+2026-08-30) tightens continuity matching between snapshots too — and **that
+use was not calibrated**, because no archived snapshots existed to measure
+real centroid drift against, at either value. If campaigns begin reporting as
+*dissolved + new* rather than *continuing*, this is the first thing to check;
+the fix is a separate constant there.
+
+#### Item 19 — scam campaigns separated with a "campaign space" — 2026-09-28
+
+Adviser-approved (deviations document, item 19). **Problem:** on Model C,
+HDBSCAN put 97.5% of clustered scam messages into one cluster. That cluster
+was the embedding's "this is a scam" region, not a campaign: the classifier is
+trained to make all scams look alike, which is the opposite of what campaign
+separation needs.
+
+**Fix (all-but-the-top):** before clustering *and* before matching, centre the
+embeddings and remove their top **k = 2** shared directions, then
+re-normalize (`service/campaign_space.py`). The raw embedding still does the
+classifying; only campaign grouping runs in the transformed space.
+
+Designs compared first (scratch experiment, Model C, held-out 20% of each
+scam cluster matched against all centroids):
+
+| Design | Scam clusters | Largest scam cluster | Right campaign ranked first |
+|---|---|---|---|
+| raw (today) | 5 | 97.5% of clustered scams | — (one blob) |
+| cluster transformed, match raw | 48 | 12.8% | 81.8% |
+| **cluster + match transformed, k=2 (adopted)** | **48** | **12.8%** | **93.5%** |
+| cluster + match transformed, k=3 | 45 | 21.7% | 83.2% |
+
+Matching in the raw space cannot tell the new campaigns apart, so the matcher
+transforms every incoming embedding too, and the three tiers get thresholds
+calibrated **in the new space** (`scripts/calibrate_campaign_space.py`).
+Selection rule, fixed before the run: maximize correct matches subject to
+≤ 2% wrong-campaign and ≤ 2.8% stranger attachment (the stranger rate 0.998
+was approved at); strangers = the 4,196 Spam/Scam messages HDBSCAN left
+unclustered.
+
+**First calibration (one shared set of thresholds, one split):** 75.0% right
+campaign, 0.2% wrong, 2.5% strangers — but **Scam members matched their own
+campaign only 23%** of the time. Almost every stranger that attached was a
+Spam message, so the one shared set was being dictated by Spam. (That run
+also first exposed a search-grid limitation — a tier could not be switched
+off — fixed before the numbers above; the rule did not change.)
+
+**Follow-up, same day — rules written down first**
+(`evaluation/item19_preregistration_2026-09-28.md`), then measured:
+
+1. **Separate thresholds for Scam and Spam messages.** The matcher now takes
+   the classifier's label and uses that label's set. To avoid choosing on ~86
+   Scam members, five different held-out splits are pooled (433 Scam members).
+2. **HDBSCAN settings the manuscript leaves open** (`min_samples`,
+   selection method, epsilon; `min_cluster_size = 5` untouched) screened for
+   fewer unassigned scams.
+
+Result (`evaluation/campaign_space_calibration.json` — kept with the model
+artifacts, not in git; space `ad000dee9174`, seeds 0–4 pooled):
+
+| | Right campaign (range over splits) | Wrong campaign | Strangers attached |
+|---|---|---|---|
+| raw space, raw thresholds (before, all; Model C bar 0.999) | 66.5% | 5.8% | **37.9%** |
+| **Scam messages, own set** (0.9066 / hybrid 0.8996 / domain 0.8351) | **56.6%** (52.3–59.3%) | 1.8% | 1.4% |
+| Spam messages, own set (0.9465 / hybrid off / domain 0.937) | 78.3% (78.1–78.9%) | 0.2% | 2.7% |
+| shared fallback, any other label (0.9402 / off / 0.9255) | 75.8% | 0.3% | 2.6% |
+
+Scam: **23% → 56.6%**, inside both limits. The wording (hybrid) tier ends up
+**on** for Scam and **off** for Spam — chosen by the calibration, not by hand:
+spam campaigns share templates across clusters, so for them wording picks the
+wrong campaign; scam wording does not.
+
+Clustering screen: no tested setting left fewer scams unassigned
+(`leaf`: 76.2% vs 74.0%; `min_samples 1`: identical). Every epsilon > 0
+setting **crashes inside scikit-learn 1.9.0 / numpy 2.4.6** — untested, not
+rejected. By the rule, clustering is unchanged.
+
+⚠️ **Honest limits — say these out loud at the defense:**
+
+- **74% of scams are left unclustered** (were 8% in the blob). No setting
+  that could be run improved it. It is the data: no sender numbers or send
+  times, and after de-duplication most scams appear once. Real campaigns
+  should form from live traffic, where one message arrives many times.
+- Scam matching is 56.6%, not higher, and the 5 splits range 52–59%.
+- Calibration groups by the dataset label; live, the classifier's label is
+  used. They agree for ~96% of scams (Model C holdout recall 95.7%).
+- The stranger set is imperfect: some "noise" messages are probably real
+  campaign members HDBSCAN did not include, so stranger rates are pessimistic.
+- **Backend path:** the backend stores no wording profile, so in production
+  only the embedding tier can fire. Embedding tier alone at Scam's 0.9066:
+  53.6% right / **2.1% wrong** / 1.2% strangers — just over the 2% limit.
+  Fix: a wording-profile column in the backend (already on its list), or a
+  separately calibrated embedding-only set.
+- The space is fitted on Model C and is **invalid for any other checkpoint**;
+  after a retrain, re-run clustering and calibration.
+
+**Safety guards.** Centroids declare their space in their label
+(`cluster-12@space:ad000dee9174`). At startup (`service/main.py`) matching is
+**switched off** with a loud error if the labels and the loaded
+`models/campaign_space.json` disagree, if the space is uncalibrated or was
+fitted on a different model version than the one served, or if the vectors
+themselves contradict their labels (a transformed centroid has exactly zero
+weight on the removed directions; raw ones have 0.11–0.90). Matching is also
+switched off — for raw centroids too — when the served model has no version
+identity (`version.json`) or its checkpoint digest is mismatched or
+unverifiable, since centroids are only meaningful for the weights that
+produced them. Otherwise, raw centroids without a label keep working as
+before.
+
+`models/campaign_space.json` and `evaluation/campaign_space_calibration.json`
+are **not tracked in git** (the repository is public; both are
+checkpoint-specific). Keep them with the model version they belong to and
+provision the space file at `BANTAI_AI_CAMPAIGN_SPACE_FILE`.
+`backend/src/campaigns/campaigns.service.ts` `findAllCentroids` now returns
+`label` (one-line change) — without it the service would see unlabelled
+transformed centroids and, by the guard above, refuse to match.
+
+⚠️ **Found while checking this, not fixed here:** `findAllCentroids` also has
+`take: 100` with no ordering, so the AI service loads only 100 of the active
+clusters (Model C has 321; this space 375). Raised with the backend owner.
+
+**Names and categories (UAT, 2026-09-28).** The app showed `cluster-9`.
+`cluster_campaigns.py` now gives every cluster a `category` and a unique
+readable `name` (`Bank phishing (BDO)`, `Online gambling / casino #3`,
+`Promo (Globe)`) from keyword votes over its members
+(`service/campaign_naming.py`). Names use fixed vocabularies only, never
+message text. On Model C's 375 clusters: 27 online gambling, 4 e-wallet
+phishing, 4 loan, 3 rewards/prize, 2 bank phishing, 2 parcel, 1 OTP, 5 other
+scam, 327 promo. The sync sends the name as `label`, so the `@space` tag no
+longer reaches the backend; the service now identifies the space from the
+vectors, and if no space file is deployed it still refuses centroids that
+look transformed (raw centroid sets have a mean-direction length of
+0.955–0.963, campaign-space sets 0.20).
+
+Run order after a model change:
+
+```bash
+python scripts/embed_dataset.py
+python scripts/cluster_campaigns.py            # fits + writes models/campaign_space.json
+python scripts/calibrate_campaign_space.py     # fills in its thresholds (~5 min)
+python scripts/cluster_campaigns.py            # re-writes match_threshold in the cluster file
+python scripts/sync_campaigns_to_backend.py --apply
+```
+
+`--remove-directions 0` on `cluster_campaigns.py` restores the raw behaviour.
+`track_campaign_evolution.py` refuses to compare snapshots from different
+spaces and uses the space's own threshold for continuity.
 
 ---
 
@@ -1047,6 +1952,77 @@ most recent snapshots and prints a summary).
 
 Kept as a permanent record because *how* each was found is itself a
 methodology point worth writing up, not just the fix.
+
+### §18 — The drift alarm's minimum sample floor was never implemented (found 2026-09-17)
+
+**How it was found:** not by a test failing — by reading the manuscript's
+Stages 9–11 line by line against `retraining/triggers.py`. The audit was
+looking for changed *values*; this turned out to be a specified requirement
+that was simply absent, which no amount of testing the code against itself
+would ever surface.
+
+**Manuscript (pp. 166–167):** *"a Page Hinkley drift alarm **with a minimum
+sample floor (at least 10 samples)**."* The sibling trigger — 50 validated
+samples — was implemented at exactly the stated value. The floor was not
+implemented anywhere: not in `PageHinkley.update()`, not in `evaluate()`,
+which takes `drift_detected: bool` from its caller and applies no guard.
+
+**What it meant in practice.** The alarm could fire on the third observation:
+
+```
+observation 1: macro-F1 0.94  -> False
+observation 2: macro-F1 0.94  -> False
+observation 3: macro-F1 0.60  -> True     <- full fine-tune starts here
+```
+
+Two stable windows and one bad one is noise, not drift — and the running mean
+the detector compares against is barely established at n=3. That is the exact
+scenario the floor exists to prevent.
+
+**Fix:** `PageHinkley.min_samples = 10`, checked before the alarm condition.
+State still accumulates below the floor, so it is a warm-up rather than a
+rolling delay — the alarm can fire on the first observation after the floor is
+cleared. Three tests added.
+
+**⚠️ Correction, same day — the live path is a different implementation.** The
+first version of this entry said the detector "is not yet wired into a running
+monitoring loop." That is true of *this* Python detector, and it is why nothing
+downstream was affected — but it is not the whole picture, and the way it was
+found is worth recording: a repo-wide search that had been scoped to `ai/`
+only, re-run across the whole monorepo, turned up a **second Page-Hinkley
+implementation** in `backend/src/retraining/retraining.service.ts`.
+
+The backend copy is the one that actually runs — it sits on the
+`@Cron(EVERY_HOUR)` job the manuscript describes. Differences that matter:
+
+| | `ai/retraining/triggers.py` | `backend/.../retraining.service.ts` |
+|---|---|---|
+| Watches | macro-F1 per evaluation window | individual classification **scores** (≤2,000) |
+| Sample floor | 10 (added today) | **100 scores** |
+| δ | 0.005 | 0.005 |
+| λ (threshold) | 0.05 | **50** |
+| Wired to a live trigger | no | **yes, hourly cron** |
+
+So the live trigger was never exposed to the missing-floor defect — its floor of
+100 is stricter than the manuscript's 10. The larger finding is that **one
+algorithm named once in the manuscript has two independent implementations that
+do not consume the same quantity.** The manuscript's component table (p. 161)
+describes concept-drift detection as a *"statistical performance comparison"*
+against *"classification logs and baseline metrics"* — performance, which is
+what the Python version watches. The running version watches confidence-score
+distribution, which can shift without the model getting any worse. λ differs by
+a factor of 1,000 because the inputs are on different scales; simulated on the
+same series both do fire on a realistic drift, so this is a calibration and
+correctness-of-input question, not a dead detector.
+
+The backend half is Track A's code. Raised with the adviser as item 8 of the
+disclosure email, and with Reymark directly.
+
+**The methodology lesson**, which is why this entry is long: the first search
+was scoped to the directory that owns the algorithm, and that scoping is what
+made the answer wrong. A manuscript-specified component can be implemented in
+more than one track, and "is it wired up?" has to be asked across the whole
+repository, not just the module it belongs to.
 
 ### §1 — Train/validation leakage via masking (found 2026-07-28)
 
@@ -1461,6 +2437,9 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `scripts/make_backlog_review_sheet.py` | Review round 7 (raw-inbox backlog never previously reviewed, full population) |
 | `scripts/evaluate_buckets.py` | Bucket-level (post-threshold) evaluation using the real production `route()` |
 | `scripts/apply_review_corrections.py` | **Re-applies all human corrections after any rebuild — always run with `build_dataset.py`** |
+| `scripts/augment_scam_dataset.py` | Stage 3b: targeted synthetic Scam rows for the thin families, written for review (2026-09-16) |
+| `scripts/make_institutional_scam_review_sheet.py` | Re-labeling queue for institutional notices sitting in the pool marked Scam |
+| `datasets/augmented/` | Generated batches awaiting human review — CSVs git-ignored (real message content), summary JSON kept; never merged automatically |
 | `datasets/LABEL_DEFINITIONS.md` | Ham/Spam/Scam definitions + routing/threshold reference |
 | `datasets/LABELING_GUIDE.md` | Practical labeling guidance for human reviewers |
 | `datasets/labeled/bantai_labeled.csv` | The training set (git-ignored, regenerable) |
@@ -1482,8 +2461,12 @@ python -m pytest tests/ -q   # 220 tests: masking, normalization, pipeline,
 | `retraining/triggers.py` | Retrain-decision thresholds — sample count, F1 floor, Page-Hinkley (WBS 4.1.2) |
 | `retraining/sampling.py` | Reservoir sampling, Vitter's Algorithm R (WBS 4.3.6) |
 | `retraining/promotion.py` | McNemar test + F1-floor promotion gate (WBS 4.3.7) |
-| `colab/` | Colab notebook + package + instructions (no local GPU path) |
-| `tests/` | 220 pytest tests across every module above |
+| `retraining/reports.py` | Where validated corrections come from — null / file / backend (WBS 4.3.5) |
+| `retraining/snapshot.py` | Assembles and writes the training input: dataset + reports, de-duplicated (WBS 4.3.5) |
+| `retraining/pipeline.py` | Orchestrates snapshot → fine-tune → gate → `decision.json` (WBS 4.3.5) |
+| `scripts/retrain.py` | CLI for the above; also `--export-reports` for the offline/Colab hop |
+| `colab/` | Two Colab notebooks + packages — train from scratch (2.3.4), and retrain (4.3.5) |
+| `tests/` | 503 pytest tests across every module above |
 | `models/` | Trained weights output (git-ignored) |
 | `../docs/api/classify.md` | ML service API contract (consumed by the NestJS backend) |
 | `../docs/api/summarize.md` | Thread summarization API contract (WBS 4.3.9) |

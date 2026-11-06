@@ -1,7 +1,9 @@
 import { IsPhoneNumber, IsString, Length, Matches } from 'class-validator';
 
 export class VerifyOtpDto {
-  @IsPhoneNumber('PH')
+  @IsPhoneNumber('PH', {
+    message: 'phone must be a valid Philippine mobile number',
+  })
   phone: string;
 
   @IsString()

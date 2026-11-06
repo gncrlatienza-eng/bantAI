@@ -183,3 +183,34 @@ def test_build_matcher_without_texts_leaves_profiles_empty():
     embeddings = np.array([at_similarity(1.0)] * 4)
     matcher = build_matcher_from_clusters(embeddings, [0, 0, 0, 0])
     assert matcher.centroids[0].lexical is None
+
+
+# --- backend contract: masked text + separate domains (audit 2026-09-30, finding 5)
+#: What the backend actually sends: the phone/server masker's placeholders,
+#: with the link identity stripped out of the text.
+MASKED_ON_TEMPLATE = "Congrats! Your GCash account won [AMOUNT]. Claim now at [URL]"
+
+
+def test_bracket_placeholders_share_the_profile_vocabulary():
+    from service.lexical import shingles
+
+    assert shingles("Claim now at [URL] for [AMOUNT]") == shingles("Claim now at http://x.xyz/a for P500")
+
+
+def test_masked_backend_text_reaches_the_domain_tier_through_supplied_domains():
+    sim = (DOMAIN_EMBEDDING_FLOOR + HYBRID_EMBEDDING_GATE) / 2
+    matcher = matcher_with_profile()
+
+    without = matcher.match(at_similarity(sim), MASKED_ON_TEMPLATE)
+    assert without.match_reason != "domain"
+
+    result = matcher.match(at_similarity(sim), MASKED_ON_TEMPLATE, domains=["WWW.gcash-promo.xyz"])
+    assert result.matched
+    assert result.match_reason == "domain"
+
+
+def test_masked_backend_text_reaches_the_hybrid_tier():
+    sim = (HYBRID_EMBEDDING_GATE + DEFAULT_SIMILARITY_THRESHOLD) / 2
+    result = matcher_with_profile().match(at_similarity(sim), MASKED_ON_TEMPLATE)
+    assert result.matched
+    assert result.match_reason == "hybrid"

@@ -78,7 +78,8 @@ real content without adding meaning.
 
 | Status | Cause |
 |---|---|
-| `422` | `messages` empty, or `max_sentences` outside 1–10 |
+| `422` | `messages` empty, more than 200 messages, or `max_sentences` outside 1–10 |
+| `401` | `BANTAI_AI_SERVICE_API_KEY` is set and the `x-api-key` header is missing or wrong |
 
 ---
 

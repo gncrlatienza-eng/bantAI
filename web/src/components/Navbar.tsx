@@ -5,7 +5,6 @@ import { Button } from './Button';
 const LINKS = [
   { label: 'How It Works', to: '/how-it-works' },
   { label: 'About', to: '/about' },
-  { label: 'Research', to: '/research' },
 ];
 
 export function Navbar() {

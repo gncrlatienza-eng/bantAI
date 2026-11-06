@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The window shown the instant BantAI is tapped, before any app code runs:
+     plain black with the app icon (ic_bantai_app_icon, 80dp) centered.
+     LaunchScreen.kt draws the very same drawable at the same size in the same
+     spot while the app loads, so the icon never changes size or shape. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/background" />
+    <item
+        android:drawable="@drawable/ic_bantai_app_icon"
+        android:gravity="center" />
+</layer-list>

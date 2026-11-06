@@ -1,0 +1,110 @@
+{
+  "_comment": [
+    "First real (non-dry) retraining run -- WBS 4.3.5, 2026-08-17, Colab T4.",
+    "",
+    "The pipeline had only ever been exercised with --dry-run, which stops after",
+    "the snapshot. This run executed the whole path: snapshot -> fine-tune ->",
+    "score both checkpoints on the same rows -> promotion gate. `skipped_reason`",
+    "is null, meaning the gate actually ran rather than being unable to find a",
+    "baseline to compare against.",
+    "",
+    "Committed here rather than beside the checkpoint because ai/models/*/ is",
+    "git-ignored. The candidate weights (~1.1 GB) live only in Google Drive at",
+    "MyDrive/bantai/retraining_runs/ -- they are regenerable from this manifest:",
+    "same labeled dataset, same seed 42, same training code.",
+    "",
+    "READ THE VERDICT AS A RECOMMENDATION, NOT AN INSTRUCTION. Nothing was",
+    "promoted. See _interpretation below."
+  ],
+
+  "run_dir": "models/retraining_runs/2026-08-17T14-25-52Z",
+  "environment": "Google Colab, Tesla T4",
+  "baseline_checkpoint": {
+    "trained": "2026-07-29",
+    "sha256_model_safetensors": "cd46599c7beea1dd82241b8f72f61c572de3fa92b1f56f75bfbe1769a86d7f3f",
+    "_comment": "Verified in-notebook against the deployed ai/models/xlm-roberta-smishing/ before scoring, so the gate is known to have compared against the model actually in service."
+  },
+
+  "manifest": {
+    "created_at": "2026-08-17T14:25:52.426621+00:00",
+    "dry_run": false,
+    "label_counts": { "Ham": 8221, "Scam": 1994, "Spam": 4713 },
+    "max_history": null,
+    "n_dataset_duplicates_dropped": 1844,
+    "n_dataset_rows_seen": 16772,
+    "n_dataset_rows_superseded_by_report": 0,
+    "n_history_after_sampling": 14928,
+    "n_reports": 0,
+    "n_reports_that_relabelled_a_row": 0,
+    "n_total": 14928,
+    "report_ids": [],
+    "report_source": "null (no report store consulted)",
+    "seed": 42
+  },
+
+  "decision": {
+    "candidate_dir": "models/retraining_runs/2026-08-17T14-25-52Z/candidate",
+    "evaluated_at": "2026-08-17T14:37:53.825496+00:00",
+    "skipped_reason": null,
+    "promote": true,
+    "reason": "significantly better: 97 fixes vs 44 regressions (p=0.0000), macro-F1 0.9520 -> 0.9648",
+    "baseline_macro_f1": 0.9519513641755634,
+    "candidate_macro_f1": 0.9648437778476865,
+    "n_fixes": 97,
+    "n_regressions": 44,
+    "p_value": 9.479339374881483e-06
+  },
+
+  "_interpretation": {
+    "zero_reports_was_deliberate": [
+      "No validated user reports existed. The only ones ever created were a",
+      "smoke-test fixture with invented message bodies, deleted before this run:",
+      "training a real checkpoint on fabricated SMS would contaminate every",
+      "figure derived from it. The manifest records `null (no report store",
+      "consulted)` rather than a zero that could be misread as 'none were filed'."
+    ],
+    "the_comparison_is_conservative": [
+      "AI_MODEL_RESULTS.md records the deployed model at macro-F1 0.9438 on its",
+      "own 2,785-row validation split. Here the same checkpoint scored 0.9520.",
+      "",
+      "That ~0.8pp gap is the bias retraining/pipeline.py's docstring predicted,",
+      "now observed rather than theorised. The dataset grew after 2026-07-29, so",
+      "the stratified 80/20 split partitions differently, and some rows the",
+      "baseline trained on now sit in the validation set -- it was partly graded",
+      "on material it had memorised.",
+      "",
+      "The bias therefore favours the INCUMBENT. The candidate cleared a bar that",
+      "is, if anything, slightly too high, so the true gap is likely wider than",
+      "+1.3pp rather than narrower."
+    ],
+    "what_drove_the_improvement": [
+      "DEV_LOG 2026-07-30 records 1,050 + 447 genuinely-new messages folded into",
+      "the dataset -- the day after the baseline was trained. The candidate",
+      "learned from roughly 1,000 rows (post-deduplication) the incumbent has",
+      "never seen. No relabelling occurred in that window (the Kaggle/NTC",
+      "mislabelling fix predates the baseline, 2026-07-22), so the gain is not a",
+      "labels-changed artefact."
+    ],
+    "why_nothing_was_promoted": [
+      "Promotion is a separate, deliberate decision and this one is expensive.",
+      "",
+      "Campaign centroids live in the embedding space of the checkpoint that",
+      "produced them, so a swap requires re-running embed_dataset.py and",
+      "cluster_campaigns.py. Worse, PIPELINE.md's Stage 5b warning applies",
+      "directly: the Sprint 5 threshold work -- the 0.85 -> 0.999 recalibration,",
+      "the three-tier hybrid lexical gates, the embedding-centering bracket -- was",
+      "all measured against the 2026-07-29 checkpoint. Promoting invalidates every",
+      "one of those numbers and requires re-calibrating from scratch.",
+      "",
+      "Those numbers are currently with the adviser awaiting sign-off. Swapping",
+      "the model underneath a review in progress is the worst available timing.",
+      "Recorded as a fifth item for that sign-off instead."
+    ],
+    "known_gap": [
+      "44 regressions are counted but not identified. The gate records how many",
+      "messages the candidate got wrong that the baseline got right, not which",
+      "ones. A panel asking 'what got worse?' cannot be answered from this file.",
+      "Fixable by having evaluate_candidate persist the disagreeing indices."
+    ]
+  }
+}

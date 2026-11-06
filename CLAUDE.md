@@ -9,7 +9,7 @@ bantAI is a thesis project: an SMS smishing/scam detection system for Filipino m
 **Team:**
 - Gio (`gncrlatienza-eng`) — Mobile, PR merges, docs/WBS ownership
 - Maxene — AI/ML
-- Reymark De Castro — Backend
+- Reymark De Castro — Backend, PR merges (added 2026-09-21)
 - Daryl De Castro — Web
 
 ---
@@ -21,13 +21,15 @@ First draft — written 2026-08-16, confirm/correct the boundaries below rather 
 | Area | Owner | Notes |
 |---|---|---|
 | `docs/development/WBS.md`, `DEV_LOG.md`, both `.xlsx` trackers | **Gio only** | Don't edit these on someone else's say-so alone — even a completed task should be reported to Gio for him (or his Claude session) to mark, not flipped directly by another track's session. |
-| Git merges into `develop`/`main` | **Gio only** | Teammates open PRs from feature branches; Gio reviews and merges. Never push directly to `develop`. |
+| Git merges into `develop`/`main` | **Gio and Reymark** | Added 2026-09-21: Reymark now has the same merge authority Gio does — review, verify, and merge PRs into `develop` himself. Other teammates still open PRs from feature branches for one of the two to review. Never push directly to `develop`. |
 | `backend/` | Reymark | Track A |
 | `ai/` | Maxene | Track B |
 | `mobile/` | Gio | Track C |
 | `web/` | Daryl | Track D |
 
-**Cross-track edits are fine when unblocking your own track** — e.g. Gio added two small backend endpoints (`/ai/summarize` proxy, `BlockedNumbersModule`) to unblock Sprint 4 mobile work rather than waiting on Reymark. When this happens: keep the change small and scoped to exactly what's needed, and say so plainly in the `DEV_LOG.md` entry (who touched what, and why it wasn't the track owner) rather than blending it in silently.
+**Cross-track edits are fine when unblocking your own track** — this applies to anyone on the team, not just Gio; confirmed explicitly for Reymark, 2026-09-21 (he can edit outside `backend/` the same way Gio has, when he states why). e.g. Gio added two small backend endpoints (`/ai/summarize` proxy, `BlockedNumbersModule`) to unblock Sprint 4 mobile work rather than waiting on Reymark. When this happens: keep the change small and scoped to exactly what's needed, and say so plainly in the `DEV_LOG.md` entry (who touched what, and why it wasn't the track owner) rather than blending it in silently.
+
+**Reymark can also run full-codebase audits**, not just within `backend/` — the same kind of systematic bug/validation/UI sweep-with-direct-fixes Gio's session ran across `mobile/` on 2026-09-21 — since reviewing PRs for merge now means being able to evaluate work across tracks, not just his own.
 
 ---
 
@@ -81,7 +83,7 @@ PUT  /api/users/me           — JWT-guarded, update profile
 - `User` — phone (unique), email, firstName, lastName
 - `OtpCode` — phone, code, expiresAt, verified
 - `SmsMessage` — userId, sender, body, receivedAt
-- `Classification` — messageId, label (Likely Smishing | Suspicious | Unknown), score
+- `Classification` — messageId, label (Ham | Spam | Scam), score
 - `Alert` — messageId, status (Pending | Blocked | Reported | Ignored)
 
 ### Docker (local dev DB)
@@ -122,7 +124,7 @@ Located in `mobile/`. Key packages under `com.bantai`:
 
 Located in `web/`. React + Vite + TypeScript.
 
-**Current state: hardcoded mock data — NOT connected to the backend.**
+**Current state: connected to the backend** via `web/src/services/*.ts` (built on `web/src/api/apiClient.ts`), as of PR #70 (2026-09-13). `admin.tsx` is fully live. `client.tsx` mostly is too, but still imports `campaigns`/`threatFeed` from `src/mocks/referenceData.ts` for those two specific pieces — not yet migrated.
 
 Routes: public view, client view, admin view (`/admin`).
 
@@ -141,7 +143,7 @@ ai/
 └── evaluation/
 ```
 
-The backend has stub controllers for `ai`, `analytics`, `campaigns`, `reports`, `sms` — these are **empty placeholders**, not implemented.
+The backend's `ai`, `analytics`, `campaigns`, `reports`, `sms` controllers/services are now implemented (confirmed 2026-09-13) — no longer empty placeholders. AI classification itself still runs as a separate Python service the NestJS `ai` module calls out to (`AiService.classify`/`summarize` proxy to `AI_SERVICE_URL`); NestJS does not run the model itself.
 
 ---
 
@@ -229,12 +231,12 @@ These are things Claude commonly gets wrong about this project — verified agai
 
 1. **No password auth.** There is no `password` field anywhere in the schema or codebase. Auth is OTP → JWT only. A `login` endpoint does NOT exist.
 
-2. **AI is not in the backend.** The `ai/` folder is Python/ML. The NestJS `backend/src/ai/` is an empty stub. Do not assume AI classification runs inside NestJS.
+2. **The AI model itself does not run inside NestJS.** The `ai/` folder is the Python/ML service; NestJS's `backend/src/ai/` module is implemented but proxies to it (`AiService.classify`/`summarize` call `AI_SERVICE_URL`) rather than running the model. Do not assume classification happens inside the NestJS process.
 
-3. **Web is not connected to backend.** The React dashboard uses `src/mocks/referenceData.ts` — it has no live API calls yet.
+3. **Web is connected to backend, mostly.** As of PR #70 (2026-09-13), `web/src/services/*.ts` call the real backend. `admin.tsx` is fully live; `client.tsx` still uses `src/mocks/referenceData.ts` for `campaigns`/`threatFeed` specifically — check before assuming either "still all mock" or "fully live".
 
-4. **Backend stubs are empty.** `ai`, `analytics`, `campaigns`, `reports`, `sms` controllers/services in the backend exist as files but have no implementation.
+4. **Backend stubs are no longer empty.** `ai`, `analytics`, `campaigns`, `reports`, `sms` controllers/services in the backend are implemented (confirmed 2026-09-13) — don't assume they're placeholders anymore.
 
 5. **bcrypt is installed but unused.** It was from an earlier password-based iteration that was replaced. Do not suggest using it for user auth.
 
-6. **Database port is 5433, not 5432.** Docker maps `5433→5432` to avoid conflicts with local Postgres installs.
+6. **Database port is 5434, not 5432.** Docker maps `5434→5432` (confirmed in `docker-compose.yml`) to avoid conflicts with local Postgres installs. This section previously said 5433 here while the rest of this file said 5434 — that was a contradiction within this file itself; 5434 is correct.

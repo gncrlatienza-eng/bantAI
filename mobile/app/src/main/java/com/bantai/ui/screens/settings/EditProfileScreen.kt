@@ -3,25 +3,42 @@ package com.bantai.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.ui.components.IosTopBar
+import com.bantai.ui.components.LocalBottomBarClearance
 import com.bantai.ui.theme.*
+import com.bantai.ui.theme.OnAccent
+import com.bantai.ui.theme.OnIndigo
+import com.bantai.ui.theme.SurfaceElevated
+import com.bantai.ui.theme.TextTertiary
+import com.bantai.util.NAME_MAX_LENGTH
 import com.bantai.viewmodel.SettingsViewModel
 
+// Longest PH number with separators, e.g. "+63 917 123 4567".
+private const val MY_NUMBER_MAX_LENGTH = 16
+
+@Suppress("LongMethod", "CyclomaticComplexMethod") // the whole form; one branch per field's error/hint state
 @Composable
 fun EditProfileScreen(
     navController: NavController,
@@ -29,10 +46,16 @@ fun EditProfileScreen(
 ) {
     val firstName by viewModel.editFirstName.collectAsState()
     val lastName by viewModel.editLastName.collectAsState()
+    val myNumber by viewModel.editMyNumber.collectAsState()
+    val myNumberError by viewModel.myNumberError.collectAsState()
     val avatarColor by viewModel.editAvatarColor.collectAsState()
+    val firstNameError by viewModel.firstNameError.collectAsState()
+    val lastNameError by viewModel.lastNameError.collectAsState()
+    val syncError by viewModel.profileSyncError.collectAsState()
+    val isSaving by viewModel.profileSaving.collectAsState()
 
-    var firstNameError by remember { mutableStateOf("") }
     var showSaved by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { viewModel.resetEdits() }
 
     val parsedColor =
         remember(avatarColor) {
@@ -47,146 +70,231 @@ fun EditProfileScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Black)
-                .padding(horizontal = 20.dp),
+                .background(Black),
     ) {
-        Row(
+        IosTopBar(
+            title = stringResource(R.string.edit_profile_edit_profile),
+            onBack = { navController.popBackStack() },
+        )
+
+        Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                    .weight(1f)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
         ) {
-            Icon(
-                Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = White,
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .clickable { navController.popBackStack() },
-            )
-            Spacer(Modifier.width(16.dp))
-            Text("Edit Profile", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
+            Spacer(Modifier.height(20.dp))
 
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(80.dp)
+                                .background(parsedColor, CircleShape)
+                                .clickable { viewModel.cycleAvatarColor() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(viewModel.getInitials(), color = OnAccent, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.edit_profile_tap_to_change_color),
+                        color = TextSecondary,
+                        fontSize = TextSize.Caption2,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                stringResource(R.string.onboarding_profile_first_name),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = firstName,
+                onValueChange = { if (it.length <= NAME_MAX_LENGTH) viewModel.updateEditFirstName(it) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = firstNameError != null,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                shape = RoundedCornerShape(14.dp),
+                // Filled, borderless field like iOS; a red edge only on error.
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Indigo,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceElevated,
+                        unfocusedContainerColor = SurfaceElevated,
+                        errorContainerColor = SurfaceElevated,
+                        focusedTextColor = White,
+                        unfocusedTextColor = White,
+                        errorBorderColor = Danger,
+                        cursorColor = Indigo,
+                    ),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                if (firstNameError != null) {
+                    Text(
+                        firstNameError ?: "",
+                        color = Danger,
+                        fontSize = TextSize.Footnote,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                Text("${firstName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = TextSize.Caption2)
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                stringResource(R.string.onboarding_profile_last_name_optional),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = lastName,
+                onValueChange = { if (it.length <= NAME_MAX_LENGTH) viewModel.updateEditLastName(it) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = lastNameError != null,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                shape = RoundedCornerShape(14.dp),
+                // Filled, borderless field like iOS; a red edge only on error.
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Indigo,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceElevated,
+                        unfocusedContainerColor = SurfaceElevated,
+                        errorContainerColor = SurfaceElevated,
+                        focusedTextColor = White,
+                        unfocusedTextColor = White,
+                        errorBorderColor = Danger,
+                        cursorColor = Indigo,
+                    ),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                if (lastNameError != null) {
+                    Text(
+                        lastNameError ?: "",
+                        color = Danger,
+                        fontSize = TextSize.Footnote,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                Text("${lastName.length}/$NAME_MAX_LENGTH", color = TextSecondary, fontSize = TextSize.Caption2)
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Text(
+                stringResource(R.string.edit_profile_my_number),
+                color = TextSecondary,
+                fontSize = TextSize.Caption,
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = myNumber,
+                onValueChange = { if (it.length <= MY_NUMBER_MAX_LENGTH) viewModel.updateEditMyNumber(it) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = myNumberError != null,
+                placeholder = { Text("09171234567", color = TextTertiary) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                shape = RoundedCornerShape(14.dp),
+                // Filled, borderless field like iOS; a red edge only on error.
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Indigo,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = SurfaceElevated,
+                        unfocusedContainerColor = SurfaceElevated,
+                        errorContainerColor = SurfaceElevated,
+                        focusedTextColor = White,
+                        unfocusedTextColor = White,
+                        errorBorderColor = Danger,
+                        cursorColor = Indigo,
+                    ),
+            )
+            Text(
+                myNumberError ?: stringResource(R.string.edit_profile_my_number_hint),
+                color = if (myNumberError != null) Danger else TextSecondary,
+                fontSize = TextSize.Footnote,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+
+            Spacer(Modifier.height(32.dp))
+
+            if (syncError != null) {
+                Text(
+                    syncError ?: "",
+                    color = Danger,
+                    fontSize = TextSize.Footnote,
                     modifier =
                         Modifier
-                            .size(80.dp)
-                            .background(parsedColor, CircleShape)
-                            .clickable { viewModel.cycleAvatarColor() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(viewModel.getInitials(), color = White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("Tap to change color", color = TextSecondary, fontSize = 11.sp)
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                    textAlign = TextAlign.Center,
+                )
+            } else if (showSaved) {
+                Text(
+                    stringResource(R.string.edit_profile_profile_saved),
+                    color = Safe,
+                    fontSize = TextSize.Footnote,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                    textAlign = TextAlign.Center,
+                )
             }
-        }
 
-        Spacer(Modifier.height(24.dp))
-
-        Text("First name", color = TextSecondary, fontSize = 12.sp)
-        Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
-            value = firstName,
-            onValueChange = {
-                if (it.length <= 30) {
-                    viewModel.updateEditFirstName(it)
-                    firstNameError = ""
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            isError = firstNameError.isNotEmpty(),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors =
-                OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF5B4FE8),
-                    unfocusedBorderColor = Color(0xFF2A2A2A),
-                    focusedTextColor = White,
-                    unfocusedTextColor = White,
-                    errorBorderColor = Color(0xFFFF3B30),
-                    cursorColor = Color(0xFF5B4FE8),
-                ),
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (firstNameError.isNotEmpty()) {
-                Text(firstNameError, color = Color(0xFFFF3B30), fontSize = 11.sp)
-            } else {
-                Spacer(Modifier.weight(1f))
-            }
-            Text("${firstName.length}/30", color = TextSecondary, fontSize = 11.sp)
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        Text("Last name (optional)", color = TextSecondary, fontSize = 12.sp)
-        Spacer(Modifier.height(6.dp))
-        OutlinedTextField(
-            value = lastName,
-            onValueChange = { if (it.length <= 30) viewModel.updateEditLastName(it) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors =
-                OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF5B4FE8),
-                    unfocusedBorderColor = Color(0xFF2A2A2A),
-                    focusedTextColor = White,
-                    unfocusedTextColor = White,
-                    cursorColor = Color(0xFF5B4FE8),
-                ),
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text("${lastName.length}/30", color = TextSecondary, fontSize = 11.sp)
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        if (showSaved) {
-            Text(
-                "Profile saved!",
-                color = Color(0xFF34C759),
-                fontSize = 13.sp,
+            Button(
+                onClick = {
+                    viewModel.saveProfile {
+                        showSaved = true
+                    }
+                },
+                enabled = !isSaving,
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                textAlign = TextAlign.Center,
-            )
-        }
-
-        Button(
-            onClick = {
-                val trimmed = firstName.trim()
-                if (trimmed.isEmpty()) {
-                    firstNameError = "First name is required"
-                    return@Button
-                }
-                if (!trimmed.all { it.isLetter() || it.isWhitespace() }) {
-                    firstNameError = "Name should only contain letters"
-                    return@Button
-                }
-                viewModel.saveProfile {
-                    showSaved = true
-                }
-            },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp)
-                    .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B4FE8)),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text("Save changes", color = White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        // Bottom clearance matches the floating tab bar's footprint
+                        // (see MainScreen) -- this screen now renders behind it.
+                        .padding(bottom = LocalBottomBarClearance.current)
+                        .heightIn(min = 52.dp),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = Indigo,
+                        disabledContainerColor = ContactBadge,
+                        contentColor = OnIndigo,
+                        disabledContentColor = TextSecondary,
+                    ),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(
+                    stringResource(if (isSaving) R.string.edit_profile_saving else R.string.edit_profile_save_changes),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = TextSize.Body,
+                )
+            }
         }
     }
 }

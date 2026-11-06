@@ -1,0 +1,477 @@
+"""The automated, CI-safe half of WBS 4.4.3 -- integration test: full
+retraining round trip (report -> validate -> retrain -> deploy).
+
+Before this, the round trip had two real gaps, both on the AI side:
+``retraining.service.ts`` (backend) posted to ``{AI_SERVICE_URL}/retrain``
+and got a 404, caught as a warning; and ``pipeline.py`` never told
+``ModelVersions`` about a candidate, so the table stayed empty and the
+backend's own F1-degradation trigger and rollback route were dead code.
+
+This test walks every stage with everything stubbed -- no GPU, no Docker, no
+real network -- proving the wiring rather than the model:
+
+    validated report (consented offline export)
+        -> FileReportSource.fetch()
+        -> a gate verdict (stubbed _predict, same pattern as
+           test_retraining_pipeline.py)
+        -> ModelRegistry.register() / .activate() (stubbed backend)
+        -> version_file.write_version() / read_version()
+           (the served version_tag actually changes)
+
+The live counterpart -- real backend, real AI service, a real forward pass --
+is ``scripts/round_trip.py``, meant to be run by hand as the WBS 4.5.1 demo,
+not as a CI gate.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import urllib.error
+import urllib.request
+
+import pytest
+from fastapi.testclient import TestClient
+
+from retraining import pipeline as pl
+from retraining.pipeline import evaluate_candidate
+from retraining.registry import ModelRegistry, ModelRegistryError
+from retraining.reports import FileReportSource
+from retraining.version_file import read_version, verify_version, write_version
+from service import retrain_queue
+from service.main import app
+from service.readiness import ReadinessReport, readiness
+from service.routers import retrain as retrain_router
+
+# Not entered as `with TestClient(app) as client`, matching test_service.py --
+# that would run the FastAPI lifespan (campaign centroid load + the WBS 4.4.3
+# version check), which is exactly the network activity these tests stub out.
+client = TestClient(app)
+
+
+# --- shared urlopen stub (mirrors tests/test_reports.py) -------------------- #
+class _FakeResponse(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+def fake_urlopen(payload, capture=None, raises=None):
+    def _open(request, timeout=None):
+        if capture is not None:
+            capture.append(request)
+        if raises is not None:
+            raise raises
+        body = payload if isinstance(payload, (str, bytes)) else json.dumps(payload)
+        if isinstance(body, str):
+            body = body.encode("utf-8")
+        return _FakeResponse(body)
+
+    return _open
+
+
+# =============================================================================
+# Stage: trigger -- POST /retrain used to 404. Now it queues.
+# =============================================================================
+@pytest.fixture
+def queue_path(tmp_path, monkeypatch):
+    path = str(tmp_path / "queue.jsonl")
+    monkeypatch.setattr(retrain_router.settings, "retrain_queue_path", path)
+    return path
+
+
+def test_retrain_endpoint_accepts_and_queues(queue_path):
+    resp = client.post("/retrain", json={"trigger": "validated_report_count", "dataset_version": "dataset-a"})
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["status"] == "queued"
+    assert body["trigger"] == "validated_report_count"
+    assert body["job_id"]
+
+
+def test_repeated_trigger_dedupes_to_the_same_job(queue_path):
+    """The backend's hourly cron re-fires every hour until a model is
+    promoted. Without dedupe the queue grows one row per hour, forever."""
+    first = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    second = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    assert first["job_id"] == second["job_id"]
+
+    jobs = client.get("/retrain/jobs").json()["jobs"]
+    assert len([j for j in jobs if j["trigger"] == "f1_degradation"]) == 1
+
+
+def test_different_triggers_queue_separately(queue_path):
+    a = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    b = client.post("/retrain", json={"trigger": "page_hinkley_drift", "dataset_version": "dataset-a"}).json()
+    assert a["job_id"] != b["job_id"]
+
+
+def test_jobs_endpoint_lists_what_was_queued(queue_path):
+    assert client.get("/retrain/jobs").json()["jobs"] == []
+    client.post("/retrain", json={"trigger": "validated_report_count", "dataset_version": "dataset-a"})
+    jobs = client.get("/retrain/jobs").json()["jobs"]
+    assert [j["trigger"] for j in jobs] == ["validated_report_count"]
+
+
+def test_empty_trigger_is_rejected(queue_path):
+    resp = client.post("/retrain", json={"trigger": "", "dataset_version": "dataset-a"})
+    assert resp.status_code == 422
+
+
+def test_completing_a_job_over_http_frees_the_trigger(queue_path):
+    """The drain a caller on a different host than the queue file uses."""
+    first = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+
+    done = client.post(f"/retrain/jobs/{first['job_id']}/complete")
+    assert done.status_code == 200
+    assert done.json()["status"] == "completed"
+    assert done.json()["completed_at"]
+
+    # The trigger can schedule real work again, instead of being handed the
+    # stale job forever.
+    second = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    assert second["job_id"] != first["job_id"]
+
+
+def test_completing_an_unknown_job_is_a_404(queue_path):
+    assert client.post("/retrain/jobs/nope/complete").status_code == 404
+
+
+def test_a_full_queue_is_refused_rather_than_grown(queue_path):
+    """503, not 500: the trigger condition is still true next hour, so a
+    refusal costs nothing -- an unbounded file would cost every later read."""
+    for i in range(retrain_queue.MAX_QUEUED_JOBS):
+        client.post("/retrain", json={"trigger": f"trigger-{i}", "dataset_version": "dataset-a"})
+
+    resp = client.post("/retrain", json={"trigger": "one-too-many", "dataset_version": "dataset-a"})
+    assert resp.status_code == 503
+    assert "queued" in resp.json()["detail"]
+
+
+def test_enqueue_helper_is_reusable_outside_the_http_layer(tmp_path):
+    """service/retrain_queue.py's functions are what the router calls --
+    tested directly too, since a router-only test would miss a bug in the
+    dedupe logic that happened to look right through the one path HTTP
+    tests exercise."""
+    path = str(tmp_path / "queue.jsonl")
+    job = retrain_queue.enqueue(path, "validated_report_count")
+    same = retrain_queue.enqueue(path, "validated_report_count")
+    assert job.job_id == same.job_id
+    assert retrain_queue.list_jobs(path) == [job]
+
+
+# =============================================================================
+# Stage: register / administrator promotion -- model credentials stay scoped.
+# =============================================================================
+def test_register_posts_the_expected_payload_and_returns_the_id(monkeypatch):
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"id": "mv-1"}, capture=sent))
+
+    model_id = ModelRegistry("http://localhost:3000/api", "secret").register(
+        version_tag="v2026-08-17T04-15-33Z", f1_score=0.9648, notes="97 fixes vs 44 regressions"
+    )
+
+    assert model_id == "mv-1"
+    (request,) = sent
+    assert request.full_url == "http://localhost:3000/api/internal/models"
+    assert request.get_header("X-api-key") == "secret"
+    body = json.loads(request.data.decode("utf-8"))
+    assert body == {
+        "versionTag": "v2026-08-17T04-15-33Z",
+        "f1Score": 0.9648,
+        "notes": "97 fixes vs 44 regressions",
+    }
+
+
+def test_register_without_an_id_in_the_response_raises(monkeypatch):
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({}))
+    with pytest.raises(ModelRegistryError):
+        ModelRegistry("http://localhost:3000/api", "k").register("v1", 0.9)
+
+
+def test_register_401_hints_at_the_api_key(monkeypatch):
+    err = urllib.error.HTTPError("http://x/models", 401, "Unauthorized", {}, None)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(None, raises=err))
+    with pytest.raises(ModelRegistryError, match="AI_MODELS_API_KEY"):
+        ModelRegistry("http://localhost:3000/api", "k").register("v1", 0.9)
+
+
+def test_register_409_hints_at_a_duplicate_tag(monkeypatch):
+    err = urllib.error.HTTPError("http://x/models", 409, "Conflict", {}, None)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(None, raises=err))
+    with pytest.raises(ModelRegistryError, match="already registered"):
+        ModelRegistry("http://localhost:3000/api", "k").register("v1", 0.9)
+
+
+def test_activate_requires_an_authenticated_administrator():
+    with pytest.raises(ModelRegistryError, match="administrator promotion"):
+        ModelRegistry("http://localhost:3000/api", "k").activate("mv-1")
+
+
+def test_get_active_returns_none_when_the_backend_says_so(monkeypatch):
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen(None))
+    assert ModelRegistry("http://localhost:3000/api", "k").get_active() is None
+
+
+def test_get_active_is_a_get_not_a_post(monkeypatch):
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"versionTag": "v1"}, capture=sent))
+    active = ModelRegistry("http://localhost:3000/api", "k").get_active()
+    assert active == {"versionTag": "v1"}
+    assert sent[0].get_method() == "GET"
+
+
+def test_unreachable_backend_raises_not_degrades(monkeypatch):
+    monkeypatch.setattr(
+        urllib.request, "urlopen", fake_urlopen(None, raises=urllib.error.URLError("connection refused"))
+    )
+    with pytest.raises(ModelRegistryError, match="backend running"):
+        ModelRegistry("http://localhost:3000/api", "k").register("v1", 0.9)
+
+
+# =============================================================================
+# Stage: deploy -- version.json is how a served checkpoint says who it is.
+# =============================================================================
+def test_version_round_trips_through_the_file(tmp_path):
+    write_version(str(tmp_path), "v2026-08-17T04-15-33Z")
+    assert read_version(str(tmp_path)) == "v2026-08-17T04-15-33Z"
+
+
+def test_version_hashes_the_weights_file_when_present(tmp_path):
+    (tmp_path / "model.safetensors").write_bytes(b"pretend weights")
+    write_version(str(tmp_path), "v1")
+    payload = json.loads((tmp_path / "version.json").read_text(encoding="utf-8"))
+    assert payload["sha256"] == __import__("hashlib").sha256(b"pretend weights").hexdigest()
+
+
+def test_version_is_null_without_weights(tmp_path):
+    write_version(str(tmp_path), "v1")
+    payload = json.loads((tmp_path / "version.json").read_text(encoding="utf-8"))
+    assert payload["sha256"] is None
+
+
+def test_read_version_is_none_for_a_pre_wbs_4_4_3_checkpoint(tmp_path):
+    """No version.json at all -- true of every checkpoint deployed before
+    this existed, including the one currently live."""
+    assert read_version(str(tmp_path)) is None
+
+
+def test_health_endpoint_reports_the_served_version(tmp_path):
+    write_version(str(tmp_path), "v2026-08-17T04-15-33Z")
+    readiness.publish(
+        ReadinessReport(
+            True,
+            "ready",
+            version_tag="v2026-08-17T04-15-33Z",
+            artifact_integrity="verified",
+            model_loaded=True,
+            test_inference_passed=True,
+        )
+    )
+
+    resp = client.get("/health")
+    assert resp.json()["version_tag"] == "v2026-08-17T04-15-33Z"
+
+
+def test_health_endpoint_is_null_before_any_version_is_recorded():
+    readiness.publish(ReadinessReport(False, "model_version_unverifiable"))
+    resp = client.get("/health")
+    assert resp.json()["version_tag"] is None
+
+
+# =============================================================================
+# The full chain: report -> gate -> register -> activate -> deploy
+# =============================================================================
+def test_the_whole_round_trip_with_everything_stubbed(monkeypatch, tmp_path):
+    """One test walking every stage 4.4.3 needed, end to end.
+
+    Each piece already has its own focused tests above (and, for the
+    report -> snapshot half, in test_retraining_pipeline.py's file-source
+    coverage). This one
+    exists because the pieces being individually correct does not prove they
+    compose -- a version_tag typo between ``pipeline.py`` and ``registry.py``
+    would pass every test above and still break the real round trip.
+    """
+    # 1. A validated report supplied as a separately consented offline export.
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "validated.csv").write_text(
+        "text,label,report_id,validated_at\n"
+        "you won a prize claim at http://x.ph,Scam,rpt-1,2026-08-17T00:00:00+00:00\n",
+        encoding="utf-8",
+    )
+    reports = list(FileReportSource(str(reports_dir)).fetch())
+    assert len(reports) == 1
+
+    # 2. A gate verdict -- _predict stubbed, same pattern as
+    #    test_retraining_pipeline.py's test_evaluate_candidate_* tests.
+    def fake_predict(model_dir, texts, batch_size=32):
+        # 80 rows both get right; baseline misses the last 20, candidate
+        # fixes all of them -- same shape as
+        # test_retraining_pipeline.py's test_evaluate_candidate_scores_both_models_on_the_same_rows,
+        # large enough for McNemar to call it significant.
+        return [0] * 80 + ([0] * 20 if model_dir == "baseline" else [2] * 20)
+
+    monkeypatch.setattr(pl, "_predict", fake_predict)
+    val_texts = [f"row {i}" for i in range(100)]
+    val_labels = [0] * 80 + [2] * 20
+    candidate_dir = tmp_path / "candidate"
+    candidate_dir.mkdir()
+    decision = evaluate_candidate("baseline", str(candidate_dir), val_texts, val_labels)
+    assert decision.promote
+
+    version_tag = "v2026-08-17T04-15-33Z"
+    write_version(str(candidate_dir), version_tag)
+
+    # 3. Register the candidate inactive. Promotion must subsequently be done
+    #    through the authenticated admin workflow, not by the AI service key.
+    sent = []
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"id": "mv-2"}, capture=sent))
+    registry = ModelRegistry("http://localhost:3000/api", "k")
+    model_id = registry.register(version_tag, decision.candidate_macro_f1, notes=decision.reason)
+    assert sent[0].full_url == "http://localhost:3000/api/internal/models"
+    with pytest.raises(ModelRegistryError, match="administrator promotion"):
+        registry.activate(model_id)
+
+    # 4. Deploy -- after the external manifest is verified and the startup
+    #    probe succeeds, readiness publishes the exact version being served.
+    readiness.publish(
+        ReadinessReport(
+            True,
+            "ready",
+            version_tag=version_tag,
+            artifact_integrity="verified",
+            model_loaded=True,
+            test_inference_passed=True,
+        )
+    )
+    resp = client.get("/health")
+    assert resp.json()["version_tag"] == version_tag
+
+
+# --- checkpoint integrity (Reymark's audit, items 13-14) ---------------------
+def _fake_checkpoint(tmp_path):
+    (tmp_path / "model.safetensors").write_bytes(b"pretend weights")
+    (tmp_path / "config.json").write_text('{"model_type": "xlm-roberta"}', encoding="utf-8")
+    (tmp_path / "tokenizer.json").write_text('{"vocab": []}', encoding="utf-8")
+    return str(tmp_path)
+
+
+def test_version_records_tokenizer_and_config_not_just_weights(tmp_path):
+    """A tokenizer change alters predictions as completely as a weight change
+    while leaving the weights byte-identical (audit item 14)."""
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    artifacts = json.loads((tmp_path / "version.json").read_text(encoding="utf-8"))["artifacts"]
+    assert set(artifacts) == {"model.safetensors", "config.json", "tokenizer.json"}
+
+
+def test_verify_passes_on_an_untouched_checkpoint(tmp_path):
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    result = verify_version(str(tmp_path))
+    assert result.status == "ok"
+    assert bool(result)
+    assert set(result.checked) == {"model.safetensors", "config.json", "tokenizer.json"}
+
+
+def test_verify_catches_swapped_weights(tmp_path):
+    """The failure the digest existed for: different weights, same version tag."""
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    (tmp_path / "model.safetensors").write_bytes(b"different weights")
+
+    result = verify_version(str(tmp_path))
+    assert result.status == "mismatch"
+    assert result.changed == ("model.safetensors",)
+    assert read_version(str(tmp_path)) == "v1"  # still claims to be v1
+
+
+def test_verify_catches_a_changed_tokenizer(tmp_path):
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    (tmp_path / "tokenizer.json").write_text('{"vocab": ["changed"]}', encoding="utf-8")
+    assert verify_version(str(tmp_path)).changed == ("tokenizer.json",)
+
+
+def test_verify_reports_a_recorded_file_that_has_gone_missing(tmp_path):
+    write_version(_fake_checkpoint(tmp_path), "v1")
+    (tmp_path / "tokenizer.json").unlink()
+    result = verify_version(str(tmp_path))
+    assert result.status == "mismatch"
+    assert result.missing == ("tokenizer.json",)
+
+
+def test_verify_still_checks_pre_2026_09_16_version_files(tmp_path):
+    """Older files carry only the weights digest under "sha256"."""
+    (tmp_path / "model.safetensors").write_bytes(b"pretend weights")
+    (tmp_path / "version.json").write_text(
+        json.dumps(
+            {
+                "version_tag": "v2026-07-29-run3",
+                "sha256": __import__("hashlib").sha256(b"pretend weights").hexdigest(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert verify_version(str(tmp_path)).status == "ok"
+
+    (tmp_path / "model.safetensors").write_bytes(b"swapped")
+    assert verify_version(str(tmp_path)).status == "mismatch"
+
+
+def test_unverifiable_is_not_ok(tmp_path):
+    """ "Nothing was recorded to check" and "everything matched" are the same
+    boolean and very different facts."""
+    result = verify_version(str(tmp_path))
+    assert result.status == "unverifiable"
+    assert not bool(result)
+
+
+# --- frozen dataset identity (audit 2026-09-30, finding 6) -------------------
+def test_a_retrain_request_without_a_dataset_version_is_rejected(queue_path):
+    """An accepted job must name the snapshot an offline run can reproduce."""
+    assert client.post("/retrain", json={"trigger": "f1_degradation"}).status_code == 422
+    assert client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "../etc"}).status_code == 422
+
+
+def test_the_dataset_version_survives_queue_storage_and_status(queue_path):
+    job = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-20260930"}).json()
+    assert job["dataset_version"] == "dataset-20260930"
+
+    listed = client.get("/retrain/jobs").json()["jobs"]
+    assert listed[0]["dataset_version"] == "dataset-20260930"
+    # Persisted, not just echoed: a fresh read of the file still has it.
+    assert retrain_queue.list_jobs(queue_path)[0].dataset_version == "dataset-20260930"
+
+    done = client.post(f"/retrain/jobs/{job['job_id']}/complete").json()
+    assert done["dataset_version"] == "dataset-20260930"
+
+
+def test_the_same_trigger_on_a_newer_snapshot_is_a_new_job(queue_path):
+    a = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-a"}).json()
+    b = client.post("/retrain", json={"trigger": "f1_degradation", "dataset_version": "dataset-b"}).json()
+    assert a["job_id"] != b["job_id"]
+
+
+def test_draining_only_completes_jobs_for_the_snapshot_trained_on(tmp_path):
+    path = str(tmp_path / "queue.jsonl")
+    legacy = retrain_queue.enqueue(path, "f1_degradation")
+    a = retrain_queue.enqueue(path, "f1_degradation", "dataset-a")
+    b = retrain_queue.enqueue(path, "page_hinkley_drift", "dataset-b")
+
+    drained = retrain_queue.complete_all_queued(path, "dataset-a")
+
+    assert [j.job_id for j in drained] == [a.job_id]
+    status = {j.job_id: j.status for j in retrain_queue.list_jobs(path)}
+    assert status[legacy.job_id] == retrain_queue.QUEUED
+    assert status[b.job_id] == retrain_queue.QUEUED
+
+
+def test_rows_written_before_the_field_existed_read_as_unversioned(tmp_path):
+    path = tmp_path / "queue.jsonl"
+    path.write_text(
+        '{"job_id": "old", "trigger": "f1_drop", "status": "queued", "requested_at": "2026-09-01T00:00:00+00:00"}\n',
+        encoding="utf-8",
+    )
+    [job] = retrain_queue.list_jobs(str(path))
+    assert job.dataset_version is None

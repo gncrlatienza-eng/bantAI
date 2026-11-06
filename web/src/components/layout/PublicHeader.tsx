@@ -38,12 +38,6 @@ export const PublicHeader: React.FC = () => {
         >
           About
         </Link>
-        <Link
-          to={ROUTES.RESEARCH}
-          className={isActive(ROUTES.RESEARCH) ? 'active' : ''}
-        >
-          Research
-        </Link>
       </nav>
 
       <div className="public-actions">

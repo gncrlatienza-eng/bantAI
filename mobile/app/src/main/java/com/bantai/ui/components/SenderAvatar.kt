@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -27,15 +28,30 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.core.content.ContextCompat
+import com.bantai.data.model.isGroupKey
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextTertiary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
+import java.util.Collections
+import java.util.LinkedHashMap
+
+private const val MAX_CACHED_CONTACT_PHOTOS = 200
+private const val LRU_INITIAL_CAPACITY = 16
+private const val LRU_LOAD_FACTOR = 0.75f
 
 // Cache so scrolling lists don't re-query contacts for every row bind.
-// Null value = looked up, no photo.
-private val contactPhotoCache = ConcurrentHashMap<String, Optional<ImageBitmap>>()
+// Null value = looked up, no photo. Bounded LRU (accessOrder + removeEldestEntry
+// is the standard JDK idiom) so a long session scrolling many distinct senders
+// doesn't retain every decoded bitmap in memory forever.
+private val contactPhotoCache: MutableMap<String, Optional<ImageBitmap>> =
+    Collections.synchronizedMap(
+        object : LinkedHashMap<String, Optional<ImageBitmap>>(LRU_INITIAL_CAPACITY, LRU_LOAD_FACTOR, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, Optional<ImageBitmap>>,
+            ): Boolean = size > MAX_CACHED_CONTACT_PHOTOS
+        },
+    )
 
 private class Optional<T>(
     val value: T?,
@@ -46,24 +62,33 @@ private suspend fun loadContactPhoto(
     sender: String,
 ): ImageBitmap? {
     contactPhotoCache[sender]?.let { return it.value }
-    val result =
+    // Checked before touching the cache, and never cached itself: permission can
+    // be granted later in the same process, and this check is cheap — caching a
+    // null here would stick every already-looked-up sender at "no photo" forever
+    // even after the user grants Contacts access.
+    val hasContactsPermission =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+            PackageManager.PERMISSION_GRANTED
+    return if (!hasContactsPermission) {
+        null
+    } else {
         withContext(Dispatchers.IO) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                return@withContext null
-            }
             try {
                 val lookupUri =
                     Uri.withAppendedPath(
                         ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
                         Uri.encode(sender),
                     )
+                // THUMBNAIL, not the full-size PHOTO_URI -- this is drawn at a small,
+                // fixed avatar size, and a full-resolution contact photo (easily
+                // several hundred KB to a few MB decoded) held per cache entry could
+                // still add up to a large amount of memory even with the LRU cap
+                // above capping it at MAX_CACHED_CONTACT_PHOTOS *entries*, not bytes.
                 var photoUri: String? = null
                 context.contentResolver
                     .query(
                         lookupUri,
-                        arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
+                        arrayOf(ContactsContract.PhoneLookup.PHOTO_THUMBNAIL_URI),
                         null,
                         null,
                         null,
@@ -78,9 +103,8 @@ private suspend fun loadContactPhoto(
             } catch (e: Exception) {
                 null
             }
-        }
-    contactPhotoCache[sender] = Optional(result)
-    return result
+        }.also { contactPhotoCache[sender] = Optional(it) }
+    }
 }
 
 /**
@@ -118,7 +142,7 @@ fun SenderAvatar(
             )
         } else {
             Icon(
-                Icons.Filled.Person,
+                if (isGroupKey(sender)) Icons.Filled.Groups else Icons.Filled.Person,
                 contentDescription = null,
                 tint = TextTertiary,
                 modifier = Modifier.size(size * 0.58f).align(Alignment.Center),

@@ -2,8 +2,16 @@
 
 **Sprint 4 · Track B (AI/ML) · WBS 4.3.5**
 
-Drop admin-validated user reports here as CSV or JSONL, then point the
-retraining pipeline at this directory:
+Admin-validated user reports as CSV or JSONL, read by `FileReportSource`:
+
+```bash
+cd ai && python scripts/retrain.py --reports-dir datasets/reports --dry-run
+```
+
+Live `--reports-url` ingestion is deliberately disabled. The backend retains
+privacy-masked SMS only, and retraining must not create a path for raw SMS
+persistence or live backend report ingestion. Use this directory for a
+separately consented offline export:
 
 ```bash
 cd ai && python scripts/retrain.py --reports-dir datasets/reports --dry-run
@@ -19,7 +27,7 @@ README is tracked.
 
 | Column | Required | Notes |
 |---|---|---|
-| `text` | ✅ | The **raw** message body, un-masked. Preprocessing happens inside the training path so training input matches inference input exactly — do not pre-mask. |
+| `text` | ✅ | A privacy-masked message body from a separately consented export. Do not place raw SMS bodies here. |
 | `label` | ✅ | `Ham` / `Spam` / `Scam` (any casing), or the id `0` / `1` / `2`. |
 | `report_id` | — | Opaque identifier. Carried into the snapshot manifest so a surprising row can be traced back. |
 | `validated_at` | — | ISO-8601. Used so a retrain consumes only reports newer than the previous run. Rows without it are always included. |
@@ -43,18 +51,18 @@ retraining at will.
 
 Nothing in this directory can verify that property. It is the exporter's
 responsibility to include only reports an admin has marked **Validated**
-(WBS 4.3.2).
+(WBS 4.3.2). The separately consented export process must apply that filter
+before placing files here.
 
 ---
 
-## This is a stopgap
+## No source is ever used implicitly
 
-The real source is the `UserReports` table (**WBS 4.3.1, Track A**), which does
-not exist yet. When it lands, a `DatabaseReportSource` implementing the same
-two methods as `FileReportSource` (`fetch`, `describe`) drops into
-`retraining/reports.py` with no change to the snapshot or pipeline code — the
-interface exists precisely so that swap is a non-event.
+Running without `--reports-dir` is a real choice, and the
+manifest records it as one: `null (no report store consulted)`, not a zero that
+reads like "none were filed". `--reports-url` is intentionally unsupported, and
+a `BANTAI_AI_BACKEND_URL` sitting in the environment never enables report
+ingestion.
 
-Until then, running without `--reports-dir` is the honest default: the manifest
-records `null (no report store configured)` rather than implying reports were
-consulted and none were found.
+The historical `DatabaseReportSource` implementation remains documented for
+provenance, but it is not a supported live ingestion path.

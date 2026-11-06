@@ -1,0 +1,6 @@
+-- No-op: the preceding migration (20260922000000_restore_otp_auth) already
+-- recreated "OtpCode" with this exact structure. This migration originally
+-- duplicated that CREATE TABLE, which breaks migrate dev/deploy with
+-- "relation already exists". Left as an empty migration rather than deleted
+-- so the migration history/checksums stay intact for anyone who already has
+-- this migration folder.

@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base theme used before Compose takes over. Keeps the splash window dark. -->
+    <!-- Base theme. The window background is the launch screen (black with the
+         logo tile) that shows before Compose draws; the app's own screens
+         paint over it. -->
     <style name="Theme.BantAI" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/background</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
     </style>

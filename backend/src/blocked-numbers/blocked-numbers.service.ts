@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { fingerprintSender } from '../auth/phone';
+import { BlockSource } from './dto/block-number.dto';
 
 @Injectable()
 export class BlockedNumbersService {
@@ -9,26 +11,57 @@ export class BlockedNumbersService {
     return this.prisma.blockedNumber.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: 100,
+      // Sender pseudonyms are server-only enforcement keys, never phone values
+      // a client may display or write into Android's block list.
+      select: { id: true, source: true, createdAt: true },
     });
   }
 
   // Idempotent — mirrors sms.service.ts's auto-block upsert (update: {} leaves
   // an existing row, e.g. one the backend already auto-blocked, untouched
   // rather than overwriting its source/createdAt on every sync).
-  block(userId: string, sender: string) {
-    const normalized = this.normalizePhone(sender);
-    return this.prisma.blockedNumber.upsert({
-      where: { userId_sender: { userId, sender: normalized } },
-      create: { userId, sender: normalized, source: 'UserBlock' },
-      update: {},
+  async block(
+    userId: string,
+    sender: string,
+    source: BlockSource = 'UserBlock',
+  ) {
+    const normalized = fingerprintSender(sender);
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.blockedNumber.upsert({
+        where: { userId_sender: { userId, sender: normalized } },
+        create: { userId, sender: normalized, source },
+        update: {},
+        // Same rule as list(): the HMAC never goes back to a client.
+        select: { id: true, source: true, createdAt: true },
+      });
+      // Server-side alert state follows the phone's block, so the Admin
+      // overview's alertsByStatus is not stuck on Pending.
+      await tx.alert.updateMany({
+        where: {
+          status: 'Pending',
+          message: { userId, sender: normalized },
+        },
+        data: { status: 'Blocked' },
+      });
+      return row;
     });
   }
 
   async unblock(userId: string, sender: string) {
-    const normalized = this.normalizePhone(sender);
+    const normalized = fingerprintSender(sender);
     try {
-      await this.prisma.blockedNumber.delete({
-        where: { userId_sender: { userId, sender: normalized } },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.blockedNumber.delete({
+          where: { userId_sender: { userId, sender: normalized } },
+        });
+        await tx.alert.updateMany({
+          where: {
+            status: 'Blocked',
+            message: { userId, sender: normalized },
+          },
+          data: { status: 'Pending' },
+        });
       });
     } catch (err) {
       if ((err as { code?: string }).code === 'P2025') {
@@ -36,17 +69,5 @@ export class BlockedNumbersService {
       }
       throw err;
     }
-  }
-
-  // Duplicated from sms.service.ts / verification.service.ts rather than
-  // factored out — matches this codebase's existing convention of a private
-  // per-service copy (see those two files) rather than introducing a shared
-  // util as an unrelated refactor.
-  private normalizePhone(phone: string): string {
-    if (/[a-zA-Z]/.test(phone)) return phone.trim().toLowerCase();
-    const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('63') && digits.length === 12)
-      return '0' + digits.slice(2);
-    return digits;
   }
 }

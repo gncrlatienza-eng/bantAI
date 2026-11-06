@@ -44,6 +44,93 @@ uvicorn service.main:app --reload --port 8001
 Until a fine-tuned model exists in `models/`, `/classify` returns **503** (the
 request is still validated and PII is still masked, so the contract is testable).
 
+## Team local-model test (no deployment required)
+
+Each teammate keeps the approved model bundle in their own ignored local
+directory, normally `ai/models/xlm-roberta-smishing/`. Do not commit the model,
+raw SMS data, a `.env` file, or a public download link. The bundle needs
+`config.json`, a model-weight file (`model.safetensors` or `pytorch_model.bin`),
+and an XLM-R tokenizer artifact such as `sentencepiece.bpe.model`.
+
+For an AI-only check, use these local settings in `ai/.env`:
+
+```env
+BANTAI_AI_MODEL_DIR=models/xlm-roberta-smishing
+BANTAI_AI_CENTROID_SOURCE=none
+BANTAI_AI_VERSION_CHECK_ENABLED=false
+BANTAI_AI_ENVIRONMENT=local
+BANTAI_AI_ALLOW_UNAUTHENTICATED_DEV=true
+```
+
+### Install the shared development release
+
+Treat a release ZIP and its Google Drive metadata as inputs, not as approval by
+themselves. Obtain the exact archive SHA-256 through a second trusted channel,
+then install it into a new ignored directory. The installer refuses to replace
+an existing directory or manifest and creates a hash-bound manifest with
+`development` scope:
+
+```powershell
+cd ai
+.\.venv\Scripts\python.exe scripts\install_development_model.py `
+  C:\path\to\bantai_model_v2026-09-21-colab-C.zip `
+  --archive-sha256 <exact-64-character-sha256> `
+  --version-tag <version-tag-from-the-release-record> `
+  --approval-reference <review-or-release-record-id> `
+  --campaign-space C:\path\to\campaign_space.json `
+  --destination models\development\2026-09-21-colab-C `
+  --approval models\approvals\2026-09-21-colab-C.development.json
+```
+
+Keep the approval manifest outside the destination. Point
+`BANTAI_AI_MODEL_DIR` at that destination,
+`BANTAI_AI_MODEL_APPROVAL_PATH` at the generated manifest, and
+`BANTAI_AI_CAMPAIGN_SPACE_FILE` at the installed
+`campaign_space.json`. The campaign space is copied into the bundle before its
+artifact hashes are written, so changing its transform or thresholds makes
+readiness fail. A development manifest cannot start a production service;
+production needs a separate reviewed production approval record.
+
+If the archive cannot be retrieved, the installer also accepts `--source-dir`
+and `--expected-version-file` instead of the archive arguments. It checks the
+four runtime files against an independently retrieved version record, copies
+that record and the optional campaign space, and records
+`verified_component_reconstruction` with `archive_status: not_verified`.
+This verifies the runtime components; it does not verify the ZIP or training
+data provenance. Shared development still requires a service key of at least
+32 characters and an external development approval manifest. Never use the
+local unauthenticated opt-out for a shared host.
+
+The historical holdout may verify regression behavior, but it has already been
+used during model selection and does not establish independent release quality.
+Record that limitation with any results rather than describing it as an unseen
+test set.
+
+From `ai/`, first verify the copied model without starting any network service:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify_local_model.py --smoke
+```
+
+It performs a structural bundle check and a real forward pass using a built-in,
+non-sensitive string. It does not read a dataset or print SMS content. Then run
+the local AI API:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn service.main:app --host 127.0.0.1 --port 8001
+```
+
+`GET http://127.0.0.1:8001/health` must return `model_ready: true`. For the
+full local stack, start PostgreSQL and the NestJS backend separately, set
+`AI_SERVICE_URL=http://localhost:8001` in `backend/.env`, and use matching
+non-production values for `AI_SERVICE_API_KEY` and
+`BANTAI_AI_SERVICE_API_KEY`. Restore `BANTAI_AI_CENTROID_SOURCE=backend` only
+when the local backend is running and its campaign/model API keys are also set.
+
+For an Android emulator on the same computer, use `http://10.0.2.2:3000/api`.
+For a USB-connected device, use `adb reverse tcp:3000 tcp:3000` and the app's
+localhost debug URL. Do not expose this local stack over a public tunnel.
+
 ## Preprocessing / privacy masking
 
 `preprocessing.preprocess(text)` is the single transform used at both train and
@@ -138,12 +225,15 @@ pattern is a legitimate Colab convention, not a violation).
     [`PIPELINE.md`](PIPELINE.md) for the full training/evaluation record and
     [`colab/README.md`](colab/README.md) to reproduce a run).
 - **Sprint 3 (done):**
-  - ✅ Cosine-similarity campaign matching, threshold 0.85 (`service/campaign.py`).
+  - ✅ Cosine-similarity campaign matching (`service/campaign.py`). The manuscript's
+    0.85 was re-calibrated to 0.999 in Sprint 5, to 0.998 after the 2026-08-30
+    promotion, and back to 0.999 for Model C (2026-09-27), with a lexical second
+    signal (see Sprint 5 below).
   - ✅ HDBSCAN offline re-clustering, `min_cluster_size = 5` (`scripts/cluster_campaigns.py`).
   - ✅ SHAP explainability + curated indicator tag dictionary, incl. Tagalog/Taglish
     coverage (`service/explainer.py`, `service/indicator_tags.py`).
   - ✅ Scam awareness tip lookup by cluster (`service/tips.py`).
-- **Sprint 4 (Track B — 7/8 done):**
+- **Sprint 4 (done):**
   - ✅ Retraining trigger thresholds — sample count, macro-F1 floor, Page-Hinkley
     drift (`retraining/triggers.py`).
   - ✅ Reservoir sampling, Vitter's Algorithm R (`retraining/sampling.py`).
@@ -151,10 +241,28 @@ pattern is a legitimate Colab convention, not a violation).
   - ✅ TF-IDF thread summarization, `POST /summarize` (`service/summarize.py`).
   - ✅ Campaign evolution tracking — new/dissolved/growing/merged/split
     campaigns between clustering snapshots (`campaign_evolution.py`).
-  - 🟡 **Automated retraining pipeline** — built and dry-run verified end-to-end
-    (`retraining/snapshot.py`, `retraining/reports.py`, `retraining/pipeline.py`,
-    `scripts/retrain.py`). Track A's `UserReports` table + intake endpoint
-    (WBS 4.3.1) has since landed, but `reports.py` doesn't read from it yet —
-    only `NullReportSource`/`FileReportSource` exist, `DatabaseReportSource` is
-    the remaining piece. See [`RETRAINING.md`](RETRAINING.md). Also outstanding:
-    a real GPU fine-tune (no local GPU; see `ai/colab/`).
+  - ✅ **Automated retraining pipeline** (`retraining/snapshot.py`,
+    `retraining/reports.py`, `retraining/pipeline.py`, `scripts/retrain.py`).
+    Report sources: `NullReportSource` (default) and `FileReportSource`.
+    `DatabaseReportSource` exists but live backend ingestion is deliberately
+    disabled -- the backend retains privacy-masked SMS only and must not become
+    a raw-message training source (see `RETRAINING.md`).
+    Three real GPU runs on Colab (2026-08-17, 08-26, 08-27); the 08-27 candidate
+    was promoted on 2026-08-30. See [`RETRAINING.md`](RETRAINING.md).
+- **Sprint 5 (Track B done):**
+  - ✅ Campaign-match threshold re-evaluated against real data (0.85 → 0.999,
+    adviser-approved 2026-08-26), plus a lexical second signal (`service/lexical.py`).
+  - ✅ SHAP tag dictionary polished from observed outputs.
+  - ✅ Refinement retrain on S2–S4 data; candidate promoted 2026-08-30
+    (`v2026-08-27T09-46-20Z`, clean holdout macro-F1 0.9592). Threshold moved to 0.998.
+  - ✅ **Model C promoted 2026-09-27 on adviser approval** (`v2026-09-21-colab-C`:
+    real messages only, softened class weighting). Holdout macro-F1 0.964, Scam
+    recall 95.7%; clusters rebuilt (321) and threshold re-calibrated to 0.999.
+    Evidence: `evaluation/fair_gate_holdout_*.json`, `evaluation/*_calibration*.json`.
+- **Sprint 6:** ✅ holdout confusion matrix (`scripts/evaluate_holdout.py`);
+  precision/recall in real use waits on the deployment.
+
+**After every promotion or rollback:** `scripts/embed_dataset.py` →
+`scripts/cluster_campaigns.py` → `scripts/sync_campaigns_to_backend.py --apply` →
+restart the AI service. The live service reads campaign centroids from the
+backend, so skipping the sync leaves it matching against the old model's clusters.

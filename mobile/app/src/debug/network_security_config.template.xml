@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Template, not a resource: app/build.gradle.kts (generateDebugNetworkSecurityConfig)
+     fills in the backend host and emits res/xml/network_security_config.xml for
+     debug builds. Edit this file, not the generated one under build/. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+    <!-- Debug-only: plain HTTP to the backend on the development machine.
+         localhost = USB device via `adb reverse`; 10.0.2.2 = emulator host alias;
+         the generated entry is the host from BACKEND_BASE_URL — by default the
+         dev laptop's LAN IP, detected at build time, so a real device on the same
+         wifi reaches the backend with no USB/adb reverse at all. This overrides
+         res/main's stricter version for debug builds only — a release build never
+         has any cleartext exception, closing the gap where a malicious co-resident
+         app could bind localhost:3000 (or spoof the LAN IP) and intercept
+         plaintext OTP/JWT traffic. Only these named hosts are allowed, never
+         cleartext to anything. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- @BACKEND_HOST_ENTRY@ -->
+    </domain-config>
+</network-security-config>

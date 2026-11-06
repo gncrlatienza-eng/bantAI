@@ -1,0 +1,186 @@
+package com.bantai.data.remote
+
+import com.bantai.data.AuthEventBus
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+
+private const val HTTP_OK_MIN = 200
+private const val HTTP_OK_MAX = 299
+private const val HTTP_UNAUTHORIZED = 401
+private const val HTTP_NOT_FOUND = 404
+
+/** Carries the HTTP status alongside the message so callers can tell a 401 apart from any other failure. */
+class ApiException(
+    val status: Int,
+    message: String,
+) : Exception(message)
+
+/**
+ * ApiException's message is always safe to show a user -- it's either the
+ * backend's own validation message or a generic "Request failed (HTTP …)"
+ * (see HttpClient.parseErrorMessage). Any other Throwable reaching here
+ * (timeouts, DNS failures, JSON parse errors) carries a raw exception message
+ * never meant for display, so it falls back to a safe, caller-supplied string.
+ */
+fun Throwable.toUserMessage(fallback: String): String = if (this is ApiException) (message ?: fallback) else fallback
+
+/**
+ * Shared HTTP plumbing for every backend API client (AuthApi, SmsApi,
+ * CampaignsApi, BlockedNumbersApi, SummarizeApi) — a plain HttpURLConnection
+ * wrapper rather than Retrofit, matching the project's existing style. Each
+ * client used to hand-roll its own near-identical copy of this; consolidating
+ * it means a 401 is detected and reacted to in exactly one place instead of
+ * five, and it had already started to drift (only one of the five copies
+ * special-cased a 404 on delete).
+ */
+internal object HttpClient {
+    suspend fun get(
+        path: String,
+        token: String?,
+        timeoutMs: Int = ApiConfig.DEFAULT_TIMEOUT_MS,
+    ): Result<String> = request("GET", path, token = token, timeoutMs = timeoutMs)
+
+    suspend fun post(
+        path: String,
+        body: JSONObject,
+        token: String? = null,
+        timeoutMs: Int = ApiConfig.DEFAULT_TIMEOUT_MS,
+    ): Result<String> = request("POST", path, body = body, token = token, timeoutMs = timeoutMs)
+
+    suspend fun put(
+        path: String,
+        body: JSONObject,
+        token: String? = null,
+        timeoutMs: Int = ApiConfig.DEFAULT_TIMEOUT_MS,
+    ): Result<String> = request("PUT", path, body = body, token = token, timeoutMs = timeoutMs)
+
+    /** @param treat404AsSuccess a 404 means the row is already gone — the caller's desired end state, not a failure. */
+    suspend fun delete(
+        path: String,
+        token: String,
+        treat404AsSuccess: Boolean = false,
+        timeoutMs: Int = ApiConfig.DEFAULT_TIMEOUT_MS,
+    ): Result<Unit> =
+        request("DELETE", path, token = token, timeoutMs = timeoutMs).fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { e ->
+                if (treat404AsSuccess && e is ApiException && e.status == HTTP_NOT_FOUND) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(e)
+                }
+            },
+        )
+
+    private suspend fun request(
+        method: String,
+        path: String,
+        body: JSONObject? = null,
+        token: String? = null,
+        timeoutMs: Int,
+    ): Result<String> {
+        val url = runCatching { URL(ApiConfig.BASE_URL + path) }.getOrElse { return Result.failure(it) }
+        return requestUrl(url, method, body, token, timeoutMs)
+    }
+
+    /**
+     * Runs one request so that coroutine cancellation (e.g. the SMS receiver's
+     * withTimeoutOrNull) actually stops it. HttpURLConnection's connect/read
+     * block a thread and ignore cancellation, so on its own a cancelled caller
+     * still waited for the blocking call to finish -- up to connect+read
+     * timeouts -- before its offline fallback could run (audit ANDROID-01).
+     * The blocking work runs in a child coroutine; when the caller is
+     * cancelled, disconnect() closes the socket, which makes the blocked call
+     * throw immediately and lets cancellation complete promptly.
+     */
+    internal suspend fun requestUrl(
+        url: URL,
+        method: String,
+        body: JSONObject? = null,
+        token: String? = null,
+        timeoutMs: Int,
+    ): Result<String> =
+        withContext(Dispatchers.IO) {
+            val connection =
+                runCatching { url.openConnection() as HttpURLConnection }
+                    .getOrElse { return@withContext Result.failure(it) }
+            val call = async { runCatching { execute(connection, method, body, token, timeoutMs) } }
+            try {
+                call.await()
+            } catch (e: CancellationException) {
+                connection.disconnect()
+                throw e
+            }
+        }
+
+    private fun execute(
+        connection: HttpURLConnection,
+        method: String,
+        body: JSONObject?,
+        token: String?,
+        timeoutMs: Int,
+    ): String =
+        try {
+            connection.requestMethod = method
+            if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
+            if (body != null) {
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+                connection.outputStream.use { it.write(body.toString().toByteArray()) }
+            }
+
+            val status = connection.responseCode
+            val isOk = status in HTTP_OK_MIN..HTTP_OK_MAX
+
+            // A 401 means this token is dead regardless of which endpoint hit it —
+            // surface that once, centrally, rather than each of the 5+ call sites
+            // needing its own check.
+            if (status == HTTP_UNAUTHORIZED) AuthEventBus.notifySessionExpired()
+
+            val text =
+                (if (isOk) connection.inputStream else connection.errorStream)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
+            if (!isOk) throw ApiException(status, parseErrorMessage(text, status))
+            text
+        } catch (e: java.io.IOException) {
+            // Only tear the socket down on a transport failure. On success the
+            // body stream was fully read and closed above, which hands the
+            // keep-alive socket back to the pool -- disconnect() would discard it
+            // and make the next call pay a fresh TCP+TLS handshake (several round
+            // trips on weak cellular signal).
+            connection.disconnect()
+            throw e
+        }
+
+    private fun parseErrorMessage(
+        body: String,
+        status: Int,
+    ): String =
+        try {
+            when (val message = JSONObject(body).get("message")) {
+                is JSONArray -> (0 until message.length()).joinToString(", ") { message.getString(it) }
+                else -> message.toString()
+            }
+        } catch (_: Exception) {
+            "Request failed (HTTP $status)"
+        }
+}
+
+/**
+ * Percent-encodes one URL *path segment*. URLEncoder is a form encoder and
+ * turns a space into `+`, which Express does not decode back in a path, so a
+ * sender like "BDO Bank" reached the backend as "BDO+Bank" and hashed to the
+ * wrong pseudonym (unblock silently 404'd, verify looked up the wrong sender).
+ */
+internal fun encodePathSegment(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")

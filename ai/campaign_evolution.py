@@ -12,7 +12,8 @@ Cluster ids are not stable identities across runs -- HDBSCAN relabels from
 scratch every pass, so "cluster 7 last week" and "cluster 7 this week" are
 unrelated integers. Continuity has to be re-derived by matching centroids, so
 this module reuses the same cosine-similarity notion of "same campaign" that
-``service/campaign.py`` uses at match time (0.85, Stage 5b) -- using a
+``service/campaign.py`` uses at match time (0.999, re-calibrated from the
+manuscript's original 0.85 -- see Stage 5b in ``PIPELINE.md``) -- using a
 different threshold here to decide continuity than the one used to decide
 message membership would make "this is the same campaign" mean two different
 things in two places.
@@ -373,7 +374,8 @@ def _find_merge_candidates(current: Sequence[ClusterSnapshotEntry], threshold: f
 
     HDBSCAN clusters by density contrast, not by a fixed similarity cutoff,
     so it can (rarely) leave two clusters standing that would both match the
-    same 0.85 centroid at message-match time. Surfacing this is intentionally
+    same centroid at message-match time under the live 0.999 threshold.
+    Surfacing this is intentionally
     conservative -- it flags a pair for an admin to review and merge (see the
     dashboard's Campaign Management merge action), never merges automatically.
     """

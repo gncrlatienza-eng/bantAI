@@ -5,7 +5,7 @@ import { Topbar } from './Topbar';
 interface NavItem {
   path: string;
   label: string;
-  icon: string;
+  icon?: string;
 }
 
 interface NavGroup {

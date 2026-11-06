@@ -1,6 +1,5 @@
 import {
   ArrayMaxSize,
-  ArrayMinSize,
   IsArray,
   IsOptional,
   IsString,
@@ -22,8 +21,7 @@ class ContactItemDto {
 
 export class SyncContactsDto {
   @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(5000)
+  @ArrayMaxSize(1000)
   @ValidateNested({ each: true })
   @Type(() => ContactItemDto)
   contacts: ContactItemDto[];

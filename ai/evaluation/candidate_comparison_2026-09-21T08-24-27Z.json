@@ -1,0 +1,195 @@
+{
+  "evaluated_at": "2026-09-21T08:24:27+00:00",
+  "live_model": "models/xlm-roberta-smishing",
+  "live_sha256": "6509d362ca92dfc95ef3d2364dfff2774355c928b58593cc9f30e16c8eecf2aa",
+  "candidate_model": "models/retraining_runs/2026-09-21-colab/candidate",
+  "candidate_sha256": "6fadf89f9e865c2f6bf60a9c2658b8b6d8665dae64119b135a950e740f321401",
+  "live": {
+    "confusion_matrix": {
+      "Ham": {
+        "Ham": 1758,
+        "Spam": 24,
+        "Scam": 5
+      },
+      "Spam": {
+        "Ham": 41,
+        "Spam": 910,
+        "Scam": 7
+      },
+      "Scam": {
+        "Ham": 16,
+        "Spam": 16,
+        "Scam": 459
+      }
+    },
+    "per_class": {
+      "Ham": {
+        "support": 1787,
+        "true_positives": 1758,
+        "false_positives": 57,
+        "false_negatives": 29,
+        "precision": 0.9686,
+        "recall": 0.9838,
+        "f1": 0.9761
+      },
+      "Spam": {
+        "support": 958,
+        "true_positives": 910,
+        "false_positives": 40,
+        "false_negatives": 48,
+        "precision": 0.9579,
+        "recall": 0.9499,
+        "f1": 0.9539
+      },
+      "Scam": {
+        "support": 491,
+        "true_positives": 459,
+        "false_positives": 12,
+        "false_negatives": 32,
+        "precision": 0.9745,
+        "recall": 0.9348,
+        "f1": 0.9543
+      }
+    },
+    "macro_f1": 0.9614,
+    "accuracy": 0.9663,
+    "scam_recall": 0.9348,
+    "scams_missed": 32,
+    "scams_passed_as_ham": 16,
+    "ham_flagged_scam": 5
+  },
+  "candidate": {
+    "confusion_matrix": {
+      "Ham": {
+        "Ham": 1743,
+        "Spam": 30,
+        "Scam": 14
+      },
+      "Spam": {
+        "Ham": 38,
+        "Spam": 909,
+        "Scam": 11
+      },
+      "Scam": {
+        "Ham": 13,
+        "Spam": 15,
+        "Scam": 463
+      }
+    },
+    "per_class": {
+      "Ham": {
+        "support": 1787,
+        "true_positives": 1743,
+        "false_positives": 51,
+        "false_negatives": 44,
+        "precision": 0.9716,
+        "recall": 0.9754,
+        "f1": 0.9735
+      },
+      "Spam": {
+        "support": 958,
+        "true_positives": 909,
+        "false_positives": 45,
+        "false_negatives": 49,
+        "precision": 0.9528,
+        "recall": 0.9489,
+        "f1": 0.9508
+      },
+      "Scam": {
+        "support": 491,
+        "true_positives": 463,
+        "false_positives": 25,
+        "false_negatives": 28,
+        "precision": 0.9488,
+        "recall": 0.943,
+        "f1": 0.9459
+      }
+    },
+    "macro_f1": 0.9567,
+    "accuracy": 0.9626,
+    "scam_recall": 0.943,
+    "scams_missed": 28,
+    "scams_passed_as_ham": 13,
+    "ham_flagged_scam": 14
+  },
+  "scam_recall_by_type": {
+    "Gambling Bait": {
+      "n": 195,
+      "live_caught": 194,
+      "candidate_caught": 195
+    },
+    "(no tag)": {
+      "n": 185,
+      "live_caught": 170,
+      "candidate_caught": 174
+    },
+    "Suspicious URL": {
+      "n": 106,
+      "live_caught": 92,
+      "candidate_caught": 92
+    },
+    "Prize Lure": {
+      "n": 21,
+      "live_caught": 21,
+      "candidate_caught": 20
+    },
+    "Brand Impersonation": {
+      "n": 20,
+      "live_caught": 17,
+      "candidate_caught": 17
+    },
+    "OTP / Account Phishing": {
+      "n": 19,
+      "live_caught": 18,
+      "candidate_caught": 18
+    },
+    "Urgency Cue": {
+      "n": 13,
+      "live_caught": 11,
+      "candidate_caught": 12
+    },
+    "Unsolicited Credit Offer": {
+      "n": 9,
+      "live_caught": 6,
+      "candidate_caught": 6
+    },
+    "Fake Job Offer": {
+      "n": 3,
+      "live_caught": 2,
+      "candidate_caught": 3
+    },
+    "Personal Info Request": {
+      "n": 2,
+      "live_caught": 2,
+      "candidate_caught": 2
+    }
+  },
+  "gate": {
+    "promote": false,
+    "reason": "macro-F1 0.9711 is more than 0.0100 below baseline 0.9819",
+    "baseline_macro_f1": 0.9819082591565717,
+    "candidate_macro_f1": 0.9710762078232519,
+    "baseline_scam_recall": 0.9761904761904762,
+    "candidate_scam_recall": 0.9672619047619048,
+    "n_fixes": 25,
+    "n_regressions": 57,
+    "p_value": 0.0005347214913281793,
+    "fix_transitions": {
+      "Ham->Spam": 9,
+      "Spam->Ham": 5,
+      "Spam->Scam": 5,
+      "Ham->Scam": 4,
+      "Scam->Ham": 1,
+      "Scam->Spam": 1
+    },
+    "regression_transitions": {
+      "Spam->Ham": 18,
+      "Ham->Spam": 17,
+      "Ham->Scam": 12,
+      "Spam->Scam": 5,
+      "Scam->Ham": 4,
+      "Scam->Spam": 1
+    },
+    "caveat": "the live model was trained on an older pool and may have seen some of these validation rows, which favours it"
+  }
+}

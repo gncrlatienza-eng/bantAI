@@ -17,11 +17,15 @@ from retraining.pipeline import (
     DECISION_JSON,
     RetrainingRun,
     evaluate_candidate,
-    last_run_time,
     run_retraining,
 )
-from retraining.reports import FileReportSource, NullReportSource
-from retraining.snapshot import MANIFEST_JSON, SNAPSHOT_CSV
+from retraining.reports import (
+    DatabaseReportSource,
+    FileReportSource,
+    NullReportSource,
+    ReportSourceError,
+)
+from retraining.snapshot import MANIFEST_JSON, SNAPSHOT_CSV, SnapshotManifest
 
 
 @pytest.fixture
@@ -76,6 +80,61 @@ def test_dry_run_includes_reports_from_a_file_source(labeled_dir, tmp_path):
     assert "batch.csv" in run.manifest.report_source
 
 
+def test_dry_run_rejects_the_database_source_in_privacy_first_mode(labeled_dir, tmp_path, monkeypatch):
+    """A retrain cannot pull raw SMS bodies from the live backend."""
+    import io
+    import urllib.request
+
+    payload = [
+        {
+            "id": "rpt-1",
+            "status": "Validated",
+            "reportedLabel": "Scam",
+            "updatedAt": "2026-08-12T14:30:00.000Z",
+            "message": {"id": "m1", "body": "you won a prize"},
+        },
+        {
+            "id": "rpt-2",
+            "status": "Pending",
+            "reportedLabel": "Scam",
+            "updatedAt": "2026-08-12T14:31:00.000Z",
+            "message": {"id": "m2", "body": "not yet reviewed"},
+        },
+    ]
+
+    class _Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.close()
+            return False
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda request, timeout=None: _Resp(json.dumps(payload).encode("utf-8")),
+    )
+
+    with pytest.raises(ReportSourceError, match="privacy-first"):
+        run_retraining(
+            labeled_dir=labeled_dir,
+            report_source=DatabaseReportSource("http://localhost:3000/api", "k"),
+            runs_root=str(tmp_path / "runs"),
+            dry_run=True,
+        )
+
+
+def test_database_source_cannot_be_bypassed_by_a_network_mock(labeled_dir, tmp_path, monkeypatch):
+    with pytest.raises(ReportSourceError):
+        run_retraining(
+            labeled_dir=labeled_dir,
+            report_source=DatabaseReportSource("http://localhost:3000/api", "k"),
+            runs_root=str(tmp_path / "runs"),
+            dry_run=True,
+        )
+
+
 def test_run_directories_are_created_under_the_runs_root(labeled_dir, tmp_path):
     runs_root = tmp_path / "runs"
     run = run_retraining(labeled_dir=labeled_dir, runs_root=str(runs_root), dry_run=True)
@@ -88,80 +147,18 @@ def test_run_directory_name_is_filesystem_portable(labeled_dir, tmp_path):
     assert ":" not in os.path.basename(run.run_dir)
 
 
-# --- `since` bookkeeping ----------------------------------------------------
-def test_last_run_time_is_none_when_nothing_has_run(tmp_path):
-    assert last_run_time(str(tmp_path / "missing")) is None
+# --- which reports a run consumes -------------------------------------------
+def test_an_earlier_correction_survives_a_later_real_run(labeled_dir, tmp_path):
+    """Every run fine-tunes from the base model, so a correction must be in
+    every snapshot, not only the first one after it was validated.
 
-
-def test_last_run_time_reads_the_newest_manifest(tmp_path):
-    runs_root = tmp_path / "runs"
-    for name, stamp in [
-        ("run-a", "2026-08-01T00:00:00+00:00"),
-        ("run-b", "2026-08-09T00:00:00+00:00"),
-    ]:
-        run_dir = runs_root / name
-        run_dir.mkdir(parents=True)
-        (run_dir / MANIFEST_JSON).write_text(json.dumps({"created_at": stamp}), encoding="utf-8")
-
-    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
-
-
-def test_a_corrupt_manifest_does_not_block_a_retrain(tmp_path):
-    """Re-consuming reports is harmless; refusing to retrain is not."""
-    runs_root = tmp_path / "runs"
-    (runs_root / "broken").mkdir(parents=True)
-    (runs_root / "broken" / MANIFEST_JSON).write_text("{not json", encoding="utf-8")
-    (runs_root / "good").mkdir(parents=True)
-    (runs_root / "good" / MANIFEST_JSON).write_text(
-        json.dumps({"created_at": "2026-08-09T00:00:00+00:00"}), encoding="utf-8"
-    )
-
-    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
-
-
-def test_a_dry_run_does_not_advance_the_report_watermark(labeled_dir, tmp_path):
-    """A dry run trains nothing, so it consumed no reports.
-
-    Letting it move the watermark would make the next *real* run silently skip
-    every report the dry run merely looked at -- invisible until the retrained
-    model inexplicably fails to learn a correction.
+    Previously the default ``since`` was the last real run's timestamp, which
+    dropped this report from every run after the one that first used it.
     """
-    runs_root = str(tmp_path / "runs")
-    reports_dir = tmp_path / "reports"
-    reports_dir.mkdir()
-    (reports_dir / "batch.csv").write_text(
-        "text,label,validated_at\nold report,Scam,2026-01-01T00:00:00+00:00\n",
-        encoding="utf-8",
-    )
-
-    for _ in range(2):
-        run = run_retraining(
-            labeled_dir=labeled_dir,
-            report_source=FileReportSource(str(reports_dir)),
-            runs_root=runs_root,
-            dry_run=True,
-        )
-        assert run.manifest.n_reports == 1
-
-    assert last_run_time(runs_root) is None
-
-
-def test_a_real_run_does_advance_the_watermark(labeled_dir, tmp_path):
     runs_root = tmp_path / "runs"
-    run_dir = runs_root / "real"
-    run_dir.mkdir(parents=True)
-    (run_dir / MANIFEST_JSON).write_text(
-        json.dumps({"created_at": "2026-08-09T00:00:00+00:00", "dry_run": False}),
-        encoding="utf-8",
-    )
-    assert last_run_time(str(runs_root)) == datetime(2026, 8, 9, tzinfo=timezone.utc)
-
-
-def test_explicit_since_overrides_the_watermark(labeled_dir, tmp_path):
-    runs_root = tmp_path / "runs"
-    run_dir = runs_root / "real"
-    run_dir.mkdir(parents=True)
-    (run_dir / MANIFEST_JSON).write_text(
+    earlier = runs_root / "2026-08-09T00-00-00Z"
+    earlier.mkdir(parents=True)
+    (earlier / MANIFEST_JSON).write_text(
         json.dumps({"created_at": "2026-08-09T00:00:00+00:00", "dry_run": False}),
         encoding="utf-8",
     )
@@ -176,7 +173,26 @@ def test_explicit_since_overrides_the_watermark(labeled_dir, tmp_path):
         labeled_dir=labeled_dir,
         report_source=FileReportSource(str(reports_dir)),
         runs_root=str(runs_root),
-        since=datetime.min,
+        dry_run=True,
+    )
+    assert run.manifest.n_reports == 1
+
+
+def test_explicit_since_still_narrows_the_reports(labeled_dir, tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "batch.csv").write_text(
+        "text,label,validated_at\n"
+        "old report,Scam,2026-01-01T00:00:00+00:00\n"
+        "new report,Scam,2026-09-01T00:00:00+00:00\n",
+        encoding="utf-8",
+    )
+
+    run = run_retraining(
+        labeled_dir=labeled_dir,
+        report_source=FileReportSource(str(reports_dir)),
+        runs_root=str(tmp_path / "runs"),
+        since=datetime(2026, 8, 1, tzinfo=timezone.utc),
         dry_run=True,
     )
     assert run.manifest.n_reports == 1
@@ -204,6 +220,24 @@ def test_evaluate_candidate_scores_both_models_on_the_same_rows(monkeypatch):
     assert decision.promote
     assert decision.n_fixes == 20
     assert decision.n_regressions == 0
+
+
+def test_evaluate_candidate_applies_the_scam_floor_to_label_ids(monkeypatch):
+    """evaluate_candidate passes label ids; the Scam floor must see id 2 as
+    Scam, or it would silently evaluate nothing and never fire."""
+
+    def fake_predict(model_dir, masked_texts, batch_size=32):
+        # Candidate fixes 40 Ham rows but lets 5 of 20 scams through.
+        if model_dir == "baseline":
+            return [1] * 40 + [0] * 40 + [2] * 20
+        return [0] * 80 + [2] * 15 + [0] * 5
+
+    monkeypatch.setattr(pl, "_predict", fake_predict)
+
+    decision = evaluate_candidate("baseline", "candidate", [f"row {i}" for i in range(100)], [0] * 80 + [2] * 20)
+    assert not decision.promote
+    assert decision.baseline_scam_recall == 1.0
+    assert decision.candidate_scam_recall == 0.75
 
 
 def test_evaluate_candidate_rejects_a_worse_model(monkeypatch):
@@ -264,3 +298,159 @@ def run_manifest():
         report_source=NullReportSource().describe(),
         max_history=None,
     )
+
+
+# --- what got worse, not just how much (WBS 4.3.5) --------------------------
+def _fake_predictors(monkeypatch, baseline_pred, candidate_pred):
+    """Stub _predict so the gate can be exercised without a real checkpoint."""
+    calls = {"n": 0}
+
+    def fake(model_dir, texts, batch_size=32):
+        calls["n"] += 1
+        return baseline_pred if calls["n"] == 1 else candidate_pred
+
+    monkeypatch.setattr(pl, "_predict", fake)
+
+
+def test_decision_records_which_class_confusions_regressed(monkeypatch, tmp_path):
+    """'44 regressions' invites exactly one question. Scam->Spam x2 answers it."""
+    val_texts = ["a", "b", "c", "d"]
+    val_labels = [2, 2, 0, 1]  # Scam, Scam, Ham, Spam
+    baseline = [2, 2, 0, 0]  # right, right, right, wrong
+    candidate = [1, 1, 0, 1]  # Scam->Spam twice, right, fixed
+
+    _fake_predictors(monkeypatch, baseline, candidate)
+    decision = evaluate_candidate("b", "c", val_texts, val_labels, run_dir=str(tmp_path))
+
+    assert decision.n_regressions == 2
+    assert decision.regression_transitions == {"Scam->Spam": 2}
+    assert decision.fix_transitions == {"Spam->Ham": 1}
+
+
+def test_transitions_reach_decision_json(monkeypatch, tmp_path):
+    val_labels = [2, 0]
+    _fake_predictors(monkeypatch, [2, 0], [1, 0])
+
+    decision = evaluate_candidate("b", "c", ["a", "b"], val_labels, run_dir=str(tmp_path))
+    run = RetrainingRun(
+        run_dir=str(tmp_path),
+        snapshot_dir=str(tmp_path),
+        manifest=None,
+        decision=decision,
+    )
+    pl._write_decision(run)
+
+    written = json.loads((tmp_path / DECISION_JSON).read_text(encoding="utf-8"))
+    assert written["decision"]["regression_transitions"] == {"Scam->Spam": 1}
+
+
+def test_disagreements_file_names_the_offending_rows(monkeypatch, tmp_path):
+    val_texts = ["claim your prize at <URL>", "meeting at 3", "your OTP is <OTP>"]
+    val_labels = [2, 0, 0]
+    _fake_predictors(monkeypatch, [2, 0, 0], [1, 0, 0])
+
+    evaluate_candidate("b", "c", val_texts, val_labels, run_dir=str(tmp_path))
+
+    payload = json.loads((tmp_path / pl.DISAGREEMENTS_JSON).read_text(encoding="utf-8"))
+    assert payload["n_regressions"] == 1
+    (row,) = payload["regressions"]
+    assert row["index"] == 0
+    assert row["true"] == "Scam"
+    assert row["baseline"] == "Scam"
+    assert row["candidate"] == "Spam"
+    assert row["text"] == "claim your prize at <URL>"
+
+
+def test_disagreements_file_warns_against_committing_it(monkeypatch, tmp_path):
+    """It reproduces real SMS bodies. The run directory is git-ignored, and the
+    file has to say why so a well-meaning copy into evaluation/ does not leak."""
+    _fake_predictors(monkeypatch, [2], [1])
+    evaluate_candidate("b", "c", ["x"], [2], run_dir=str(tmp_path))
+
+    payload = json.loads((tmp_path / pl.DISAGREEMENTS_JSON).read_text(encoding="utf-8"))
+    assert "Do not commit" in payload["_warning"]
+
+
+def test_no_run_dir_writes_nothing_but_still_summarises(monkeypatch, tmp_path):
+    """The counts are always safe; the message bodies are opt-in."""
+    _fake_predictors(monkeypatch, [2], [1])
+    decision = evaluate_candidate("b", "c", ["x"], [2])
+
+    assert decision.regression_transitions == {"Scam->Spam": 1}
+    assert not (tmp_path / pl.DISAGREEMENTS_JSON).exists()
+
+
+def test_summary_prints_what_got_worse(monkeypatch, tmp_path):
+    _fake_predictors(monkeypatch, [2, 2], [1, 1])
+    decision = evaluate_candidate("b", "c", ["x", "y"], [2, 2], run_dir=str(tmp_path))
+    run = RetrainingRun(
+        run_dir="r",
+        snapshot_dir="s",
+        manifest=SnapshotManifest(
+            created_at="2026-08-17T00:00:00+00:00",
+            seed=42,
+            report_source="null (no report store consulted)",
+            max_history=None,
+        ),
+        decision=decision,
+    )
+    assert "worse:" in run.summary()
+    assert "Scam->Spam x2" in run.summary()
+
+
+# --- a rejection must be recorded as loudly as a promotion ------------------
+# PromotionDecision.__bool__ returns `promote`, so a rejected decision is
+# falsy. Both call sites below used to test it for *existence*, which meant a
+# rejected candidate wrote `"decision": null` and printed nothing -- discarding
+# the reason, both F1 scores and the p-value in exactly the case anyone would
+# later want explained.
+
+
+def _rejected(monkeypatch, tmp_path):
+    val_labels = [2, 0, 2]
+    _fake_predictors(monkeypatch, [2, 0, 2], [1, 0, 1])  # candidate strictly worse
+    decision = evaluate_candidate("b", "c", ["x", "y", "z"], val_labels, run_dir=str(tmp_path))
+    assert decision.promote is False, "fixture must actually be a rejection"
+    return decision
+
+
+def test_a_rejected_decision_is_still_written_in_full(monkeypatch, tmp_path):
+    decision = _rejected(monkeypatch, tmp_path)
+    run = RetrainingRun(
+        run_dir=str(tmp_path),
+        snapshot_dir=str(tmp_path),
+        manifest=None,
+        decision=decision,
+    )
+    pl._write_decision(run)
+
+    written = json.loads((tmp_path / DECISION_JSON).read_text(encoding="utf-8"))
+    assert written["decision"] is not None, "a rejection must not serialise as null"
+    assert written["decision"]["promote"] is False
+    assert written["decision"]["reason"]
+    assert written["decision"]["baseline_macro_f1"] > 0
+    assert written["decision"]["p_value"] is not None
+
+
+def test_summary_reports_a_rejection(monkeypatch, tmp_path):
+    decision = _rejected(monkeypatch, tmp_path)
+    run = RetrainingRun(
+        run_dir="r",
+        snapshot_dir="s",
+        manifest=SnapshotManifest(
+            created_at="2026-08-17T00:00:00+00:00",
+            seed=42,
+            report_source="null (no report store consulted)",
+            max_history=None,
+        ),
+        decision=decision,
+    )
+    text = run.summary()
+    assert "REJECT" in text
+    assert "macro-F1" in text
+
+
+def test_promoted_property_is_false_for_a_rejection(monkeypatch, tmp_path):
+    decision = _rejected(monkeypatch, tmp_path)
+    run = RetrainingRun(run_dir="r", snapshot_dir="s", manifest=None, decision=decision)
+    assert run.promoted is False

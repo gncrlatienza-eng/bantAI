@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- uat build only: lets `simpleperf` / Android Studio's profiler sample the
+     optimized app on a phone, to find what makes a frame slow. Never in release. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <profileable android:shell="true" />
+    </application>
+</manifest>

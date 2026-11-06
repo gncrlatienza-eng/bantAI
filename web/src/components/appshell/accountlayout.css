@@ -1,0 +1,275 @@
+/*
+ * AccountLayout — quieter sibling of AuthLayout for signed-in lifecycle
+ * pages. Reuses the auth layout's canvas, container, brand and footer; adds
+ * a session bar (context label, email, Log out), optional in-flow links,
+ * and a single readable column. No decor, no marketing.
+ */
+
+.bantai-account-layout__header {
+  border-bottom: 1px solid var(--border-default);
+  padding-block: 10px 0;
+}
+
+.bantai-account-layout__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding-bottom: 10px;
+}
+
+.bantai-account-layout__context {
+  margin-left: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.bantai-account-layout__session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bantai-account-layout__email {
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.bantai-account-layout__logout {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: 500 0.85rem var(--font-sans);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast, 150ms) var(--motion-ease, ease),
+    border-color var(--motion-fast, 150ms) var(--motion-ease, ease);
+}
+
+.bantai-account-layout__logout:hover {
+  background: var(--plum-08);
+  border-color: var(--plum-35);
+}
+
+.bantai-account-layout__logout:focus-visible,
+.bantai-account-layout__navlink:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* Beats AuthLayout's `.bantai-auth-layout__header nav` right-edge nudge,
+   which would unbalance this full-width container's auto margins. */
+.bantai-account-layout__header .bantai-account-layout__nav {
+  display: flex;
+  gap: 4px;
+  margin-inline: auto;
+  overflow-x: auto;
+}
+
+/* Link text starts on the brand's left edge. */
+.bantai-account-layout__nav > :first-child {
+  margin-left: -12px;
+}
+
+.bantai-account-layout__navlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.bantai-account-layout__navlink:hover {
+  color: var(--text-primary);
+}
+
+.bantai-account-layout__navlink.is-active {
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
+}
+
+.bantai-account-layout__main {
+  padding-block: clamp(24px, 5vw, 56px);
+}
+
+.bantai-account-layout__column {
+  max-width: 760px;
+}
+
+/* ————— Setup steps ————— */
+
+.acct-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.acct-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.acct-steps li[aria-current='step'] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.acct-steps__n {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  font: 600 0.72rem var(--font-mono, monospace);
+}
+
+.acct-steps li[aria-current='step'] .acct-steps__n,
+.acct-steps li[data-done] .acct-steps__n {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+  color: var(--text-on-brand);
+}
+
+/* Account pages keep secondary actions ("← Previous", "Withdraw") on the
+   same row as the primary action; they wrap on narrow screens. */
+.bantai-account-layout .ra-flow__actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.acct-choice {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.acct-choice > .ra-note,
+.acct-choice > legend {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .acct-choice {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.acct-choice__option {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.acct-choice__option:has(input:checked) {
+  border-color: var(--brand-primary);
+  box-shadow: inset 0 0 0 1px var(--brand-primary);
+}
+
+.acct-choice__option input {
+  justify-self: start;
+  margin: 0 0 4px;
+  accent-color: var(--brand-primary);
+}
+
+.acct-choice__option:focus-within {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.acct-choice__title {
+  font-weight: 600;
+}
+
+.acct-choice__body {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.acct-terms {
+  max-height: 260px;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.acct-terms h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.acct-terms ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.acct-terms li + li {
+  margin-top: 6px;
+}
+
+.acct-history {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acct-history li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  font-size: 0.9rem;
+}
+
+.acct-history__meta {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .bantai-account-layout__email,
+  .bantai-account-layout__context {
+    display: none;
+  }
+}

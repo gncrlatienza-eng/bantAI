@@ -1,0 +1,33 @@
+/*
+ * BantAI palette (Layer 1: raw physical colors)
+ *
+ * Consumers reference semantic.css, not this file.
+ * Adding a color here without a semantic mapping in semantic.css is a review reject.
+ *
+ * All values are the light-theme palette from the BantAI theme study.
+ * Dark theme derivation is deferred to a later phase (not this migration).
+ */
+
+:root {
+  /* Foundation: canvas + surfaces */
+  --palette-mineral-fog: #f2efe8; /* main canvas */
+  --palette-porcelain: #fbf9f4; /* elevated surfaces (cards, panels, sidebar) */
+
+  /* Foundation: text */
+  --palette-warm-ink: #211f24; /* primary text, high-emphasis numbers */
+  --palette-ash-violet: #6d6870; /* secondary text, labels, muted metadata */
+
+  /* Identity: BantAI itself */
+  --palette-mulberry: #5e405a; /* brand, primary action, active navigation */
+  --palette-mist-mulberry: #e7dde4; /* selected states, subtle brand tinting */
+
+  /* Information: AI, model, analytical insight */
+  --palette-petrol: #477a86; /* informational surfaces, links to analysis */
+
+  /* Semantic states */
+  --palette-dust: #6d6870; /* unknown (insufficient conclusion, NOT safe) */
+  --palette-muted-teal: #3d6355; /* verified / benign (darkened from #4c7a69 for WCAG AA body) */
+  --palette-burnt-amber: #8f5522; /* suspicious / investigate (darkened from #b06a2b for WCAG AA body) */
+  --palette-carmine: #b5444d; /* likely smishing */
+  --palette-deep-carmine: #8e2f3c; /* critical (only if backend formally defines this) */
+}

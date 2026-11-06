@@ -1,0 +1,57 @@
+log_format bantai_status '$request_id $request_method $status $request_time $upstream_status';
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 1m;
+    server_tokens off;
+    access_log /dev/stdout bantai_status;
+
+    # Security headers. nginx only inherits add_header from this level into a
+    # location that declares NO add_header of its own, so any location that
+    # adds a header (e.g. Cache-Control below) must repeat this whole set
+    # (audit WEB-01, 2026-10-13: the SPA HTML was served without them).
+    # frame-ancestors / X-Frame-Options: the portal is never meant to be
+    # embedded, so refuse all framing (clickjacking).
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    location = /healthz {
+        access_log off;
+        return 200 'ok';
+        add_header Content-Type text/plain;
+    }
+
+    location /api/ {
+        proxy_pass ${BACKEND_ORIGIN};
+        proxy_ssl_server_name on;
+        proxy_ssl_verify on;
+        proxy_ssl_verify_depth 3;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control 'no-cache';
+        # Repeated from server level — see the note there.
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options DENY always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+    }
+}

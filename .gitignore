@@ -5,6 +5,14 @@
 ~$*.doc
 ~$*.pptx
 
+# ─── Local agent/tooling caches ───────────────────────────────────────────────
+.claude-flow/
+.audit/
+.playwright-mcp/
+.codex/
+.ruff_cache/
+graphify-out/
+
 # ─── Next.js ───────────────────────────────────────────────────────────────────
 node_modules/
 .next/
@@ -33,6 +41,22 @@ mobile/*.apk
 mobile/*.aab
 mobile/*.keystore
 mobile/*.jks
+mobile/keystore.properties
+mobile/app/google-services.json
+**/firebase-service-account*.json
+
+# ─── Android release signing / handoff (never commit) ─────────────────────────
+# Local release kit: signing envelope, Model C bundle, build scripts, APKs.
+release-kit/
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.clixml
+*.envelope.json
+**/*transfer-password*
+*.apk
+*.aab
 
 # ─── Python / ML ───────────────────────────────────────────────────────────────
 __pycache__/
@@ -67,6 +91,10 @@ ai/datasets/processed/**/*.json
 # alongside the vectors -- real personal SMS, same reason as the CSVs. Also
 # large and fully regenerable via scripts/embed_dataset.py.
 ai/datasets/processed/*.npz
+# Recursive for the same reason as **/*.json above: a backup copy in a
+# subfolder (exploratory_backup/, 2026-09-21) was not covered by the bare rule
+# and would have been committed with 16,772 real message texts inside.
+ai/datasets/processed/**/*.npz
 
 # Raw source corpora + generated labeled data (real personal SMS — never push).
 # sample.csv (format reference) and the *.md guides stay tracked.
@@ -75,12 +103,45 @@ ai/datasets/labeled/*.csv
 !ai/datasets/labeled/sample.csv
 ai/datasets/audit/
 
+# Synthetic Scam rows from scripts/augment_scam_dataset.py. Ignored for the
+# same reason the labeled pool is: roughly half of each batch is wording-level
+# variants of real user messages, so the file carries real SMS content even
+# though the rest of it is authored. The per-batch summary JSON beside it is
+# counts only and is kept, since that is what the manuscript cites.
+ai/datasets/augmented/*.csv
+
+# Dated backups of bantai_labeled.csv taken outside create_holdout_set.py's own
+# backup mechanism (which already writes its dated backups directly beside the
+# file, no trailing .csv, matching the pattern below at line ~92). Kept OUTSIDE
+# ai/datasets/labeled/ on purpose -- both training/dataset.py and
+# retraining/snapshot.py glob ai/datasets/labeled/*.csv indiscriminately, so a
+# same-directory backup silently doubles the training pool (found 2026-08-26:
+# a backup here inflated a local dry-run's row count from 21,571 to 35,107).
+ai/datasets/labeled_backups/
+
 # Admin-validated user report exports feeding retraining (Sprint 4, WBS 4.3.5).
 # These are real reported SMS bodies -- same reason as the labeled data. The
 # README documenting the export format stays tracked.
 ai/datasets/reports/*.csv
 ai/datasets/reports/*.json
 ai/datasets/reports/*.jsonl
+
+# Permanent held-out test set (Sprint 6, WBS 6.4.6 prep -- scripts/create_holdout_set.py).
+# Real SMS bodies, same reason as the labeled data above. manifest.json (seed,
+# counts, a hash of the CSV -- no message text) stays tracked so the team can
+# see a holdout exists and verify it hasn't drifted, without the raw text ever
+# being committed. The dated pre-split backup of bantai_labeled.csv the script
+# writes matches this pattern too (it ends in the timestamp, not `.csv`).
+ai/datasets/holdout/*.csv
+ai/datasets/labeled/*.pre-holdout-backup-*
+# Backups taken before a relabelling pass rewrites the holdout (e.g.
+# holdout.pre-institutional-review-20260916.csv). Added 2026-09-18: this
+# directory postdates the rules above, so it was NOT covered by them and a
+# `git add .` would have committed a full copy of the holdout's real message
+# bodies -- the exact thing the two lines above exist to prevent. Caught before
+# it happened; if a backup was ever committed, it needs removing from history,
+# not just from HEAD.
+ai/datasets/holdout_backups/
 
 # Colab upload package embeds a full copy of the labeled dataset (real personal
 # SMS) inside the zip -- same reason it must never be pushed. Notebook + README
@@ -89,6 +150,11 @@ ai/colab/*.zip
 
 # Trained model artifacts (1GB+ binaries, regenerable via training/train.py).
 ai/models/*/
+# Model-derived campaign transforms and calibration reports are deployment
+# artifacts. They expose checkpoint-specific projection data and thresholds,
+# so they must be provisioned privately rather than committed.
+ai/models/campaign_space.json
+ai/evaluation/campaign_space_calibration*.json
 
 # ─── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -108,6 +174,7 @@ desktop.ini
 
 # ─── Misc ──────────────────────────────────────────────────────────────────────
 *.log
+*.stackdump
 *.tmp
 *.swp
 *.swo
@@ -122,3 +189,7 @@ web/vite.config.d.ts
 # 15 MB binary; git stores each version whole. Shared outside the
   repo.
 docs/manuscript/
+
+# Prediction cache for scripts/fair_gate_holdout.py: derived, regenerable,
+# and rewritten on every run.
+ai/evaluation/*.cache.json

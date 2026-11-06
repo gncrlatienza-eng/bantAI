@@ -24,7 +24,69 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+      # No ignores. Every one this step used to carry (PYSEC-2025-217,
+      # -2026-2288, -2289, -2290, -3716, -3929, -3804) was an advisory against
+      # transformers 4.57.6 / datasets 4.0.0 / accelerate <=1.14.0, each argued
+      # inapplicable because it needs an attacker-controlled Hub repo and this
+      # codebase only ever loads its own locally-trained checkpoint. The
+      # 2026-09-16 upgrade (transformers 5.17.0 / datasets 5.0.1 / accelerate
+      # 1.15.0 / huggingface-hub 1.31.0) fixes all seven, so the argument is no
+      # longer needed and the suppressions are gone with it: verified with
+      # `pip-audit -r requirements.txt` and no flags, which reports no known
+      # vulnerabilities.
+      #
+      # Keep it flagless. An ignore list is a standing claim that someone has
+      # read each advisory and decided it does not apply -- cheap to add during
+      # an upgrade crunch and easy to leave behind afterwards, at which point a
+      # genuinely relevant CVE hides among the stale entries.
       - run: pip-audit -r requirements.txt
+
+  # The job above audits requirements.txt (training/notebooks). The production
+  # AI image installs a different set, requirements.inference.txt, with torch
+  # from the PyTorch CPU index -- and pip-audit silently skipped
+  # torch==2.14.0+cpu as "not found on PyPI", so a green build never covered
+  # what actually ships (audit AI-DEP-01, 2026-10-13). This job installs that
+  # set exactly as ai/Dockerfile does, freezes the fully resolved result, and
+  # audits every package. --strict fails the build if any package cannot be
+  # audited instead of skipping it.
+  ai-inference-deps:
+    name: AI inference image deps (pip-audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # matches python:3.12-slim-bookworm in ai/Dockerfile
+          cache: pip
+          cache-dependency-path: ai/requirements.inference.txt
+      - name: Install the production inference set as ai/Dockerfile does
+        run: |
+          python -m venv /tmp/inference
+          /tmp/inference/bin/python -m pip install --upgrade pip
+          /tmp/inference/bin/python -m pip install \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r requirements.inference.txt
+      - name: Freeze the resolved set
+        # Advisories are published against upstream versions, so the local
+        # build label (+cpu) is dropped for the audit: torch 2.14.0+cpu is
+        # audited as torch 2.14.0. The unmodified freeze is kept as the lock.
+        run: |
+          /tmp/inference/bin/python -m pip freeze > inference-lock.txt
+          sed -E 's/\+[A-Za-z0-9.]+$//' inference-lock.txt > inference-audit.txt
+          cat inference-lock.txt
+      - run: pip install pip-audit
+      - run: pip-audit --strict --disable-pip --no-deps -r inference-audit.txt
+      - name: Keep the audited lock with the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-inference-lock
+          path: |
+            ai/inference-lock.txt
+            ai/inference-audit.txt
 
   backend:
     name: Backend (eslint, prettier, jest, build)
@@ -36,7 +98,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24.15.0"
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
@@ -46,7 +108,7 @@ jobs:
       - run: npx prisma generate --schema database/prisma/schema.prisma
       - run: npm run lint
       - run: npx prettier --check .
-      - run: npx jest
+      - run: npm test
       - run: npm run build
       - run: npm audit --audit-level=high
 
@@ -66,11 +128,15 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
+      # A production build must name its backend (vite.config.ts); CI only
+      # checks that it compiles, so any HTTPS placeholder will do.
       - run: npm run build
+        env:
+          VITE_API_URL: https://api.ci.invalid/api
       - run: npm audit --audit-level=high
 
   mobile:
-    name: Mobile (ktlint, detekt, compile)
+    name: Mobile (ktlint, detekt, compile, unit tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -82,9 +148,14 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-license: true
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
       # Invoked via `bash` explicitly rather than `./gradlew` -- removes any
       # dependency on the execute bit or shebang line resolving correctly on
       # the runner, on top of the chmod above.
-      - run: bash gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin --console=plain
+      # testDebugUnitTest added alongside the mobile/app/src/test JVM unit tests
+      # (2026-09-23 audit round 3) -- previously there were no tests to run at all.
+      - run: bash gradlew :app:ktlintCheck :app:detekt :app:compileDebugKotlin :app:testDebugUnitTest --console=plain

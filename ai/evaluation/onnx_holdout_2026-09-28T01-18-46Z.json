@@ -1,0 +1,192 @@
+{
+  "disagreements_vs_pytorch": {
+    "onnx_fp32": 0,
+    "onnx_int8": 37
+  },
+  "evaluated_at": "2026-09-28T01:18:46+00:00",
+  "holdout_csv_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
+  "holdout_rows": 3236,
+  "int8_scam_recall_drop": 0.0081,
+  "int8_within_gate_tolerance": true,
+  "max_length": 128,
+  "model_dir": "models/candidates/2026-09-21-colab-C",
+  "onnx_dir": "models/onnx_export_colab_C",
+  "onnx_file_sizes_mb": {
+    "fp32": 1060.9,
+    "int8": 265.9
+  },
+  "results": [
+    {
+      "confusion_matrix": {
+        "Ham": {
+          "Ham": 1752,
+          "Scam": 10,
+          "Spam": 25
+        },
+        "Scam": {
+          "Ham": 10,
+          "Scam": 470,
+          "Spam": 11
+        },
+        "Spam": {
+          "Ham": 33,
+          "Scam": 13,
+          "Spam": 912
+        }
+      },
+      "ham_false_alarm_pct": 0.56,
+      "ham_flagged_scam": 10,
+      "ham_support": 1787,
+      "macro_f1": 0.9635,
+      "name": "pytorch",
+      "per_class": {
+        "Ham": {
+          "f1": 0.9782,
+          "false_negatives": 35,
+          "false_positives": 43,
+          "precision": 0.976,
+          "recall": 0.9804,
+          "support": 1787,
+          "true_positives": 1752
+        },
+        "Scam": {
+          "f1": 0.9553,
+          "false_negatives": 21,
+          "false_positives": 23,
+          "precision": 0.9533,
+          "recall": 0.9572,
+          "support": 491,
+          "true_positives": 470
+        },
+        "Spam": {
+          "f1": 0.957,
+          "false_negatives": 46,
+          "false_positives": 36,
+          "precision": 0.962,
+          "recall": 0.952,
+          "support": 958,
+          "true_positives": 912
+        }
+      },
+      "scam_miss_rate_pct": 4.28,
+      "scam_missed": 21,
+      "scam_recall": 0.9572,
+      "scam_support": 491
+    },
+    {
+      "confusion_matrix": {
+        "Ham": {
+          "Ham": 1752,
+          "Scam": 10,
+          "Spam": 25
+        },
+        "Scam": {
+          "Ham": 10,
+          "Scam": 470,
+          "Spam": 11
+        },
+        "Spam": {
+          "Ham": 33,
+          "Scam": 13,
+          "Spam": 912
+        }
+      },
+      "ham_false_alarm_pct": 0.56,
+      "ham_flagged_scam": 10,
+      "ham_support": 1787,
+      "macro_f1": 0.9635,
+      "name": "onnx_fp32",
+      "per_class": {
+        "Ham": {
+          "f1": 0.9782,
+          "false_negatives": 35,
+          "false_positives": 43,
+          "precision": 0.976,
+          "recall": 0.9804,
+          "support": 1787,
+          "true_positives": 1752
+        },
+        "Scam": {
+          "f1": 0.9553,
+          "false_negatives": 21,
+          "false_positives": 23,
+          "precision": 0.9533,
+          "recall": 0.9572,
+          "support": 491,
+          "true_positives": 470
+        },
+        "Spam": {
+          "f1": 0.957,
+          "false_negatives": 46,
+          "false_positives": 36,
+          "precision": 0.962,
+          "recall": 0.952,
+          "support": 958,
+          "true_positives": 912
+        }
+      },
+      "scam_miss_rate_pct": 4.28,
+      "scam_missed": 21,
+      "scam_recall": 0.9572,
+      "scam_support": 491
+    },
+    {
+      "confusion_matrix": {
+        "Ham": {
+          "Ham": 1756,
+          "Scam": 9,
+          "Spam": 22
+        },
+        "Scam": {
+          "Ham": 10,
+          "Scam": 466,
+          "Spam": 15
+        },
+        "Spam": {
+          "Ham": 37,
+          "Scam": 10,
+          "Spam": 911
+        }
+      },
+      "ham_false_alarm_pct": 0.5,
+      "ham_flagged_scam": 9,
+      "ham_support": 1787,
+      "macro_f1": 0.963,
+      "name": "onnx_int8",
+      "per_class": {
+        "Ham": {
+          "f1": 0.9783,
+          "false_negatives": 31,
+          "false_positives": 47,
+          "precision": 0.9739,
+          "recall": 0.9827,
+          "support": 1787,
+          "true_positives": 1756
+        },
+        "Scam": {
+          "f1": 0.9549,
+          "false_negatives": 25,
+          "false_positives": 19,
+          "precision": 0.9608,
+          "recall": 0.9491,
+          "support": 491,
+          "true_positives": 466
+        },
+        "Spam": {
+          "f1": 0.9559,
+          "false_negatives": 47,
+          "false_positives": 37,
+          "precision": 0.961,
+          "recall": 0.9509,
+          "support": 958,
+          "true_positives": 911
+        }
+      },
+      "scam_miss_rate_pct": 5.09,
+      "scam_missed": 25,
+      "scam_recall": 0.9491,
+      "scam_support": 491
+    }
+  ],
+  "scam_recall_tolerance": 0.01
+}

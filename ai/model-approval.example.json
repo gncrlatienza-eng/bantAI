@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "approved": false,
+  "scope": "production",
+  "approval_reference": "replace-with-reviewed-approval-record-and-evaluation-reference",
+  "version_tag": "replace-with-approved-version",
+  "artifacts": {
+    "config.json": "replace-with-64-character-sha256",
+    "model.safetensors": "replace-with-64-character-sha256",
+    "tokenizer.json": "replace-with-64-character-sha256",
+    "tokenizer_config.json": "replace-with-64-character-sha256",
+    "training_args.bin": "replace-with-64-character-sha256",
+    "version.json": "replace-with-64-character-sha256"
+  }
+}

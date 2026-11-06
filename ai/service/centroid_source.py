@@ -23,11 +23,18 @@ Two sources, in priority order:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import List, Optional
 
 from .campaign import CampaignCentroid
 from .lexical import LexicalProfile
+
+logger = logging.getLogger(__name__)
+
+#: Campaign profile contract version served by ``GET /campaigns/centroids``
+#: (backend ``CAMPAIGN_PROFILE_VERSION``).
+PROFILE_VERSION = 1
 
 #: Where cluster_campaigns.py writes its results.
 DEFAULT_CLUSTER_FILE = os.path.join("datasets", "processed", "campaign_clusters.json")
@@ -65,24 +72,36 @@ def load_from_file(path: str = DEFAULT_CLUSTER_FILE) -> List[CampaignCentroid]:
     return out
 
 
-def load_from_backend(base_url: str, timeout: float = 5.0) -> List[CampaignCentroid]:
+def load_from_backend(base_url: str, api_key: str = "", timeout: float = 5.0) -> List[CampaignCentroid]:
     """Fetch active campaign centroids from the NestJS backend.
 
     Hits the dedicated ``/campaigns/centroids`` route (not the general
     ``/campaigns`` list, which omits the centroid field). Clusters that
     arrive without a centroid are skipped rather than crashing the service.
 
-    ⚠️ The ``lexical`` field is read here but the backend does not store it
-    yet -- ``CampaignCluster`` has no such column (see
-    ``backend/database/prisma/schema.prisma``). Until that migration lands,
-    the backend path silently yields embedding-only campaigns while the file
-    path gets the hybrid tiers. Reading the field now means no second AI-side
-    change is needed once the column exists.
+    The route is ``ApiKeyGuard``-protected (``campaigns.controller.ts``), so
+    ``api_key`` is sent as ``x-api-key`` and must match the backend's
+    ``AI_CAMPAIGNS_API_KEY``. Omitting it earns a 401 that :func:`load_centroids`
+    then swallows into an empty list -- which is why an unset
+    ``BANTAI_AI_CAMPAIGNS_API_KEY`` used to look exactly like "no campaigns
+    discovered yet" instead of like a misconfiguration.
+
+    Each item follows the versioned profile contract (audit 2026-09-30,
+    finding 5): ``profileVersion`` plus ``lexical`` = {``shingles``,
+    ``domains``, ``member_count``}, where ``domains`` are the campaign's
+    Admin-reviewed ``urlDomains``. An unknown ``profileVersion`` keeps the
+    campaign on its embedding alone rather than guessing at a new shape.
     """
     import urllib.request
 
     url = base_url.rstrip("/") + "/campaigns/centroids"
-    with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310
+    # An empty key means "send no header at all" rather than "send an empty
+    # one": the guard compares against AI_CAMPAIGNS_API_KEY, and an empty string
+    # would be a wrong key rather than a missing one -- same 401, but a
+    # misleading one to debug.
+    headers = {"x-api-key": api_key} if api_key else {}
+    request = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(request, timeout=timeout) as resp:  # noqa: S310
         payload = json.loads(resp.read().decode("utf-8"))
 
     out: List[CampaignCentroid] = []
@@ -90,13 +109,22 @@ def load_from_backend(base_url: str, timeout: float = 5.0) -> List[CampaignCentr
         centroid = cluster.get("centroid")
         if not centroid:
             continue
+        version = cluster.get("profileVersion")
+        lexical = cluster.get("lexical") if version == PROFILE_VERSION else None
+        if version is not None and version != PROFILE_VERSION:
+            logger.warning(
+                "Campaign %s uses profile version %r (expected %d); matching it on the embedding only.",
+                cluster.get("id"),
+                version,
+                PROFILE_VERSION,
+            )
         out.append(
             CampaignCentroid(
                 cluster_id=str(cluster["id"]),
                 centroid=centroid,
                 label=cluster.get("label"),
                 url_domains=list(cluster.get("urlDomains", [])),
-                lexical=LexicalProfile.from_dict(cluster.get("lexical")),
+                lexical=LexicalProfile.from_dict(lexical),
             )
         )
     return out
@@ -106,16 +134,23 @@ def load_centroids(
     source: str,
     cluster_file: str = DEFAULT_CLUSTER_FILE,
     backend_url: Optional[str] = None,
+    backend_api_key: str = "",
 ) -> List[CampaignCentroid]:
     """Load centroids from the configured source.
 
     Never raises: campaign matching is an enhancement, so a failure here must
     degrade to "no campaigns known" rather than take down classification. The
     caller logs how many were loaded so an unnoticed zero is still visible.
+
+    Note the contrast with :class:`retraining.reports.DatabaseReportSource`,
+    which hits the same backend with the same key but *raises* on failure.
+    The asymmetry is intentional: an empty centroid list costs one enhancement,
+    whereas a silently empty report list would retrain the model on none of the
+    corrections that triggered the retrain.
     """
     try:
         if source == "backend" and backend_url:
-            return load_from_backend(backend_url)
+            return load_from_backend(backend_url, backend_api_key)
         if source == "none":
             return []
         return load_from_file(cluster_file)

@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /ai
+    schedule:
+      interval: weekly
+  - package-ecosystem: gradle
+    directory: /mobile
+    schedule:
+      interval: weekly

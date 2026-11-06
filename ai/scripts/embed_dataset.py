@@ -31,6 +31,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from service.config import settings
 from service.embeddings import embed_texts
+from training.config import ORIGIN_COLUMN, SYNTHETIC_ORIGINS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AI = os.path.normpath(os.path.join(HERE, ".."))
@@ -48,6 +49,15 @@ def main() -> None:
     with open(LABELED, encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     print(f"Loaded {len(rows)} rows from {os.path.relpath(LABELED, AI)}", flush=True)
+
+    # Generated rows train the classifier but must never reach clustering: a
+    # campaign is a claim that real people received the same blast, and
+    # variants of one seed would manufacture exactly the dense group HDBSCAN
+    # is looking for. See training/config.py:SYNTHETIC_ORIGINS.
+    real = [r for r in rows if (r.get(ORIGIN_COLUMN) or "") not in SYNTHETIC_ORIGINS]
+    if len(real) != len(rows):
+        print(f"Excluded {len(rows) - len(real)} synthetic row(s); clustering sees real messages only", flush=True)
+        rows = real
 
     texts = [r["text"] for r in rows]
     labels = [r["label"] for r in rows]

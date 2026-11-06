@@ -1,61 +1,141 @@
 package com.bantai.data.local
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.bantai.data.db.BantaiDatabase
+import com.bantai.data.db.ClassificationEntity
+import com.bantai.data.model.Classification
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import org.json.JSONObject
-import java.io.IOException
 
-private val Context.classificationsDataStore by preferencesDataStore(name = "bantai_classifications")
+// Where classifications lived before the Room table; kept only so
+// LegacyStoreImport can read (and then clear) it once on upgrade.
+internal val Context.classificationsDataStore: DataStore<Preferences>
+    by preferencesDataStore(name = "bantai_classifications")
+internal val CLASSIFICATION_ENTRIES_KEY = stringPreferencesKey("entries")
+
+// SQLite's host-parameter cap is ~999.
+private const val DELETE_CHUNK_SIZE = 900
+private val ESCALATABLE = setOf(Classification.SPAM.storage, Classification.UNVERIFIED.storage)
 
 /**
- * Persists the real backend/AI classification per message id. Without this, every
- * screen re-derives a message's classification from SmsRepository's local keyword
- * heuristic on every read — including for messages the backend already classified
- * with the actual fine-tuned model at receive time — so the label shown in the UI
- * can silently disagree with the real decision that drove blocking/notifications.
- * The Android SMS provider has no custom column to store this, hence app-local.
+ * Persists the real backend/AI classification per message id, so screens show
+ * the verdict that drove blocking/notifications instead of re-deriving it from
+ * the local keyword heuristic. The SMS provider has no column for this.
  */
+@Suppress("TooManyFunctions") // one method per query its callers need
 class ClassificationStore(
-    private val context: Context,
+    context: Context,
 ) {
-    private object Keys {
-        val ENTRIES = stringPreferencesKey("entries")
+    private val dao = BantaiDatabase.get(context).classifications()
+
+    val classifications: Flow<Map<Long, Classification>> = dao.observeAll().map { it.toMap() }
+
+    /** Blocking snapshot for SmsRepository's (already off-main-thread) queries. */
+    fun snapshot(): Map<Long, Classification> = dao.all().toMap()
+
+    /** One message's stored verdict, or null. */
+    suspend fun snapshotFor(messageId: Long): Classification? {
+        val row = dao.byMessageId(messageId) ?: return null
+        return Classification.fromStorage(row.label)
     }
 
-    val classifications: Flow<Map<Long, String>> =
-        context.classificationsDataStore.data
-            .catch { exception ->
-                if (exception is IOException) emit(emptyPreferences()) else throw exception
-            }.map { prefs -> parseEntries(prefs[Keys.ENTRIES] ?: "{}") }
+    /** Ids whose stored verdict came from [source] -- one query instead of one per message. */
+    suspend fun idsWithSource(source: String): Set<Long> = dao.idsWithSource(source).toSet()
 
+    suspend fun legacySafeIds(): Set<Long> = dao.legacySafeIds().toSet()
+
+    suspend fun idsClassifiedSince(since: Long): Set<Long> = dao.idsClassifiedSince(since).toSet()
+
+    /**
+     * Re-sort only: a Spam (or unchecked) label the on-device model now calls
+     * a confident Scam becomes Scam, so it reaches Alerts. Escalation only --
+     * never downgrades, and never touches the user's own report.
+     */
+    @Suppress("LongParameterList")
+    suspend fun escalateToScam(
+        messageId: Long,
+        modelVersion: String,
+        modelSha256: String,
+        score: Double,
+    ): Boolean {
+        val row = dao.byMessageId(messageId) ?: return false
+        if (row.source == "user_report" || row.label !in ESCALATABLE) return false
+        setClassification(messageId, Classification.SCAM, "on_device_model_c", modelVersion, modelSha256, score)
+        return true
+    }
+
+    @Suppress("LongParameterList")
+    // Classification and immutable provenance arrive together at this persistence boundary.
     suspend fun setClassification(
         messageId: Long,
-        classification: String,
-    ) {
-        context.classificationsDataStore.edit { prefs ->
-            val current = parseEntries(prefs[Keys.ENTRIES] ?: "{}").toMutableMap()
-            current[messageId] = classification
-            prefs[Keys.ENTRIES] = serializeEntries(current)
+        classification: Classification,
+        source: String? = null,
+        modelVersion: String? = null,
+        modelSha256: String? = null,
+        score: Double? = null,
+    ) =
+        dao.upsert(
+            listOf(
+                ClassificationEntity(
+                    messageId = messageId,
+                    label = classification.storage,
+                    source = source,
+                    modelVersion = modelVersion,
+                    modelSha256 = modelSha256,
+                    score = score,
+                    classifiedAt = System.currentTimeMillis(),
+                ),
+            ),
+        )
+
+    suspend fun provenanceFor(messageId: Long): ClassificationProvenance? =
+        dao.byMessageId(messageId)?.let { row ->
+            ClassificationProvenance(row.source, row.modelVersion, row.modelSha256, row.score, row.classifiedAt)
         }
+
+    suspend fun setOnDeviceClassificationIfNoCloud(
+        messageId: Long,
+        classification: Classification,
+        modelVersion: String,
+        modelSha256: String,
+        score: Double,
+    ): Boolean =
+        dao.writeOnDeviceUnlessCloud(
+            messageId,
+            classification.storage,
+            modelVersion,
+            modelSha256,
+            score,
+            System.currentTimeMillis(),
+        ) > 0
+
+    suspend fun setClassifications(entries: Map<Long, Classification>) {
+        if (entries.isEmpty()) return
+        dao.upsert(entries.map { (id, label) -> ClassificationEntity(id, label.storage) })
     }
 
-    private fun parseEntries(json: String): Map<Long, String> =
-        try {
-            val obj = JSONObject(json)
-            obj.keys().asSequence().associate { key -> key.toLong() to obj.getString(key) }
-        } catch (_: Exception) {
-            emptyMap()
-        }
-
-    private fun serializeEntries(entries: Map<Long, String>): String {
-        val obj = JSONObject()
-        entries.forEach { (id, classification) -> obj.put(id.toString(), classification) }
-        return obj.toString()
+    /** Called after a permanent delete so this table doesn't grow forever for ids that no longer exist anywhere. */
+    suspend fun remove(messageIds: Collection<Long>) {
+        for (chunk in messageIds.toList().chunked(DELETE_CHUNK_SIZE)) dao.delete(chunk)
     }
+
+    suspend fun clear() = dao.clear()
+
+    // A label this build doesn't know is skipped (reads as unlabelled) rather than guessed.
+    private fun List<ClassificationEntity>.toMap(): Map<Long, Classification> =
+        mapNotNull { row ->
+            Classification.fromStorage(row.label)?.let { row.messageId to it }
+        }.toMap()
 }
+
+data class ClassificationProvenance(
+    val source: String?,
+    val modelVersion: String?,
+    val modelSha256: String?,
+    val score: Double?,
+    val classifiedAt: Long?,
+)

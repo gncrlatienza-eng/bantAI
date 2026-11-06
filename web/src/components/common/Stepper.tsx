@@ -29,7 +29,7 @@ export const Stepper: React.FC<StepperProps> = ({
             key={stepName}
             className={`step-item ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}
           >
-            <div className="step-circle">{isDone ? '✓' : stepNum}</div>
+            <div className="step-circle">{isDone ? '' : stepNum}</div>
             <span className="step-label">{stepName}</span>
           </div>
         );

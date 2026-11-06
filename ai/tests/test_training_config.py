@@ -78,3 +78,185 @@ def test_class_weighted_loss_enabled_by_default():
     from training.config import TrainingConfig
 
     assert TrainingConfig().class_weighted_loss is True
+
+
+# --- synthetic rows train, never validate (2026-09-16) -----------------------
+def _write(tmp_path, rows, header="text,label"):
+    (tmp_path / "data.csv").write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    return TrainingConfig(dataset_path=str(tmp_path), seed=42)
+
+
+def test_synthetic_rows_are_kept_out_of_validation(tmp_path):
+    """The failure this prevents: a candidate trained on generated text scores
+    well on more generated text from the same templates, while the incumbent
+    it is compared against has never seen any -- so the promotion gate would
+    report "learned our templates" as "better at detecting scams"."""
+    from training.dataset import load_split
+
+    real = [f"real message number {i},{'Ham' if i % 2 else 'Scam'},dataset" for i in range(40)]
+    synth = [f"generated message number {i},Scam,authored" for i in range(20)]
+    config = _write(tmp_path, real + synth, header="text,label,origin")
+
+    train_texts, val_texts, _, _ = load_split(config)
+
+    assert not [t for t in val_texts if "generated" in t], "synthetic row reached the validation split"
+    assert len([t for t in train_texts if "generated" in t]) == 20, "synthetic rows must still train"
+
+
+def test_variants_are_excluded_from_validation_too(tmp_path):
+    from training.dataset import load_split
+
+    rows = [f"real message number {i},{'Ham' if i % 2 else 'Scam'},dataset" for i in range(40)]
+    rows += [f"variant message number {i},Scam,variant" for i in range(10)]
+    _, val_texts, _, _ = load_split(_write(tmp_path, rows, header="text,label,origin"))
+    assert not [t for t in val_texts if "variant" in t]
+
+
+def test_a_dataset_without_an_origin_column_splits_as_before(tmp_path):
+    """Every file except the augmentation output has no origin column."""
+    from training.dataset import load_split
+
+    rows = [f"message number {i},{'Ham' if i % 2 else 'Scam'}" for i in range(40)]
+    train_texts, val_texts, _, _ = load_split(_write(tmp_path, rows))
+    assert len(val_texts) == 8  # 20% of 40, unchanged
+    assert len(train_texts) == 32
+
+
+# --- warm-up steps (transformers 5 removed TrainingArguments(warmup_ratio=)) ---
+def test_warmup_steps_match_the_real_training_runs():
+    """Checkpoint names prove steps/epoch: 2026-08-27 run 947 (checkpoint-2841 = 3x947), 07-29 run 697."""
+    from training.train import warmup_steps_for
+
+    assert warmup_steps_for(15150, 16, 1, 4, 0.1) == 379  # ceil(0.1 * 4 * 947)
+    assert warmup_steps_for(11140, 16, 1, 4, 0.1) == 279  # ceil(0.1 * 4 * 697)
+
+
+def test_warmup_steps_edge_cases():
+    from training.train import warmup_steps_for
+
+    assert warmup_steps_for(5, 16, 1, 4, 0.1) == 1  # fewer rows than one batch is still one step
+    assert warmup_steps_for(15150, 16, 0, 4, 0.1) == 379  # CPU (0 GPUs) counts as one device
+    assert warmup_steps_for(15150, 16, 2, 4, 0.1) == 190  # ceil(0.1 * 4 * ceil(15150 / 32))
+
+
+def test_warmup_steps_equal_transformers_own_warmup_ratio_math():
+    """Only runnable on transformers 4.x, which still has warmup_ratio: proves the replacement is exact."""
+    import math
+
+    import pytest
+
+    transformers = pytest.importorskip("transformers")
+    from training.train import warmup_steps_for
+
+    try:
+        args = transformers.TrainingArguments(output_dir="unused", warmup_ratio=0.1, report_to="none")
+    except TypeError:
+        pytest.skip("this transformers version no longer accepts warmup_ratio")
+    for n_train in (1, 16, 17, 11140, 15150):
+        total = math.ceil(4 * max(math.ceil(n_train / 16), 1))
+        assert warmup_steps_for(n_train, 16, 1, 4, 0.1) == args.get_warmup_steps(total)
+
+
+# --- weight strength + per-run settings file (2026-09-21, variant C) ---------
+def test_class_weight_power_softens_the_weights():
+    from training.train import compute_class_weights
+
+    ds = {"labels": [0] * 60 + [1] * 30 + [2] * 10}
+    full = compute_class_weights(ds, 3)
+    soft = compute_class_weights(ds, 3, power=0.5)
+    assert soft == [w**0.5 for w in full]
+    # Still favours Scam, just by less.
+    assert soft[2] > soft[0]
+    assert soft[2] / soft[0] < full[2] / full[0]
+
+
+def test_class_weight_power_zero_is_unweighted():
+    from training.train import compute_class_weights
+
+    assert compute_class_weights({"labels": [0] * 60 + [1] * 30 + [2] * 10}, 3, power=0.0) == [1.0, 1.0, 1.0]
+
+
+def test_default_weight_power_is_unchanged():
+    assert TrainingConfig().class_weight_power == 1.0
+
+
+def test_load_config_without_a_file_is_the_default(tmp_path):
+    from training.config import load_config
+
+    assert load_config(str(tmp_path / "missing.json")) == TrainingConfig()
+
+
+def test_load_config_applies_the_settings_file(tmp_path):
+    from training.config import load_config
+
+    path = tmp_path / "training_overrides.json"
+    path.write_text('{"class_weight_power": 0.5}', encoding="utf-8")
+    assert load_config(str(path)).class_weight_power == 0.5
+
+
+def test_load_config_rejects_a_misspelt_setting(tmp_path):
+    """Otherwise a typo would train with the default and be reported as the variant."""
+    import pytest
+
+    from training.config import load_config
+
+    path = tmp_path / "training_overrides.json"
+    path.write_text('{"class_weigth_power": 0.5}', encoding="utf-8")
+    with pytest.raises(ValueError, match="class_weigth_power"):
+        load_config(str(path))
+
+
+# --- class_weight_power validation (review, 2026-09-21) ----------------------
+def _overrides(tmp_path, value):
+    import json
+
+    path = tmp_path / "training_overrides.json"
+    path.write_text(json.dumps({"class_weight_power": value}), encoding="utf-8")
+    return str(path)
+
+
+def test_negative_weight_power_is_rejected(tmp_path):
+    """A negative exponent inverts the weighting: Scam would get *less* weight
+    than Ham, training the opposite of what the variant claims."""
+    import pytest
+
+    from training.config import load_config
+
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        load_config(_overrides(tmp_path, -1.0))
+
+
+def test_nan_and_inf_weight_power_are_rejected(tmp_path):
+    import pytest
+
+    from training.config import load_config
+
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="finite"):
+            load_config(_overrides(tmp_path, bad))
+
+
+def test_weight_power_above_one_is_rejected(tmp_path):
+    import pytest
+
+    from training.config import load_config
+
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        load_config(_overrides(tmp_path, 5.0))
+
+
+def test_non_numeric_weight_power_is_rejected(tmp_path):
+    import pytest
+
+    from training.config import load_config
+
+    for bad in ("0.5", None, True):
+        with pytest.raises(ValueError, match="must be a number"):
+            load_config(_overrides(tmp_path, bad))
+
+
+def test_valid_weight_powers_are_accepted(tmp_path):
+    from training.config import load_config
+
+    for good in (0.0, 0.5, 1, 1.0):
+        assert load_config(_overrides(tmp_path, good)).class_weight_power == float(good)

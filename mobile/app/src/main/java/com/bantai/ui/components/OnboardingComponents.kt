@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,9 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bantai.ui.theme.Hairline
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.SurfaceElevated
 import com.bantai.ui.theme.TextSecondary
-import com.bantai.ui.theme.TextTertiary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
 @Composable
@@ -50,7 +52,7 @@ fun PrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(52.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
         shape = RoundedCornerShape(14.dp),
         colors =
             ButtonDefaults.buttonColors(
@@ -61,11 +63,11 @@ fun PrimaryButton(
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = White,
+                color = OnIndigo,
                 strokeWidth = 2.dp,
             )
         } else {
-            Text(text, color = White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(text, color = OnIndigo, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
         }
     }
 }
@@ -82,19 +84,19 @@ fun PillTextField(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .heightIn(min = 48.dp)
                 .background(SurfaceElevated, RoundedCornerShape(12.dp))
                 .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.weight(1f)) {
             if (value.isEmpty() && placeholder.isNotEmpty()) {
-                Text(placeholder, color = TextSecondary, fontSize = 16.sp)
+                Text(placeholder, color = TextSecondary, fontSize = TextSize.Body)
             }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = TextStyle(color = White, fontSize = 16.sp),
+                textStyle = TextStyle(color = White, fontSize = TextSize.Body),
                 cursorBrush = SolidColor(Indigo),
                 keyboardOptions = keyboardOptions,
                 singleLine = true,
@@ -108,8 +110,8 @@ fun PillTextField(
 fun SectionLabel(text: String) {
     Text(
         text.uppercase(),
-        color = TextTertiary,
-        fontSize = 11.sp,
+        color = TextSecondary,
+        fontSize = TextSize.Caption2,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp,
     )
@@ -127,10 +129,10 @@ fun OnboardingHeader(
             SectionLabel(eyebrow)
             Spacer(Modifier.height(10.dp))
         }
-        Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 32.sp)
+        Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.LargeTitle)
         if (subtitle != null) {
             Spacer(Modifier.height(8.dp))
-            Text(subtitle, color = TextSecondary, fontSize = 14.sp, lineHeight = 19.sp)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Subhead, lineHeight = 19.sp)
         }
     }
 }
@@ -192,8 +194,8 @@ fun FeatureListRow(
         AccentIconTile(icon = icon, accent = accent)
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(title, color = White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(subtitle, color = TextSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+            Text(title, color = White, fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 18.sp)
         }
     }
 }

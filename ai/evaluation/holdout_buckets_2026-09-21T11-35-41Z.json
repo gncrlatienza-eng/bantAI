@@ -1,0 +1,87 @@
+{
+  "buckets": {
+    "ham_blocked": 4,
+    "n_unknown": 20,
+    "per_class": {
+      "Ham": {
+        "correct": 1756,
+        "total": 1787,
+        "unknown": 6,
+        "wrong_bucket": 25
+      },
+      "Scam": {
+        "correct": 456,
+        "total": 491,
+        "unknown": 5,
+        "wrong_bucket": 30
+      },
+      "Spam": {
+        "correct": 906,
+        "total": 958,
+        "unknown": 9,
+        "wrong_bucket": 43
+      }
+    },
+    "scam_shown_as_safe": 15,
+    "table": {
+      "Ham": {
+        "blocked": 4,
+        "safe": 1756,
+        "spam": 21,
+        "unknown": 6
+      },
+      "Scam": {
+        "blocked": 456,
+        "safe": 15,
+        "spam": 15,
+        "unknown": 5
+      },
+      "Spam": {
+        "blocked": 6,
+        "safe": 37,
+        "spam": 906,
+        "unknown": 9
+      }
+    }
+  },
+  "checkpoint_integrity": "ok",
+  "evaluated_at": "2026-09-21T11:35:41.182953+00:00",
+  "holdout_csv": "datasets/holdout/holdout.csv",
+  "holdout_integrity": "ok",
+  "holdout_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
+  "model_dir": "models/xlm-roberta-smishing",
+  "model_version": "v2026-08-27T09-46-20Z",
+  "n_total": 3236,
+  "raw_argmax_confusion_matrix": {
+    "Ham": {
+      "Ham": 1758,
+      "Scam": 5,
+      "Spam": 24
+    },
+    "Scam": {
+      "Ham": 16,
+      "Scam": 459,
+      "Spam": 16
+    },
+    "Spam": {
+      "Ham": 41,
+      "Scam": 7,
+      "Spam": 910
+    }
+  },
+  "raw_argmax_macro_f1": 0.9614,
+  "release_gate": {
+    "failures": [],
+    "ham_blocked_rate": 0.0022,
+    "max_ham_blocked": 0.01,
+    "max_scam_shown_as_safe": 0.05,
+    "passed": true,
+    "scam_shown_as_safe_rate": 0.0305
+  },
+  "thresholds": {
+    "block": 0.9,
+    "review_margin": 0.15,
+    "safe": 0.5,
+    "spam": 0.6
+  }
+}

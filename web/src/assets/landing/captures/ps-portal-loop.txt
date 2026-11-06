@@ -1,0 +1,291 @@
+B
+BantAI Admin
+
+OVERVIEW
+
+Overview
+
+INTELLIGENCE
+
+Campaigns
+Model
+
+ADMINISTRATION
+
+Notifications
+Settings
+Authenticated admin
+Intelligence · Campaigns
+D
+Campaigns
+
+Review and publish campaign intelligence. Internal drafts stay hidden from Shield until published.
+
+Create campaign draft
+
+1 active campaign in the last 30 days
+
+Active1
+Inactive0
+Category
+All categories
+Impersonation
+Show promo / marketing
+Show retired clusters with no messages
+Show archived
+Find new waves
+CAMPAIGN
+	
+RISK
+	
+MESSAGES
+	
+LAST SEEN
+	
+DOMAINS
+	MATCHER	
+
+GCash account-suspension lure
+Impersonation
+	
+High
+	148	20 Sept 2026	4	Matching	Deactivate
+B
+BantAI Admin
+
+OVERVIEW
+
+Overview
+
+INTELLIGENCE
+
+Campaigns
+Model
+
+ADMINISTRATION
+
+Notifications
+Settings
+Authenticated admin
+Intelligence · Campaigns · Detail
+D
+Campaign detail
+
+Inspect a detected campaign, its linked domains, and the messages it clusters. Deactivate stops new messages from clustering under it.
+
+Back to campaigns
+GCash account-suspension lure
+Active
+
+4a18012b-840c-40b4-b3d9-7b892e6f3183
+
+Deactivate
+Archive
+
+MESSAGES IN CLUSTER
+
+148
+
+LINKED DOMAINS
+
+4
+
+FIRST SEEN
+
+4 Sept 2026
+
+LAST UPDATED
+
+20 Sept 2026
+
+Linked domains
+gcash-secure.example
+gcash-update.example
+gcash-help.example
+gcash-verify.example
+Messages in this campaign
+
+Up to 25 recent stored masked records are returned by the audited Admin campaign endpoint. Original SMS text is not retained here.
+
+RECEIVED	MESSAGE	CLASSIFICATION	CONFIDENCE
+20 Sept 2026, 9:38	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+99%
+
+20 Sept 2026, 9:31	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+97%
+
+20 Sept 2026, 9:24	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+95%
+
+20 Sept 2026, 9:17	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+98%
+
+20 Sept 2026, 9:10	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+96%
+
+20 Sept 2026, 9:03	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+99%
+
+20 Sept 2026, 8:56	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+97%
+
+20 Sept 2026, 8:49	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+95%
+
+20 Sept 2026, 8:42	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+98%
+
+20 Sept 2026, 8:35	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+96%
+
+20 Sept 2026, 8:28	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+99%
+
+20 Sept 2026, 8:21	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+97%
+
+20 Sept 2026, 8:14	I-verify ang GCash account mo sa loob ng 24 oras. Pumunta sa: gcash-secure.example	
+Scam
+	
+95%
+
+18 Sept 2026, 9:38	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+96%
+
+18 Sept 2026, 9:31	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+99%
+
+18 Sept 2026, 9:24	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+97%
+
+18 Sept 2026, 9:17	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+95%
+
+18 Sept 2026, 9:10	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+98%
+
+18 Sept 2026, 9:03	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+96%
+
+18 Sept 2026, 8:56	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+99%
+
+18 Sept 2026, 8:49	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+97%
+
+18 Sept 2026, 8:42	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+95%
+
+18 Sept 2026, 8:35	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+98%
+
+18 Sept 2026, 8:28	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+96%
+
+18 Sept 2026, 8:21	GCash advisory: i-update ang account details mo today. Update here: gcash-update.example	
+Scam
+	
+99%
+Shield publication
+
+Published to Shield. Saving changes withdraws this version until it is reviewed and published again.
+
+Campaign title
+Campaign summary
+Risk
+Low
+Medium
+High
+Critical
+Threat category
+Recommended mitigation
+Save intelligence
+Domain indicators
+
+One hostname per line. Changes withdraw the published version until an Admin reviews and republishes it.
+
+Domains
+Save indicators
+Approve a masked API example
+
+Write a de-identified example with placeholders such as [BRAND], [ACCOUNT] and [URL]. Review it before approval. The regular Shield campaign page never displays examples.
+
+Reviewed placeholder text
+Approve masked example
+Campaign reconciliation
+
+Merge, split and correction retain assignment history. Affected campaigns become dormant and unpublished until their counts, indicators and masked examples are reviewed.
+
+Current revision: 0 · Model count: 148
+
+Operation
+Draft evolution event
+Merge another campaign into this one
+Split selected messages into a child campaign
+Correct one message assignment
+Event type
+Tactic change
+Indicator shift
+Campaign relation
+Status change
+Public summary, without identifiers
+Internal evidence references, one per line
+Record reviewed change
+Evolution analysis
+
+Compares the last complete 7 days (UTC) with the week before, using only model-matched or Admin-corrected messages. It flags new approved indicator domains, a shift in the main message language (a word-list heuristic over masked text) and sharp changes in activity. It runs daily and can be re-run here; the same data always gives the same result.
+
+Analyze latest window
+No observations yet
+
+An observation is recorded once the campaign has confirmed messages in a 7-day window.
+
+Evolution review
+
+No evolution events have been drafted.

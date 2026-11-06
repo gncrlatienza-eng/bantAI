@@ -51,9 +51,11 @@ describe('SmsController', () => {
     const req = { user: { userId: 'u1' } };
     mockSmsService.getAlerts.mockResolvedValue([]);
 
-    const result = await controller.getAlerts(req);
+    const result = await controller.getAlerts(req, { limit: 100 });
 
-    expect(mockSmsService.getAlerts).toHaveBeenCalledWith('u1');
+    expect(mockSmsService.getAlerts).toHaveBeenCalledWith('u1', {
+      limit: 100,
+    });
     expect(result).toEqual([]);
   });
 

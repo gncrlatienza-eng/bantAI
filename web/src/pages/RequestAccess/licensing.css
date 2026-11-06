@@ -1,0 +1,160 @@
+/*
+ * Checkout / confirmation styles shared by CheckoutConfirmationPage and
+ * CheckoutPendingPage (the approved-applicant screens). The request-access
+ * page itself is styled by request-access.css.
+ */
+
+.licensing__eyebrow {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--brand-primary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.licensing__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.licensing__lede {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.licensing__section-eyebrow {
+  margin: 0 0 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Reuse the existing auth-card input treatment: cream fill, plum focus. */
+.licensing-form__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.licensing-form__radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 150ms var(--motion-ease, ease);
+}
+
+.licensing-form__radio:hover {
+  border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
+}
+
+.licensing-form__radio input[type='radio'] {
+  accent-color: var(--brand-primary);
+}
+
+.licensing-form__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.licensing-form__actions-helper {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.licensing-form__return {
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.licensing-form__return a {
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.licensing-form__return a:hover {
+  text-decoration: underline;
+}
+
+/* ————— Submission confirmation ————— */
+
+.licensing-confirm {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 32px 28px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px
+    color-mix(in srgb, var(--palette-warm-ink, #211f24) 6%, transparent);
+}
+
+.licensing-confirm .bantai-auth-card__status {
+  align-self: flex-start;
+}
+
+.licensing-confirm .bantai-auth-card__status-dot[data-tone='verified'] {
+  background: var(--status-verified);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--status-verified) 18%, transparent);
+}
+
+.licensing-confirm__actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .licensing-confirm__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Billing-period fieldset: drop the UA border/padding. */
+.licensing-confirm fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.licensing-confirm fieldset legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+/* Long values (e.g. billing email) wrap instead of colliding. */
+.licensing-confirm .bantai-auth-card__meta dd {
+  overflow-wrap: anywhere;
+}

@@ -2,16 +2,22 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/routes';
 import { useTimer } from '../../hooks/useTimer';
+import {
+  getCurrentUser,
+  logout,
+  requestOtp,
+  verifyOtp,
+} from '../../services/authService';
 import { Button } from '../common/Button';
 
 interface TwoFactorFormProps {
   admin?: boolean;
-  email?: string;
+  phone?: string;
 }
 
 export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
   admin = false,
-  email,
+  phone,
 }) => {
   const navigate = useNavigate();
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
@@ -22,8 +28,7 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { formattedTime, isExpired, resetTimer } = useTimer(300);
 
-  const targetEmail =
-    email || (admin ? 'admin@bantai.research' : 'analyst@globe.com.ph');
+  const targetPhone = phone ?? '';
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -57,34 +62,66 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
     }
   };
 
-  const handleResend = () => {
-    resetTimer(300);
-    setResendNotice(
-      'A new 6-digit verification code has been dispatched to your email.',
-    );
-    setTimeout(() => setResendNotice(null), 4000);
+  const handleResend = async () => {
+    if (!targetPhone) {
+      setError('Return to login and enter your mobile number again.');
+      return;
+    }
+    try {
+      await requestOtp(targetPhone);
+      resetTimer(300);
+      setResendNotice('A new verification code has been sent.');
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Could not resend the verification code.',
+      );
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullCode = otp.join('');
 
-    if (fullCode.length < 6) {
+    if (!targetPhone || fullCode.length < 6) {
       setError('Please enter all 6 digits of the verification code');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await verifyOtp(targetPhone, fullCode);
+      const user = await getCurrentUser();
+      const role = user.role === 'ADMIN' ? 'admin' : 'client';
+      if (admin && role !== 'admin') {
+        logout();
+        setError(
+          'This phone number is not authorized for administrator access.',
+        );
+        return;
+      }
+      void navigate(
+        role === 'admin' ? ROUTES.ADMIN.OVERVIEW : ROUTES.SHIELD.OVERVIEW,
+      );
+    } catch (verificationError) {
+      logout();
+      setError(
+        verificationError instanceof Error
+          ? verificationError.message
+          : 'Could not verify the code.',
+      );
+    } finally {
       setLoading(false);
-      navigate(admin ? ROUTES.ADMIN.OVERVIEW : ROUTES.CLIENT.OVERVIEW);
-    }, 600);
+    }
   };
 
   return (
     <form
       className="auth-form"
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
       style={{ textAlign: 'center' }}
     >
       <p
@@ -96,7 +133,9 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
       >
         Enter the 6-digit authentication code sent to:
         <br />
-        <strong style={{ color: 'var(--text-primary)' }}>{targetEmail}</strong>
+        <strong style={{ color: 'var(--text-primary)' }}>
+          {targetPhone || 'your mobile number'}
+        </strong>
       </p>
 
       {resendNotice && (
@@ -175,7 +214,9 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
       >
         <button
           type="button"
-          onClick={handleResend}
+          onClick={() => {
+            void handleResend();
+          }}
           style={{
             background: 'none',
             border: 'none',
@@ -189,7 +230,7 @@ export const TwoFactorForm: React.FC<TwoFactorFormProps> = ({
         <button
           type="button"
           onClick={() => {
-            navigate(admin ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN);
+            void navigate(admin ? ROUTES.ADMIN_LOGIN : ROUTES.LOGIN);
           }}
           style={{
             background: 'none',

@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../database/prisma.module';
+import { DatasetsModule } from '../datasets/datasets.module';
+import { RetrainingController } from './retraining.controller';
 import { RetrainingService } from './retraining.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, DatasetsModule],
+  controllers: [RetrainingController],
   providers: [RetrainingService],
   exports: [RetrainingService],
 })

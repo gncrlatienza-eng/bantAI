@@ -11,22 +11,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,29 +33,36 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.data.remote.SmsApi
-import com.bantai.navigation.Screen
+import com.bantai.ui.components.DetailSkeleton
+import com.bantai.ui.components.IosTopBar
 import com.bantai.ui.theme.Black
 import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.OnIndigo
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
+import com.bantai.ui.theme.SuspiciousText
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.AlertDetailViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
+@Suppress("LongMethod")
 fun ThreatAnalysisScreen(
     messageId: String = "",
     navController: NavController,
@@ -77,52 +81,39 @@ fun ThreatAnalysisScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
-            }
-            Text(
-                "Threat Analysis",
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-        HorizontalDivider(color = Surface)
+        IosTopBar(
+            title = stringResource(R.string.threat_analysis_threat_analysis),
+            onBack = { navController.popBackStack() },
+        )
 
         when {
-            isLoading ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = TextSecondary)
-                }
+            isLoading -> DetailSkeleton()
             errorMessage != null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(errorMessage ?: "Could not load this alert", color = Danger, fontSize = 14.sp)
+                    Text(
+                        errorMessage ?: stringResource(R.string.alert_load_failed),
+                        color = Danger,
+                        fontSize = TextSize.Subhead,
+                    )
                 }
             alert == null ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No threat details available", color = TextSecondary, fontSize = 14.sp)
+                    Text(
+                        stringResource(R.string.threat_analysis_no_threat_details_available),
+                        color = TextSecondary,
+                        fontSize = TextSize.Subhead,
+                    )
                 }
-            else -> ThreatAnalysisContent(alert!!, indicators, navController)
+            else -> ThreatAnalysisContent(alert!!, indicators)
         }
     }
 }
 
 @Composable
+@Suppress("LongMethod", "MaxLineLength")
 private fun ThreatAnalysisContent(
     alert: SmsApi.AlertSummary,
     indicators: List<SmsApi.IndicatorTag>,
-    navController: NavController,
 ) {
     val confidence = (alert.score ?: 0.0).coerceIn(0.0, 1.0)
 
@@ -148,31 +139,31 @@ private fun ThreatAnalysisContent(
                         modifier =
                             Modifier
                                 .size(48.dp)
-                                .background(Color(0xFF2A0A0A), RoundedCornerShape(12.dp)),
+                                .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(Icons.Default.GppBad, contentDescription = null, tint = Danger, modifier = Modifier.size(24.dp))
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(alert.sender, color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = 12.sp)
+                        Text(stringResource(R.string.threat_analysis_message_stored_on_this_device), color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
+                        Text(formatFullTimestamp(alert.receivedAt), color = TextSecondary, fontSize = TextSize.Caption)
                     }
                     Box(
                         modifier =
                             Modifier
-                                .background(Color(0xFF2A1A00), RoundedCornerShape(100.dp))
+                                .background(Suspicious.copy(alpha = 0.15f), RoundedCornerShape(100.dp))
                                 .border(1.dp, Suspicious, RoundedCornerShape(100.dp))
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
-                        Text(alert.label ?: "Suspicious", color = Suspicious, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Text(alert.label ?: "Suspicious", color = SuspiciousText, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
                     }
                 }
-                HorizontalDivider(color = Color(0xFF2A2A2A))
+                HorizontalDivider(color = BorderColor)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Confidence", color = TextSecondary, fontSize = 12.sp)
+                    Text(stringResource(R.string.threat_analysis_confidence), color = TextSecondary, fontSize = TextSize.Caption)
                     LinearProgressIndicator(
                         progress = { confidence.toFloat() },
                         modifier =
@@ -183,13 +174,13 @@ private fun ThreatAnalysisContent(
                         color = Suspicious,
                         trackColor = BorderColor,
                     )
-                    Text("${(confidence * 100).roundToInt()}%", color = Suspicious, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("${(confidence * 100).roundToInt()}%", color = SuspiciousText, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
                 }
             }
         }
 
         item {
-            SectionLabel("MESSAGE")
+            SectionLabel(stringResource(R.string.threat_analysis_message))
             Column(
                 modifier =
                     Modifier
@@ -197,12 +188,12 @@ private fun ThreatAnalysisContent(
                         .background(Surface, RoundedCornerShape(16.dp))
                         .padding(16.dp),
             ) {
-                Text(alert.body, color = White, fontSize = 14.sp, lineHeight = 20.sp)
+                Text(alert.body, color = White, fontSize = TextSize.Subhead, lineHeight = 20.sp)
             }
         }
 
         item {
-            SectionLabel("AI SUMMARY")
+            SectionLabel(stringResource(R.string.threat_analysis_ai_summary))
             Column(
                 modifier =
                     Modifier
@@ -213,20 +204,20 @@ private fun ThreatAnalysisContent(
             ) {
                 Icon(Icons.Default.Psychology, contentDescription = null, tint = Indigo, modifier = Modifier.size(20.dp))
                 Text(
-                    buildString {
-                        append("This message was classified as ")
-                        append(alert.label ?: "suspicious")
-                        append(" with ${(confidence * 100).roundToInt()}% confidence.")
-                    },
+                    stringResource(
+                        R.string.threat_analysis_classified_as,
+                        alert.label ?: stringResource(R.string.verdict_suspicious),
+                        (confidence * 100).roundToInt(),
+                    ),
                     color = White,
-                    fontSize = 14.sp,
+                    fontSize = TextSize.Subhead,
                     lineHeight = 22.sp,
                 )
             }
         }
 
         item {
-            SectionLabel("THREAT INDICATORS")
+            SectionLabel(stringResource(R.string.threat_analysis_threat_indicators))
             if (indicators.isEmpty()) {
                 Column(
                     modifier =
@@ -235,7 +226,14 @@ private fun ThreatAnalysisContent(
                             .background(Surface, RoundedCornerShape(16.dp))
                             .padding(16.dp),
                 ) {
-                    Text("Still computing explainability for this message.", color = TextSecondary, fontSize = 13.sp)
+                    // Stale claim removed: indicators are server-computed from
+                    // the masked text the backend already receives, unrelated
+                    // to raw-body-on-device privacy -- see SmishingAlertScreen's
+                    // identical fix. This screen itself is currently unwired
+                    // (no navigation reaches it), but its indicators source is
+                    // the same AlertDetailViewModel, so it'll show real tags
+                    // too whenever it's wired back in.
+                    Text(stringResource(R.string.threat_analysis_no_specific_indicators_were_recorded), color = TextSecondary, fontSize = TextSize.Footnote)
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -247,17 +245,18 @@ private fun ThreatAnalysisContent(
         }
 
         item {
-            SectionLabel("ACTIONS")
+            SectionLabel(stringResource(R.string.threat_analysis_actions))
             Button(
-                onClick = { navController.navigate(Screen.TakeAction.route) },
+                onClick = {},
+                enabled = false,
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Indigo),
             ) {
-                Text("Take action", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(stringResource(R.string.threat_analysis_use_your_device_inbox_to), color = OnIndigo, fontWeight = FontWeight.Bold, fontSize = TextSize.Body)
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -268,8 +267,8 @@ private fun ThreatAnalysisContent(
 private fun SectionLabel(text: String) {
     Text(
         text,
-        color = Color(0xFF666666),
-        fontSize = 11.sp,
+        color = TextSecondary,
+        fontSize = TextSize.Caption2,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp,
         modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
@@ -294,21 +293,24 @@ private fun ThreatIndicatorCard(
             modifier =
                 Modifier
                     .size(36.dp)
-                    .background(Color(0xFF2A0A0A), RoundedCornerShape(8.dp)),
+                    .background(Danger.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
         }
         Column {
-            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(subtitle, color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp)
+            Text(title, color = White, fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead)
+            Text(subtitle, color = TextSecondary, fontSize = TextSize.Caption, lineHeight = 16.sp)
         }
     }
 }
 
 private fun formatFullTimestamp(iso: String): String =
     try {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
+        Instant
+            .parse(iso)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US))
     } catch (_: Exception) {
         ""
     }

@@ -1,85 +1,126 @@
+@file:Suppress("MaxLineLength")
+
 package com.bantai.ui.screens.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.ui.components.GroupedRow
+import com.bantai.ui.components.GroupedRowDivider
+import com.bantai.ui.components.GroupedSectionHeader
+import com.bantai.ui.components.IosTopBar
+import com.bantai.ui.components.LocalBottomBarClearance
+import com.bantai.ui.components.groupedItem
 import com.bantai.ui.theme.*
+
+// (title, body) string resource ids, resolved where they're shown.
+// Same grouped pattern as Privacy & data: a step and one line at a glance,
+// the full explanation one tap away.
+private data class HowStep(
+    val icon: ImageVector,
+    @StringRes val title: Int,
+    @StringRes val summary: Int,
+    @StringRes val body: Int,
+)
+
+private val howSteps =
+    listOf(
+        HowStep(Icons.Filled.Sms, R.string.how_step1_short, R.string.how_step1_summary, R.string.how_step1_body),
+        HowStep(Icons.Filled.Lock, R.string.how_step2_short, R.string.how_step2_summary, R.string.how_step2_body),
+        HowStep(Icons.Filled.Lightbulb, R.string.how_step3_short, R.string.how_step3_summary, R.string.how_step3_body),
+        HowStep(Icons.Filled.Layers, R.string.how_step4_short, R.string.how_step4_summary, R.string.how_step4_body),
+        HowStep(
+            Icons.Filled.NotificationsActive,
+            R.string.how_step5_short,
+            R.string.how_step5_summary,
+            R.string.how_step5_body,
+        ),
+    )
+
+private val privacyStep =
+    HowStep(Icons.Filled.Shield, R.string.how_privacy_title, R.string.how_privacy_summary, R.string.how_privacy_body)
 
 @Composable
 fun HowItWorksScreen(navController: NavController) {
-    val sections =
-        listOf(
-            "Step 1 — Receive SMS" to "When a message arrives, BantAI intercepts it as the default SMS app before it reaches your inbox.",
-            "Step 2 — Classify" to
-                "XLM-RoBERTa, a multilingual AI model trained on Filipino smishing patterns, analyzes the message body for threats.",
-            "Step 3 — SHAP Explainability" to
-                "SHAP values identify which words or phrases contributed most to the classification — giving you a transparent reason, not just a verdict.",
-            "Step 4 — Cluster" to
-                "HDBSCAN groups similar smishing messages into campaigns, helping detect coordinated attacks across multiple senders.",
-            "Step 5 — Alert" to
-                "High-confidence smishing is auto-blocked and you receive a push notification. Suspicious messages are flagged for your review.",
-            "Your Privacy" to
-                "All classification happens on-device. No message body is ever sent to a server without your explicit consent.",
-        )
-
+    var open by rememberSaveable { mutableStateOf<Int?>(null) }
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Black)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .background(Black),
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        IosTopBar(
+            title = stringResource(R.string.how_it_works_how_bantai_works),
+            onBack = { navController.popBackStack() },
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            // Bottom clearance matches the floating tab bar's footprint (see
+            // MainScreen) -- this screen now renders behind that persistent bar.
+            contentPadding = PaddingValues(bottom = LocalBottomBarClearance.current),
         ) {
-            Icon(
-                Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = White,
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .clickable { navController.popBackStack() },
-            )
-            Spacer(Modifier.width(16.dp))
-            Text("How BantAI Works", color = White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
-
-        sections.forEach { (title, body) ->
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-                        .padding(16.dp),
-            ) {
-                Text(title, color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(body, color = TextSecondary, fontSize = 13.sp, lineHeight = 20.sp)
+            item { GroupedSectionHeader(stringResource(R.string.how_section_steps)) }
+            itemsIndexed(howSteps) { index, step ->
+                Column(Modifier.groupedItem(index, howSteps.lastIndex)) {
+                    StepRow(step, number = index + 1, expanded = open == index) {
+                        open = if (open == index) null else index
+                    }
+                    if (index != howSteps.lastIndex) GroupedRowDivider()
+                }
             }
-            Spacer(Modifier.height(10.dp))
+            item { GroupedSectionHeader(stringResource(R.string.how_privacy_title)) }
+            item {
+                Column(Modifier.groupedItem(0, 0)) {
+                    StepRow(privacyStep, number = null, expanded = open == PRIVACY_ROW) {
+                        open = if (open == PRIVACY_ROW) null else PRIVACY_ROW
+                    }
+                }
+            }
         }
-
-        Spacer(Modifier.height(24.dp))
     }
 }
+
+@Composable
+private fun StepRow(
+    step: HowStep,
+    number: Int?,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val title = stringResource(step.title)
+    GroupedRow(
+        icon = step.icon,
+        tint = Indigo,
+        title = if (number != null) "$number. $title" else title,
+        summary = stringResource(step.summary),
+        expanded = expanded,
+        onClick = onToggle,
+        expandedContent = {
+            Text(stringResource(step.body), color = TextSecondary, fontSize = TextSize.Footnote, lineHeight = 19.sp)
+        },
+    )
+}
+
+private const val PRIVACY_ROW = -1

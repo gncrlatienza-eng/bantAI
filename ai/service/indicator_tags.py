@@ -78,6 +78,34 @@ _SHORTENER_HOSTS = {
 
 _URL_RE = re.compile(r"(?:https?://\S+|\bwww\.\S+)", re.I)
 
+# Links written without "http://" or "www." -- "bdo-secure-login.com",
+# "panalo777.xyz/claim". Real scams often write them this way, and _URL_RE
+# alone missed them: found preparing UAT, 2026-09-29. A fixed list of endings
+# keeps ordinary text ("P50.00", "e.g.", "Mr.Cruz") from counting as links;
+# "(?<![@...])" skips e-mail addresses.
+#
+# Measured before adopting (training corpus / unseen holdout), together with
+# the .gov.ph/.edu.ph rule below and whole-word brand matching in
+# _domain_tags: Scam messages tagged "Suspicious URL" 35.5% -> 57.9% /
+# 21.6% -> 54.0%, "Brand Impersonation" 16.0% -> 19.1% / 4.1% -> 9.4%; Ham
+# messages tagged "Suspicious URL" 3.34% -> 3.61% / 2.29% -> 2.35%, "Brand
+# Impersonation" 0.72% -> 0.25% / 0.11% -> 0.17%.
+_BARE_TLDS = (
+    "com|net|org|ph|xyz|top|icu|cyou|info|online|site|shop|club|vip|live|cc|co|me|io|app|link|click|"
+    "win|bet|fun|store|asia|biz|pro|ly|gl|to|tk|ml|ga|cf|gq|sbs|bond|cfd|lat|today|life|world|space|"
+    "website|tech|buzz|monster|rest|homes|lol|quest|ink|work|games|cash|money|loan|claims|gift|pw|su|"
+    "ru|cn|in|us"
+)
+_BARE_DOMAIN_RE = re.compile(
+    r"(?<![@\w.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:" + _BARE_TLDS + r"))(?![\w-])",
+    re.I,
+)
+
+# Only government agencies and schools can register these, so a scammer
+# cannot use them. dswd.gov.ph, philsys.gov.ph etc. were the main normal
+# messages the bare-domain rule would otherwise have flagged.
+_RESTRICTED_OFFICIAL_SUFFIXES = (".gov.ph", ".edu.ph")
+
 
 @dataclass(frozen=True)
 class IndicatorTag:
@@ -151,6 +179,24 @@ _GAMBLING_BAIT = [
     "deposito",
     "pusta",
     "magtaya",
+    # WBS 5.3.7: measured against every real Spam/Scam row
+    # (scripts/analyze_indicator_coverage.py) -- 48.6% of Scam messages got
+    # *no* tag at all, and the words most common in the untagged remainder
+    # were a second, distinct cluster of Tagalog online-betting vocabulary
+    # ("W+", T1BET, Epicwin, Betso88, COD63/COD99-style recharge scams) that
+    # the 2026-07-30 pass above did not cover. All seven checked at <0.1% on
+    # Ham; "sumali"/"manalo ng" also appear on legitimately-labeled Spam
+    # (0.6-0.8%), which is expected -- not every betting promo is fraudulent.
+    "manalo ng",
+    "sumali",
+    "maglaro ng",
+    "magrehistro",
+    "welcome bonus",
+    "epicwin",
+    # The "recharge and receive daily cash" reward-scheme pattern (COD63,
+    # COD99-style): distinct from the spin/betting sites above but the same
+    # deposit-for-reward shape as the existing "deposit bonus"/"cash out".
+    "red envelope",
 ]
 
 _FAKE_JOB_OFFER = [
@@ -165,6 +211,32 @@ _FAKE_JOB_OFFER = [
     "no experience needed",
     "kumita ng malaki",
     "raket sa bahay",
+    # Task-scam vocabulary, added 2026-09-18. A distinct family from the
+    # work-from-home entries above: it offers piecework paid per task, not
+    # employment, and nothing above reached it. Measured on the corpus, these
+    # five take the tag from 14 Scam rows / 11 distinct messages to 59 / 18,
+    # with **no new Ham or Spam hits** beyond the two the list already had.
+    #
+    # ⚠️ Phrases are trimmed to their DISTINCTIVE words on purpose -- "while
+    # watching", not "make money while watching"; "the tutor", not "contact the
+    # tutor". ``explainer._tokens_to_tags`` splits every phrase into words and
+    # fires this tag when any single word of >=4 characters is a top-contributing
+    # SHAP token, so a common word buried inside a phrase becomes a standalone
+    # trigger. The untrimmed versions would have added "money" (3.2% of Ham),
+    # "make" (2.0%) and "contact" (1.2%): same scam coverage, but 794 Ham
+    # messages newly exposed instead of 35. "the" is three characters, below the
+    # token floor, so "the tutor" contributes only "tutor".
+    #
+    # Accepted cost: "while watching" mis-tags one Globe promo ("Stay
+    # #SafeAtHome while watching your favorite TV shows"), already labelled
+    # Spam. The alternative "watching youtube" avoids it but adds "youtube",
+    # which appears in 32 Ham messages -- and a wrong indicator on Ham is the
+    # user-visible harm.
+    "while watching",
+    "the tutor",
+    "car reviewer",
+    "reviewer ng kotse",
+    "daily salary",
 ]
 
 _UNSOLICITED_CREDIT_OFFER = [
@@ -221,6 +293,13 @@ _OTP_PHISHING = [
     "ma-block ang account",
     "i-verify ang account",
     "i-click ang link",
+    # WBS 5.3.7: "avoid deactivation" is a distinct phrasing from the
+    # "will be deactivated" already above -- e.g. "...to avoid Deactivation"
+    # -- and showed up repeatedly (1.0% of all Scam rows, 0.01% of Ham) among
+    # untagged BDO/GCash phishing messages. Same account-under-threat shape,
+    # different grammar, so it needs its own entry rather than a rewrite of
+    # the existing one.
+    "avoid deactivation",
 ]
 
 TAG_KEYWORDS: dict[str, List[str]] = {
@@ -249,22 +328,54 @@ def _keyword_tags(text: str) -> List[IndicatorTag]:
     return out
 
 
+def is_official_domain(host: str) -> bool:
+    """True for a whitelisted brand domain or any subdomain of one."""
+    host = host.lower()
+    if host.endswith(_RESTRICTED_OFFICIAL_SUFFIXES):
+        return True
+    return any(host == d or host.endswith(f".{d}") for d in _OFFICIAL_DOMAINS)
+
+
+def _link_hosts(raw_text: str) -> List[str]:
+    """Hostnames of every link in a message, with or without "http://"."""
+    hosts = []
+    for url in _URL_RE.findall(raw_text or ""):
+        try:
+            hosts.append(urlparse(url if "://" in url else f"//{url}").hostname or "")
+        except ValueError:
+            # Malformed netloc (e.g. "Invalid IPv6 URL" from a stray "["); skip
+            # the link rather than failing the whole request.
+            continue
+    # Bare links, after removing the ones already found above so they are not
+    # counted twice.
+    rest = _URL_RE.sub(" ", raw_text or "")
+    for match in _BARE_DOMAIN_RE.finditer(rest):
+        host = match.group(1)
+        if re.search(r"[a-z]", host.split(".")[0], re.I):  # not "50.00ph"-style numbers
+            hosts.append(host)
+    out = []
+    for host in hosts:
+        host = host.lower()
+        if host.startswith("www."):
+            host = host[4:]
+        if host:
+            out.append(host)
+    return out
+
+
+def is_shortener(host: str) -> bool:
+    return host.lower() in _SHORTENER_HOSTS
+
+
 def _domain_tags(raw_text: str) -> List[IndicatorTag]:
     """Suspicious URL + Brand Impersonation -- both need the real link, not
     the <URL> placeholder, so this runs on raw (pre-masking) text."""
     out: List[IndicatorTag] = []
-    urls = _URL_RE.findall(raw_text or "")
-    if not urls:
+    hosts = _link_hosts(raw_text)
+    if not hosts:
         return out
 
-    suspicious = False
-    for url in urls:
-        host = urlparse(url if "://" in url else f"//{url}").hostname or ""
-        host = host.lower().lstrip("www.")
-        if host in _SHORTENER_HOSTS:
-            suspicious = True
-        elif not any(host == d or host.endswith(f".{d}") for d in _OFFICIAL_DOMAINS):
-            suspicious = True
+    suspicious = any(is_shortener(host) or not is_official_domain(host) for host in hosts)
     if suspicious:
         out.append(IndicatorTag(tag="Suspicious URL", weight=0.7))
 
@@ -283,7 +394,13 @@ def _domain_tags(raw_text: str) -> List[IndicatorTag]:
         "maya",
         "paymaya",
     )
-    named_brand = next((b for b in brands if b in low), None)
+    # Whole words only: "smart" inside "smartphone" or "bpi" inside another
+    # word is not the brand. "dito" is also everyday Tagalog for "here"
+    # ("slot games dito"), so the telco only counts written as "DITO".
+    named_brand = next(
+        (b for b in brands if (re.search(r"\bDITO\b", raw_text) if b == "dito" else re.search(rf"\b{b}\b", low))),
+        None,
+    )
     if named_brand and suspicious:
         out.append(IndicatorTag(tag="Brand Impersonation", weight=0.75))
     return out

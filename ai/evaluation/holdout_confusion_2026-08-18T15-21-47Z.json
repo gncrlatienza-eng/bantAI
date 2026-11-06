@@ -1,0 +1,53 @@
+{
+  "confusion_matrix": {
+    "Ham": {
+      "Ham": 1762,
+      "Scam": 8,
+      "Spam": 15
+    },
+    "Scam": {
+      "Ham": 9,
+      "Scam": 480,
+      "Spam": 9
+    },
+    "Spam": {
+      "Ham": 101,
+      "Scam": 12,
+      "Spam": 840
+    }
+  },
+  "evaluated_at": "2026-08-18T15:21:47.851058+00:00",
+  "holdout_csv": "datasets/holdout/holdout.csv",
+  "macro_f1": 0.95,
+  "model_dir": "models/xlm-roberta-smishing",
+  "n_total": 3236,
+  "per_class_metrics": {
+    "Ham": {
+      "f1": 0.9636,
+      "false_negatives": 23,
+      "false_positives": 110,
+      "precision": 0.9412,
+      "recall": 0.9871,
+      "support": 1785,
+      "true_positives": 1762
+    },
+    "Scam": {
+      "f1": 0.9619,
+      "false_negatives": 18,
+      "false_positives": 20,
+      "precision": 0.96,
+      "recall": 0.9639,
+      "support": 498,
+      "true_positives": 480
+    },
+    "Spam": {
+      "f1": 0.9246,
+      "false_negatives": 113,
+      "false_positives": 24,
+      "precision": 0.9722,
+      "recall": 0.8814,
+      "support": 953,
+      "true_positives": 840
+    }
+  }
+}

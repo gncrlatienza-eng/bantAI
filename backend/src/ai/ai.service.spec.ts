@@ -20,6 +20,142 @@ describe('AiService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('classifyMasked', () => {
+    it('returns only a validated deployed-model decision', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: () => ({ label: 'Scam', score: 0.97, bucket: 'blocked' }),
+      });
+
+      await expect(
+        service.classifyMasked('Claim [AMOUNT] at [URL]'),
+      ).resolves.toEqual({
+        label: 'Scam',
+        score: 0.97,
+        scores: null,
+        bucket: 'blocked',
+        indicators: [],
+        explanationMethod: 'keyword-fallback',
+        campaign: null,
+      });
+      expect(fetchMock.mock.calls[0][0]).toContain('/classify');
+    });
+
+    it('keeps a well-formed softmax and drops a malformed one', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.9,
+          bucket: 'blocked',
+          scores: { Ham: 0.05, Spam: 0.05, Scam: 0.9 },
+        }),
+      });
+      await expect(service.classifyMasked('x')).resolves.toEqual(
+        expect.objectContaining({
+          scores: { Ham: 0.05, Spam: 0.05, Scam: 0.9 },
+        }),
+      );
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.9,
+          bucket: 'blocked',
+          scores: { Ham: 'x' },
+        }),
+      });
+      await expect(service.classifyMasked('x')).resolves.toEqual(
+        expect.objectContaining({ scores: null }),
+      );
+    });
+
+    it.each([
+      { cluster_id: 'k1', matched: true, match_reason: 'hybrid' },
+      { cluster_id: null, matched: false, should_buffer: true },
+    ])(
+      'keeps the classification but drops a campaign missing the full match contract: %j',
+      async (campaign) => {
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: () => ({
+            label: 'Scam',
+            score: 0.97,
+            bucket: 'blocked',
+            campaign,
+          }),
+        });
+        await expect(service.classifyMasked('masked')).resolves.toMatchObject({
+          label: 'Scam',
+          campaign: null,
+        });
+      },
+    );
+
+    it('rejects malformed model output as a non-authoritative fallback', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: () => ({ label: 'Scam', score: 9, bucket: 'blocked' }),
+      });
+
+      await expect(service.classifyMasked('masked')).resolves.toBeNull();
+    });
+
+    it('maps a consistent campaign match from the AI service', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: () => ({
+          label: 'Scam',
+          score: 0.97,
+          bucket: 'blocked',
+          campaign: {
+            cluster_id: '11111111-1111-4111-8111-111111111111',
+            similarity: 0.999,
+            matched: true,
+            should_buffer: false,
+            lexical_similarity: 0.72,
+            match_reason: 'hybrid',
+          },
+        }),
+      });
+
+      await expect(service.classifyMasked('masked')).resolves.toMatchObject({
+        campaign: {
+          clusterId: '11111111-1111-4111-8111-111111111111',
+          similarity: 0.999,
+          matched: true,
+          shouldBuffer: false,
+          lexicalSimilarity: 0.72,
+          matchReason: 'hybrid',
+        },
+      });
+    });
+
+    it('keeps a valid classification but rejects inconsistent campaign metadata', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: () => ({
+          label: 'Spam',
+          score: 0.91,
+          bucket: 'spam',
+          campaign: {
+            cluster_id: 'not-a-backend-uuid',
+            similarity: 4,
+            matched: true,
+            should_buffer: true,
+            lexical_similarity: 2,
+            match_reason: 'embedding',
+          },
+        }),
+      });
+
+      await expect(service.classifyMasked('masked')).resolves.toMatchObject({
+        label: 'Spam',
+        campaign: null,
+      });
+    });
+  });
+
   describe('summarize', () => {
     it('maps a successful AI-service response to camelCase', async () => {
       fetchMock.mockResolvedValue({
@@ -42,7 +178,7 @@ describe('AiService', () => {
       });
       const [url, options] = fetchMock.mock.calls[0];
       expect(url).toContain('/summarize');
-      expect(JSON.parse(options.body)).toEqual({
+      expect(JSON.parse(options.body as string)).toEqual({
         messages: ['a', 'b', 'c'],
         max_sentences: 2,
       });
@@ -62,7 +198,9 @@ describe('AiService', () => {
       await service.summarize(['hello']);
 
       const [, options] = fetchMock.mock.calls[0];
-      expect(JSON.parse(options.body)).toEqual({ messages: ['hello'] });
+      expect(JSON.parse(options.body as string)).toEqual({
+        messages: ['hello'],
+      });
     });
 
     it('throws ServiceUnavailableException when the AI service errors', async () => {

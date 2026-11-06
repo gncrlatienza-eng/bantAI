@@ -1,0 +1,53 @@
+{
+  "confusion_matrix": {
+    "Ham": {
+      "Ham": 1757,
+      "Scam": 4,
+      "Spam": 24
+    },
+    "Scam": {
+      "Ham": 18,
+      "Scam": 460,
+      "Spam": 20
+    },
+    "Spam": {
+      "Ham": 40,
+      "Scam": 7,
+      "Spam": 906
+    }
+  },
+  "evaluated_at": "2026-08-27T10:32:15.929068+00:00",
+  "holdout_csv": "datasets/holdout/holdout.csv",
+  "macro_f1": 0.9592,
+  "model_dir": "models/retraining_runs/2026-08-27T09-46-20Z/candidate",
+  "n_total": 3236,
+  "per_class_metrics": {
+    "Ham": {
+      "f1": 0.9761,
+      "false_negatives": 28,
+      "false_positives": 58,
+      "precision": 0.968,
+      "recall": 0.9843,
+      "support": 1785,
+      "true_positives": 1757
+    },
+    "Scam": {
+      "f1": 0.9494,
+      "false_negatives": 38,
+      "false_positives": 11,
+      "precision": 0.9766,
+      "recall": 0.9237,
+      "support": 498,
+      "true_positives": 460
+    },
+    "Spam": {
+      "f1": 0.9522,
+      "false_negatives": 47,
+      "false_positives": 44,
+      "precision": 0.9537,
+      "recall": 0.9507,
+      "support": 953,
+      "true_positives": 906
+    }
+  }
+}

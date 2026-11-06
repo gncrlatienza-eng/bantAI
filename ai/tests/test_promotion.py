@@ -3,6 +3,7 @@
 import pytest
 
 from retraining.promotion import (
+    discordant_indices,
     evaluate_promotion,
     mcnemar_counts,
 )
@@ -33,6 +34,63 @@ def test_mismatched_lengths_raise():
     """Silent misalignment would produce a confident, meaningless verdict."""
     with pytest.raises(ValueError):
         mcnemar_counts(["Ham"] * 3, ["Ham"] * 3, ["Ham"] * 2)
+
+
+# --- Scam-recall floor ------------------------------------------------------
+def _better_overall_worse_on_scam(n_scam, scam_misses):
+    """Candidate fixes 60 Ham/Spam rows the baseline got wrong, but newly
+    misses ``scam_misses`` of ``n_scam`` Scam rows the baseline caught."""
+    truth = labels(100, 100, n_scam)
+    baseline = truth.copy()
+    for i in range(30):
+        baseline[i] = "Spam"  # 30 Ham rows wrong
+        baseline[100 + i] = "Ham"  # 30 Spam rows wrong
+    candidate = truth.copy()
+    for i in range(200, 200 + scam_misses):
+        candidate[i] = "Spam"
+    return truth, baseline, candidate
+
+
+def test_better_overall_but_catching_fewer_scams_is_rejected():
+    """The failure macro-F1 hides: 60 fixes vs 5 regressions is decisive
+    overall, but all 5 regressions are scams that now get through."""
+    truth, baseline, candidate = _better_overall_worse_on_scam(n_scam=50, scam_misses=5)
+
+    decision = evaluate_promotion(truth, baseline, candidate)
+
+    assert not decision.promote
+    assert "Scam recall" in decision.reason
+    assert decision.candidate_macro_f1 > decision.baseline_macro_f1
+    assert decision.baseline_scam_recall == 1.0
+    assert decision.candidate_scam_recall == pytest.approx(0.90)
+
+
+def test_a_scam_recall_dip_inside_tolerance_still_promotes():
+    truth, baseline, candidate = _better_overall_worse_on_scam(n_scam=200, scam_misses=1)  # -0.5pp
+    decision = evaluate_promotion(truth, baseline, candidate)
+    assert decision.promote
+    assert decision.candidate_scam_recall == pytest.approx(0.995)
+
+
+def test_scam_floor_is_skipped_when_there_are_no_scam_rows():
+    truth = labels(40, 60, 0)
+    baseline = truth.copy()
+    for i in range(40, 65):
+        baseline[i] = "Ham"
+    decision = evaluate_promotion(truth, baseline, truth.copy())
+    assert decision.promote
+    assert decision.baseline_scam_recall is None
+    assert decision.candidate_scam_recall is None
+
+
+def test_scam_label_can_be_a_label_id():
+    """The pipeline passes integer ids, not names."""
+    truth, baseline, candidate = _better_overall_worse_on_scam(n_scam=50, scam_misses=5)
+    ids = {"Ham": 0, "Spam": 1, "Scam": 2}
+    as_ids = [[ids[x] for x in seq] for seq in (truth, baseline, candidate)]
+    decision = evaluate_promotion(*as_ids, scam_label=2)
+    assert not decision.promote
+    assert "Scam recall" in decision.reason
 
 
 # --- promotion decisions ----------------------------------------------------
@@ -138,3 +196,48 @@ def test_decision_is_truthy():
     for i in range(70, 95):
         baseline[i] = "Ham"
     assert bool(evaluate_promotion(truth, baseline, candidate))
+
+
+# --- which rows disagreed, not just how many (WBS 4.3.5) --------------------
+def test_discordant_indices_points_at_the_actual_rows():
+    """Counts answer 'how many changed'. Only indices answer 'which' -- the
+    first question anyone asks about a promotion."""
+    truth = ["Ham", "Scam", "Spam", "Scam", "Ham"]
+    baseline = ["Ham", "Ham", "Spam", "Scam", "Ham"]  # wrong at 1
+    candidate = ["Ham", "Scam", "Spam", "Ham", "Ham"]  # wrong at 3
+
+    fixes, regressions = discordant_indices(truth, baseline, candidate)
+
+    assert fixes == [1]
+    assert regressions == [3]
+
+
+def test_counts_and_indices_can_never_disagree():
+    """mcnemar_counts delegates, so there is one definition of a fix."""
+    truth = ["Ham", "Scam", "Spam", "Scam", "Ham", "Spam"]
+    baseline = ["Scam", "Ham", "Spam", "Scam", "Ham", "Ham"]
+    candidate = ["Ham", "Scam", "Ham", "Ham", "Ham", "Spam"]
+
+    fixes, regressions = discordant_indices(truth, baseline, candidate)
+    assert mcnemar_counts(truth, baseline, candidate) == (len(fixes), len(regressions))
+
+
+def test_rows_both_models_get_wrong_are_not_disagreements():
+    """Both wrong carries no information about which model is better -- that
+    is the whole reason McNemar looks only at the discordant cells."""
+    truth = ["Scam", "Scam"]
+    baseline = ["Ham", "Ham"]
+    candidate = ["Spam", "Ham"]
+    assert discordant_indices(truth, baseline, candidate) == ([], [])
+
+
+def test_mismatched_lengths_still_raise_through_the_wrapper():
+    with pytest.raises(ValueError):
+        discordant_indices(["Ham"] * 3, ["Ham"] * 3, ["Ham"] * 2)
+
+
+def test_transition_fields_default_to_none():
+    """The gate decides verdicts; it does not decide what gets persisted."""
+    decision = evaluate_promotion(["Ham", "Scam"], ["Ham", "Ham"], ["Ham", "Scam"])
+    assert decision.regression_transitions is None
+    assert decision.fix_transitions is None

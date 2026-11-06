@@ -33,12 +33,15 @@ each catches what the others miss.
 |---|---|---|
 | Validated samples | **50** | Steady accumulation of confirmed mistakes |
 | Macro-F1 floor | **5pp** below baseline | Sudden breakage — bad deploy, corrupt checkpoint |
-| Page-Hinkley | δ=0.005, λ=0.05 | Slow drift no single measurement flags |
+| Page-Hinkley | δ=0.005, λ=0.05, **floor 10 samples** | Slow drift no single measurement flags |
 
 ### Threshold decisions
 
-WBS 4.1.2 asks these be *confirmed*, because the manuscript states them
-loosely. Resolved as:
+WBS 4.1.2 asks these be *confirmed*. Two of the three are stated precisely in
+the manuscript (pp. 166–167: "at least 50 new validated samples", and a
+Page-Hinkley alarm "with a minimum sample floor (at least 10 samples)") and are
+implemented at those exact values; the F1 floor is the one the manuscript
+leaves open. Resolved as:
 
 **"50 samples" = 50 validated reports, not raw submissions.** A report counts
 only once an admin marks it Validated (WBS 4.3.2). Counting raw submissions
@@ -55,6 +58,16 @@ that matters: a missed scam defrauds someone, a misfiled promo annoys them.
 **Page-Hinkley over a fixed floor** because a gradual slide never trips a
 floor until it is already severe. Each batch looks like noise; only the
 accumulated one-directional drift is visible.
+
+**The alarm is held until 10 observations** (`PageHinkley.min_samples`), the
+manuscript's own stated floor. **This had never been implemented** — found
+2026-09-17 while auditing the pipeline against the manuscript text, and fixed
+the same day. Without it the detector could fire on as few as three
+observations (two stable windows and one bad one), starting a full fine-tune on
+what is still noise; the running mean it compares against is barely established
+that early. Observations below the floor still accumulate state, so the floor is
+a warm-up rather than a rolling delay: the alarm can fire on the very first
+observation after the floor is cleared.
 
 > **Implementation note.** The decrease-detecting form *adds* the slack term
 > where the textbook increase-detecting form subtracts it. Getting this
@@ -126,8 +139,9 @@ Every run writes a self-contained directory under `models/retraining_runs/`:
 
 ### Snapshot assembly
 
-Existing labeled dataset **+** validated reports since the last retrain.
-Three decisions where the obvious implementation is wrong:
+Existing labeled dataset **+** every validated report (see "Every run reads
+every report" below). Three decisions where the obvious implementation is
+wrong:
 
 **Reports are never sampled away.** The natural reading of "combine, then
 reservoir-sample" is to pool everything and draw uniformly — which would let a
@@ -138,7 +152,32 @@ uniform, not rationing corrections.
 
 **Report labels win on collision.** A validated report contradicting a dataset
 row is a human correction of that row. Keeping both would train on two readings
-of the same text and learn nothing from the correction.
+of the same text and learn nothing from the correction. When two *reports*
+disagree about the same message, the most recently validated one wins —
+decided by `validated_at`, not arrival order, because the backend returns
+reports newest first (a 2026-09-14 fix: last-write-wins over that order had
+been keeping the oldest label).
+
+**Synthetic rows train, they never validate** (2026-09-16). Rows whose
+`origin` is `authored` or `variant` — the output of
+`scripts/augment_scam_dataset.py` — are placed in the training half of the
+80/20 split unconditionally, never the validation half
+(`training/dataset.py:load_split`, `SYNTHETIC_ORIGINS` in `training/config.py`).
+
+This is not tidiness. The split is stratified and random, so roughly 20% of any
+generated rows would otherwise land in validation — the same validation the
+promotion gate scores both models on. A candidate trained on generated text
+classifies more generated text from the same templates easily, while the
+incumbent it is measured against has never seen any. The gate would report
+"learned our templates" as "better at detecting scams", inflating the very
+numbers (macro-F1, Scam recall, fix/regression counts) that justify a
+promotion. Measured on a 40-real/20-synthetic fixture before the fix: 6 of 20
+synthetic rows reached validation.
+
+The frozen holdout is unaffected — it is 100% real and the generator refuses
+to seed from it — so the headline evaluation stays honest either way. This
+protects the *gate*, which runs first and decides whether a candidate is even
+considered.
 
 **De-duplication compares masked text; the snapshot stores raw text.**
 `...libre 1q2w3e7.ca` and `...libre 1q2w3e8.ca` are one model input once
@@ -147,31 +186,110 @@ But what gets *written* is the raw body, so the training path does its own
 preprocessing exactly as always. Masked text is a comparison key, never a
 stored artifact.
 
-`max_history` defaults to **None** — no cap. At ~16.8k rows there is no reason
-to sample, and sampling by default would silently discard training data.
+`max_history` defaults to **None** — no cap. At the current pool size (13.5k
+rows as of 2026-08-18, after `scripts/create_holdout_set.py` set aside a
+permanent 20% test set — see `PIPELINE.md` § "Permanent held-out test set")
+there is no reason to sample, and sampling by default would silently discard
+training data.
 
-### The report source (⚠️ partial — WBS 4.3.1, Track A)
+### The report source
 
-The canonical source is the `UserReports` table, which **does not exist yet**.
-Rather than block the pipeline on it, the source is an interface:
+The canonical source is the `UserReport` table (WBS 4.3.1, Track A), which
+landed in PR #39. The source is an interface with three implementations:
 
-| Implementation | Status |
+| Implementation | What it reads |
 |---|---|
-| `NullReportSource` | Default. Yields nothing; manifest records `null (no report store configured)` |
+| `NullReportSource` | Nothing. Still the default; manifest records `null (no report store consulted)` |
 | `FileReportSource` | CSV/JSONL from a directory — see `datasets/reports/README.md` |
-| `DatabaseReportSource` | **Not built.** Drops in behind the same two methods when 4.3.1 lands |
+| `DatabaseReportSource` | Retained for historical compatibility; live backend report ingestion is disabled. |
 
 Running without reports is a legitimate operation — it is what you do to
 reproduce a checkpoint. What would be wrong is *pretending* reports were
-consulted, which `describe()` prevents.
+consulted, which `describe()` prevents. Live `--reports-url` ingestion is
+deliberately disabled because the backend retains privacy-masked SMS only and
+must not become a raw-message training source. Use a separately consented,
+offline `--reports-dir` export instead. A `BANTAI_AI_BACKEND_URL` sitting in
+the environment never enables report ingestion.
 
-### The `since` watermark
+**The `Validated` filter runs client-side.** `ReportsService` exposes only
+`findAll()` and `findPending()` — there is no `findValidated()` — so the AI
+side fetches everything and filters. Fine at thesis scale; if the table ever
+outgrows one unpaginated response, the fix is a server-side filter on Track A's
+side, not paging from here against an API with no cursor.
 
-A run consumes only reports validated after the previous run's timestamp,
-read from that run's manifest. **Dry runs are skipped** when computing it: a
-dry run trains nothing, so letting it advance the watermark would make the next
-real run silently skip every report the dry run merely looked at. `--since all`
-overrides the watermark entirely.
+**`validated_at` is really `updatedAt`.** Prisma's `@updatedAt` moves on any
+write to the row, including a later `adminNote` edit, so it is a proxy for the
+validation time rather than the thing itself. A dedicated `validatedAt` column
+would be exact — the column now exists (Sprint 5 hardening migration), but
+`GET /reports` does not return it yet. The cost meanwhile: an old report whose
+note is edited later looks newer than it is, which matters only when two
+reports disagree about the same message (see "Report labels win on collision"
+above) or when `--since` is used.
+
+**Failures raise; they do not degrade.** This is the deliberate opposite of
+`service/centroid_source.py`, which swallows every error. An empty centroid
+list costs one enhancement and the service still classifies. An empty *report*
+list is indistinguishable from "no corrections were filed" — so a 401, or a
+typo in the URL, would otherwise produce a clean-looking retrain that learned
+from none of the mistakes that triggered it, and a manifest no reader would
+question. `ReportSourceError` stops the run instead.
+
+#### Getting reports onto a GPU box
+
+The backend report endpoint is not a supported ingestion path. Prepare a
+separately consented, privacy-reviewed offline file, then carry that file to
+the GPU box:
+
+```bash
+cd ai
+python scripts/retrain.py --reports-dir datasets/reports --dry-run
+python colab/build_retrain_package.py     # picks up datasets/reports/
+```
+
+The export writes exactly the columns `FileReportSource` reads, so the two
+sources round-trip.
+
+### Every run reads every report
+
+Each run fine-tunes from the base `xlm-roberta-base` checkpoint, not from the
+previous candidate, so a correction absent from a snapshot is absent from the
+model that snapshot produces. Until 2026-09-14 a run consumed only reports
+validated after the previous real run's timestamp — which meant every
+correction was learned by exactly one run and then silently dropped from all
+later ones, contradicting the manuscript's "the validated sample is appended to
+the training dataset." (No correction was actually lost: no report had yet been
+validated.) The `UserReport` table is the durable record, and every run now
+reads all of it. `--since` still exists to narrow the set on purpose.
+
+### What the gate records, and what it does not
+
+Every run writes `decision.json` — the verdict plus every number behind it,
+**including for a rejection.** A rejected candidate is the case most worth
+explaining later, so it is recorded in exactly as much detail as a promotion.
+
+Since WBS 4.3.5 that also includes the class-level breakdown of the
+disagreements:
+
+```json
+"regression_transitions": { "Scam->Spam": 20, "Ham->Spam": 12 },
+"fix_transitions":        { "Spam->Scam": 41, "Ham->Ham": 9 }
+```
+
+`97 fixes vs 44 regressions` invites exactly one follow-up — *what got worse?* —
+and the counts alone cannot answer it. `Scam->Spam: 20` says the candidate
+started under-calling scams, which is a different and more serious failure than
+the same number of Ham/Spam mix-ups. These are text-free by design, so they are
+safe to commit and to quote in the manuscript.
+
+The row-level detail lands beside it in **`disagreements.json`**: index, true
+label, both predictions, and the message text for every row the two models
+disagreed on.
+
+> ⚠️ **`disagreements.json` must never be committed.** It reproduces real SMS
+> bodies from the validation split — masked (`<URL>`, `<OTP>`), because that is
+> the form the models were scored on, but still real user messages. It stays in
+> the run directory, which `ai/models/*/` already git-ignores. Quote the
+> transition counts instead.
 
 ### Validation caveat
 
@@ -187,9 +305,9 @@ fix if this ever becomes the deciding factor.
 
 ## Stage 4 — Promotion gate (WBS 4.2.3 / 4.3.7)
 
-**Code:** `retraining/promotion.py` · **Tests:** `tests/test_promotion.py` (11)
+**Code:** `retraining/promotion.py` · **Tests:** `tests/test_promotion.py` (20)
 
-A candidate is **never** promoted on a headline metric alone. Two independent
+A candidate is **never** promoted on a headline metric alone. Three independent
 checks, in this order:
 
 ### 1. F1 floor — absolute safety
@@ -198,7 +316,25 @@ Candidate macro-F1 must not fall more than `F1_FLOOR_TOLERANCE` (1pp) below
 the incumbent. Checked *first*, because a catastrophically worse candidate
 must be rejected regardless of what any significance test says.
 
-### 2. McNemar's test — is the difference real?
+### 2. Scam-recall floor — the error that matters most
+
+Candidate recall on Scam must not fall more than `SCAM_RECALL_TOLERANCE` (1pp)
+below the incumbent. Macro-F1 averages three classes, so gains on Ham/Spam can
+outweigh fewer scams caught — and a missed scam is the costliest error this
+system makes. Skipped only when the validation rows contain no Scam at all.
+
+Added 2026-09-14 from Reymark's audit (item 11), and **not** in the manuscript,
+which specifies McNemar + F1 floor only. It is not hypothetical: the
+2026-08-27 candidate — promoted 2026-08-30 — passed the two original checks
+(193 fixes vs 76 regressions) while catching **11 fewer of the 357 validation
+scams** than the incumbent (19 newly missed, 8 newly caught: -3.1pp). Under
+this floor it would have been rejected. One caveat cuts the other way: the
+incumbent may have trained on some of those validation rows (see the
+validation caveat in `pipeline.py`), which flatters the incumbent, so part of
+that gap may be the incumbent's advantage rather than the candidate's
+weakness.
+
+### 3. McNemar's test — is the difference real?
 
 On a ~3,350-row validation split, a 0.4pp macro-F1 gain is easily sampling
 luck. Promoting on noise makes the model random-walk between checkpoints
@@ -227,10 +363,173 @@ where the approximation is unreliable.
   regresses more than it fixes while staying inside the F1 floor.
   Significance alone must never imply promotion.
 
-Every decision carries its full numbers — both F1s, fix/regression counts,
-p-value — because this is what gets written to `ModelVersions` (WBS 4.3.4)
+Every decision carries its full numbers — both F1s, both Scam recalls,
+fix/regression counts, p-value — because this is what gets written to `ModelVersions` (WBS 4.3.4)
 and read back months later when someone asks why a checkpoint was or was not
 promoted.
+
+---
+
+## Stage 5 — Round trip (WBS 4.4.3)
+
+**Code:** `service/routers/retrain.py`, `service/retrain_queue.py`,
+`retraining/registry.py`, `retraining/version_file.py`, `retraining/checksum.py`
+· **CLI:** `scripts/retrain.py --register/--activate` ·
+**Live demo:** `scripts/round_trip.py` ·
+**Tests:** `tests/test_round_trip.py` (24)
+
+*Integration test: full retraining round trip (report → validate → retrain →
+deploy).* Before this, two links in that chain did not exist, both on the AI
+side:
+
+1. The backend's hourly cron (`retraining.service.ts`) already POSTed to
+   `${AI_SERVICE_URL}/retrain` when a trigger fired -- but the AI service
+   registered no such route. The call 404d and the backend caught it as a
+   warning, so the trigger had never once been observable from either side.
+2. `pipeline.py` scored a candidate and wrote `decision.json`, then stopped.
+   It never told `ModelVersions` a candidate existed, so the table stayed
+   empty -- which meant the backend's own F1-degradation trigger and its
+   rollback route were dead code, since `activeModel` was always `null`.
+
+Both are closed without changing what the deployed model is. The gate's
+verdict is still a recommendation; a swap is still a deliberate, separate act
+-- see `PIPELINE.md` § Stage 5b for why that separation matters more than
+usual right now (the Sprint 5 threshold numbers are with the adviser, and a
+promotion would invalidate all of them).
+
+### `POST /retrain` — accept and record, not train
+
+There is no GPU on the machine that would run this service; training happens
+on Colab. So the endpoint cannot train anything, and does not pretend to. It
+appends the request to a queue file and returns `202`. `GET /retrain/jobs`
+reads it back. A repeat of the same trigger while a job for it is still
+`queued` returns the existing job rather than a new one -- the cron's
+conditions stay true until a model is actually promoted, so an undeduped
+queue would grow one row per hour, forever, from day one.
+
+**Draining a job is what makes that dedupe safe** (added 2026-09-16, Reymark's
+audit items 4-6). Until then `queued` was the only status the queue could
+write: the "human drains it by hand" step recorded nothing, so the first job
+for a trigger stayed queued forever and the dedupe handed that stale job to
+every later request — a genuinely new trigger scheduled no new work, and the
+backend saw a `202` each time as if it had. Now:
+
+| | |
+|---|---|
+| `scripts/retrain.py --complete-queue` | After a real (non-dry) run, marks every queued job completed — one retrain answers every trigger outstanding at the time. Without the flag a real run prints what is still waiting rather than leaving it silent |
+| `POST /retrain/jobs/{id}/complete` | The same thing for a drain running on a different host than the queue file |
+
+The file stays append-only: completing a job appends a second row, and
+`list_jobs` folds rows by `job_id` keeping the last, so history is preserved
+and status still moves.
+
+**The queue is bounded.** `trigger` is a string the backend chooses, and each
+distinct value is a row the dedupe cannot collapse, so arbitrary triggers meant
+an unbounded file that every read parses whole (audit item 10). `trigger` is
+now capped at 200 characters, and at most `MAX_QUEUED_JOBS` (50) jobs may be
+outstanding — past that `POST /retrain` answers `503` rather than accepting
+work nobody is draining. A refusal costs nothing: the cron re-fires hourly and
+the trigger condition is still true next hour.
+
+### Reproducing an evaluation from a clean checkout
+
+A fresh clone cannot reproduce any published number, because three inputs are
+deliberately not in git (Reymark's audit, item 16). That is the right call —
+they are model weights too large for a repo and real SMS bodies that must not
+be published — but "can't be reproduced" and "can't be reproduced *by you,
+without asking*" are different problems, and only the second one is intended.
+What you need, and where it comes from:
+
+| Input | In git? | How to get it |
+|---|---|---|
+| `models/xlm-roberta-smishing/` (checkpoint) | No (`ai/models/*/`) | Ask Maxene for the Drive link. The previous checkpoint is at `MyDrive/bantai/xlm-roberta-smishing-v2026-07-29-run3-rollback.zip`; the live one is the `candidate/` directory of the run that produced it |
+| `datasets/holdout/holdout.csv` (3,236 frozen rows) | No (`ai/datasets/holdout/*.csv`) | Ask Maxene. Real message bodies — do not commit, do not paste into an issue |
+| `datasets/labeled/bantai_labeled.csv` | No (`ai/datasets/labeled/*.csv`) | Ask Maxene. Only needed to *retrain*, not to grade a checkpoint |
+| `datasets/holdout/manifest.json` | **Yes** | Already there — it carries `holdout_csv_sha256`, which is how you confirm the CSV you were handed is the frozen one |
+| `evaluation/*.json` (published results) | **Yes** | Already there — what a reproduction is checked against |
+
+Then:
+
+```bash
+cd ai
+.venv/Scripts/python.exe scripts/evaluate_holdout.py          # per-class metrics
+.venv/Scripts/python.exe scripts/evaluate_holdout_buckets.py  # what users see + release gate
+```
+
+Both verify two digests before producing a number and **refuse to grade** on a
+mismatch (`--allow-drift` overrides, and the mismatch is recorded in the output
+either way):
+
+- the holdout CSV against `holdout_csv_sha256` in its manifest — an evaluation
+  set edited after it was frozen yields scores that look like every other
+  score and mean something else (audit item 15);
+- the checkpoint against the digests in its own `version.json` — weights,
+  tokenizer, config and label mapping, not just weights (audit items 13-14),
+  since a tokenizer swap changes predictions completely while leaving the
+  weights byte-identical.
+
+`version.json` files written before 2026-09-16 carry only the weights digest;
+those still verify, just with narrower coverage. A checkpoint with no
+`version.json` at all — the one deployed before WBS 4.4.3 — reports
+`unverifiable`, which is deliberately not the same as `ok`.
+
+The serving path checks the same thing at startup but only *logs* it: a model
+whose files changed under it is still a working classifier on a user's phone,
+and refusing to serve would turn a bookkeeping problem into an outage.
+
+### `--register` / `--activate` — two flags, not one
+
+`scripts/retrain.py --register` POSTs the finished candidate to the backend
+as an **inactive** `ModelVersion` row: `versionTag` (`v<run-stamp>`, e.g.
+`v2026-08-17T04-15-33Z`), the candidate's macro-F1, and the gate's reason in
+`notes`. Safe the moment a decision exists -- it is only a record.
+
+`--activate` (implies `--register`) makes it the live `ModelVersion`, and
+refuses to for a candidate the gate rejected. This is the step that needs a
+human sign-off (the adviser, per the open item in `PIPELINE.md` § Stage 5b) --
+a pipeline that auto-activates on a green gate is exactly the failure mode
+that note warns against. Activating a `ModelVersion` row is also **not** the
+same as redeploying: it does not touch the running service, which still
+needs the manual "point the live model at `<candidate_dir>`" step
+`scripts/retrain.py` has always printed.
+
+### `version.json` — how "deploy" becomes checkable
+
+`config.model_dir` used to be a static string read at import; the service had
+no way to say *which* checkpoint it was actually serving. Now, the moment
+training finishes, `pipeline.py` writes `version.json` beside the candidate's
+weights (`version_tag` + a streamed SHA-256 of `model.safetensors` --
+`retraining/checksum.py`, pulled out of the Colab notebook's baseline-check
+cell so both compute the digest the same way). It travels with the
+checkpoint automatically, so "point the live model at `<candidate_dir>`"
+carries its identity along for free.
+
+`GET /health` reads it fresh on every call and reports `version_tag`. At
+startup, `service/main.py` compares it against the backend's
+`GET /models/active` and logs loudly on a mismatch -- non-fatal, same
+reasoning as the campaign-centroid load: a stale record must not stop the
+service from classifying. Every checkpoint deployed before this existed,
+including the one currently live, has no `version.json`; that reads as
+`version_tag: null`, an honest "not yet tracked," not a fabricated tag.
+
+### Proving the round trip without a GPU, Docker, or a network
+
+`tests/test_round_trip.py` walks every stage --
+report → gate verdict → register → activate → `/health` reporting the new
+version -- with the backend and `_predict` stubbed, the same pattern
+`test_reports.py` and `test_retraining_pipeline.py` already use. It proves
+the wiring composes, not that the model improved.
+
+`scripts/round_trip.py` is the live counterpart -- real backend, real AI
+service, one real forward pass (the deployed checkpoint scored against
+itself, so the gate has real numbers to report without training anything).
+It is the WBS 4.5.1 Sprint 4 demo, not a CI gate: run it by hand once Docker,
+the backend, and the AI service are all up. It seeds three temporary report
+rows (idempotent, cleaned up automatically) because there is no dev-mode way
+to read a generated OTP through the API to seed them via the normal app flow
+-- `OtpSmsService` only logs that delivery was skipped, it never returns the
+code. It never activates a `ModelVersion` for real; anything it registers is
+tagged `vROUNDTRIP-TEST-...` and stays inactive.
 
 ---
 
@@ -249,9 +548,12 @@ Two properties this depends on:
    Retraining changes how embeddings are computed, so centroids from the old
    model are not comparable to embeddings from the new one — similarity
    scores become meaningless, not merely shifted. **Any promotion or
-   rollback must be followed by re-embedding and re-clustering**
-   (`scripts/embed_dataset.py`, then `scripts/cluster_campaigns.py`). See
-   `docs/api/campaigns.md` § Retraining invalidates clusters.
+   rollback must be followed by re-embedding, re-clustering, and pushing the
+   result to the backend** (`scripts/embed_dataset.py`, then
+   `scripts/cluster_campaigns.py`, then `scripts/sync_campaigns_to_backend.py
+   --apply`, then restart the AI service). The live service reads centroids
+   from the backend, so skipping the last two steps changes nothing it uses.
+   See `docs/api/campaigns.md` § Retraining invalidates clusters.
 
 ---
 
@@ -287,8 +589,9 @@ unrecoverable step this document exists to prevent.
 | 4.2.2 | Retraining workflow architecture | ✅ This document |
 | 4.2.3 | Model promotion + rollback design | ✅ This document |
 | 4.3.6 | Reservoir sampling (Vitter's Algorithm R) | ✅ Done |
-| 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done |
+| 4.3.7 | McNemar test + F1 floor promotion gate | ✅ Done (Scam-recall floor added 2026-09-14, beyond the manuscript — see Stage 4) |
 | 4.3.9 | TF-IDF summarization pipeline | ✅ Done (`service/summarize.py` + `POST /summarize`) |
 | 4.4.2 | Unit test: trigger evaluation logic | ✅ Done |
-| 4.3.5 | Automated retraining pipeline | 🟡 Built and dry-run verified; report source pending WBS 4.3.1 (Track A) |
+| 4.3.5 | Automated retraining pipeline | ✅ Done. `DatabaseReportSource` was built against WBS 4.3.1's table and verified against a live backend on 2026-08-18, but live ingestion is **disabled** and the pipeline defaults to `NullReportSource` -- see the source table above for why. First real GPU fine-tune ran 2026-08-17 (Colab T4, `evaluation/retraining_run_2026-08-17.json`), gate says promote — not acted on, see `PIPELINE.md` § Stage 5b. Second run 2026-08-26 (Colab T4, `evaluation/retraining_run_2026-08-26.json`), on the pool grown to 18,938 rows after folding in a new raw phone-export batch — gate again says promote (macro-F1 0.9186→0.9451, 181 fixes/58 regressions, p≈0) — also not acted on yet, same reasoning as the first run plus the adviser sign-off that just closed on the same date, see `PIPELINE.md`. Third run 2026-08-27 (Colab T4, `evaluation/retraining_run_2026-08-27.json`) — run after fixing two silent data-corruption bugs a pre-flight audit found in the second run's data (163 missing human review corrections, plus a hardcoded review-sheet filename list that silently skipped two newly-reviewed sheets) and locking exact dependency versions — gate again says promote (macro-F1 0.9225→0.9461, 193 fixes/76 regressions, p≈0). Also the first model to clear a genuinely clean WBS 6.4.6 holdout evaluation: macro-F1 0.9592 on 3,236 never-seen rows, Scam recall 92.4% (7.6% miss rate — the honest weak point), Ham false-positive rate 0.22% (`evaluation/holdout_confusion_2026-08-27T10-32-15Z.json`). **Promoted 2026-08-30** — `models/xlm-roberta-smishing/` now serves this checkpoint (`v2026-08-27T09-46-20Z`); prior checkpoint kept as `models/xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` for rollback. ⚠️ This was Maxene's own decision, not the adviser's — see `PIPELINE.md` § Stage 5b "Candidate promoted — 2026-08-30, not on adviser sign-off" for exactly what changed and why that distinction matters. `ModelVersions` registered and activated the same day (`603554f0-6563-4507-8037-108f7dccf386`) |
 | 4.3.8 | Campaign evolution tracking | ✅ Done (`campaign_evolution.py`, see `PIPELINE.md` Stage 9b — not a retraining component, listed here for status continuity) |
+| 4.4.3 | Integration test: full retraining round trip | ✅ Done. Built, CI-tested (`tests/test_round_trip.py`, 21 tests), and **run live** 2026-08-18 against real Docker Postgres + backend + AI service — `scripts/round_trip.py` passed every stage (report seeded → validated report read from the live table → `POST /retrain` accepted and queued → real gate verdict → `ModelVersion` registered, never activated → cleaned up). Found and fixed one real bug in the process (the script's own scratch directory wasn't created before the gate tried to write into it). `ModelVersions` also given its first real row the same session (`scripts/register_incumbent.py --activate`): the deployed 2026-07-29 checkpoint, macro-F1 0.9438 — confirmed via `GET /health` reporting `version_tag` and `GET /models/active` matching. Unblocks 4.5.1 |

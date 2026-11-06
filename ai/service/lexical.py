@@ -12,7 +12,7 @@ embedding, per the manuscript's "one embedding, two branches". Measurement
 A classifier is trained to collapse each class toward one prototype, so within
 the Scam class every vector is nearly parallel. The usable gap between "same
 campaign" and "random stranger" is ~0.0008 wide. A threshold can be placed in
-it -- 0.999, see ``campaign.DEFAULT_SIMILARITY_THRESHOLD`` -- but two things
+it -- 0.999 today, see ``campaign.DEFAULT_SIMILARITY_THRESHOLD`` -- but two things
 follow from a margin that thin:
 
 1. It already costs recall: 6.2% of genuine members fall below it.
@@ -63,6 +63,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set
 from urllib.parse import urlparse
 
 from preprocessing.masking import mask_pii
+from preprocessing.placeholders import normalize_placeholders
 
 #: Shingles must appear in at least this share of a campaign's members to enter
 #: its profile. Rationale: a campaign is a *template* with variable slots, so
@@ -80,6 +81,7 @@ PROFILE_MIN_DOCUMENT_FREQUENCY = 0.5
 MIN_PROFILE_SHINGLES = 4
 
 _TOKEN_RE = re.compile(r"[a-z0-9<>]+")
+
 _URL_RE = re.compile(r"(?:h(?:tt|xx)ps?://\S+|\bwww\.\S+)", re.I)
 
 
@@ -95,7 +97,13 @@ def extract_domains(text: str) -> List[str]:
     """
     out: List[str] = []
     for url in _URL_RE.findall(text or ""):
-        host = urlparse(url if "://" in url else f"//{url}").hostname or ""
+        try:
+            host = urlparse(url if "://" in url else f"//{url}").hostname or ""
+        except ValueError:
+            # urlparse raises on malformed netlocs (e.g. "Invalid IPv6 URL" for a
+            # stray "[" in "www.site.com/[claim]"). One bad link must not turn
+            # the whole /classify call into a 500 -- skip it.
+            continue
         host = host.lower()
         if host.startswith("www."):
             host = host[4:]
@@ -119,7 +127,7 @@ def shingles(text: str) -> Set[str]:
     alone would call any two messages about "account" and "verify" the same
     campaign regardless of arrangement.
     """
-    words = _TOKEN_RE.findall(mask_pii(text or "").lower())
+    words = _TOKEN_RE.findall(mask_pii(normalize_placeholders(text)).lower())
     if not words:
         return set()
     out: Set[str] = set(words)
@@ -222,17 +230,36 @@ def lexical_similarity(text: str, profile: Optional[LexicalProfile]) -> float:
     for a missing or non-distinctive profile, which makes the caller fall back
     to embedding-only matching rather than treating "no evidence" as
     "contradicting evidence".
+
+    Tokenizes ``text`` on every call -- fine for a single text-vs-profile
+    comparison, but a caller comparing one message against many profiles
+    (``CampaignMatcher.match``) should tokenize once and call
+    ``similarity_from_shingles`` directly instead of calling this per profile.
     """
     if profile is None or not profile.is_distinctive:
         return 0.0
-    msg = shingles(text)
-    if not msg:
+    return similarity_from_shingles(shingles(text), profile)
+
+
+def similarity_from_shingles(msg_shingles: Set[str], profile: Optional[LexicalProfile]) -> float:
+    """Dice-coefficient core of ``lexical_similarity``, given an already-
+    tokenized shingle set instead of raw text.
+
+    Split out so a message compared against many campaign profiles in one
+    pass -- ``CampaignMatcher.match`` loops over ~240 active centroids -- can
+    call ``shingles(text)`` once (masking + tokenizing) and reuse the result,
+    instead of ``lexical_similarity`` silently repeating that work per
+    centroid for text that never changes across the loop.
+    """
+    if profile is None or not profile.is_distinctive:
         return 0.0
-    shared = len(msg & profile.shingles)
+    if not msg_shingles:
+        return 0.0
+    shared = len(msg_shingles & profile.shingles)
     if shared == 0:
         return 0.0
     coverage = shared / len(profile.shingles)
-    precision = shared / len(msg)
+    precision = shared / len(msg_shingles)
     return 2.0 * coverage * precision / (coverage + precision)
 
 
@@ -245,7 +272,25 @@ def shares_domain(text: str, profile: Optional[LexicalProfile]) -> bool:
     campaign identifier. It is also the field the backend already maintains
     for link suppression (``getActiveDomains()``), so nothing new has to be
     collected to use it.
+
+    Extracts domains from ``text`` on every call -- fine for a single
+    comparison, but a caller checking one message against many profiles
+    should extract once and call ``domains_overlap`` directly instead of
+    calling this per profile.
     """
     if profile is None or not profile.domains:
         return False
-    return any(d in profile.domains for d in extract_domains(text))
+    return domains_overlap(extract_domains(text), profile)
+
+
+def domains_overlap(msg_domains: Iterable[str], profile: Optional[LexicalProfile]) -> bool:
+    """Core of ``shares_domain``, given an already-extracted domain list.
+
+    Split out for the same reason as ``similarity_from_shingles``:
+    ``CampaignMatcher.match`` loops over ~240 active centroids for one
+    message and would otherwise re-run URL extraction from scratch on every
+    centroid for text that never changes across the loop.
+    """
+    if profile is None or not profile.domains:
+        return False
+    return any(d in profile.domains for d in msg_domains)

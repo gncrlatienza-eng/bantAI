@@ -29,7 +29,11 @@ export class BlockedNumbersController {
     @Request() req: { user: { userId: string } },
     @Body() dto: BlockNumberDto,
   ) {
-    return this.blockedNumbersService.block(req.user.userId, dto.sender);
+    return this.blockedNumbersService.block(
+      req.user.userId,
+      dto.sender,
+      dto.source,
+    );
   }
 
   // :sender rather than :id — the mobile client only ever knows the phone

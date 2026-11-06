@@ -1,0 +1,65 @@
+/*
+ * Product Showcase — Android + Portal previews.
+ *
+ * The section reads as one composition, not two isolated device cards.
+ * Desktop lays them side by side with an offset so the shorter mobile mock
+ * doesn't leave an empty column; mobile stacks them.
+ */
+
+.ps {
+  padding-top: var(--landing-section-lg, 112px);
+  padding-bottom: var(--landing-section-lg, 112px);
+}
+
+.ps__intro {
+  max-width: 640px;
+  margin-bottom: 56px;
+}
+
+.ps__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+  align-items: end;
+}
+
+@media (min-width: 960px) {
+  .ps__grid {
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+    gap: 56px;
+    align-items: end;
+  }
+}
+
+.ps__mobile,
+.ps__web {
+  margin: 0;
+  position: relative;
+}
+
+.ps__caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+
+.ps__caption-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  display: inline-block;
+}
+
+@media (max-width: 720px) {
+  .ps__grid {
+    gap: 56px;
+  }
+}

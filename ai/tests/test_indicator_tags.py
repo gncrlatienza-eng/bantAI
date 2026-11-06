@@ -81,6 +81,41 @@ def test_otp_phishing_tagalog():
     assert "OTP / Account Phishing" in tag_names("Ma-block ang account mo, i-verify ang account mo ngayon din.")
 
 
+# --- www.-stripping regression (str.lstrip is a char-set strip, not a prefix
+# strip -- ".lstrip('www.')" used to also eat a leading "w" off *any* host,
+# so a typosquat like "wbpi.com.ph" got corrupted into "bpi.com.ph" and was
+# silently treated as the real bank) --------------------------------------
+def test_www_prefix_is_stripped_for_official_domain_match():
+    tags = tag_names("Check your balance at https://www.gcash.com/app")
+    assert "Suspicious URL" not in tags
+
+
+def test_w_prefixed_typosquat_is_not_mistaken_for_official_domain():
+    assert "Suspicious URL" in tag_names("Verify now at https://wbpi.com.ph/unlock")
+
+
+# --- second gambling-vocabulary cluster + "avoid deactivation" phrasing -----
+# (WBS 5.3.7, scripts/analyze_indicator_coverage.py) -- measured 48.6% of
+# real Scam rows got no tag at all; these closed the two largest, most
+# frequent gaps in the untagged remainder. See indicator_tags.py comments.
+def test_gambling_bait_second_tagalog_cluster():
+    assert "Gambling Bait" in tag_names("Maglaro ng W+ at manalo ng IPHONE PROMAX! Sumali sa laro ngayon.")
+
+
+def test_gambling_bait_welcome_bonus_and_brand():
+    assert "Gambling Bait" in tag_names(
+        "Join us & FREE 50p today! Get extra 100p with any deposit. Welcome Bonus at Epicwin."
+    )
+
+
+def test_otp_phishing_avoid_deactivation_phrasing():
+    """Distinct grammar from 'will be deactivated' -- e.g. BDO/GCash notices
+    phrased as 'to avoid Deactivation' never matched the existing entry."""
+    assert "OTP / Account Phishing" in tag_names(
+        "Your BDO-Online Account is under review. Complete verification here to avoid Deactivation."
+    )
+
+
 # --- ordering and output shape ----------------------------------------------
 def test_tags_sorted_by_weight_descending():
     tags = tags_for_message("GCash: Your account is locked. Verify at http://gcash-verify.xyz/unlock")
@@ -97,3 +132,103 @@ def test_to_indicator_dicts_matches_backend_shape():
 
 def test_no_tags_for_plain_message():
     assert tags_for_message("Hi, what time are we meeting tomorrow?") == []
+
+
+# --- task-scam vocabulary (2026-09-18) --------------------------------------
+def test_task_scams_are_recognised_as_fake_job_offers():
+    """Piecework scams are a distinct family from work-from-home, and nothing
+    in the original list reached them. The middle case previously came back as
+    *Gambling Bait*, because "red envelope" is in that tag's vocabulary -- a
+    user being recruited into a fake job was told it was a betting advert."""
+    from preprocessing import preprocess
+    from service.indicator_tags import tags_for_message
+
+    for text in (
+        "Make money while watching YouTube, earn 500P per day, contact the tutor to receive 138P.",
+        "Part-time car reviewer, easily earn 300P high income, contact the manager for your 138P red envelope.",
+        "Mag-recruit ng mga reviewer ng kotse, sumali at makakuha ng 138p.",
+        "It is easier to get a daily salary of 300P. Just contact the instructor on your mobile phone.",
+    ):
+        tags = {t.tag for t in tags_for_message(text, preprocess(text))}
+        assert "Fake Job Offer" in tags, text
+
+
+def test_the_added_phrases_carry_no_common_word_into_the_shap_path():
+    """``explainer._tokens_to_tags`` splits a phrase into words and fires on any
+    single one of >=4 characters, so a phrase is only as safe as its commonest
+    word. "make money while watching" would have made *money* a standalone
+    Fake Job Offer trigger; it appears in 3.2% of Ham."""
+    import re
+
+    from service.indicator_tags import _FAKE_JOB_OFFER
+
+    banned = {"money", "make", "contact", "receive", "your", "earn"}
+    added = {"while watching", "the tutor", "car reviewer", "reviewer ng kotse", "daily salary"}
+    for phrase in added:
+        assert phrase in _FAKE_JOB_OFFER, f"{phrase} missing from the lexicon"
+        words = {w for w in re.split(r"[^a-z0-9]+", phrase.lower()) if len(w) >= 4}
+        assert not (words & banned), f"{phrase!r} would make {words & banned} a standalone trigger"
+
+
+# --- links written without http:// or www. (found preparing UAT, 2026-09-29) ---
+def _tags(text):
+    return [t.tag for t in tags_for_message(text)]
+
+
+def test_bare_scam_link_is_suspicious():
+    assert "Suspicious URL" in _tags("BDO: unauthorized transaction. Cancel here: bdo-secure-login.com")
+
+
+def test_bare_link_with_path_is_suspicious():
+    assert "Suspicious URL" in _tags("Claim your bonus: panalo777.xyz/claim?id=9")
+
+
+def test_bare_link_with_brand_is_impersonation():
+    assert "Brand Impersonation" in _tags("GCash Advisory: verify now at gcash-verify-ph.xyz")
+
+
+def test_bare_official_link_is_not_suspicious():
+    assert "Suspicious URL" not in _tags("Shopee 9.9 sale! Shop now at shopee.ph")
+
+
+def test_bare_shortener_is_suspicious():
+    assert "Suspicious URL" in _tags("Check this out: bit.ly/3abcXYZ")
+
+
+def test_government_and_school_sites_are_trusted():
+    assert "Suspicious URL" not in _tags("Register at sap2.dswd.gov.ph for the program")
+    assert "Suspicious URL" not in _tags("Enroll at familysignup.dlsl.edu.ph")
+    # ...but only the real suffix: a look-alike ending is still suspicious.
+    assert "Suspicious URL" in _tags("Claim ayuda at dswd-gov.ph.claim-now.xyz")
+
+
+def test_ordinary_text_is_not_a_link():
+    for text in (
+        "Load P50.00 now",
+        "Bring snacks, e.g. bread",
+        "Hi Mr.Cruz, see you at 5",
+        "Version 2.0 is out",
+        "email me at juan@gmail.com",
+    ):
+        assert "Suspicious URL" not in _tags(text), text
+
+
+def test_a_link_is_not_counted_twice():
+    from service.indicator_tags import _link_hosts
+
+    assert _link_hosts("go to https://evil.xyz/login now") == ["evil.xyz"]
+    assert _link_hosts("www.evil.xyz and evil2.top") == ["evil.xyz", "evil2.top"]
+
+
+def test_tagalog_dito_is_not_the_telco():
+    """ "dito" is everyday Tagalog for "here"."""
+    tags = _tags("Mag-register ngayon, jackpot slot games dito: panalo777.xyz")
+    assert "Brand Impersonation" not in tags and "Suspicious URL" in tags
+
+
+def test_dito_written_as_the_brand_still_counts():
+    assert "Brand Impersonation" in _tags("DITO: your SIM will be blocked, verify at dito-sim-verify.xyz")
+
+
+def test_brand_inside_another_word_is_not_the_brand():
+    assert "Brand Impersonation" not in _tags("Get a new smartphone today at phonedeals.xyz")

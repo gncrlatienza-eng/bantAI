@@ -6,14 +6,33 @@ import {
   HttpStatus,
   Post,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { PortalAccount } from '../access-control/portal-route.decorator';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { LoginDto } from './dto/login.dto';
+import { PortalRegisterDto } from './dto/portal-register.dto';
+import {
+  RequestClaimEmailOtpDto,
+  RequestEmailOtpDto,
+  RequestPortalEmailOtpDto,
+  VerifyClaimEmailOtpDto,
+  VerifyEmailOtpDto,
+  VerifySignUpDto,
+} from './dto/email-otp.dto';
+import {
+  ADMIN_SESSION_COOKIE,
+  AuthAudience,
+  CLIENT_SESSION_COOKIE,
+  LEGACY_PORTAL_SESSION_COOKIE,
+} from './constants';
 
 @Controller('auth')
 export class AuthController {
@@ -25,6 +44,120 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.CREATED)
+  @Post('portal/register')
+  async portalRegister(
+    @Body() dto: PortalRegisterDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.registerPortal(dto);
+    this.setSessionCookie(response, result.access_token, AuthAudience.CLIENT);
+    return { message: result.message };
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('login')
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    this.setSessionCookie(response, result.access_token, result.audience);
+    return { message: result.message };
+  }
+
+  /*
+   * Account-first web registration: prove the email, then set a password.
+   * The new account starts at mandatory setup with no license or workspace.
+   */
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('portal/sign-up/request-email-otp')
+  requestSignUpOtp(@Body() dto: RequestEmailOtpDto) {
+    return this.authService.requestSignUpOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.CREATED)
+  @Post('portal/sign-up/verify')
+  async verifySignUp(
+    @Body() dto: VerifySignUpDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.verifySignUp(dto);
+    this.setSessionCookie(response, result.access_token, AuthAudience.CLIENT);
+    return { message: result.message };
+  }
+
+  /*
+   * Unified portal sign-in — the only web sign-in pair. The service picks
+   * the correct audience (ADMIN vs CLIENT) from the user record so we never
+   * expose an admin-specific endpoint publicly. The former client/* and
+   * admin/* email-OTP routes were removed: they issued sign-in challenges
+   * without the password check, so the portal factor could be skipped
+   * (audit AUTH-01, 2026-10-13). Do not re-add sign-in routes that bypass
+   * `requestPortalEmailOtp`.
+   */
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('portal/request-email-otp')
+  requestPortalEmailOtp(@Body() dto: RequestPortalEmailOtpDto) {
+    return this.authService.requestPortalEmailOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('portal/verify-email-otp')
+  async verifyPortalEmailOtp(
+    @Body() dto: VerifyEmailOtpDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.verifyPortalEmailOtp(dto);
+    this.setSessionCookie(response, result.access_token, result.audience);
+    return { message: result.message };
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('client/claim/request-email-otp')
+  requestClientClaimEmailOtp(@Body() dto: RequestClaimEmailOtpDto) {
+    return this.authService.requestClientClaimEmailOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('client/claim/verify-email-otp')
+  async verifyClientClaimEmailOtp(
+    @Body() dto: VerifyClaimEmailOtpDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.verifyClientClaimEmailOtp(dto);
+    this.setSessionCookie(response, result.access_token, AuthAudience.CLIENT);
+    return { message: result.message };
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('mobile/request-email-otp')
+  requestMobileEmailOtp(@Body() dto: RequestEmailOtpDto) {
+    return this.authService.requestMobileEmailOtp(dto);
+  }
+
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('mobile/verify-email-otp')
+  verifyMobileEmailOtp(@Body() dto: VerifyEmailOtpDto) {
+    return this.authService.verifyMobileEmailOtp(dto);
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('logout')
+  logout(@Res({ passthrough: true }) response: Response) {
+    this.clearWebCookies(response);
   }
 
   // 5 OTP requests per IP per minute — prevents SMS-flooding abuse
@@ -44,8 +177,44 @@ export class AuthController {
   // Authenticated — skip the global throttle, JWT already identifies the user
   @SkipThrottle()
   @UseGuards(JwtAuthGuard)
+  @PortalAccount()
   @Get('me')
   me(@Request() req: { user: { userId: string } }) {
     return this.authService.getMe(req.user.userId);
+  }
+
+  private setSessionCookie(
+    response: Response,
+    token: string,
+    audience: AuthAudience,
+  ) {
+    const name =
+      audience === AuthAudience.ADMIN
+        ? ADMIN_SESSION_COOKIE
+        : CLIENT_SESSION_COOKIE;
+    const otherName =
+      audience === AuthAudience.ADMIN
+        ? CLIENT_SESSION_COOKIE
+        : ADMIN_SESSION_COOKIE;
+    response.clearCookie(otherName, { path: '/api' });
+    response.cookie(name, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/api',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    // Remove the superseded cookie during the transition.
+    response.clearCookie(LEGACY_PORTAL_SESSION_COOKIE, { path: '/api' });
+  }
+
+  private clearWebCookies(response: Response) {
+    for (const name of [
+      CLIENT_SESSION_COOKIE,
+      ADMIN_SESSION_COOKIE,
+      LEGACY_PORTAL_SESSION_COOKIE,
+    ]) {
+      response.clearCookie(name, { path: '/api' });
+    }
   }
 }

@@ -60,7 +60,7 @@ export const LineAreaChart: React.FC = () => {
       precision: 96.2,
       recall: 94.6,
       f1: 95.4,
-      note: '⚡ Retrain Event Deployed (+1.3% Accuracy Gain)',
+      note: 'Retrain Event Deployed (+1.3% Accuracy Gain)',
       isRetrain: true,
     },
     {

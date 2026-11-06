@@ -11,9 +11,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { StaffGuard } from '../auth/guards/staff.guard';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { PortalLicensed } from '../access-control/portal-route.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ReviewReportDto } from './dto/review-report.dto';
+import { RejectReportDto, ReviewReportDto } from './dto/review-report.dto';
 import { SubmitReportDto } from './dto/submit-report.dto';
 import { ReportsService } from './reports.service';
 
@@ -23,6 +25,10 @@ export class ReportsController {
 
   // Mobile: authenticated user submits a FP/FN correction on a message.
   @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
   @HttpCode(HttpStatus.CREATED)
   @Post()
   submit(
@@ -32,33 +38,62 @@ export class ReportsController {
     return this.reportsService.submit(req.user.userId, dto);
   }
 
+  // Mobile: the signed-in user's own reports, for the app's Reported page.
+  // Declared before the admin routes; 'mine' is a fixed path, not an :id.
+  @UseGuards(JwtAuthGuard)
+  @PortalLicensed({
+    capability: 'readIntelligence',
+    entitlement: 'MASKED_DATASET',
+  })
+  @Get('mine')
+  findMine(@Request() req: { user: { userId: string } }) {
+    return this.reportsService.findMine(req.user.userId);
+  }
+
   // Admin: list all reports.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:read')
   @Get()
-  findAll() {
-    return this.reportsService.findAll();
+  findAll(@Request() req: { user: { userId: string } }) {
+    return this.reportsService.findAll(req.user.userId);
   }
 
   // Admin: list only Pending reports.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:read')
   @Get('pending')
-  findPending() {
-    return this.reportsService.findPending();
+  findPending(@Request() req: { user: { userId: string } }) {
+    return this.reportsService.findPending(req.user.userId);
   }
 
   // Admin: validate a report — accepts it into the training set.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/validate')
-  validate(@Param('id') id: string, @Body() dto: ReviewReportDto) {
-    return this.reportsService.validate(id, dto.adminNote);
+  validate(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() dto: ReviewReportDto,
+  ) {
+    return this.reportsService.validate(id, req.user.userId, dto.adminNote);
   }
 
   // Admin: reject a report — discards it from the training set.
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  @RequirePermissions('reports:manage')
   @HttpCode(HttpStatus.OK)
   @Patch(':id/reject')
-  reject(@Param('id') id: string, @Body() dto: ReviewReportDto) {
-    return this.reportsService.reject(id, dto.adminNote);
+  reject(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() dto: RejectReportDto,
+  ) {
+    return this.reportsService.reject(
+      id,
+      req.user.userId,
+      dto.adminNote,
+      dto.reviewedLabel,
+    );
   }
 }

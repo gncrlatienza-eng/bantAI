@@ -16,7 +16,43 @@ import pandas as pd
 
 from preprocessing import preprocess
 
-from .config import LABEL2ID, TrainingConfig
+from .config import ID2LABEL, LABEL2ID, ORIGIN_COLUMN, SYNTHETIC_ORIGINS, TrainingConfig
+
+#: Conflicting texts quoted in the error before it is truncated. The full set
+#: is always available on ``LabelConflictError.conflicts``.
+_CONFLICT_REPORT_LIMIT = 20
+
+
+class LabelConflictError(ValueError):
+    """One masked text carries more than one label.
+
+    Not a de-duplication detail: it means two sources or two annotators
+    disagree about ground truth for the exact string the model is trained on.
+    Resolving that by keeping whichever row was read first would manufacture a
+    gold label nobody approved, so the load fails and an annotator adjudicates.
+
+    ``conflicts`` maps masked text -> the sorted label names claimed for it, so
+    the annotation-QA step can write a review file without parsing the message.
+    """
+
+    def __init__(self, conflicts: dict):
+        self.conflicts = conflicts
+        super().__init__(_format_conflict_report(conflicts))
+
+
+def _format_conflict_report(conflicts: dict) -> str:
+    # Texts are already masked by ``preprocess``, so quoting them here does not
+    # leak PII into logs or CI output.
+    lines = [
+        f"{len(conflicts)} masked text(s) carry more than one label. PII masking collapses "
+        "distinct raw messages onto a single model input, so these cannot be resolved by "
+        "de-duplication -- adjudicate each one and correct the source files before training:"
+    ]
+    for text, labels in list(conflicts.items())[:_CONFLICT_REPORT_LIMIT]:
+        lines.append(f"  {'/'.join(labels)}: {text!r}")
+    if len(conflicts) > _CONFLICT_REPORT_LIMIT:
+        lines.append(f"  ... and {len(conflicts) - _CONFLICT_REPORT_LIMIT} more")
+    return "\n".join(lines)
 
 
 def _read_files(path: str) -> pd.DataFrame:
@@ -72,6 +108,7 @@ def load_split(config: TrainingConfig) -> Tuple[List[str], List[str], List[int],
 
     texts = [preprocess(str(t)) for t in df[config.text_column].tolist()]
     labels = [_coerce_label(v) for v in df[config.label_column].tolist()]
+    origins = [str(o) for o in df[ORIGIN_COLUMN].tolist()] if ORIGIN_COLUMN in df else ["" for _ in texts]
 
     # Two different raw messages can collapse to the same model input once PII is
     # masked -- "...libre 1q2w3e7.ca" and "...libre 1q2w3e8.ca" both become
@@ -80,18 +117,40 @@ def load_split(config: TrainingConfig) -> Tuple[List[str], List[str], List[int],
     # model be scored on strings it memorised verbatim (measured at 13.7% of the
     # validation set, and 31.8% of validation Scams). De-duplicate on the masked
     # text instead, since that is what the model actually sees.
+    # Rows that agree collapse to one. Rows that disagree are an annotation
+    # defect and stop the run -- see LabelConflictError.
     deduped: dict = {}
-    for text, label in zip(texts, labels):
-        deduped.setdefault(text, label)
-    texts, labels = list(deduped), list(deduped.values())
+    conflicting: dict = {}
+    for text, label, origin in zip(texts, labels, origins):
+        seen = deduped.get(text)
+        if seen is None:
+            deduped[text] = (label, origin)
+        elif seen[0] != label:
+            conflicting.setdefault(text, {seen[0]}).add(label)
+    if conflicting:
+        raise LabelConflictError(
+            {text: sorted(ID2LABEL[label] for label in found) for text, found in conflicting.items()}
+        )
 
-    return train_test_split(
-        texts,
-        labels,
+    real = [(t, lo[0]) for t, lo in deduped.items() if lo[1] not in SYNTHETIC_ORIGINS]
+    synthetic = [(t, lo[0]) for t, lo in deduped.items() if lo[1] in SYNTHETIC_ORIGINS]
+
+    # Synthetic rows train, never validate. A candidate trained on generated
+    # text scores well on more generated text from the same templates, while
+    # the incumbent it is measured against has never seen any -- so scoring
+    # both on a split containing synthetic rows reports "learned our templates"
+    # as "better at detecting scams". See SYNTHETIC_ORIGINS in training/config.
+    train_texts, val_texts, train_labels, val_labels = train_test_split(
+        [t for t, _ in real],
+        [lab for _, lab in real],
         test_size=config.test_size,
         random_state=config.seed,
-        stratify=labels,
+        stratify=[lab for _, lab in real],
     )
+    if synthetic:
+        train_texts = train_texts + [t for t, _ in synthetic]
+        train_labels = train_labels + [lab for _, lab in synthetic]
+    return train_texts, val_texts, train_labels, val_labels
 
 
 def build_hf_datasets(config: TrainingConfig, tokenizer):

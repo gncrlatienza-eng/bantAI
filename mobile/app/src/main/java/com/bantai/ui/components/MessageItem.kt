@@ -3,27 +3,35 @@ package com.bantai.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bantai.ui.theme.ContactBadge
 import com.bantai.ui.theme.Danger
 import com.bantai.ui.theme.Safe
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.Suspicious
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 
-enum class BadgeType { CONTACT, SAFE, SUSPICIOUS, UNKNOWN, BLOCKED }
+enum class BadgeType { CONTACT, SAFE, UNVERIFIED, CHECKING, SPAM, UNKNOWN, BLOCKED }
 
 data class MessageItem(
     val sender: String,
+    // What the row shows as its title: the contact's name, or the number.
+    val title: String = sender,
     val initials: String,
     val avatarColor: Color,
     val preview: String,
@@ -37,10 +45,20 @@ data class MessageItem(
 fun StatusBadge(type: BadgeType) {
     when (type) {
         BadgeType.CONTACT -> BadgePill("Contact", ContactBadge, White, null)
-        BadgeType.SAFE -> BadgePill("Safe", Color(0xFF1A3A1A), Safe, Safe)
-        BadgeType.SUSPICIOUS -> BadgePill("Suspicious", Color(0xFF3A1A00), Suspicious, Suspicious)
+        BadgeType.SAFE -> BadgePill("Safe", Safe.copy(alpha = 0.18f), Safe, Safe)
+        // Distinct from SAFE on purpose: the on-device heuristic found nothing
+        // suspicious, but the backend model never actually checked this message
+        // (offline / no token / request failed) -- "nothing found" and "verified
+        // clean" must not read the same way to the user.
+        BadgeType.UNVERIFIED -> BadgePill("Unverified", Surface, TextSecondary, TextSecondary)
+        // Not a verdict yet: the message is queued or waiting on the model.
+        // Distinct from UNVERIFIED, which means the check already gave up.
+        BadgeType.CHECKING -> CheckingPill()
+        BadgeType.SPAM -> BadgePill("Spam", Suspicious.copy(alpha = 0.18f), Suspicious, Suspicious)
         BadgeType.UNKNOWN -> BadgePill("Unknown", Surface, TextSecondary, null)
-        BadgeType.BLOCKED -> BadgePill("Blocked", Color(0xFF3A0000), Danger, Danger)
+        // "Scam", not "Blocked": an on-device Model C verdict sets this label
+        // without blocking the sender, so "Blocked" would overstate it.
+        BadgeType.BLOCKED -> BadgePill("Scam", Danger.copy(alpha = 0.18f), Danger, Danger)
     }
 }
 
@@ -58,6 +76,26 @@ private fun BadgePill(
                 .then(border?.let { Modifier.border(1.dp, it, RoundedCornerShape(100.dp)) } ?: Modifier)
                 .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
-        Text(label, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = textColor, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun CheckingPill() {
+    Row(
+        modifier =
+            Modifier
+                .background(Surface, RoundedCornerShape(100.dp))
+                .border(1.dp, TextSecondary, RoundedCornerShape(100.dp))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(9.dp),
+            color = TextSecondary,
+            strokeWidth = 1.5.dp,
+        )
+        Spacer(Modifier.width(4.dp))
+        Text("Checking…", color = TextSecondary, fontSize = TextSize.Caption2, fontWeight = FontWeight.Medium)
     }
 }

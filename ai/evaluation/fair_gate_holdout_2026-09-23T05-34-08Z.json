@@ -1,0 +1,94 @@
+{
+  "what": "promotion gate (retraining/promotion.py) run on the frozen holdout, not the validation split",
+  "caveat": "4 candidates were scored against the same holdout; repeated use weakens it as an unbiased final test. Treat as exploratory unless a fresh unused set is used.",
+  "command": "python scripts\\fair_gate_holdout.py",
+  "git_commit": "76885872528bd557a910040d38a6df6846c63bce",
+  "evaluated_at": "2026-09-23T05:34:08+00:00",
+  "holdout_csv": "datasets/holdout/holdout.csv",
+  "holdout_sha256": "31e811205619d7968ad8c02d63f3bcdce0aa0a1427ee142c5b18fe7e9003a755",
+  "holdout_integrity": "ok",
+  "holdout_rows": 3236,
+  "models": {
+    "baseline": {
+      "dir": "models/xlm-roberta-smishing",
+      "version_tag": "v2026-08-27T09-46-20Z",
+      "sha256": "6509d362ca92dfc95ef3d2364dfff2774355c928b58593cc9f30e16c8eecf2aa",
+      "integrity": "ok",
+      "integrity_detail": "1 file(s) match"
+    },
+    "run 1": {
+      "dir": "models/retraining_runs/2026-09-21-colab/candidate",
+      "version_tag": "v2026-09-21-colab-run1",
+      "sha256": "6fadf89f9e865c2f6bf60a9c2658b8b6d8665dae64119b135a950e740f321401",
+      "integrity": "ok",
+      "integrity_detail": "4 file(s) match"
+    },
+    "A": {
+      "dir": "models/retraining_runs/2026-09-21-colab-A/candidate",
+      "version_tag": "v2026-09-21-colab-A",
+      "sha256": "898c39bc4d9119776c8438690a8ec4ea4b6580320e7fa4375034112475fc46a7",
+      "integrity": "ok",
+      "integrity_detail": "4 file(s) match"
+    },
+    "B": {
+      "dir": "models/retraining_runs/2026-09-21-colab-B/candidate",
+      "version_tag": "v2026-09-21-colab-B",
+      "sha256": "9028b5deb677a270068a7e42836ea7c68a3dfc8ef38e58c1b8777659afb91056",
+      "integrity": "ok",
+      "integrity_detail": "4 file(s) match"
+    },
+    "C": {
+      "dir": "models/retraining_runs/2026-09-21-colab-C/candidate",
+      "version_tag": "v2026-09-21-colab-C",
+      "sha256": "85580ba9edae8ce4428ccbd09c4e80d2ba7a6aaf24c61b14c173b40ab4e8e69b",
+      "integrity": "ok",
+      "integrity_detail": "4 file(s) match"
+    }
+  },
+  "results": {
+    "run 1": {
+      "promote": false,
+      "reason": "difference not significant (p=0.1686 >= 0.05); 26 fixes vs 38 regressions could be noise",
+      "baseline_macro_f1": 0.9614215787725263,
+      "candidate_macro_f1": 0.9567236810602996,
+      "baseline_scam_recall": 0.9348268839103869,
+      "candidate_scam_recall": 0.9429735234215886,
+      "n_fixes": 26,
+      "n_regressions": 38,
+      "p_value": 0.16864291143970336
+    },
+    "A": {
+      "promote": false,
+      "reason": "difference not significant (p=0.5614 >= 0.05); 34 fixes vs 40 regressions could be noise",
+      "baseline_macro_f1": 0.9614215787725263,
+      "candidate_macro_f1": 0.9592502010864288,
+      "baseline_scam_recall": 0.9348268839103869,
+      "candidate_scam_recall": 0.9490835030549898,
+      "n_fixes": 34,
+      "n_regressions": 40,
+      "p_value": 0.5613807442989817
+    },
+    "B": {
+      "promote": false,
+      "reason": "difference not significant (p=0.5386 >= 0.05); 36 fixes vs 30 regressions could be noise",
+      "baseline_macro_f1": 0.9614215787725263,
+      "candidate_macro_f1": 0.963099150771691,
+      "baseline_scam_recall": 0.9348268839103869,
+      "candidate_scam_recall": 0.9531568228105907,
+      "n_fixes": 36,
+      "n_regressions": 30,
+      "p_value": 0.5385827752459466
+    },
+    "C": {
+      "promote": false,
+      "reason": "difference not significant (p=0.4767 >= 0.05); 39 fixes vs 32 regressions could be noise",
+      "baseline_macro_f1": 0.9614215787725263,
+      "candidate_macro_f1": 0.9634956575933696,
+      "baseline_scam_recall": 0.9348268839103869,
+      "candidate_scam_recall": 0.9572301425661914,
+      "n_fixes": 39,
+      "n_regressions": 32,
+      "p_value": 0.47668779343427553
+    }
+  }
+}

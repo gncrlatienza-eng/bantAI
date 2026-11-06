@@ -1,5 +1,6 @@
 import {
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Max,
@@ -27,4 +28,15 @@ export class CreateModelVersionDto {
   @IsOptional()
   @MaxLength(1000)
   notes?: string;
+
+  // Optional richer evidence from the training pipeline (per-class metrics,
+  // holdout size, McNemar result, baseline). Stored as submitted for review.
+  @IsObject()
+  @IsOptional()
+  evaluation?: Record<string, unknown>;
+
+  // Optional provenance: dataset snapshot tag, run directory, artifact digest.
+  @IsObject()
+  @IsOptional()
+  provenance?: Record<string, unknown>;
 }

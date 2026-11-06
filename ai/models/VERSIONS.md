@@ -1,0 +1,48 @@
+# Model folders — which version is which
+
+Everything in `ai/models/` except this file is git-ignored (model weights are
+too large for git and are backed up on Google Drive instead, under
+`bantai/models/`, one folder per version).
+
+`campaign_space.json` (item 19) holds a mean vector, two directions and its
+match thresholds (no message text). It is **not** tracked in git: the
+repository is public and the file is checkpoint-specific deployment data.
+Keep it with the model version named inside it (Drive, next to that model's
+folder), provision it at `BANTAI_AI_CAMPAIGN_SPACE_FILE`, and regenerate it
+after any promotion — see PIPELINE.md, "Item 19". Without it (or with a model
+whose identity/digest can't be verified) the service turns campaign matching
+off; classification is unaffected.
+
+**Do not rename these folders.** The service and scripts read them by path.
+
+| Folder | Version | What it is |
+|---|---|---|
+| **Approved live model** | `v2026-09-21-colab-C` | **Model C**, promoted 2026-09-27 on adviser approval. Weights sha256 `85580ba9edae8ce4…`. Source: `retraining_runs/2026-09-21-colab-C/candidate/`, Drive `bantai/models/2026-09-21-colab-C/`. To serve it, copy it into `xlm-roberta-smishing/` (keep the outgoing model as a rollback folder) and run with threshold 0.999 (the code default from 2026-09-27). |
+| `xlm-roberta-smishing/` | `v2026-08-27T09-46-20Z` until swapped | The folder the AI service serves from. Held the 2026-08-30 model; replace with Model C as above. |
+| `xlm-roberta-smishing.pre-2026-08-27-promotion-backup/` | `v2026-07-29-run3` | The original model. Rollback copy. |
+| `retraining_runs/2026-08-27T09-46-20Z/` | `v2026-08-27T09-46-20Z` | The run that produced the LIVE model. `candidate/` is an identical copy of it (same `model.safetensors` sha256, `6509d362ca92dfc9…`); `decision.json` / `manifest.json` record the gate verdict. |
+| `retraining_runs/2026-08-26T*/`, `2026-08-27T09-28-21Z/` | — | Records only (gate decisions, manifests). The weights were never kept. |
+| `retraining_runs/2026-09-21-colab*/` | `v2026-09-21-colab-{run1,A,B,C}` | The four 2026-09-21 retrains, each with `version.json`. C is the promoted one; run 1, A and B are kept as evidence (see `evaluation/fair_gate_holdout_*.json`). |
+| `retraining_runs/round-trip-scratch/` | — | Scratch space for `scripts/round_trip.py`. |
+| `onnx_export/` | `v2026-08-27T09-46-20Z` | On-device feasibility spike (2026-09-16/21). `model_int8.onnx` is what a phone would run; `model_fp32.onnx` is regenerable with `scripts/export_onnx_poc.py`. |
+| `retrain_queue/` | — | Used by the AI service's `POST /retrain`. |
+
+Each version folder has a `version.json` with its version tag and the sha256 of
+its `model.safetensors` — that file, not the folder name, is the source of truth.
+
+## Adding a new model (e.g. a Colab retrain)
+
+Put it in a **new** folder, never over `xlm-roberta-smishing/`:
+
+```
+retraining_runs/<YYYY-MM-DD>-colab/candidate/
+```
+
+It only replaces the LIVE model after the holdout test and the promotion gate
+(Scam-recall floor included). When it does, keep the outgoing LIVE model as a
+rollback copy and add a row to the table above.
+
+## Disk space
+
+The `checkpoint-*` subfolders inside each model folder (~3 GB each) are only
+needed to *resume* an interrupted training run. The service never reads them.

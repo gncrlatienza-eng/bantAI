@@ -9,33 +9,190 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  phone     String   @unique
-  email     String?  @unique
+  phone                 String?            @unique
+  email                 String?            @unique
+  mobileAuthEmail       String?            @unique
+  passwordHash          String?
+  company               String?
+  role                  UserRole           @default(USER)
+  staffRole             StaffRole?
+  webRole               WebRole?
+  portalAccessStatus    PortalAccessStatus @default(ACTIVE)
+  portalAccessReason    String?
+  // Opt-in (Privacy & data on the phone) to let the team review this user's
+  // flagged, masked messages as training candidates. Off by default. Only
+  // messages the server received after trainingOptInAt are ever eligible.
+  trainingOptIn         Boolean            @default(false)
+  trainingOptInAt       DateTime?
+  portalAccessUpdatedAt DateTime?
+  portalAccessUpdatedBy String?
 
   firstName String?
   lastName  String?
 
+  // Web portal lifecycle. Identity outlives every license: expiry never
+  // deletes or resets these fields. Mobile-only users keep NOT_STARTED and
+  // cannot sign in on the web (they have no portal password).
+  emailVerifiedAt       DateTime?
+  onboardingStatus      OnboardingStatus @default(NOT_STARTED)
+  onboardingCompletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages       SmsMessage[]
-  contacts       Contact[]
-  blockedNumbers BlockedNumber[]
-  reports        UserReport[]
+  messages                 SmsMessage[]
+  contacts                 Contact[]
+  blockedNumbers           BlockedNumber[]
+  reports                  UserReport[]
+  senderReports            SenderReport[]
+  moderatedSenderReports   SenderReport[]           @relation("SenderReportReviewer")
+  organizationMemberships  OrganizationMembership[]
+  accessRequests           AccessRequest[]          @relation("PortalAccessRequestUser")
+  portalEnforcementEvents  PortalAccessAudit[]      @relation("PortalEnforcementTarget")
+  portalEnforcementActions PortalAccessAudit[]      @relation("PortalEnforcementActor")
+  approvedShieldMessages   ShieldCampaignMessage[]  @relation("ShieldCampaignMessageApprover")
+  createdShieldApiKeys     ShieldApiKey[]           @relation("ShieldApiKeyCreator")
+  notificationPreference   NotificationPreference?
+  portalNotifications      PortalNotification[]
+  cloudVerificationAdmissions CloudVerificationAdmission[]
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum StaffRole {
+  SUPERADMIN
+  SUPPORT
+  ANALYST
+  OPERATIONS
+  PRIVACY
+}
+
+enum WebRole {
+  SHIELD
+  ADMIN
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETE
+}
+
+// Administrative account enforcement is independent from Stripe-owned
+// LicenseStatus. Billing events must never restore a suspended/revoked user.
+enum PortalAccessStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum PortalEnforcementAction {
+  SUSPEND
+  RESTORE
+  REVOKE
+}
+
+// Dashboard tenancy is intentionally separate from the global ADMIN role.
+// A member can be permitted to inspect only their organization's masked data.
+model PortalOrganization {
+  id                    String   @id @default(uuid())
+  name                  String   @unique
+  isActive              Boolean  @default(true)
+  ownerId               String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  apiMonthlyQuota       Int      @default(50000)
+  apiRateLimitPerMinute Int      @default(100)
+
+  members           OrganizationMembership[]
+  invitations       OrganizationInvitation[]
+  accessRequests    AccessRequest[]          @relation("PortalAccessRequestOrganization")
+  licenses          License[]
+  shieldApiKeys     ShieldApiKey[]
+  shieldApiRequests ShieldApiRequest[]
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+model OrganizationInvitation {
+  id             String                 @id @default(uuid())
+  organizationId String
+  organization   PortalOrganization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrganizationMemberRole @default(TIER_2)
+  tokenHash      String                 @unique
+  invitedBy      String
+  status         InvitationStatus       @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([organizationId, status])
+  @@index([email])
+}
+
+model OrganizationMembership {
+  id             String                 @id @default(uuid())
+  organizationId String
+  organization   PortalOrganization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrganizationMemberRole @default(SHIELD)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+enum OrganizationMemberRole {
+  SHIELD
+  OWNER
+  TIER_1
+  TIER_2
+}
+
+// Append-only record of every administrative portal-account action.
+model PortalAccessAudit {
+  id String @id @default(uuid())
+
+  targetUserId String
+  targetUser   User    @relation("PortalEnforcementTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+  actorUserId  String?
+  actorUser    User?   @relation("PortalEnforcementActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  action         PortalEnforcementAction
+  previousStatus PortalAccessStatus
+  newStatus      PortalAccessStatus
+  reason         String
+  createdAt      DateTime                @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 // Synced from the user's Android phone contacts.
 // Stage 1 of sender verification — checked before any external API call.
 model Contact {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  phone     String   // normalized PH format: 09XXXXXXXXX
-  name      String?  // display name from phone contacts
+  // HMAC fingerprint of a canonical phone number; raw contacts and names are
+  // never retained.
+  phone String
+  name  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -44,119 +201,325 @@ model Contact {
 }
 
 model OtpCode {
-  id         String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  phone      String
-  code       String
+  phone    String @unique
+  codeHash String
 
-  expiresAt  DateTime
-  verified   Boolean  @default(false)
+  expiresAt          DateTime
+  verified           Boolean  @default(false)
+  attempts           Int      @default(0)
+  requestCount       Int      @default(0)
+  requestWindowStart DateTime @default(now())
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([phone, verified, createdAt])
 }
 
 model SmsMessage {
-  id         String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  clusterId  String?
-  cluster    CampaignCluster? @relation(fields: [clusterId], references: [id])
+  clusterId           String?
+  cluster             CampaignCluster?            @relation(fields: [clusterId], references: [id])
+  campaignMatchSource String? // model, domain_fallback, admin_correction; NULL is unknown history.
+  assignmentHistory   CampaignAssignmentHistory[]
 
   sender     String
+  // Privacy-masked text only. The original SMS body is never persisted.
   body       String
+  sourceId   String?
+  // True only when the stored classification was computed by the backend's
+  // AI service at ingest. Device-fallback labels/scores are client telemetry:
+  // never trusted, so never in global metrics or the drift score stream.
+  trusted    Boolean  @default(false)
   receivedAt DateTime @default(now())
+  // Server time the message was ingested. receivedAt comes from the phone, so
+  // this is what training consent (User.trainingOptInAt) is compared against.
+  createdAt  DateTime @default(now())
+  // Set when an admin skips this message in the detection review queue.
+  reviewDismissedAt DateTime?
 
   classification Classification?
   feature        MessageFeature?
   alerts         Alert[]
   reports        UserReport[]
+  cloudVerifications CloudVerificationJob[]
+  // Training sample an admin confirmed from the detection review queue.
+  datasetSample  DatasetSample?
+
+  @@unique([userId, sourceId])
+  @@index([userId, receivedAt])
+  @@index([clusterId, receivedAt])
+}
+
+enum CloudVerificationStatus {
+  pending
+  processing
+  verified
+  retryable_failure
+  failed
+}
+
+// Durable cloud-model verification. The queue carries only this row's id;
+// masked content and tenant ownership are recovered from PostgreSQL.
+model CloudVerificationJob {
+  id                     String                  @id @default(uuid())
+  messageId              String
+  message                SmsMessage              @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  modelVersion           String
+  approvedArtifactDigest String
+  status                 CloudVerificationStatus @default(pending)
+  attempts               Int                     @default(0)
+  maxAttempts            Int                     @default(5)
+  publishedAt            DateTime?
+  availableAt            DateTime                @default(now())
+  leaseOwner             String?
+  leaseExpiresAt         DateTime?
+  retryAfter             DateTime?
+  lastError              String?
+  resultCommittedAt      DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@unique([messageId, modelVersion, approvedArtifactDigest])
+  @@index([status, availableAt])
+  @@index([leaseExpiresAt])
+}
+
+// Persisted admission ledger shared by HTTP and queue-triggered replicas.
+// `admissionKey` makes retries and coalesced wake calls idempotent.
+model CloudVerificationAdmission {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admissionKey String   @unique
+  kind         String
+  admittedAt   DateTime @default(now())
+
+  @@index([admittedAt])
+  @@index([userId, admittedAt])
 }
 
 model MessageFeature {
-  id             String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  messageId      String   @unique
-  message        SmsMessage @relation(fields: [messageId], references: [id])
+  messageId String     @unique
+  message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  normalizedBody String
-  maskedBody     String
+  normalizedBody  String
+  maskedBody      String
   suppressedLinks String[] // URLs hidden because message was flagged or sender unknown
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Classification {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  messageId String   @unique
+  messageId String     @unique
   message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  label     String   // Scam | Spam | Ham
-  score     Float
-  scores    Json?    // full softmax distribution: { Ham, Spam, Scam }
-  bucket    String?  // AI routing decision: safe | unknown | spam | blocked
+  label  String // Scam | Spam | Ham
+  score  Float
+  scores Json? // full softmax distribution: { Ham, Spam, Scam }
+  bucket String? // AI routing decision: safe | unknown | spam | blocked
 
   createdAt DateTime @default(now())
 
   indicator ExplainableIndicator?
+
+  @@index([createdAt])
 }
 
 model Alert {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
   messageId String
   message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  status    String   @default("Pending") // Pending | Blocked | Reported | Ignored
+  status String @default("Pending") // Pending | Blocked | Reported | Ignored
 
   createdAt DateTime @default(now())
+
+  @@index([messageId])
+  @@index([status])
 }
 
 // Groups of similar smishing messages detected by AI clustering (HDBSCAN).
 // Created and updated by the AI/ML service; the backend links new messages
 // to an existing cluster when URL domains match.
 model CampaignCluster {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  label        String?  // human-readable campaign label set by AI/ML
-  centroid     Json?    // embedding vector used for cosine similarity (set by AI/ML)
-  urlDomains   String[] // known URL domains in this campaign (for link suppression)
-  isActive     Boolean  @default(true)
-  messageCount Int      @default(0)
+  label          String? // human-readable campaign label set by AI/ML
+  centroid       Json? // embedding vector used for cosine similarity (set by AI/ML)
+  // Versioned wording profile { version, shingles, memberCount } from offline
+  // clustering; masked-text template shingles only (CreateClusterDto).
+  lexicalProfile Json?
+  urlDomains     String[] // known URL domains in this campaign (for link suppression)
+  isActive       Boolean   @default(true)
+  messageCount   Int       @default(0)
+  countVerified  Boolean   @default(true) // false after operations involving unknown historical provenance.
+  revision       Int       @default(0)
+  publishedAt    DateTime?
+  archivedAt     DateTime?
+  summary        String?
+  risk           String?
+  category       String?
+  mitigation     String?
+  // null = offline clustering or an Admin draft; "EMERGING" = grouped on the
+  // server from scam texts that matched no known campaign (EmergingWavesService).
+  origin         String?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  messages     SmsMessage[]
+  messages        SmsMessage[]
+  shieldMessages  ShieldCampaignMessage[]
+  evolutionEvents CampaignEvolutionEvent[]
+  observations    CampaignObservation[]
+
+  @@index([isActive])
+  @@index([archivedAt])
+  @@index([urlDomains], type: Gin)
+}
+
+enum CampaignEvolutionStatus {
+  DRAFT
+  APPROVED
+}
+
+model CampaignOperation {
+  id                 String   @id @default(uuid())
+  kind               String // MERGE | SPLIT | CORRECTION
+  sourceIds          String[]
+  targetCampaignId   String?
+  actorUserId        String
+  reason             String
+  evidenceReferences String[]
+  createdAt          DateTime @default(now())
+
+  assignmentHistory CampaignAssignmentHistory[]
+
+  @@index([createdAt])
+}
+
+model CampaignAssignmentHistory {
+  id                  String            @id @default(uuid())
+  messageId           String
+  message             SmsMessage        @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  operationId         String
+  operation           CampaignOperation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  previousCampaignId  String?
+  nextCampaignId      String?
+  previousMatchSource String?
+  actorUserId         String
+  reason              String
+  createdAt           DateTime          @default(now())
+
+  @@index([messageId, createdAt])
+  @@index([operationId])
+}
+
+model CampaignEvolutionEvent {
+  id                 String                  @id @default(uuid())
+  campaignId         String
+  campaign           CampaignCluster         @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  type               String
+  summary            String // Publication-safe text, reviewed again before approval.
+  evidenceReferences String[] // Internal identifiers only, never raw SMS.
+  status             CampaignEvolutionStatus @default(DRAFT)
+  createdByUserId    String
+  // ADMIN when drafted by hand; ANALYSIS when proposed from an observation.
+  // Both still require a separate Admin approval before Shield sees them.
+  origin             String                  @default("ADMIN")
+  observationId      String?
+  approvedByUserId   String?
+  approvedAt         DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([campaignId, status, createdAt])
+}
+
+// Deterministic window summary of one backend campaign (CampaignCluster.id is
+// the stable identity; offline HDBSCAN cluster numbers are never used here).
+// Recomputing the same window with the same algorithmVersion over the same
+// trusted messages yields the same row. Evidence holds internal ids only.
+model CampaignObservation {
+  id                       String          @id @default(uuid())
+  campaignId               String
+  campaign                 CampaignCluster @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  algorithmVersion         String
+  windowStart              DateTime
+  windowEnd                DateTime
+  messageCount             Int
+  previousMessageCount     Int
+  domains                  String[]
+  newDomains               String[]
+  languageCounts           Json // { en, fil, mixed, unknown } from a documented heuristic
+  dominantLanguage         String?
+  previousDominantLanguage String?
+  activityChange           String // NEW | STABLE | SPIKE | DECLINE | DORMANT | RESURGENCE
+  evidenceMessageIds       String[]
+  createdAt                DateTime        @default(now())
+
+  @@unique([campaignId, windowStart, windowEnd, algorithmVersion])
+  @@index([campaignId, windowEnd])
+}
+
+model ShieldCampaignMessage {
+  id String @id @default(uuid())
+
+  campaignId String
+  campaign   CampaignCluster @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  maskedText       String
+  language         String?
+  classification   String?
+  confidence       Float?
+  approvedAt       DateTime
+  revokedAt        DateTime?
+  approvedByUserId String?
+  approvedBy       User?     @relation("ShieldCampaignMessageApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campaignId, approvedAt])
 }
 
 // SHAP-based feature importance for a single classification result.
 // Populated by the AI/ML service after SHAP analysis; the backend
 // exposes the endpoint, the AI/ML track fills it in.
 model ExplainableIndicator {
-  id               String         @id @default(uuid())
+  id String @id @default(uuid())
 
   classificationId String         @unique
   classification   Classification @relation(fields: [classificationId], references: [id])
 
-  indicators       Json           // [{ tag: string, weight: number }]
+  indicators Json // [{ tag: string, weight: number }]
 
-  createdAt        DateTime       @default(now())
+  createdAt DateTime @default(now())
 }
 
 // Senders blocked by the user or auto-blocked by the system (score ≥ 0.90).
 // Checked at the start of every ingest — blocked messages are suppressed
 // before classification runs.
 model BlockedNumber {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  sender    String           // phone number or sender name
-  source    String           // AutoBlock | UserBlock
+  // HMAC fingerprint; the raw phone number/sender value is not retained.
+  sender    String
+  source    String // AutoBlock | UserBlock
   createdAt DateTime @default(now())
 
   @@unique([userId, sender])
@@ -165,58 +528,684 @@ model BlockedNumber {
 // Caches sender verification results (verified | fraud | unknown) so we
 // don't re-check the same sender repeatedly.
 model SenderVerificationCache {
-  id        String    @id @default(uuid())
+  id String @id @default(uuid())
 
-  sender    String    @unique // phone number or sender name
-  status    String            // verified | fraud | unknown
-  source    String?           // how it was determined
+  sender String  @unique // phone number or sender name
+  status String // verified | fraud | unknown
+  source String? // how it was determined
 
   expiresAt DateTime?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Curated sender identity evidence. This is deliberately not a crowd-sourced
+// "known caller" graph: organization records may be created only after a
+// reviewer verifies an official source (for example, a government registry or
+// an organization-controlled domain). The sender remains HMAC-pseudonymized.
+model TrustedOrganization {
+  id              String    @id @default(uuid())
+  name            String
+  sender          String    @unique
+  officialDomains String[]
+  evidenceUrl     String
+  evidenceType    String
+  reviewedBy      String
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive, expiresAt])
+  @@index([officialDomains], type: Gin)
+}
+
+// Attribution for community sender reports. A sender is not globally marked as
+// fraud until several distinct authenticated users have corroborated it.
+model SenderReport {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender       String
+  reportWindow String
+  status       String    @default("Pending")
+  validatedAt  DateTime?
+  reviewedBy   String?
+  reviewer     User?     @relation("SenderReportReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  reviewReason String?
+  createdAt    DateTime  @default(now())
+
+  @@unique([userId, sender, reportWindow])
+  @@index([sender, status, createdAt])
 }
 
 // User-submitted FP/FN corrections used to feed the retraining pipeline.
 // State machine: Pending → Validated (queued for retrain) | Rejected (discarded)
 // Validated reports accumulate until a trigger threshold (50) fires retraining.
 model UserReport {
-  id            String     @id @default(uuid())
+  id String @id @default(uuid())
 
-  userId        String
-  user          User       @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  messageId     String
-  message       SmsMessage @relation(fields: [messageId], references: [id])
+  messageId String
+  message   SmsMessage @relation(fields: [messageId], references: [id])
 
-  originalLabel String     // AI label at receive time: Ham | Spam | Scam
-  reportedLabel String     // what user says it should be: Ham | Spam | Scam
+  originalLabel String // AI label at receive time: Ham | Spam | Scam
+  reportedLabel String // what user says it should be: Ham | Spam | Scam
+  // Optional free-text context from the reporter; privacy-masked before storage.
+  note          String?
+  // Messages selected and reported together on the phone share one groupId,
+  // so the app's Reported tab and the Admin Reports page show them as one
+  // entry. Null for a single-message report. Each message is still its own
+  // report: an admin accepts or rejects them into training one by one.
+  groupId       String?
 
   // Pending → Validated (accepted into training set) | Rejected (discarded)
-  status        String     @default("Pending")
-  adminNote     String?
+  status      String    @default("Pending")
+  adminNote   String?
+  // Set on reject: what the text really is (Ham | Spam), so the phone can
+  // move it out of the scam path after lifting the report's auto-block.
+  // Null while pending, on accepted reports, and on unlabelled rejections.
+  reviewedLabel String?
+  validatedAt DateTime? // set when status transitions to Validated; used by AI retraining pipeline
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  datasetSample DatasetSample?
 
   @@unique([userId, messageId]) // one report per user per message
+  @@index([status, validatedAt])
+  @@index([groupId])
+}
+
+enum DatasetSplit {
+  TRAIN
+  HOLDOUT
+}
+
+// Curated, masked training records. The frozen research holdout is never
+// populated from mobile reports or edited through the Admin portal.
+model DatasetSample {
+  id               String       @id @default(uuid())
+  sourceReportId   String?      @unique
+  sourceReport     UserReport?  @relation(fields: [sourceReportId], references: [id], onDelete: Restrict)
+  // Set for provenance "reviewed_detection": the opted-in message an admin
+  // labelled from the review queue. SetNull keeps the masked sample (already
+  // copied) if the message or account is later deleted.
+  sourceMessageId  String?      @unique
+  sourceMessage    SmsMessage?  @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  maskedText       String
+  label            String // Ham | Spam | Scam; Unknown remains an unreviewed report state.
+  language         String?
+  split            DatasetSplit @default(TRAIN)
+  included         Boolean      @default(true)
+  provenance       String
+  consentConfirmed Boolean
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  version          Int          @default(1)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  revisions     DatasetSampleRevision[]
+  snapshotItems DatasetSnapshotItem[]
+
+  @@index([split, included, label])
+}
+
+model DatasetSampleRevision {
+  id          String        @id @default(uuid())
+  sampleId    String
+  sample      DatasetSample @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+  version     Int
+  action      String
+  maskedText  String
+  label       String
+  language    String?
+  included    Boolean
+  actorUserId String
+  createdAt   DateTime      @default(now())
+
+  @@unique([sampleId, version])
+}
+
+model DatasetSnapshot {
+  id              String                @id @default(uuid())
+  versionTag      String                @unique
+  createdByUserId String
+  createdAt       DateTime              @default(now())
+  items           DatasetSnapshotItem[]
+}
+
+model DatasetSnapshotItem {
+  id            String          @id @default(uuid())
+  snapshotId    String
+  snapshot      DatasetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  sampleId      String
+  sample        DatasetSample   @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+  sampleVersion Int
+  maskedText    String
+  label         String
+  language      String?
+  provenance    String
+
+  @@unique([snapshotId, sampleId])
+}
+
+// ————— Licensing / access requests —————
+//
+// Prospective licensees submit an access request from the public site. A
+// human reviewer (ADMIN) then APPROVES or DECLINES. Approval mints a
+// single-use AccessRequestToken; the applicant lands on a confirmation
+// screen and creates a Stripe Checkout Session. Access becomes ACTIVE
+// only after Stripe's verified webhook confirms `checkout.session.completed`
+// — never when the browser reaches the success URL.
+
+enum AccessRequestTier {
+  SHIELD
+}
+
+enum AccessRequestStatus {
+  RECEIVED // just submitted
+  UNDER_REVIEW // admin picked it up
+  MORE_INFO_REQUIRED // admin asked the applicant for more detail; review paused
+  APPROVED // admin approved; applicant must accept the license agreement next
+  AGREEMENT_ACCEPTED // applicant accepted the license terms; may proceed to checkout
+  DECLINED // admin declined; end state
+  PAYMENT_PENDING // Stripe Checkout Session created
+  ACTIVE // webhook confirmed payment; license active
+  CANCELLED // applicant or admin cancelled
+  EXPIRED // approval lapsed before payment (license expiry lives on License)
+  WITHDRAWN // applicant withdrew an open request
+  SUPERSEDED // replaced by a newer request before a decision
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+enum LicenseStatus {
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum ShieldReviewDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AccessRequestEmailKind {
+  SUBMISSION
+  APPROVAL
+  ACTIVATION
+}
+
+enum AccessRequestEmailDeliveryStatus {
+  ACCEPTED
+  FAILED
+}
+
+enum EmailOtpPurpose {
+  CLIENT_SIGN_IN
+  CLIENT_SIGN_UP // account-first registration: proves the email before an account exists
+  CLIENT_CLAIM
+  ADMIN_SIGN_IN
+  MOBILE_SIGN_IN
+}
+
+model AccessRequest {
+  id String @id @default(uuid())
+
+  tier         AccessRequestTier @default(SHIELD)
+  legacyTier   String? // Original product before Shield migration; never grants Shield access.
+  fullName     String
+  email        String
+  organization String
+  intendedUse  String
+  reason       String
+
+  // Human-facing reference (rendered as BAI-<year>-<00000>). A separate
+  // sequence so the UUID never has to be shown to applicants.
+  referenceNumber Int @unique @default(autoincrement())
+
+  // Request details beyond the core columns. Only what is needed to evaluate
+  // the request (DPA proportionality) — no phone, address or government ID.
+  applicantRole       String?
+  expectedUsers       Int?
+  details             Json? // tier-specific answers (department, website, deployment, …)
+  accuracyConfirmedAt DateTime? // applicant confirmed the submission is accurate
+  productUpdatesOptIn Boolean   @default(false) // optional, never a condition of access
+  pilotInterest       Boolean   @default(false) // asked to be considered for the founding pilot
+
+  status AccessRequestStatus @default(RECEIVED)
+
+  approvedAt         DateTime?
+  approvedBy         String? // User.id of the admin who approved
+  declinedAt         DateTime?
+  declinedReason     String?
+  cancelledAt        DateTime?
+  cancelledBy        String? // User.id of the admin who cancelled the request
+  cancelledReason    String?
+  infoRequestedAt    DateTime?
+  infoRequestMessage String? // what the reviewer asked the applicant to clarify
+
+  agreementAcceptedAt DateTime?
+  agreementVersion    String? // version of the license terms the applicant accepted
+
+  billingPeriod           BillingPeriod?
+  stripeCustomerId        String?
+  stripeCheckoutSessionId String?             @unique
+  stripeSubscriptionId    String?             @unique
+  activatedAt             DateTime?
+  expiresAt               DateTime?
+  // Owning account. One user may hold many requests over time (renewals,
+  // re-requests after expiry, upgrades); history is never overwritten.
+  portalUserId            String?
+  portalUser              User?               @relation("PortalAccessRequestUser", fields: [portalUserId], references: [id], onDelete: SetNull)
+  // Workspace this request activates. A re-request reuses the previous
+  // workspace so members, audit, and API history survive reactivation.
+  portalOrganizationId    String?
+  portalOrganization      PortalOrganization? @relation("PortalAccessRequestOrganization", fields: [portalOrganizationId], references: [id], onDelete: SetNull)
+  previousAccessRequestId String?
+  previousAccessRequest   AccessRequest?      @relation("AccessRequestHistory", fields: [previousAccessRequestId], references: [id], onDelete: SetNull)
+  laterAccessRequests     AccessRequest[]     @relation("AccessRequestHistory")
+  withdrawnAt             DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tokens             AccessRequestToken[]
+  emailOtpChallenges EmailOtpChallenge[]
+  emailDeliveries    AccessRequestEmailDelivery[]
+  license            License?
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@index([portalUserId, createdAt])
+  @@index([portalOrganizationId])
+  @@index([previousAccessRequestId])
+}
+
+// Permanent, privacy-minimized record of destructive access-request removal.
+// The applicant email is hashed so an administrator can investigate abuse
+// without retaining the deleted application itself.
+model AccessRequestDeletionAudit {
+  id String @id @default(uuid())
+
+  accessRequestId String
+  referenceNumber Int
+  tier            AccessRequestTier
+  legacyTier      String?
+  terminalStatus  AccessRequestStatus
+  emailHash       String
+  deletedBy       String
+  reason          String
+  deletedAt       DateTime            @default(now())
+
+  @@index([deletedAt])
+  @@index([deletedBy, deletedAt])
+}
+
+// Delivery metadata only. Email tokens and message bodies are never stored.
+model AccessRequestEmailDelivery {
+  id String @id @default(uuid())
+
+  accessRequestId String
+  accessRequest   AccessRequest                    @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+  kind            AccessRequestEmailKind
+  status          AccessRequestEmailDeliveryStatus
+  attempts        Int                              @default(0)
+  lastAttemptAt   DateTime
+  lastAcceptedAt  DateTime?
+  errorCode       String?
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+
+  @@unique([accessRequestId, kind])
+  @@index([kind, status, lastAttemptAt])
+}
+
+model License {
+  id String @id @default(uuid())
+
+  accessRequestId String             @unique
+  accessRequest   AccessRequest      @relation(fields: [accessRequestId], references: [id], onDelete: Restrict)
+  organizationId  String
+  organization    PortalOrganization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  tier                   AccessRequestTier    @default(SHIELD)
+  legacyTier             String? // Original billed product, preserved for contract review.
+  shieldApprovedAt       DateTime? // Separate from billing status; NULL denies Shield data.
+  shieldReviewDecision   ShieldReviewDecision @default(PENDING)
+  shieldReviewedAt       DateTime?
+  shieldReviewedByUserId String?
+  shieldReviewReason     String?
+  status                 LicenseStatus        @default(ACTIVE)
+  billingPeriod          BillingPeriod
+
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?   @unique
+  validFrom              DateTime  @default(now())
+  validUntil             DateTime?
+  lastStripeEventCreated Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status, validUntil])
+}
+
+// Purpose-bound email verification. This remains separate from OtpCode so
+// Gmail and Semaphore challenges cannot be replayed across delivery channels.
+model EmailOtpChallenge {
+  id String @id @default(uuid())
+
+  challengeKey    String          @unique
+  email           String
+  purpose         EmailOtpPurpose
+  accessRequestId String?
+  accessRequest   AccessRequest?  @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+
+  codeHash           String
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  attempts           Int       @default(0)
+  requestCount       Int       @default(1)
+  requestWindowStart DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email, purpose, accessRequestId])
+  @@index([expiresAt, consumedAt])
+}
+
+// Emailed to an approved applicant so they can reach the confirmation-
+// before-Stripe screen without needing a full user account beforehand.
+// Single use; expires; regenerated on demand if the applicant loses it.
+model AccessRequestToken {
+  id              String        @id @default(uuid())
+  tokenHash       String        @unique
+  accessRequestId String
+  accessRequest   AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@index([accessRequestId, usedAt])
 }
 
 // Tracks every model version that was ever promoted to production.
 // Used for promotion gating (McNemar + F1 floor) and rollback.
 model ModelVersion {
-  id           String    @id @default(uuid())
+  id String @id @default(uuid())
 
-  versionTag   String    @unique // e.g. "v1.0.0", auto-generated by AI service
-  f1Score      Float               // macro-F1 at promotion time (0–1)
-  accuracy     Float?
+  versionTag String @unique // e.g. "v1.0.0", auto-generated by AI service
+  f1Score    Float // macro-F1 at promotion time (0–1)
+  accuracy   Float?
 
-  isActive     Boolean   @default(false) // only one version is active at a time
-  isRollback   Boolean   @default(false) // true when restored via rollback
+  isActive                     Boolean              @default(false) // only one version is active at a time
+  isRollback                   Boolean              @default(false) // true when restored via rollback
+  status                       ModelCandidateStatus @default(REGISTERED)
+  provenance                   Json?
+  evaluation                   Json?
+  reviewedByUserId             String?
+  reviewedAt                   DateTime?
+  reviewNote                   String? // Admin approval/rejection reason; required for both decisions.
+  activationRequestedByUserId  String?
+  activationRequestedAt        DateTime?
+  // Set only when the AI service's /health reports this exact version serving.
+  runtimeActivationConfirmedAt DateTime?
 
   notes        String?
   promotedAt   DateTime  @default(now())
   rolledBackAt DateTime?
 
-  createdAt    DateTime  @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+}
+
+enum ModelCandidateStatus {
+  REGISTERED
+  EVALUATING
+  APPROVED
+  REJECTED
+  ACTIVATION_REQUESTED
+  ACTIVE
+  FAILED
+}
+
+enum RetrainingJobStatus {
+  REQUESTED
+  ACCEPTED
+  FAILED
+  CANCELLED
+}
+
+model RetrainingJob {
+  id                String              @id @default(uuid())
+  trigger           String
+  status            RetrainingJobStatus @default(REQUESTED)
+  datasetVersion    String?
+  requestedByUserId String?
+  providerJobId     String?
+  detail            String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([createdAt])
+}
+
+enum DriftInvestigationStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+// An Admin-owned review of a drift or degradation signal. The metrics column
+// freezes the trigger evaluation that prompted it, so later model changes do
+// not rewrite why the investigation was opened.
+model DriftInvestigation {
+  id               String                   @id @default(uuid())
+  signal           String // page_hinkley_drift | f1_degradation | validated_report_count | manual
+  status           DriftInvestigationStatus @default(OPEN)
+  modelVersionTag  String?
+  metrics          Json
+  notes            String?
+  resolution       String?
+  retrainingJobId  String?
+  openedByUserId   String
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([status, createdAt])
+}
+
+enum NotificationAudience {
+  SHIELD
+  ADMIN
+}
+
+model NotificationPreference {
+  id                         String   @id @default(uuid())
+  userId                     String   @unique
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inAppEnabled               Boolean  @default(true)
+  emailEnabled               Boolean  @default(false)
+  campaignChangesEnabled     Boolean  @default(true)
+  subscriptionUpdatesEnabled Boolean  @default(true)
+  apiUsageAlertsEnabled      Boolean  @default(true)
+  exportUpdatesEnabled       Boolean  @default(true)
+  systemHealthAlertsEnabled  Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model PortalNotification {
+  id        String               @id @default(uuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audience  NotificationAudience
+  type      String
+  title     String
+  body      String
+  link      String?
+  // Identifies the system record a notice was derived from. Unique per user,
+  // so every recipient gets their own copy of the same source event.
+  sourceKey String?
+  readAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@unique([userId, sourceKey])
+  @@index([userId, audience, readAt, createdAt])
+}
+
+// Public safety guidance authored by administrators. Content is intentionally
+// separate from model/dataset records so publishing a tip can never expose
+// private inference or training metadata.
+model SafetyTip {
+  id String @id @default(uuid())
+
+  title       String
+  body        String
+  region      String?
+  campaign    String?
+  isPublished Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isPublished, updatedAt])
+}
+
+enum AuditEventType {
+  ACCOUNT_CREATED
+  ACCOUNT_SETUP_COMPLETED
+  APPLICATION_SUBMITTED
+  APPLICATION_WITHDRAWN
+  APPLICATION_APPROVED
+  APPLICATION_DECLINED
+  LICENSE_ACTIVATED
+  LICENSE_EXPIRED
+  LICENSE_SUSPENDED
+  LICENSE_SHIELD_REVIEWED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  API_KEY_CREATED
+  API_KEY_REVOKED
+  API_KEY_ROTATED
+  ADMIN_ROLE_CHANGED
+  CAMPAIGN_CREATED
+  CAMPAIGN_UPDATED
+  CAMPAIGN_DEACTIVATED
+  CAMPAIGN_PUBLISHED
+  CAMPAIGN_MERGED
+  CAMPAIGN_SPLIT
+  CAMPAIGN_ASSIGNMENT_CORRECTED
+  CAMPAIGN_EVOLUTION_APPROVED
+  MASKED_MESSAGE_APPROVED
+  REPORT_VALIDATED
+  REPORT_REJECTED
+  RESTRICTED_MESSAGE_ACCESSED
+  API_LIMITS_CHANGED
+  DATASET_SAMPLE_CURATED
+  DATASET_SAMPLE_UPDATED
+  DATASET_SAMPLE_EXCLUDED
+  MODEL_CANDIDATE_APPROVED
+  MODEL_CANDIDATE_REJECTED
+  MODEL_ACTIVATION_REQUESTED
+  RETRAINING_REQUESTED
+  MODEL_ACTIVATION_CONFIRMED
+  DATASET_SNAPSHOT_CREATED
+  DRIFT_INVESTIGATION_OPENED
+  DRIFT_INVESTIGATION_UPDATED
+  CAMPAIGN_ANALYSIS_RUN
+}
+
+enum ShieldApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum ShieldApiScope {
+  READ_CAMPAIGNS
+  READ_INDICATORS
+  READ_MASKED_MESSAGES
+  EXPORT_CAMPAIGNS
+}
+
+model ShieldApiKey {
+  id String @id @default(uuid())
+
+  organizationId  String
+  organization    PortalOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUserId String
+  createdBy       User               @relation("ShieldApiKeyCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  name       String
+  secretHash String             @unique
+  keyPrefix  String
+  keySuffix  String
+  scopes     ShieldApiScope[]
+  status     ShieldApiKeyStatus @default(ACTIVE)
+  expiresAt  DateTime?
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requests ShieldApiRequest[]
+
+  @@index([organizationId, status])
+  @@index([createdByUserId])
+}
+
+// Tenant-scoped usage metadata only. Never stores secrets, tokens, bodies,
+// query strings, IP addresses, or mobile-user identifiers.
+model ShieldApiRequest {
+  id             String             @id @default(uuid())
+  organizationId String
+  organization   PortalOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  keyId          String
+  key            ShieldApiKey       @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  route          String
+  method         String
+  statusCode     Int?
+  createdAt      DateTime           @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([keyId, createdAt])
+}
+
+// Append-only lifecycle and security events. No foreign keys, so records
+// survive deletion of the rows they describe. Never stores secrets, OTPs,
+// passwords, authorization headers, or SMS bodies.
+model AuditEvent {
+  id              String         @id @default(uuid())
+  type            AuditEventType
+  actorUserId     String?
+  targetUserId    String?
+  organizationId  String?
+  accessRequestId String?
+  licenseId       String?
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+
+  @@index([type, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([accessRequestId])
 }

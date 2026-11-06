@@ -1,0 +1,157 @@
+/*
+ * Hero layout + one short entrance (phone → variants → badge) that holds its
+ * end state. Reduced motion skips straight to the end state.
+ */
+
+.hero {
+  padding-top: 120px;
+  padding-bottom: 96px;
+}
+
+@media (min-width: 960px) {
+  .hero {
+    padding-top: 144px;
+    padding-bottom: 112px;
+  }
+}
+
+.hero__copy {
+  max-width: 540px;
+}
+
+/*
+ * Stage: landscape composition, not a square card. Let the SVG dictate its
+ * aspect via the viewBox and only clamp max width so the composition never
+ * gets absurdly wide on ultra-wide screens.
+ */
+.hero__stage {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  justify-self: center;
+}
+
+@media (min-width: 960px) {
+  .hero__stage {
+    justify-self: end;
+  }
+}
+
+.hero-v2 {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+}
+
+.hero-v2__variants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.hero-v2__card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.hero-v2__card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.hero-v2__lang {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+
+.hero-v2__sim,
+.hero-v2__domain {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.hero-v2__text {
+  margin: 0 0 2px;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.hero-v2__domain {
+  margin: 0;
+}
+
+.hero-v2__badge {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin: 4px 0 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--brand-primary);
+  background: var(--surface-raised);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.hero-v2__phone {
+  animation: hero-rise 600ms var(--motion-ease, ease) both;
+}
+
+.hero-v2__card {
+  animation: hero-rise 500ms var(--motion-ease, ease) both;
+}
+
+.hero-v2__card:nth-child(1) {
+  animation-delay: 350ms;
+}
+
+.hero-v2__card:nth-child(2) {
+  animation-delay: 500ms;
+}
+
+.hero-v2__card:nth-child(3) {
+  animation-delay: 650ms;
+}
+
+.hero-v2__badge {
+  animation: hero-rise 500ms 850ms var(--motion-ease, ease) both;
+}
+
+@media (max-width: 720px) {
+  .hero-v2 {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-v2__phone {
+    width: min(78vw, 280px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-v2__phone,
+  .hero-v2__card,
+  .hero-v2__badge {
+    animation: none;
+  }
+}

@@ -1,0 +1,35 @@
+/*
+ * Messages inbox layout. Feature-scoped classes for the analyst inbox
+ * pattern (Section 19). Two-column above 960px; single column below with
+ * the detail panel following the list.
+ */
+
+.bantai-inbox-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 960px) {
+  .bantai-inbox-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+    align-items: start;
+  }
+}
+
+.bantai-inbox-list {
+  min-width: 0;
+}
+
+.bantai-inbox-detail {
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .bantai-inbox-detail {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 96px);
+    overflow: auto;
+  }
+}

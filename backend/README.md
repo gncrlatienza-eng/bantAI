@@ -33,7 +33,7 @@ src/
 
 database/
 ├── prisma/
-│   ├── schema.prisma    # User, OtpCode, SmsMessage, Classification, Alert
+│   ├── schema.prisma    # User, SmsMessage, Classification, Alert
 │   └── migrations/
 ├── prisma.module.ts
 └── prisma.service.ts
@@ -57,7 +57,7 @@ From the **repo root** (the compose file lives there, not in `backend/`):
 docker compose up -d postgres
 ```
 
-Postgres listens on host port **5433** (mapped to 5432 in the container) with user `bantai` / db `bantai_db`. pgAdmin is available via `docker compose up -d pgadmin` at `http://localhost:5050`.
+Postgres listens on host port **5434** (mapped to 5432 in the container) with user `bantai` / db `bantai_db`. pgAdmin is available via `docker compose up -d pgadmin` at `http://localhost:5050`.
 
 ### Run database migrations
 
@@ -82,6 +82,17 @@ The API will be available at:
 ```
 http://localhost:3000/api
 ```
+
+### Give an admin account a staff role
+
+Admin screens are gated by staff permissions, and an admin with no `staffRole` gets none (nothing in the API assigns one). After migrating, give each admin account its role explicitly. The command is a dry run until `--apply`, and each change is written to the audit log as `ADMIN_ROLE_CHANGED`:
+
+```bash
+node --env-file=.env scripts/grant-staff-role.mjs --list
+node --env-file=.env scripts/grant-staff-role.mjs admin@example.com SUPERADMIN --apply
+```
+
+Roles: `SUPERADMIN`, `SUPPORT`, `ANALYST`, `OPERATIONS`, `PRIVACY` (see `src/auth/constants/staff-permissions.ts`).
 
 ---
 
@@ -112,13 +123,15 @@ have nothing to do with your code.
 Copy `backend/.env.example` to `backend/.env` (Prisma also reads `backend/database/.env` for the schema CLI):
 
 ```env
-DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5433/bantai_db"
-SHADOW_DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5433/bantai_shadow_db"
+DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5434/bantai_db"
+SHADOW_DATABASE_URL="postgresql://bantai:bantai_dev@localhost:5434/bantai_shadow_db"
 JWT_SECRET="change-me"
 JWT_EXPIRES_IN="7d"
 ```
 
-`JWT_SECRET` falls back to a hardcoded dev value — it must be set in production.
+Production configuration is validated at startup. Copy the full
+[`backend/.env.example`](.env.example), use distinct secret-manager values, and
+set an explicit `CORS_ORIGINS` list. There is no production fallback secret.
 
 ---
 
@@ -133,17 +146,17 @@ JWT_EXPIRES_IN="7d"
 - ✅ Global validation (`whitelist` + `forbidNonWhitelisted`)
 - ✅ CORS configuration
 
-### Authentication (phone OTP — no passwords)
+### Authentication
 
-- ✅ OTP request + verification (`OtpCode` model, 6 digits, 5-minute expiry)
-- ✅ JWT issued on successful verification (Passport JWT strategy + guard)
+- ✅ Mobile phone verification through backend-generated OTPs delivered by Semaphore
+- ✅ JWT issued after successful OTP verification (Passport JWT strategy + guard)
 - ✅ Auto-creates a user on first OTP verification for unknown numbers
 - ✅ Protected `GET /auth/me` for token validation
-- ⚠️ Dev-only OTP delivery: codes are printed to the backend console (`OTP for <phone>: <code>`), not sent by SMS yet
+- ✅ Separate email/password authentication for the web portal
 
 ### Users
 
-- ✅ JWT-guarded `PUT /users/me` profile update (firstName / lastName / email) — used by the Android onboarding Profile screen
+- ✅ JWT-guarded `PUT /users/me` profile update (firstName / lastName; the login email is not editable here) — used by the Android onboarding Profile screen
 
 ---
 
@@ -151,18 +164,26 @@ JWT_EXPIRES_IN="7d"
 
 Full request/response documentation: [docs/api/auth.md](../docs/api/auth.md) and [docs/api/users.md](../docs/api/users.md).
 
+Interactive OpenAPI documentation is available in development at
+`http://localhost:3000/api/docs`; its JSON document is `/api/docs-json`.
+Production keeps the documentation disabled unless `API_DOCS_ENABLED=true` is
+set behind an authenticated internal gateway.
+
 ### Health
 
 ```
 GET /api/health
+GET /api/health/ready  (database readiness)
 ```
 
 ### Authentication
 
 ```
-POST /api/auth/register      (optional — verify-otp auto-registers)
-POST /api/auth/request-otp
-POST /api/auth/verify-otp    → returns JWT
+POST /api/auth/register
+POST /api/auth/request-otp     → sends a six-digit code through Semaphore
+POST /api/auth/verify-otp      → verifies the code and returns JWT
+POST /api/auth/portal/register → creates a web portal account
+POST /api/auth/login           → authenticates a web portal account
 GET  /api/auth/me            🔒 Bearer token
 ```
 

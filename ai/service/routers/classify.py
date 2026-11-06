@@ -17,6 +17,10 @@ from fastapi import APIRouter, HTTPException, status
 
 from ..campaign import CampaignMatcher
 from ..classifier import ModelNotReadyError, classifier, route
+from ..explainer import explain
+from ..language import is_supported_language
+from ..lexical import normalize_placeholders
+from ..readiness import readiness, require_model_ready
 from ..schemas import CampaignMatch, ClassifyRequest, ClassifyResponse
 
 router = APIRouter(tags=["classification"])
@@ -29,8 +33,12 @@ matcher = CampaignMatcher()
 
 @router.post("/classify", response_model=ClassifyResponse)
 def classify(req: ClassifyRequest) -> ClassifyResponse:
+    require_model_ready()
+    identity = readiness.snapshot()
     try:
-        result = classifier.classify_full(req.message)
+        # The phone/backend send [URL]-style placeholders; the model learned
+        # preprocess()'s <URL> tokens, so translate before inference.
+        result = classifier.classify_full(normalize_placeholders(req.message))
     except ModelNotReadyError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
@@ -44,17 +52,44 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
     # class of false positive.
     campaign = None
     if matcher.centroids and result.label != "Ham":
-        # The raw body (not ``masked_text``) goes in: the matcher masks
-        # internally for its wording comparison, but ``shares_domain`` needs
-        # the link identity that masking is specifically designed to destroy.
-        match = matcher.match(result.embedding, req.message)
+        # The body goes in as received (the backend sends masked text): the
+        # matcher masks internally for its wording comparison. Link identity
+        # arrives separately as ``domains``, because masking destroys it.
+        match = matcher.match(
+            result.embedding,
+            req.message,
+            domains=req.domains,
+            label=result.label,
+        )
         campaign = CampaignMatch(**match.to_dict())
 
+    # Keyword tagger only -- deliberately no model/tokenizer, so real SHAP never
+    # runs inside this request. SHAP needs hundreds of forward passes: measured
+    # 9.7-45.7 s per message on 2026-09-21 (13-26 s in July), while the backend
+    # abandons /classify after 3.5 s (backend/src/ai/ai.service.ts) and the phone
+    # after 5 s. Running it here made every message time out and fall back to
+    # the phone's keyword heuristic, so no SMS got a model verdict at all. The
+    # keyword tags are instant and still reach the app; full SHAP has to run
+    # after the response, not before it (docs/api/explainability.md).
+    explanation = explain(req.message, result.masked_text, predicted_label=result.label)
+
+    # A message in a language the model wasn't trained on (Italian, Spanish,
+    # Chinese...) gets out-of-distribution scores that can look confident.
+    # Never let those auto-block or hide it: route to "unknown" so the user
+    # reviews it. The label and score are left as the model gave them.
+    bucket = route(result.scores)
+    if bucket in ("blocked", "spam") and not is_supported_language(req.message):
+        bucket = "unknown"
+
     return ClassifyResponse(
+        version_tag=identity.version_tag,
+        bundle_digest=identity.bundle_digest if identity.ready else None,
         label=result.label,
         score=result.score,
         scores=result.scores,
-        bucket=route(result.scores),
+        bucket=bucket,
         masked_text=result.masked_text,
         campaign=campaign,
+        indicators=explanation.to_indicator_payload(),
+        explanation_method=explanation.method,
     )

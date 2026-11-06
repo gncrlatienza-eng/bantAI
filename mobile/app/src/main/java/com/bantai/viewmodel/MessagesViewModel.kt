@@ -4,29 +4,88 @@ import android.app.Application
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
+import android.provider.ContactsContract
 import android.provider.Telephony
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
-import com.bantai.data.SmsRepository
-import com.bantai.data.local.DeletedMessagesStore
-import com.bantai.data.local.DraftsStore
-import com.bantai.data.local.UserPreferences
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.bantai.container
+import com.bantai.data.ClassificationProgress
+import com.bantai.data.MessageClassifier
+import com.bantai.data.OutgoingSms
+import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.model.Classification
+import com.bantai.data.model.ConversationView
+import com.bantai.data.model.SCAN_PERIOD_ALL
 import com.bantai.data.model.SmsMessage
 import com.bantai.data.model.groupedBySenderLatest
 import com.bantai.data.model.normalizeSenderKey
+import com.bantai.data.model.scanCutoffMillis
+import com.bantai.data.offline.HistorySortWorker
+import com.bantai.util.BlockHelper
+import com.bantai.util.ContactNames
+import com.bantai.util.NotificationHelper
+import com.bantai.util.NotificationLanding
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
+
+private const val TAG = "MessagesViewModel"
+
+/** The slice of a sender's thread that opening a row from [filter] shows. */
+fun conversationViewFor(filter: MessageFilter): ConversationView =
+    when (filter) {
+        MessageFilter.MESSAGES, MessageFilter.UNREAD -> ConversationView.MESSAGES
+        MessageFilter.SPAM -> ConversationView.SPAM
+        MessageFilter.UNKNOWN -> ConversationView.UNKNOWN
+        MessageFilter.RECENTLY_DELETED -> ConversationView.DELETED
+        MessageFilter.DRAFTS -> ConversationView.ALL
+    }
+
+// Upper bound on messages read for the list: every real inbox fits; it only
+// guards memory against a pathological one.
+private const val MESSAGE_LIST_CAP = 20_000
+
+// How long provider changes must go quiet before the list reloads.
+private const val RELOAD_DEBOUNCE_MS = 300L
+
+// The history scan writes one verdict every SCAN_PACING_MS; collapsing those
+// writes keeps low-end phones from re-mapping the whole inbox on each one.
+private const val CLASSIFICATION_DEBOUNCE_MS = 1_500L
+
+// Typing in search regroups every filter; wait for a pause in typing first.
+private const val SEARCH_DEBOUNCE_MS = 250L
 
 enum class MessageFilter(
     val label: String,
 ) {
     MESSAGES("Messages"),
     SPAM("Spam"),
-    BLOCKED("Blocked"),
     UNKNOWN("Unknown"),
     RECENTLY_DELETED("Recently Deleted"),
     UNREAD("Unread"),
@@ -36,12 +95,30 @@ enum class MessageFilter(
 class MessagesViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val smsRepository = SmsRepository(application)
-    private val userPreferences = UserPreferences(application)
-    private val deletedMessagesStore = DeletedMessagesStore(application)
-    private val draftsStore = DraftsStore(application)
+    private val smsRepository = application.container.smsRepository
+    private val userPreferences = application.container.userPreferences
+    private val deletedMessagesStore = application.container.deletedMessagesStore
+    private val draftsStore = application.container.draftsStore
+    private val classificationStore = application.container.classificationStore
+    private val backendMessageIdStore = application.container.backendMessageIdStore
+    private val blockedSendersStore = application.container.blockedSendersStore
+
+    // Senders the user blocked (BantAI's record plus Android's own block list),
+    // as normalizeSenderKey keys. Their threads leave Messages/Spam/Review and
+    // are reached from Blocked Numbers instead; unblocking brings them back.
+    @Volatile private var blockedKeys: Set<String> = emptySet()
 
     private val allMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
+
+    // Messages this phone sent; merged into the Messages list so a conversation
+    // started from Compose (no reply yet) shows up and can be reopened.
+    private val sentMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
+
+    // Every filter's grouped list from the last recompute, so switching filters
+    // is a lookup instead of regrouping hundreds of messages on the UI thread
+    // (which made Messages -> Spam -> Unknown lag on phones with big inboxes).
+    @Volatile private var groupedCache: Map<MessageFilter, List<SmsMessage>> = emptyMap()
+    private var filterJob: Job? = null
 
     // All currently soft-deleted messages, flat/ungrouped — the source of truth
     // used both to build the grouped Recently Deleted view and, in
@@ -75,11 +152,69 @@ class MessagesViewModel(
     private val _visibleMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
     val visibleMessages: StateFlow<List<SmsMessage>> = _visibleMessages.asStateFlow()
 
+    // Conversations per filter, for the counts on the Messages tab's filter chips.
+    private val _filterCounts = MutableStateFlow<Map<MessageFilter, Int>>(emptyMap())
+    val filterCounts: StateFlow<Map<MessageFilter, Int>> = _filterCounts.asStateFlow()
+
+    // Settings → Hide Unknown: drops the Unknown chip. The texts stay out of
+    // All either way (with links hidden), so nothing unsafe reappears.
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown
+            .onEach { hidden ->
+                if (hidden && _selectedFilter.value == MessageFilter.UNKNOWN) setFilter(MessageFilter.MESSAGES)
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private var loadJob: Job? = null
+
+    // Set once the first inbox read has landed in allMessages. Regroups that run
+    // before it (drafts/pending-send collectors fire at startup) see an empty
+    // inbox and must not clear the skeleton, or "No messages" flashes on launch.
+    @Volatile private var inboxLoaded = false
+
+    private var scanJob: Job? = null
+
+    // How far the inbox scan has got, for the "Checking your messages" banner.
+    private val scanProgress = MutableStateFlow<CheckProgress?>(null)
+
+    /** Message ids to show as "Checking…": queued in the scan or awaiting a live verdict. */
+    val checkingIds: StateFlow<Set<Long>> = ClassificationProgress.checking
+
+    /**
+     * First-run/older-history sorting (HistorySortWorker) or the inbox scan,
+     * whichever is running. While the history sort runs, every message without
+     * a verdict yet is still on its way to one, so it shows as "Checking…".
+     */
+    val checkProgress: StateFlow<CheckProgress?> =
+        combine(
+            WorkManager
+                .getInstance(application)
+                .getWorkInfosForUniqueWorkFlow(HistorySortWorker.UNIQUE_NAME)
+                .map { infos ->
+                    infos.firstOrNull { it.state == WorkInfo.State.RUNNING }?.progress?.let { data ->
+                        CheckProgress(
+                            done = data.getInt(HistorySortWorker.KEY_DONE, 0),
+                            total = data.getInt(HistorySortWorker.KEY_TOTAL, 0),
+                            sortingHistory = true,
+                        )
+                    }
+                },
+            scanProgress,
+        ) { sort, scan -> sort ?: scan }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+
+    // Ids already sent this session, whether or not the model answered, so a
+    // message that keeps failing can't stall the scan at the front of every
+    // batch. Cleared with the ViewModel, so the next app session retries them.
+    private val scanAttempted = mutableSetOf<Long>()
 
     private val _hasPermission = MutableStateFlow(smsRepository.hasReadSmsPermission())
     val hasPermission: StateFlow<Boolean> = _hasPermission.asStateFlow()
@@ -94,19 +229,85 @@ class MessagesViewModel(
     private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
 
-    private var scanPeriod = "daily"
+    private var scanPeriod = SCAN_PERIOD_ALL
+
+    companion object {
+        // Real SMS provider row ids are always positive autoincrement values, so
+        // forcing this negative guarantees a draft id can never collide with a
+        // real message's id, not just with another draft's. A 64-bit FNV-1a hash
+        // (rather than String.hashCode()'s 32 bits) also makes a collision
+        // between two different drafts astronomically less likely.
+        private const val SCAN_BATCH_SIZE = 20
+
+        // ~85 requests/minute: under the backend's 120/min per-IP limit, with
+        // room left for alert polling and live SMS from the same phone.
+        private const val SCAN_PACING_MS = 700L
+        private const val SCAN_BACKOFF_MS = 60_000L
+        private const val SCAN_MAX_BACKOFFS = 3
+        private const val STOP_TIMEOUT_MS = 5_000L
+
+        private const val FNV_OFFSET_BASIS = -3750763034362895579L
+        private const val FNV_PRIME = 1099511628211L
+
+        private fun stableDraftId(key: String): Long {
+            var hash = FNV_OFFSET_BASIS
+            for (c in key) {
+                hash = hash xor c.code.toLong()
+                hash *= FNV_PRIME
+            }
+            return -(hash and Long.MAX_VALUE) - 1
+        }
+    }
 
     // The SMS provider gives no push signal on its own — without this, the thread
     // list would only pick up a new message after leaving and re-entering the screen.
+    // Changes arrive in bursts (several texts at once, a batch of read marks), so
+    // they're collected and turned into one reload once the burst settles.
+    private val providerChanges =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private val contentObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                loadMessages()
+                providerChanges.tryEmit(Unit)
             }
         }
 
+    // A contact saved or renamed while the app runs: names are cached for the
+    // process, so without this the list kept the old number/name until restart.
+    private val contactsObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                ContactNames.clear()
+                providerChanges.tryEmit(Unit)
+            }
+        }
+
+    private var namesRefreshedForGrant = false
+    private var contactsObserverRegistered = false
+
     init {
+        OutgoingSms.ensureLoaded(application)
         loadMessages()
+        viewModelScope.launch {
+            @OptIn(FlowPreview::class)
+            providerChanges.debounce(RELOAD_DEBOUNCE_MS).collect { loadMessages() }
+        }
+        // A send shows up in the list the moment it starts ("Sending…"), and
+        // messages Android wouldn't store stay listed -- both live in pending.
+        viewModelScope.launch {
+            OutgoingSms.pending.collect { filterMessages(_searchQuery.value) }
+        }
+        // Recently Deleted changes made anywhere -- a restore or delete from
+        // inside a conversation (MessageDetailViewModel), the daily retention
+        // cleanup -- reload the list. Only this screen's own actions used to,
+        // so a restore from a thread didn't show until the app was restarted.
+        viewModelScope.launch {
+            deletedMessagesStore.deletedEntries
+                .map { entries -> entries.mapTo(HashSet()) { it.id } }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { loadMessages() }
+        }
         viewModelScope.launch {
             userPreferences.userData.collect { data ->
                 if (scanPeriod != data.scanPeriod) {
@@ -120,6 +321,43 @@ class MessagesViewModel(
             true,
             contentObserver,
         )
+        registerContactsObserver()
+        // MMS arriving or finishing its download (see MmsDownloader).
+        application.contentResolver.registerContentObserver(
+            Telephony.Mms.CONTENT_URI,
+            true,
+            contentObserver,
+        )
+        // A live SMS is written to the provider (which reloads the list) before
+        // its verdict comes back, so it first lists as unverified -- in Messages
+        // and Unread. The verdict lands in the classification table afterwards,
+        // with no provider change to trigger a reload, so without this an unread
+        // spam text stayed under Unread and never reached Spam.
+        viewModelScope.launch {
+            @OptIn(FlowPreview::class)
+            classificationStore.classifications
+                .debounce(CLASSIFICATION_DEBOUNCE_MS)
+                .collect { stored -> applyStoredClassifications(stored) }
+        }
+        // Every block/unblock BantAI makes goes through BlockedSendersStore, so
+        // this re-filters the moment the user blocks someone from a thread.
+        viewModelScope.launch(Dispatchers.IO) {
+            blockedSendersStore.state.collect { refreshBlockedKeys() }
+        }
+        viewModelScope.launch {
+            application.container.alertedMessageIds
+                .drop(1)
+                .collect { filterMessages(_searchQuery.value) }
+        }
+        // Blocks made outside BantAI (the system Phone app) only show in
+        // Android's own list: re-read it whenever the app comes back to the front.
+        viewModelScope.launch(Dispatchers.IO) {
+            ProcessLifecycleOwner
+                .get()
+                .lifecycle.currentStateFlow
+                .drop(1)
+                .collect { if (it == Lifecycle.State.STARTED) refreshBlockedKeys() }
+        }
         // DataStore's Flow already emits on every write, so this stays live without
         // needing a ContentObserver-style poke — a saved/cleared draft shows up
         // immediately rather than waiting for the next unrelated SMS-provider change.
@@ -128,11 +366,11 @@ class MessagesViewModel(
                 draftRows.value =
                     entries.sortedByDescending { it.updatedAt }.map { entry ->
                         SmsMessage(
-                            id = entry.address.hashCode().toLong(),
+                            id = stableDraftId(normalizeSenderKey(entry.address)),
                             sender = entry.address,
                             body = entry.body,
                             timestamp = entry.updatedAt,
-                            classification = "safe",
+                            classification = Classification.SAFE,
                             isRead = true,
                         )
                     }
@@ -144,42 +382,297 @@ class MessagesViewModel(
     override fun onCleared() {
         super.onCleared()
         getApplication<Application>().contentResolver.unregisterContentObserver(contentObserver)
+        getApplication<Application>().contentResolver.unregisterContentObserver(contactsObserver)
     }
 
+    private suspend fun refreshBlockedKeys() {
+        val app = getApplication<Application>()
+        val onDevice = BlockHelper.getBlockedNumbers(app).map { it.number }
+        blockedKeys = (blockedSendersStore.state.first().blocked + onDevice).map(::normalizeSenderKey).toSet()
+        filterMessages(_searchQuery.value)
+    }
+
+    /** Contacts just became readable: look names up again (once per grant). */
+    fun refreshContactNames() {
+        registerContactsObserver()
+        if (namesRefreshedForGrant) return
+        namesRefreshedForGrant = true
+        ContactNames.clear()
+        loadMessages()
+    }
+
+    // Registered once: a second registration made every contacts change reload twice.
+    private fun registerContactsObserver() {
+        if (contactsObserverRegistered) return
+        contactsObserverRegistered =
+            runCatching {
+                getApplication<Application>().contentResolver.registerContentObserver(
+                    ContactsContract.Contacts.CONTENT_URI,
+                    true,
+                    contactsObserver,
+                )
+            }.isSuccess
+    }
+
+    /** The screen reports this on every start; only a real change (denied -> granted) reloads. */
     fun onPermissionGranted() {
+        if (_hasPermission.value) return
         _hasPermission.value = true
         loadMessages()
     }
 
     fun loadMessages() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _isLoading.value = true
-            val deletedIds =
-                deletedMessagesStore.deletedEntries
-                    .first()
-                    .map { it.id }
-                    .toSet()
-            // The inbox always shows the full message history like a normal SMS
-            // app; the scan period setting only governs scanning/stat windows.
-            allMessages.value =
-                smsRepository
-                    .getInboxMessages(limit = 500)
-                    .filterNot { it.id in deletedIds }
-            recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
-            filterMessages(_searchQuery.value)
-            _isLoading.value = false
+        // Cancels any in-flight load before starting a new one — loadMessages() fires
+        // concurrently from init, the content observer, scan-period changes, and the
+        // permission callback, so a burst of incoming SMS can otherwise race several
+        // overlapping loads writing these StateFlows out of order.
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                // The skeleton is for the first load only. A refresh (coming back
+                // from a thread, a new SMS) updates the list in place -- swapping it
+                // for the skeleton threw away the scroll position, so returning from
+                // a conversation always jumped back to the top.
+                if (allMessages.value.isEmpty()) _isLoading.value = true
+                _errorMessage.value = null
+                try {
+                    val deletedIds =
+                        deletedMessagesStore.deletedEntries
+                            .first()
+                            .map { it.id }
+                            .toSet()
+                    // The inbox always shows the full message history like a normal SMS
+                    // app; the scan period setting only governs scanning/stat windows.
+                    // Every message, not just the newest 500: on a real inbox
+                    // (4,300 texts across 154 conversations on a test phone) the
+                    // 500 cap left most conversations out of the list entirely.
+                    allMessages.value =
+                        smsRepository
+                            .getInboxMessages(limit = MESSAGE_LIST_CAP)
+                            .filterNot { it.id in deletedIds }
+                    sentMessages.value =
+                        smsRepository.getSentMessages(limit = MESSAGE_LIST_CAP).filterNot { it.id in deletedIds }
+                    recentlyDeleted.value = smsRepository.getMessagesByIds(deletedIds)
+                    inboxLoaded = true
+                    filterMessages(_searchQuery.value)
+                    scanUnclassifiedMessages()
+                } catch (e: CancellationException) {
+                    // A newer loadMessages() call cancelled this one (see the comment
+                    // above) — not a real failure, so it must not surface as one, and
+                    // it must be rethrown for structured concurrency to see the job as
+                    // actually cancelled rather than swallowed.
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load messages", e)
+                    _errorMessage.value = "Couldn't load messages"
+                    // On success recomputeFilters clears the skeleton once the list is ready.
+                    _isLoading.value = false
+                }
+            }
+    }
+
+    /**
+     * Sends inbox messages that never got a model verdict (history from before
+     * install, or ones only checked by the offline heuristic while the backend
+     * was unreachable) through the same masked classifier a live SMS uses, so
+     * they land in the right Messages/Spam/Unknown chip. Silent: no
+     * notifications for old messages. Newest first, so the texts people
+     * actually look at are sorted soonest.
+     *
+     * Paced under the backend's 120 requests/minute per-IP throttle
+     * (backend/src/app.module.ts). Unpaced, the scan hit it after ~120
+     * messages, got a 429, read that as "model unavailable" and stopped --
+     * leaving two-thirds of a real 3,135-message inbox unchecked, so scams sat
+     * in Messages on the offline heuristic's say-so. Unavailable now waits
+     * and retries a few times before giving up until the next reload.
+     */
+    @Suppress("CyclomaticComplexMethod") // scan loop with per-outcome handling
+    private fun scanUnclassifiedMessages() {
+        if (scanJob?.isActive == true) return
+        scanJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                val token = runCatching { userPreferences.userData.first().authToken }.getOrDefault("")
+                // The whole history (the list holds every message, see
+                // MESSAGE_LIST_CAP): the bundled model can classify every row
+                // even before sign-in or while the backend is unreachable.
+                val stored = classificationStore.classifications.first()
+                val heuristicIds = classificationStore.idsWithSource("heuristic")
+                // Old "safe" labels with no provenance, minus ones the user
+                // reported themselves (those predate the "user_report" tag).
+                val reported =
+                    getApplication<Application>()
+                        .container.alertStateStore.state
+                        .first()
+                        .reportedLocal.keys
+                val recheckIds = heuristicIds + (classificationStore.legacySafeIds() - reported)
+                // Settings -> Scan period: how far back the AI checks. Older
+                // texts keep the on-device check until the user widens it.
+                val cutoff = scanCutoffMillis(scanPeriod)
+                // Once first-run sorting is done, history belongs to
+                // HistorySortWorker and its verdicts are final; this scan only
+                // catches newer texts the live path missed, so old messages
+                // never move after the Setup screen.
+                val sortedAt = runCatching { userPreferences.historySortedAt.first() }.getOrDefault(0L)
+                val pending =
+                    allMessages.value
+                        .filter { msg ->
+                            !msg.isOutgoing &&
+                                msg.timestamp >= cutoff &&
+                                (sortedAt == 0L || msg.timestamp >= sortedAt) &&
+                                msg.id != 0L &&
+                                msg.id != Long.MIN_VALUE &&
+                                msg.id !in scanAttempted &&
+                                needsModelScan(msg.id, stored[msg.id], recheckIds)
+                        }.sortedByDescending { it.timestamp }
+                val pendingIds = pending.map { it.id }
+                ClassificationProgress.begin(pendingIds)
+                if (pending.isNotEmpty()) scanProgress.value = CheckProgress(done = 0, total = pending.size)
+                var scanned = 0
+                try {
+                    scanBatches(token, pending) { id ->
+                        ClassificationProgress.end(listOf(id))
+                        scanned++
+                        scanProgress.value = CheckProgress(done = scanned, total = pending.size)
+                    }
+                } finally {
+                    // Stopped early (model unavailable, screen gone): whatever is
+                    // left stays "Unverified", not a spinner that never finishes.
+                    ClassificationProgress.end(pendingIds)
+                    scanProgress.value = null
+                }
+            }
+    }
+
+    /**
+     * Classifies [pending] newest-first in paced batches; [onChecked] fires as
+     * each message is done. Returns early when the model stays unavailable.
+     */
+    private suspend fun scanBatches(
+        token: String,
+        pending: List<SmsMessage>,
+        onChecked: (Long) -> Unit,
+    ) {
+        for (batch in pending.chunked(SCAN_BATCH_SIZE)) {
+            if (!currentCoroutineContext().isActive) return
+            val results = mutableMapOf<Long, Classification>()
+            var modelUnavailable = false
+            for (msg in batch) {
+                var outcome = classifyForScan(token, msg)
+                var backoffs = 0
+                while (outcome == SmsIngestPipeline.ScanOutcome.Unavailable && backoffs < SCAN_MAX_BACKOFFS) {
+                    // Usually the throttle window; a minute clears it.
+                    delay(SCAN_BACKOFF_MS)
+                    backoffs++
+                    outcome = classifyForScan(token, msg)
+                }
+                delay(SCAN_PACING_MS)
+                scanAttempted += msg.id
+                onChecked(msg.id)
+                when (outcome) {
+                    is SmsIngestPipeline.ScanOutcome.Classified -> results[msg.id] = outcome.classification
+                    SmsIngestPipeline.ScanOutcome.Skipped -> Unit
+                    SmsIngestPipeline.ScanOutcome.Unavailable -> {
+                        // Not this message's fault -- let the next session retry it.
+                        scanAttempted -= msg.id
+                        modelUnavailable = true
+                    }
+                }
+                if (modelUnavailable) break
+            }
+            // classifyExisting persists each cloud/local result with
+            // provenance before returning. Keep this map only for the
+            // immediate in-memory re-sort; rewriting it here would erase
+            // the local model hash/version or a concurrent cloud result.
+            if (results.isNotEmpty()) applyScanResults(results)
+            if (modelUnavailable) return
         }
+    }
+
+    private fun needsModelScan(
+        messageId: Long,
+        stored: Classification?,
+        recheckIds: Set<Long>,
+    ): Boolean =
+        // Retry heuristic verdicts after a failed background model job, and
+        // legacy "safe" rows with no provenance: testers found scams sitting
+        // in Messages on labels no current model ever gave.
+        stored == null ||
+            stored == Classification.UNVERIFIED ||
+            messageId in recheckIds
+
+    private suspend fun classifyForScan(
+        token: String,
+        msg: SmsMessage,
+    ): SmsIngestPipeline.ScanOutcome =
+        try {
+            SmsIngestPipeline.classifyExisting(getApplication<Application>(), token, msg)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Inbox scan failed for message ${msg.id}", e)
+            SmsIngestPipeline.ScanOutcome.Skipped
+        }
+
+    // Newly scanned verdicts re-sort the chips. Only the scanned messages change,
+    // so they're relabelled in memory -- same rules the repository applies on
+    // read -- instead of re-reading the whole inbox after every batch.
+    private fun applyScanResults(results: Map<Long, Classification>) {
+        allMessages.update { messages ->
+            messages.map { msg ->
+                val scanned = results[msg.id] ?: return@map msg
+                msg.copy(classification = MessageClassifier.resolve(scanned, msg.body, msg.sender))
+            }
+        }
+        filterMessages(_searchQuery.value)
+    }
+
+    // Relabels inbox rows whose stored verdict changed since they were read,
+    // and regroups the chips only when something actually moved.
+    private fun applyStoredClassifications(stored: Map<Long, Classification>) {
+        var changed = false
+        allMessages.update { messages ->
+            messages.map { msg ->
+                val label = stored[msg.id]
+                if (msg.isOutgoing || label == null) return@map msg
+                val resolved = MessageClassifier.resolve(label, msg.body, msg.sender)
+                if (resolved == msg.classification) {
+                    msg
+                } else {
+                    changed = true
+                    msg.copy(classification = resolved)
+                }
+            }
+        }
+        if (changed) filterMessages(_searchQuery.value)
     }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        filterMessages(query)
+        filterJob?.cancel()
+        filterJob =
+            viewModelScope.launch(Dispatchers.Default) {
+                if (query.isNotEmpty()) delay(SEARCH_DEBOUNCE_MS)
+                recomputeFilters(query) { isActive }
+            }
+    }
+
+    // A tapped Spam notification ("Hidden in your Spam folder") opens that chip.
+    init {
+        viewModelScope.launch {
+            // Let the rest of the constructor run first: launch is immediate on
+            // Main, and this init sits above properties setFilter/setTab use.
+            yield()
+            NotificationLanding.pending.collect {
+                if (NotificationLanding.consume(NotificationLanding.SPAM)) setFilter(MessageFilter.SPAM)
+            }
+        }
     }
 
     fun setFilter(filter: MessageFilter) {
         _selectedFilter.value = filter
         exitSelectionMode()
-        filterMessages(_searchQuery.value)
+        val cached = groupedCache[filter]
+        if (cached != null) _visibleMessages.value = cached else filterMessages(_searchQuery.value)
     }
 
     private fun isToday(timestamp: Long): Boolean {
@@ -195,7 +688,38 @@ class MessagesViewModel(
         return timestamp >= todayStart
     }
 
+    private fun nameOf(address: String): String? = ContactNames.lookup(getApplication(), address)
+
+    private fun SmsMessage.withName(): SmsMessage = copy(displayName = nameOf(sender))
+
+    // Regroups every filter off the main thread; a newer call cancels an older one.
     private fun filterMessages(query: String) {
+        filterJob?.cancel()
+        filterJob = viewModelScope.launch(Dispatchers.Default) { recomputeFilters(query) { isActive } }
+    }
+
+    // Anyone the user has texted is a conversation that belongs in Messages,
+    // even when their own texts were filed as Spam or Unknown (a short "test"
+    // or "hi" from a friend usually reads as Unknown). Only senders flagged as
+    // scams stay out -- they live in Alerts. The first version also required
+    // the sender to have a regular Messages conversation already, which hid
+    // exactly the threads people start from Compose with someone new.
+    private fun sentForMessagesTab(
+        hiddenSenders: Set<String>,
+        query: String,
+    ): List<SmsMessage> =
+        (sentMessages.value + OutgoingSms.unsaved(sentMessages.value)).filter { sent ->
+            normalizeSenderKey(sent.sender) !in hiddenSenders &&
+                (query.isEmpty() || sent.sender.contains(query, true) || sent.body.contains(query, true))
+        }
+
+    // [isCurrent] is false once a newer regroup was started: this one's input is
+    // stale, so it must not overwrite the newer result when it finishes late.
+    private fun recomputeFilters(
+        query: String,
+        isCurrent: () -> Boolean,
+    ) {
+        val loaded = inboxLoaded // read before allMessages, so a true here means `all` is the loaded inbox
         val all = allMessages.value
         val filtered =
             if (query.isEmpty()) {
@@ -203,26 +727,41 @@ class MessagesViewModel(
             } else {
                 all.filter {
                     it.sender.contains(query, ignoreCase = true) ||
-                        it.body.contains(query, ignoreCase = true)
+                        it.body.contains(query, ignoreCase = true) ||
+                        nameOf(it.sender)?.contains(query, ignoreCase = true) == true
                 }
             }
 
         _inboxMessages.value = filtered
 
-        val suspicious = filtered.filter { it.classification == "suspicious" }
-        _suspiciousMessages.value = suspicious
-        _suspiciousTodayCount.value = suspicious.count { isToday(it.timestamp) }
+        // A cloud scam blocks its sender (see SmsIngestPipeline.autoBlockSender),
+        // so none of that sender's messages stay in Messages/Spam/Review -- the
+        // scam lives in Alerts. Only actually blocked senders are hidden: a
+        // SCAM label without a block (an on-device Model C verdict, or an
+        // auto-block that didn't land) has no server Alert row, so hiding it
+        // made the message vanish everywhere. It stays in Review instead.
+        val hiddenSenders = blockedKeys
+        val inbox = filtered.filterNot { normalizeSenderKey(it.sender) in hiddenSenders }
 
-        val unknown = filtered.filter { it.classification == "unknown" }
+        val spam = inbox.filter { it.classification == Classification.SPAM }
+        _suspiciousMessages.value = spam
+        _suspiciousTodayCount.value = spam.count { isToday(it.timestamp) }
+
+        // A message the server already alerted on is in Alerts; listing it here
+        // too showed the same scam in two places.
+        val alerted = getApplication<Application>().container.alertedMessageIds.value
+        val unknown = inbox.filter { ConversationView.UNKNOWN.includes(it) && !it.isOutgoing && it.id !in alerted }
         _unknownMessages.value = unknown
         _unknownTodayCount.value = unknown.count { isToday(it.timestamp) }
 
-        // Team rule: scams are auto-blocked, promotional goes to Spam,
-        // the main Messages list keeps only legitimate/unclassified mail.
-        val legitimate =
-            filtered.filter {
-                it.classification != "suspicious" && it.classification != "blocked"
-            }
+        // Team rule: confirmed scams are auto-blocked and live only in the
+        // Alerts tab. Everything else is placed per message, so a sender that
+        // mixes OTPs/balance notices with promos (GLOBE, AUTOLOADMAX, GCash)
+        // shows up in Messages for the former and Spam for the latter; opening
+        // it from a chip shows only that chip's messages (ConversationView).
+        val legitimate = inbox.filter { ConversationView.MESSAGES.includes(it) }
+        val conversations =
+            (legitimate + sentForMessagesTab(hiddenSenders, query)).sortedByDescending { it.timestamp }
         val deletedFiltered =
             if (query.isEmpty()) {
                 recentlyDeleted.value
@@ -239,6 +778,7 @@ class MessagesViewModel(
                     it.sender.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true)
                 }
             }
+
         // Grouped to one row per sender — see groupedBySenderLatest() — so a sender
         // with several messages shows as one conversation, not one row per text.
         // Recently Deleted groups the same way for consistency with every other
@@ -246,16 +786,55 @@ class MessagesViewModel(
         // row back out to every deleted id for that sender, same pattern as delete.
         // Drafts is already one row per recipient (DraftsStore itself is keyed that
         // way), so no grouping needed there.
-        _visibleMessages.value =
-            when (_selectedFilter.value) {
-                MessageFilter.MESSAGES -> legitimate.groupedBySenderLatest()
-                MessageFilter.SPAM -> suspicious.groupedBySenderLatest()
-                MessageFilter.BLOCKED -> filtered.filter { it.classification == "blocked" }.groupedBySenderLatest()
-                MessageFilter.UNKNOWN -> unknown.groupedBySenderLatest()
-                MessageFilter.RECENTLY_DELETED -> deletedFiltered.groupedBySenderLatest()
-                MessageFilter.UNREAD -> legitimate.filter { !it.isRead }.groupedBySenderLatest()
-                MessageFilter.DRAFTS -> draftsFiltered
-            }
+        // Rows show the latest message (not an "Unread summary: ..." digest,
+        // which read as if the newest text were missing) and the contact name.
+        fun List<SmsMessage>.rows() = groupedBySenderLatest(summarizeUnread = false).map { it.withName() }
+        val grouped =
+            mapOf(
+                MessageFilter.MESSAGES to conversations.rows(),
+                MessageFilter.SPAM to spam.rows(),
+                MessageFilter.UNKNOWN to unknown.rows(),
+                MessageFilter.RECENTLY_DELETED to deletedFiltered.rows(),
+                MessageFilter.UNREAD to legitimate.filter { !it.isRead }.rows(),
+                MessageFilter.DRAFTS to draftsFiltered.map { it.withName() },
+            )
+        if (isCurrent()) publish(grouped, loaded)
+    }
+
+    private fun publish(
+        grouped: Map<MessageFilter, List<SmsMessage>>,
+        inboxLoaded: Boolean,
+    ) {
+        groupedCache = grouped
+        _filterCounts.value = grouped.mapValues { it.value.size }
+        _visibleMessages.value = grouped.getValue(_selectedFilter.value)
+        // The skeleton stays until the loaded inbox's grouped list is out.
+        if (inboxLoaded) _isLoading.value = false
+    }
+
+    /**
+     * "Mark all read" for the chip on screen (testers only had it in Alerts).
+     * Marks exactly that chip's unread texts, the same slice opening each
+     * conversation from it would mark.
+     */
+    fun markAllRead() {
+        val view = conversationViewFor(_selectedFilter.value)
+        val ids =
+            allMessages.value
+                .filter { !it.isOutgoing && !it.isRead && view.includes(it) }
+                .mapTo(HashSet()) { it.id }
+        if (ids.isEmpty()) return
+        // Their notifications go too, as when each thread is opened.
+        allMessages.value
+            .filter { it.id in ids }
+            .map { it.sender }
+            .distinct()
+            .forEach { NotificationHelper.cancelConversation(getApplication(), it) }
+        allMessages.update { messages -> messages.map { if (it.id in ids) it.copy(isRead = true) else it } }
+        filterMessages(_searchQuery.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            getApplication<Application>().container.smsWriter.markMessagesRead(ids)
+        }
     }
 
     // --- Selection mode -----------------------------------------------------
@@ -283,19 +862,35 @@ class MessagesViewModel(
         _selectedIds.value = emptySet()
     }
 
-    /** Soft-deletes the current selection. Not valid from the Recently Deleted filter. */
+    /** Soft-deletes the current selection. Not valid from the Recently Deleted or Drafts filters. */
     fun deleteSelected() {
         val selectedRows = _visibleMessages.value.filter { it.id in _selectedIds.value }
         if (selectedRows.isEmpty()) return
+        val filter = _selectedFilter.value
         viewModelScope.launch(Dispatchers.IO) {
-            // Each selected row represents a whole conversation (its latest message) —
-            // expand back out to every message id currently in that sender's thread.
+            // Each selected row is a sender's slice for this chip (its latest
+            // message) -- delete exactly what opening that row shows, so clearing
+            // GLOBE's promos from Spam never touches its OTPs in Messages.
+            // getConversationBySender already excludes Blocked, which lives in Alerts.
+            val view = conversationViewFor(filter)
             val idsToDelete = mutableSetOf<Long>()
             for (row in selectedRows) {
-                idsToDelete += smsRepository.getConversationBySender(row.sender).map { it.id }
+                idsToDelete +=
+                    smsRepository
+                        .getConversationBySender(row.sender)
+                        .filter { view.includes(it) }
+                        .map { it.id }
                 idsToDelete += row.id
+                // Messages with no SMS-store row (kept or in flight) for this sender.
+                val key = normalizeSenderKey(row.sender)
+                idsToDelete +=
+                    OutgoingSms.pending.value
+                        .filter { normalizeSenderKey(it.sender) == key }
+                        .map { it.id }
             }
-            deletedMessagesStore.markDeleted(idsToDelete)
+            val (localIds, providerIds) = idsToDelete.partition { it < 0 }
+            OutgoingSms.discard(localIds, getApplication())
+            deletedMessagesStore.markDeleted(providerIds)
             exitSelectionMode()
             loadMessages()
         }
@@ -332,10 +927,24 @@ class MessagesViewModel(
         if (selectedRows.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             val ids = expandDeletedSelectionToSenders(selectedRows)
-            smsRepository.deletePermanently(ids)
+            getApplication<Application>().container.smsWriter.deletePermanently(ids)
             deletedMessagesStore.clear(ids)
+            // The row is gone from the SMS provider for good -- its cached
+            // classification and backend-message-id mapping are meaningless
+            // now and would otherwise sit in these stores forever (a real SMS
+            // row id is never reused, so nothing will ever look them up again).
+            classificationStore.remove(ids)
+            backendMessageIdStore.remove(ids)
+            getApplication<Application>().container.campaignMatchStore.remove(ids)
             exitSelectionMode()
             loadMessages()
         }
     }
 }
+
+/** Progress for the "Checking your messages" banner on the Messages screen. */
+data class CheckProgress(
+    val done: Int,
+    val total: Int,
+    val sortingHistory: Boolean = false,
+)

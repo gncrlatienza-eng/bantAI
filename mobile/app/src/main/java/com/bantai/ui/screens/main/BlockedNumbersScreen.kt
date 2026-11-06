@@ -1,24 +1,40 @@
 package com.bantai.ui.screens.main
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.CloudQueue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bantai.R
+import com.bantai.ui.components.GroupedFooter
+import com.bantai.ui.components.GroupedSectionHeader
+import com.bantai.ui.components.IosTopBar
+import com.bantai.ui.components.ListSkeleton
+import com.bantai.ui.components.LocalBottomBarClearance
+import com.bantai.ui.components.UnblockConfirmDialog
+import com.bantai.ui.components.groupedItem
 import com.bantai.ui.theme.*
 import com.bantai.util.BlockHelper
 import com.bantai.viewmodel.BlockedNumbersViewModel
@@ -28,38 +44,37 @@ fun BlockedNumbersScreen(
     navController: NavController,
     viewModel: BlockedNumbersViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
     val blockedNumbers by viewModel.blockedNumbers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isDefaultSmsApp by viewModel.isDefaultSmsApp.collectAsState()
+    val syncError by viewModel.syncError.collectAsState()
     var numberToUnblock by remember { mutableStateOf<BlockHelper.BlockedEntry?>(null) }
+    val serverOnlyCount = blockedNumbers.count { !it.onDevice }
 
-    // Unblock confirmation dialog
+    // Coming back from the system "default SMS app" prompt: if BantAI got the
+    // role, move the server-only blocks onto the phone right away.
+    val defaultSmsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (BlockHelper.isDefaultSmsApp(context)) viewModel.blockOnDevice() else viewModel.loadBlockedNumbers()
+        }
+
+    LaunchedEffect(syncError) {
+        if (syncError != null) {
+            Toast.makeText(context, syncError, Toast.LENGTH_LONG).show()
+            viewModel.clearSyncError()
+        }
+    }
+
     numberToUnblock?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { numberToUnblock = null },
-            containerColor = Color(0xFF1A1A1A),
-            title = {
-                Text("Unblock number?", color = White, fontWeight = FontWeight.Bold)
+        UnblockConfirmDialog(
+            sender = entry.number,
+            detail = stringResource(R.string.blocked_numbers_unblock_detail, entry.number),
+            onConfirm = {
+                viewModel.unblockNumber(entry)
+                numberToUnblock = null
             },
-            text = {
-                Text(
-                    "${entry.number} will be removed from your blocked list and can send you messages again.",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.unblockNumber(entry)
-                    numberToUnblock = null
-                }) {
-                    Text("Unblock", color = Color(0xFF5B4FE8), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { numberToUnblock = null }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            },
+            onDismiss = { numberToUnblock = null },
         )
     }
 
@@ -69,38 +84,15 @@ fun BlockedNumbersScreen(
                 .fillMaxSize()
                 .background(Black),
     ) {
-        // Top bar
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = White,
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .clickable { navController.popBackStack() },
-            )
-            Spacer(Modifier.width(16.dp))
-            Text(
-                "Blocked Numbers",
-                color = White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-            )
-        }
+        IosTopBar(
+            title = stringResource(R.string.blocked_numbers_blocked_numbers),
+            onBack = { navController.popBackStack() },
+        )
 
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFF5B4FE8))
-            }
+            ListSkeleton(rows = 6)
         } else if (blockedNumbers.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 40.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         Icons.Default.Block,
@@ -109,68 +101,155 @@ fun BlockedNumbersScreen(
                         modifier = Modifier.size(48.dp),
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text("No blocked numbers", color = TextSecondary, fontSize = 14.sp)
                     Text(
-                        "Numbers you block will appear here",
-                        color = Color(0xFF4A4A4A),
-                        fontSize = 12.sp,
+                        stringResource(R.string.blocked_numbers_no_blocked_numbers),
+                        color = White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = TextSize.Headline,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.blocked_numbers_scam_senders_bantai_blocks_and),
+                        color = TextSecondary,
+                        fontSize = TextSize.Subhead,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
         } else {
-            Text(
-                "${blockedNumbers.size} number${if (blockedNumbers.size != 1) "s" else ""} blocked",
-                color = TextSecondary,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-            )
-
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(blockedNumbers) { entry ->
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Default.Block,
-                            contentDescription = null,
-                            tint = Color(0xFFFF3B30),
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                entry.number,
-                                color = White,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 14.sp,
-                            )
-                            Text(
-                                "Blocked by BantAI",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                            )
-                        }
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Unblock",
-                            tint = Color(0xFF666666),
-                            modifier =
-                                Modifier
-                                    .size(20.dp)
-                                    .clickable { numberToUnblock = entry },
-                        )
-                    }
-                    HorizontalDivider(
-                        color = Color(0xFF1A1A1A),
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 20.dp),
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = LocalBottomBarClearance.current),
+            ) {
+                item {
+                    GroupedSectionHeader(
+                        "${blockedNumbers.size} sender${if (blockedNumbers.size != 1) "s" else ""} blocked",
                     )
                 }
+                if (serverOnlyCount > 0) {
+                    item {
+                        ServerOnlyNotice(
+                            count = serverOnlyCount,
+                            isDefaultSmsApp = isDefaultSmsApp,
+                            onFix = {
+                                if (isDefaultSmsApp) {
+                                    viewModel.blockOnDevice()
+                                } else {
+                                    runCatching { defaultSmsLauncher.launch(BlockHelper.defaultSmsAppIntent(context)) }
+                                }
+                            },
+                        )
+                    }
+                }
+                // A blocked number is blocked: tapping it only offers to unblock,
+                // it doesn't open the conversation.
+                itemsIndexed(blockedNumbers, key = { _, entry -> entry.id }) { index, entry ->
+                    Column(Modifier.groupedItem(index, blockedNumbers.lastIndex)) {
+                        BlockedRow(entry = entry, onUnblock = { numberToUnblock = entry })
+                        if (index != blockedNumbers.lastIndex) {
+                            HorizontalDivider(
+                                color = Hairline,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(start = 48.dp),
+                            )
+                        }
+                    }
+                }
+                item { GroupedFooter(stringResource(R.string.retention_blocked_messages)) }
             }
         }
+    }
+}
+
+@Composable
+private fun BlockedRow(
+    entry: BlockHelper.BlockedEntry,
+    onUnblock: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClickLabel = stringResource(R.string.blocked_numbers_unblock_cd, entry.name ?: entry.number),
+                    onClick = onUnblock,
+                ).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (entry.onDevice) Icons.Default.Block else Icons.Outlined.CloudQueue,
+            contentDescription = null,
+            tint = if (entry.onDevice) Danger else Suspicious,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                entry.name ?: entry.number,
+                color = White,
+                fontWeight = FontWeight.Medium,
+                fontSize = TextSize.Body,
+            )
+            val status =
+                stringResource(
+                    if (entry.onDevice) R.string.blocked_numbers_on_device else R.string.blocked_numbers_server_only,
+                )
+            Text(
+                if (entry.name != null) "${entry.number} · $status" else status,
+                color = TextSecondary,
+                fontSize = TextSize.Footnote,
+            )
+        }
+        Text(
+            stringResource(R.string.blocked_numbers_unblock),
+            color = IosBlue,
+            fontSize = TextSize.Subhead,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+}
+
+@Composable
+private fun ServerOnlyNotice(
+    count: Int,
+    isDefaultSmsApp: Boolean,
+    onFix: () -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .background(Suspicious.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            pluralStringResource(R.plurals.blocked_numbers_not_on_device, count, count),
+            color = White,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = TextSize.Body,
+        )
+        Text(
+            stringResource(
+                if (isDefaultSmsApp) {
+                    R.string.blocked_numbers_fix_detail_default
+                } else {
+                    R.string.blocked_numbers_fix_detail
+                },
+            ),
+            color = TextSecondary,
+            fontSize = TextSize.Subhead,
+            lineHeight = 20.sp,
+        )
+        Text(
+            stringResource(
+                if (isDefaultSmsApp) R.string.blocked_numbers_block_on_device else R.string.default_sms_prompt_title,
+            ),
+            color = Indigo,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = TextSize.Subhead,
+            modifier = Modifier.clickable(onClick = onFix).padding(vertical = 8.dp),
+        )
     }
 }

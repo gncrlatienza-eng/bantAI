@@ -1,14 +1,17 @@
 """Unit tests for validated-report sources (WBS 4.3.5)."""
 
+import io
 import json
 from datetime import datetime, timezone
 
 import pytest
 
 from retraining.reports import (
+    DatabaseReportSource,
     FileReportSource,
     NullReportSource,
     ReportFormatError,
+    ReportSourceError,
     ValidatedReport,
     _coerce_label,
 )
@@ -187,10 +190,44 @@ def test_null_source_yields_nothing_and_says_so():
     source = NullReportSource()
     assert list(source.fetch()) == []
     assert "null" in source.describe()
-    assert "4.3.1" in source.describe()
+    # It must not read as "the store was empty" -- WBS 4.3.1 exists now, so
+    # choosing not to consult it is a decision the manifest has to record.
+    assert "consulted" in source.describe()
 
 
 def test_validated_report_is_hashable_and_frozen():
     report = ValidatedReport(text="x", label="Scam")
     with pytest.raises(Exception):
         report.text = "y"
+
+
+# --- database source --------------------------------------------------------
+# No fake-HTTP pattern existed in this repo before -- test_centroid_source.py
+# never covered its backend path, which is how a missing `x-api-key` header
+# survived there unnoticed. These helpers establish one.
+
+
+class _FakeResponse(io.BytesIO):
+    """Minimal stand-in for what ``urlopen`` returns: a context-managed reader."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+def test_database_source_is_disabled_before_it_can_read_raw_sms():
+    """Training data must come from a separately consented offline export."""
+    source = DatabaseReportSource("http://localhost:3000/api", "k")
+    with pytest.raises(ReportSourceError) as exc:
+        source.fetch()
+    message = str(exc.value)
+    assert "privacy-first" in message
+    assert "FileReportSource" in message
+
+
+def test_database_source_keeps_its_url_normalized_for_a_clear_error():
+    source = DatabaseReportSource("http://localhost:3000/api/", "k")
+    assert source.url == "http://localhost:3000/api/reports"

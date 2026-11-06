@@ -1,0 +1,136 @@
+package com.bantai.util
+
+import java.text.Normalizer
+
+/**
+ * Produces the minimum useful text for remote model classification. URLs,
+ * emails, Philippine phone numbers, OTPs, and values are replaced on-device
+ * before a request leaves the handset. Domains are collected separately for
+ * local campaign matching and are not retained as message text by the
+ * backend.
+ *
+ * The generic digit-run pass at the end is deliberately broad: a landline
+ * number, a bank/card account number, or an OTP sent without a recognizable
+ * keyword nearby would otherwise pass through completely unmasked -- only
+ * catching a handful of specific patterns (URL, PH mobile number, a
+ * keyword-prefixed OTP) left everything else that merely *looks* like a
+ * phone/mobile number as plain text in the payload sent to the backend,
+ * directly contradicting this class's own "raw SMS never leaves the device"
+ * guarantee for anything that wasn't one of those exact shapes.
+ */
+object SmsPrivacyMasker {
+    private const val MAX_MASKED_BODY_LENGTH = 1600
+
+    // How many non-digit characters are allowed between an OTP-ish keyword and
+    // the code itself -- wide enough for a full sentence ("Your one-time
+    // verification code is: 123456") rather than just "OTP: 123456", since a
+    // gap that's too tight left many real OTP messages relying on the generic
+    // digit-run mask below instead (still masked, just as a less specific
+    // [NUMBER] rather than [OTP]).
+    private const val OTP_KEYWORD_GAP = 40
+
+    // A 6-digit run is the shortest thing worth masking on its own -- shorter
+    // runs are common in ordinary non-identifying text (a percentage, a small
+    // count, a year) and masking those would strip real signal the classifier
+    // needs for no privacy benefit.
+    private const val MIN_GENERIC_DIGIT_RUN = 6
+
+    private val url = Regex("\\bhttps?://[^\\s<>()]+", RegexOption.IGNORE_CASE)
+    private val bareDomain =
+        Regex(
+            "\\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)" +
+                "(?:com|net|org|ph|io|co|xyz|info|tk|top|link|app)(?:/[^\\s<>()]*)?",
+            RegexOption.IGNORE_CASE,
+        )
+
+    // Starts only where an address can start (not mid-run) and takes the local
+    // part atomically: a long dotted text with no "@" used to be re-scanned from
+    // every word, ~0.7 s on a 30k-character message.
+    private val email = Regex("(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]++@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b")
+
+    // Allows a single space or hyphen between digits (e.g. "0917 123 4567",
+    // "+63-917-123-4567") in addition to the unbroken "09171234567" form --
+    // previously only the unbroken form matched, so any formatted number fell
+    // straight through into the generic digit-run mask below (still masked,
+    // but as a less specific [NUMBER]).
+    private val phone = Regex("(?<!\\w)(?:\\+63[\\s-]?|0)9(?:[\\s-]?\\d){9}(?!\\w)")
+
+    // `*` (repeatable), not `?` -- a single optional group only matched the first
+    // thousands separator in an amount like "1,500.00" ("1,500"), leaving the
+    // decimal part (".00") behind as unmasked plain text. Caught by
+    // SmsPrivacyMaskerTest while adding this file's other tests.
+    private val money = Regex("(?:₱|PHP\\s?)\\d+(?:[,.]\\d+)*", RegexOption.IGNORE_CASE)
+
+    // Plain "P" amounts ("P5,000", "P 250.00") -- the most common way Filipinos
+    // write pesos, and the only form the pattern above missed. Needs a digit
+    // right after, and no letter or digit on either side, so words and codes
+    // like "P2P" or "MP3" are left alone.
+    private val pesoP = Regex("(?<![A-Za-z0-9])P\\s?\\d[\\d,]*(?:\\.\\d+)?(?![A-Za-z0-9])")
+
+    // Keyword-marked codes. "MPIN", "passcode" and "security number" used to slip
+    // through: a 4-digit e-wallet MPIN is too short for the generic digit-run
+    // mask below, so "Your MPIN is 4821" reached the server unmasked.
+    private val otp =
+        Regex(
+            "(?i)\\b(otp|code|pin|mpin|passcode|password|tac|security\\s+(?:code|number)|verification\\s+number)" +
+                "(\\D{0,$OTP_KEYWORD_GAP})\\d{4,8}\\b",
+        )
+
+    // A transaction reference after its label: "Ref No. 1234 567 890123",
+    // "RefNo1234567890123", "Reference: 7B3K9Q2X1M", "Transaction ID 12345".
+    // The generic run below misses these when the digits touch the label, mix
+    // in letters, or are under six digits. The code must hold a digit and be 4+
+    // characters, so "for your reference" or "transfer" are left alone. Masked
+    // as [NUMBER], the placeholder the AI service and dashboard already know.
+    private val reference =
+        Regex(
+            "(?i)\\b(ref(?:erence)?|txn|trans(?:action)?|trace)" +
+                "(\\.?\\s*(?:no|num|number|id|code)?\\.?\\s*[:#]?\\s*)" +
+                "(?=[a-z0-9-]*\\d)(?=[a-z0-9-]{4})[a-z0-9][a-z0-9-]*(?:\\s+\\d[a-z0-9-]*)*",
+        )
+
+    // Catch-all for anything left that reads as an identifying number --
+    // landlines, bank/e-wallet account numbers, card numbers, an OTP with no
+    // recognizable keyword nearby -- none of which the specific patterns above
+    // are shaped to catch. Runs last, after URL/email/PH-mobile/amount/
+    // keyword-OTP/reference have already claimed their own digits, so this only
+    // ever sees what those left behind. Up to two spaces/hyphens between
+    // digits, so a double-spaced "1234  567  890123" is still one run.
+    private val genericDigitRun = Regex("(?<!\\w)\\d(?:[\\s-]{0,2}\\d){${MIN_GENERIC_DIGIT_RUN - 1},}(?!\\w)")
+
+    /**
+     * The identifying parts of a text (email, PH mobile number, codes,
+     * references, long digit runs), masked for showing on screen. Amounts and
+     * links are left to the caller: a scam's amount is useful to see, and
+     * links have their own placeholder (SmsLinkSafety).
+     */
+    fun maskIdentifiersForDisplay(text: String): String =
+        text
+            .replace(email, "[email hidden]")
+            .replace(phone, "[number hidden]")
+            .replace(otp) { match -> "${match.groupValues[1]}${match.groupValues[2]}[code hidden]" }
+            .replace(reference) { match -> "${match.groupValues[1]}${match.groupValues[2]}[number hidden]" }
+            .replace(genericDigitRun, "[number hidden]")
+
+    fun maskForRemoteClassification(body: String): String =
+        Normalizer
+            .normalize(body, Normalizer.Form.NFKC)
+            .replace(url, "[URL]")
+            // email before bareDomain: bareDomain's pattern also matches an
+            // email's domain half on its own ("user@example.com" -> the
+            // "example.com" part alone satisfies it), and running bareDomain
+            // first would leave "user@[URL]" behind -- fully masking the
+            // domain but leaking the local part, which looks masked at a
+            // glance but isn't.
+            .replace(email, "[EMAIL]")
+            .replace(bareDomain, "[URL]")
+            .replace(phone, "[PHONE]")
+            .replace(money, "[AMOUNT]")
+            .replace(pesoP, "[AMOUNT]")
+            .replace(otp) { match -> "${match.groupValues[1]}${match.groupValues[2]}[OTP]" }
+            .replace(reference) { match -> "${match.groupValues[1]}${match.groupValues[2]}[NUMBER]" }
+            .replace(genericDigitRun, "[NUMBER]")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .take(MAX_MASKED_BODY_LENGTH)
+}

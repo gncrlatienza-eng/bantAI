@@ -3,20 +3,40 @@ package com.bantai.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bantai.container
+import com.bantai.data.DailySummaryScheduler
+import com.bantai.data.LocalAccountData
+import com.bantai.data.OutgoingSms
 import com.bantai.data.SmsIngestPipeline
+import com.bantai.data.local.DEFAULT_SUMMARY_MINUTE
 import com.bantai.data.local.UserData
-import com.bantai.data.local.UserPreferences
-import com.bantai.data.remote.SmsApi
+import com.bantai.data.remote.ApiConfig
+import com.bantai.data.remote.ApiException
+import com.bantai.data.remote.AuthApi
+import com.bantai.data.remote.HealthApi
+import com.bantai.data.remote.toUserMessage
+import com.bantai.ui.theme.TextScale
+import com.bantai.ui.theme.ThemeMode
+import com.bantai.util.OnnxBenchmark
+import com.bantai.util.SenderReplyKind
+import com.bantai.util.isValidName
+import com.bantai.util.replyKindFor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 class SettingsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val userPreferences = UserPreferences(application)
+    private val userPreferences = application.container.userPreferences
 
     private val _userData = MutableStateFlow(UserData())
     val userData: StateFlow<UserData> = _userData.asStateFlow()
@@ -27,11 +47,35 @@ class SettingsViewModel(
     private val _editLastName = MutableStateFlow("")
     val editLastName: StateFlow<String> = _editLastName.asStateFlow()
 
+    // Edit Profile → My number (optional, stays on this phone; see OwnNumber).
+    private val _editMyNumber = MutableStateFlow("")
+    val editMyNumber: StateFlow<String> = _editMyNumber.asStateFlow()
+    private val _myNumberError = MutableStateFlow<String?>(null)
+    val myNumberError: StateFlow<String?> = _myNumberError.asStateFlow()
+
     private val _editAvatarColor = MutableStateFlow("#FF6B35")
     val editAvatarColor: StateFlow<String> = _editAvatarColor.asStateFlow()
 
     private val _profileSaved = MutableStateFlow(false)
     val profileSaved: StateFlow<Boolean> = _profileSaved.asStateFlow()
+
+    // Guards saveProfile() against double-submit: without this, rapid double-taps
+    // on Save launched concurrent saves whose network responses could land out of
+    // order and overwrite a correct success/failure state with a stale one.
+    private val _profileSaving = MutableStateFlow(false)
+    val profileSaving: StateFlow<Boolean> = _profileSaving.asStateFlow()
+
+    // Surfaced when the local save succeeds but syncing the change to the
+    // backend fails -- without this, a failed sync looked identical to a
+    // successful one and the server-side name silently went stale.
+    private val _profileSyncError = MutableStateFlow<String?>(null)
+    val profileSyncError: StateFlow<String?> = _profileSyncError.asStateFlow()
+
+    private val _firstNameError = MutableStateFlow<String?>(null)
+    val firstNameError: StateFlow<String?> = _firstNameError.asStateFlow()
+
+    private val _lastNameError = MutableStateFlow<String?>(null)
+    val lastNameError: StateFlow<String?> = _lastNameError.asStateFlow()
 
     private val _smishingAlerts = MutableStateFlow(true)
     val smishingAlerts: StateFlow<Boolean> = _smishingAlerts.asStateFlow()
@@ -39,53 +83,72 @@ class SettingsViewModel(
     private val _suspiciousAlerts = MutableStateFlow(true)
     val suspiciousAlerts: StateFlow<Boolean> = _suspiciousAlerts.asStateFlow()
 
+    private val _spamAlerts = MutableStateFlow(true)
+    val spamAlerts: StateFlow<Boolean> = _spamAlerts.asStateFlow()
+
+    private val _deliveryReports = MutableStateFlow(false)
+    val deliveryReports: StateFlow<Boolean> = _deliveryReports.asStateFlow()
+
+    private val _autoBlockScams = MutableStateFlow(false)
+    val autoBlockScams: StateFlow<Boolean> = _autoBlockScams.asStateFlow()
+
     private val _autoBlockNotice = MutableStateFlow(true)
     val autoBlockNotice: StateFlow<Boolean> = _autoBlockNotice.asStateFlow()
 
     private val _scanPeriod = MutableStateFlow("daily")
     val scanPeriod: StateFlow<String> = _scanPeriod.asStateFlow()
 
-    private val _recentAlerts = MutableStateFlow<List<SmsApi.AlertSummary>>(emptyList())
-    val recentAlerts: StateFlow<List<SmsApi.AlertSummary>> = _recentAlerts.asStateFlow()
-
-    private val _alertsLoading = MutableStateFlow(true)
-    val alertsLoading: StateFlow<Boolean> = _alertsLoading.asStateFlow()
-
     // Debug-only: lets the "Simulate incoming SMS" tool report success/failure
     // without needing a real SMS to arrive first.
     private val _simulateStatus = MutableStateFlow<String?>(null)
     val simulateStatus: StateFlow<String?> = _simulateStatus.asStateFlow()
 
+    /**
+     * Edit profile starts from what's saved. This ViewModel lives as long as the
+     * activity, so without it, typing then Back without saving showed the
+     * unsaved text the next time the screen opened.
+     */
+    fun resetEdits() {
+        val data = _userData.value
+        _editFirstName.value = data.firstName
+        _editLastName.value = data.lastName
+        _editAvatarColor.value = data.avatarColor
+        viewModelScope.launch { _editMyNumber.value = userPreferences.myNumber.first() }
+    }
+
     init {
         viewModelScope.launch {
+            // _trainingOptIn is declared further down; let construction finish.
+            yield()
             userPreferences.userData.collect { data ->
                 _userData.value = data
-                _editFirstName.value = data.firstName
-                _editLastName.value = data.lastName
-                _editAvatarColor.value = data.avatarColor
+                // Signed out by any path (Sign out, Delete account, an expired
+                // session): the next sign-in must not see this account's answer.
+                if (data.authToken.isEmpty()) _trainingOptIn.value = null
                 _smishingAlerts.value = data.smishingAlerts
                 _suspiciousAlerts.value = data.suspiciousAlerts
+                _spamAlerts.value = data.spamAlerts
                 _autoBlockNotice.value = data.autoBlockNotice
+                _autoBlockScams.value = data.autoBlockScams
+                _deliveryReports.value = data.deliveryReports
                 _scanPeriod.value = data.scanPeriod
             }
-        }
-        viewModelScope.launch {
-            val token = userPreferences.userData.first().authToken
-            if (token.isEmpty()) {
-                _alertsLoading.value = false
-                return@launch
-            }
-            SmsApi.getAlerts(token).onSuccess { _recentAlerts.value = it }
-            _alertsLoading.value = false
         }
     }
 
     fun updateEditFirstName(name: String) {
         _editFirstName.value = name
+        _firstNameError.value = null
     }
 
     fun updateEditLastName(name: String) {
         _editLastName.value = name
+        _lastNameError.value = null
+    }
+
+    fun updateEditMyNumber(number: String) {
+        _editMyNumber.value = number
+        _myNumberError.value = null
     }
 
     fun cycleAvatarColor() {
@@ -108,17 +171,66 @@ class SettingsViewModel(
         return "$first$last".ifEmpty { "?" }
     }
 
+    // Mirrors OnboardingViewModel.validateAndSaveProfile's rules exactly (shared
+    // isValidName) — previously this only checked first name for non-empty and
+    // never validated either field's characters, so last name in particular
+    // could be saved here with digits/symbols/emoji even though onboarding
+    // would have rejected the exact same input.
     fun saveProfile(onSuccess: () -> Unit) {
-        val trimmed = _editFirstName.value.trim()
-        if (trimmed.isEmpty()) return
+        val trimmedFirst = _editFirstName.value.trim()
+        val trimmedLast = _editLastName.value.trim()
+
+        val firstError =
+            when {
+                trimmedFirst.isEmpty() -> "First name is required"
+                !isValidName(trimmedFirst) -> "Name should only contain letters"
+                else -> null
+            }
+        if (firstError != null) {
+            _firstNameError.value = firstError
+            return
+        }
+        if (trimmedLast.isNotEmpty() && !isValidName(trimmedLast)) {
+            _lastNameError.value = "Name should only contain letters"
+            return
+        }
+        val myNumber = _editMyNumber.value.replace(Regex("[\\s\\-()]"), "")
+        if (myNumber.isNotEmpty() && replyKindFor(myNumber) != SenderReplyKind.PHONE_NUMBER) {
+            _myNumberError.value = "Enter a mobile number, like 09171234567"
+            return
+        }
+        if (_profileSaving.value) return
+        _profileSyncError.value = null
+        _profileSaving.value = true
         viewModelScope.launch {
+            userPreferences.saveMyNumber(myNumber)
             userPreferences.saveProfile(
-                firstName = trimmed,
-                lastName = _editLastName.value.trim(),
+                firstName = trimmedFirst,
+                lastName = trimmedLast,
                 avatarColor = _editAvatarColor.value,
             )
-            _profileSaved.value = true
-            onSuccess()
+            // Local save always happens so the avatar color and name are never
+            // lost, but "saved" only means something to the caller once the
+            // backend actually has the new name too -- otherwise GET /auth/me
+            // silently disagrees with what the app displays from then on.
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) {
+                _profileSaved.value = true
+                _profileSaving.value = false
+                onSuccess()
+                return@launch
+            }
+            AuthApi
+                .updateProfile(token, trimmedFirst, trimmedLast)
+                .onSuccess {
+                    _profileSaved.value = true
+                    _profileSaving.value = false
+                    onSuccess()
+                }.onFailure { error ->
+                    _profileSyncError.value =
+                        error.toUserMessage("Saved on this device, but couldn't sync to the server.")
+                    _profileSaving.value = false
+                }
         }
     }
 
@@ -132,6 +244,66 @@ class SettingsViewModel(
         saveNotificationSettings()
     }
 
+    fun toggleSpamAlerts(value: Boolean) {
+        _spamAlerts.value = value
+        saveNotificationSettings()
+    }
+
+    val showScamWavesTab: StateFlow<Boolean> =
+        userPreferences.showScamWavesTab.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** The same setting, but null until it has actually been read. */
+    val showScamWavesTabLoaded: StateFlow<Boolean?> =
+        userPreferences.showScamWavesTab
+            .map<Boolean, Boolean?> { it }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setShowScamWavesTab(show: Boolean) {
+        viewModelScope.launch { userPreferences.saveShowScamWavesTab(show) }
+    }
+
+    val hideUnknown: StateFlow<Boolean> =
+        userPreferences.hideUnknown.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setHideUnknown(hide: Boolean) {
+        viewModelScope.launch { userPreferences.saveHideUnknown(hide) }
+    }
+
+    val dailySummaryEnabled: StateFlow<Boolean> =
+        userPreferences.dailySummaryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val dailySummaryMinute: StateFlow<Int> =
+        userPreferences.dailySummaryMinute.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_SUMMARY_MINUTE)
+
+    // Saves, then restarts the daily cycle from the new time (or cancels it).
+    fun setDailySummary(
+        enabled: Boolean,
+        minuteOfDay: Int,
+    ) {
+        viewModelScope.launch {
+            userPreferences.saveDailySummary(enabled, minuteOfDay)
+            DailySummaryScheduler.schedule(getApplication())
+        }
+    }
+
+    // Clears the "seen" marks first, so the tour that [onReady] opens plays.
+    fun replayTutorial(onReady: () -> Unit) {
+        viewModelScope.launch {
+            userPreferences.resetTutorials()
+            onReady()
+        }
+    }
+
+    fun toggleDeliveryReports(value: Boolean) {
+        _deliveryReports.value = value
+        viewModelScope.launch { userPreferences.saveDeliveryReports(value) }
+    }
+
+    fun toggleAutoBlockScams(value: Boolean) {
+        _autoBlockScams.value = value
+        viewModelScope.launch { userPreferences.saveAutoBlockScams(value) }
+    }
+
     fun toggleAutoBlockNotice(value: Boolean) {
         _autoBlockNotice.value = value
         saveNotificationSettings()
@@ -142,9 +314,28 @@ class SettingsViewModel(
             userPreferences.saveNotificationSettings(
                 smishingAlerts = _smishingAlerts.value,
                 suspiciousAlerts = _suspiciousAlerts.value,
+                spamAlerts = _spamAlerts.value,
                 autoBlockNotice = _autoBlockNotice.value,
             )
         }
+    }
+
+    val themeMode: StateFlow<ThemeMode> =
+        userPreferences.themeMode
+            .map { ThemeMode.fromValue(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.DARK)
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { userPreferences.saveThemeMode(mode.value) }
+    }
+
+    val textScale: StateFlow<TextScale> =
+        userPreferences.textScale
+            .map { TextScale.fromValue(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TextScale.DEFAULT)
+
+    fun setTextScale(scale: TextScale) {
+        viewModelScope.launch { userPreferences.saveTextScale(scale.value) }
     }
 
     fun setScanPeriod(period: String) {
@@ -154,11 +345,132 @@ class SettingsViewModel(
         }
     }
 
-    fun deleteAccount(onComplete: () -> Unit) {
+    // Clears only the local session (token + preferences). This must never call
+    // DELETE /users/me -- "Sign out" previously did exactly that via a
+    // now-removed AuthApi.deleteAccount binding, which permanently deletes the
+    // user's row and all their data server-side (see UsersService.deleteMe),
+    // even though the confirmation dialog told the user they could just verify
+    // their phone number again to come back. There is currently no UI path
+    // that performs real account deletion, and adding one needs its own
+    // explicit, separately-labeled, clearly-worded confirmation -- not this
+    // one.
+    fun signOut(onComplete: () -> Unit) {
         viewModelScope.launch {
-            userPreferences.clearAll()
+            // Keeps the inbox's labels, alert marks and finished sort for the
+            // same account signing back in; a different account wipes them at
+            // sign-in (UserPreferences.savePhoneAuth / LocalAccountData).
+            userPreferences.clearAll(keepLocalData = true)
+            OutgoingSms.clearAll(getApplication())
+            // Lives as long as the activity: the next sign-in must not see this
+            // account's answer before the server's (it flashed the consent prompt).
+            _trainingOptIn.value = null
             onComplete()
         }
+    }
+
+    private val _deletingAccount = MutableStateFlow(false)
+    val deletingAccount: StateFlow<Boolean> = _deletingAccount.asStateFlow()
+
+    // Privacy & data -> "Help improve scam detection". Null until read from the
+    // server (or when signed out / offline), so the switch never shows a guess.
+    private val _trainingOptIn = MutableStateFlow<Boolean?>(null)
+    val trainingOptIn: StateFlow<Boolean?> = _trainingOptIn.asStateFlow()
+
+    private val _trainingOptInSaving = MutableStateFlow(false)
+    val trainingOptInSaving: StateFlow<Boolean> = _trainingOptInSaving.asStateFlow()
+
+    fun loadTrainingOptIn() {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            if (token.isEmpty()) return@launch
+            AuthApi.trainingOptIn(token).onSuccess {
+                _trainingOptIn.value = it
+                userPreferences.saveTrainingOptIn(it)
+            }
+        }
+    }
+
+    /**
+     * The onboarding / one-time "Help improve scam detection" answer. Saved on
+     * the server first. A failed save still ends the question (with a toast
+     * pointing to Settings) rather than asking again on every launch.
+     */
+    fun answerTrainingConsent(
+        enabled: Boolean,
+        onDone: () -> Unit,
+        onFailed: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (saved) {
+                _trainingOptIn.value = enabled
+                userPreferences.saveTrainingOptIn(enabled)
+                userPreferences.setTrainingConsentAsked()
+                onDone()
+            } else {
+                // Still counts as asked: the one-time question must never trap the
+                // user (an unreachable or older backend failed every save, so it
+                // came straight back). The toast points to Settings for later.
+                userPreferences.setTrainingConsentAsked()
+                onFailed()
+            }
+        }
+    }
+
+    /** The account was already opted in (e.g. on another phone): nothing to ask. */
+    fun markTrainingConsentAsked() {
+        viewModelScope.launch { userPreferences.setTrainingConsentAsked() }
+    }
+
+    /** Saves the choice on the server; puts the switch back and calls [onFailed] if it can't. */
+    fun setTrainingOptIn(
+        enabled: Boolean,
+        onFailed: () -> Unit,
+    ) {
+        if (_trainingOptInSaving.value) return
+        val previous = _trainingOptIn.value
+        _trainingOptIn.value = enabled
+        _trainingOptInSaving.value = true
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val saved = token.isNotEmpty() && AuthApi.setTrainingOptIn(token, enabled).isSuccess
+            if (saved) {
+                userPreferences.saveTrainingOptIn(enabled)
+            } else {
+                _trainingOptIn.value = previous
+                onFailed()
+            }
+            _trainingOptInSaving.value = false
+        }
+    }
+
+    /**
+     * Privacy & data -> Delete account, after its typed confirmation: deletes
+     * the account on the backend first, and only then clears this phone, so a
+     * failed request (offline, server down) leaves the user signed in and able
+     * to retry rather than signed out with their data still on the server.
+     */
+    fun deleteAccount(
+        onDeleted: () -> Unit,
+        onFailed: () -> Unit,
+    ) {
+        if (_deletingAccount.value) return
+        _deletingAccount.value = true
+        viewModelScope.launch {
+            val token = userPreferences.userData.first().authToken
+            val deleted = token.isNotEmpty() && AuthApi.deleteAccount(token).isSuccess
+            if (deleted) clearLocalSession()
+            _deletingAccount.value = false
+            if (deleted) onDeleted() else onFailed()
+        }
+    }
+
+    // Delete account: everything this phone keeps for the account, including
+    // the per-message state sign-out keeps (see LocalAccountData).
+    private suspend fun clearLocalSession() {
+        userPreferences.clearAll()
+        LocalAccountData.wipe(getApplication())
     }
 
     // Feeds a synthetic message through the same pipeline SmsReceiver uses for a
@@ -191,4 +503,79 @@ class SettingsViewModel(
     fun clearSimulateStatus() {
         _simulateStatus.value = null
     }
+
+    // Debug-only: real-device latency check for the on-device-AI feasibility
+    // spike (2026-09-16). See OnnxBenchmark.kt -- not wired into real
+    // classification, and says nothing about accuracy.
+    private val _onnxBenchmarkStatus = MutableStateFlow<String?>(null)
+    val onnxBenchmarkStatus: StateFlow<String?> = _onnxBenchmarkStatus.asStateFlow()
+
+    fun runOnnxBenchmark() {
+        viewModelScope.launch {
+            _onnxBenchmarkStatus.value = "Running 5 warmup + 30 timed passes…"
+            val result =
+                withContext(Dispatchers.IO) {
+                    OnnxBenchmark.run(getApplication())
+                }
+            _onnxBenchmarkStatus.value =
+                result.fold(
+                    onSuccess = { r ->
+                        "Model: ${r.modelSizeMb.toInt()} MB\n" +
+                            "Mean: ${r.meanMs} ms  (min ${r.minMs} / max ${r.maxMs})\n" +
+                            "Dummy input, not real tokenization — compute time only."
+                    },
+                    onFailure = { e -> "Failed: ${e.message}" },
+                )
+        }
+    }
+
+    fun clearOnnxBenchmarkStatus() {
+        _onnxBenchmarkStatus.value = null
+    }
+
+    // Debug-only: confirms this build's BASE_URL is actually reachable from the
+    // phone (same wifi, no adb). The raw failure reason is shown on purpose --
+    // it's the diagnostic, and this never ships in a release build.
+    private val _backendCheckStatus = MutableStateFlow<String?>(null)
+    val backendCheckStatus: StateFlow<String?> = _backendCheckStatus.asStateFlow()
+
+    fun checkBackendConnection() {
+        viewModelScope.launch {
+            _backendCheckStatus.value = "Checking ${ApiConfig.BASE_URL}/health…"
+            _backendCheckStatus.value =
+                HealthApi.check().fold(
+                    onSuccess = { "Reachable" },
+                    onFailure = { e ->
+                        val reason = if (e is ApiException) "HTTP ${e.status}" else e.message ?: e.javaClass.simpleName
+                        "Unreachable: $reason"
+                    },
+                )
+        }
+    }
+
+    fun clearBackendCheckStatus() {
+        _backendCheckStatus.value = null
+    }
+
+    private val _serverStatus = MutableStateFlow(ServerStatus.CHECKING)
+    val serverStatus: StateFlow<ServerStatus> = _serverStatus.asStateFlow()
+
+    /**
+     * Settings' Server connection row, in every build (the detailed check above
+     * is debug-only): lets a tester see at a glance whether the app reaches
+     * BantAI's server, e.g. with Tailscale off or the laptop asleep.
+     */
+    fun checkServer() {
+        if (_serverStatus.value == ServerStatus.CHECKING && serverCheckRunning) return
+        serverCheckRunning = true
+        _serverStatus.value = ServerStatus.CHECKING
+        viewModelScope.launch {
+            _serverStatus.value = if (HealthApi.check().isSuccess) ServerStatus.CONNECTED else ServerStatus.OFFLINE
+            serverCheckRunning = false
+        }
+    }
+
+    private var serverCheckRunning = false
 }
+
+enum class ServerStatus { CHECKING, CONNECTED, OFFLINE }

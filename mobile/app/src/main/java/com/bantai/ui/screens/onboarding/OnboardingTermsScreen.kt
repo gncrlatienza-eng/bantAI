@@ -1,5 +1,8 @@
+@file:Suppress("MaxLineLength")
+
 package com.bantai.ui.screens.onboarding
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -15,7 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -28,42 +32,35 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavController
+import com.bantai.R
 import com.bantai.navigation.Screen
 import com.bantai.ui.theme.Black
+import com.bantai.ui.theme.BorderColor
 import com.bantai.ui.theme.Indigo
+import com.bantai.ui.theme.IosBlue
 import com.bantai.ui.theme.Surface
 import com.bantai.ui.theme.TextSecondary
+import com.bantai.ui.theme.TextSize
 import com.bantai.ui.theme.White
 import com.bantai.viewmodel.OnboardingViewModel
 
 private data class TermsCard(
-    val title: String,
-    val body: String,
+    @StringRes val title: Int,
+    @StringRes val body: Int,
 )
 
 private val termsCards =
     listOf(
-        TermsCard(
-            "Data collected",
-            "BantAI collects anonymized SMS metadata (sender hash, message hash, timestamp) to improve its detection model. No message body is stored on our servers.",
-        ),
-        TermsCard(
-            "How it works",
-            "Messages are classified locally on your device using an on-device AI model. Only aggregate, non-identifiable statistics are used for model retraining.",
-        ),
-        TermsCard(
-            "Your rights",
-            "You can delete your account and all associated data at any time from Settings > Account. Deletion is permanent and irreversible.",
-        ),
-        TermsCard(
-            "Third parties",
-            "BantAI does not sell your data to third parties. We may share aggregate threat intelligence with authorized research partners.",
-        ),
+        TermsCard(R.string.terms_data_title, R.string.terms_data_body),
+        TermsCard(R.string.terms_how_title, R.string.terms_how_body),
+        TermsCard(R.string.terms_rights_title, R.string.terms_rights_body),
+        TermsCard(R.string.terms_third_parties_title, R.string.terms_third_parties_body),
     )
 
 @Composable
@@ -85,13 +82,19 @@ fun OnboardingTermsScreen(
         // Top bar
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Spacer(Modifier.height(8.dp))
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = White)
+            // Terms is now the first onboarding screen, so there's usually
+            // nothing to go back to.
+            if (navController.previousBackStackEntry != null) {
+                IconButton(onClick = dropUnlessResumed { navController.popBackStack() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = stringResource(R.string.action_back), tint = IosBlue)
+                }
+            } else {
+                Spacer(Modifier.height(40.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text("STEP 4 OF 4", color = Indigo, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(stringResource(R.string.onboarding_terms_step_1_of_5), color = Indigo, fontSize = TextSize.Caption, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Spacer(Modifier.height(12.dp))
-            Text("Terms & Privacy", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = White)
+            Text(stringResource(R.string.onboarding_terms_terms_privacy), fontWeight = FontWeight.Bold, fontSize = TextSize.Title, color = White)
             Spacer(Modifier.height(16.dp))
         }
 
@@ -113,8 +116,8 @@ fun OnboardingTermsScreen(
                             .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(card.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = White)
-                    Text(card.body, fontSize = 13.sp, color = TextSecondary, lineHeight = 20.sp)
+                    Text(stringResource(card.title), fontWeight = FontWeight.Bold, fontSize = TextSize.Subhead, color = White)
+                    Text(stringResource(card.body), fontSize = TextSize.Footnote, color = TextSecondary, lineHeight = 20.sp)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -137,26 +140,26 @@ fun OnboardingTermsScreen(
                         ),
                 )
                 Text(
-                    "I have read and agree to the Terms of Service and Privacy Policy.",
+                    stringResource(R.string.onboarding_terms_i_have_read_and_agree),
                     color = White,
-                    fontSize = 13.sp,
+                    fontSize = TextSize.Footnote,
                     lineHeight = 18.sp,
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }
             Button(
-                onClick = { navController.navigate(Screen.OnboardingProfile.route) },
+                onClick = { navController.navigate(Screen.OnboardingConfirmNumber.route) },
                 enabled = state.termsAccepted,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = Indigo,
-                        disabledContainerColor = Color(0xFF2A2A2A),
+                        disabledContainerColor = BorderColor,
                         disabledContentColor = TextSecondary,
                     ),
             ) {
-                Text("Get started", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text(stringResource(R.string.onboarding_terms_get_started), fontWeight = FontWeight.SemiBold, fontSize = TextSize.Body)
             }
             Spacer(Modifier.height(16.dp))
         }

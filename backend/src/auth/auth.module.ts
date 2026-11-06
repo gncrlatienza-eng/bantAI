@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { PrismaModule } from '../../database/prisma.module';
@@ -7,12 +7,25 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpSmsService } from './otp-sms.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { AdminGuard } from './guards/admin.guard';
 import { jwtConstants } from './constants';
+import { PortalOtpEmailService } from './portal-otp-email.service';
+import { StaffGuard } from './guards/staff.guard';
 
+/*
+ * @Global(): every feature controller uses JwtAuthGuard (which extends
+ * @nestjs/passport AuthGuard('jwt')) and depends on AuthModuleOptions +
+ * JwtStrategy. Without global scope, every module would need to import
+ * AuthModule OR PassportModule + JwtModule locally, and the DI resolution
+ * would still be order-sensitive (AiModule failed before AuthModule loaded).
+ * Marking auth global lets every controller pull the guard from any position
+ * in the module graph.
+ */
+@Global()
 @Module({
   imports: [
     PrismaModule,
-    PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: jwtConstants.secret,
       signOptions: {
@@ -25,7 +38,14 @@ import { jwtConstants } from './constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpSmsService, JwtStrategy],
-  exports: [JwtModule],
+  providers: [
+    AuthService,
+    OtpSmsService,
+    PortalOtpEmailService,
+    JwtStrategy,
+    AdminGuard,
+    StaffGuard,
+  ],
+  exports: [JwtModule, PassportModule, AdminGuard, StaffGuard],
 })
 export class AuthModule {}

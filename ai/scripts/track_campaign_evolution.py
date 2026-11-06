@@ -33,6 +33,7 @@ OUT_DIR = os.path.join(AI, "datasets", "processed")
 SNAPSHOT_DIR = os.path.join(OUT_DIR, "campaign_snapshots")
 CURRENT_PATH = os.path.join(OUT_DIR, "campaign_clusters.json")
 REPORT_PATH = os.path.join(OUT_DIR, "campaign_evolution_report.json")
+SPACE_FILE = os.path.join(AI, "models", "campaign_space.json")
 
 
 def _latest_snapshot() -> str:
@@ -60,6 +61,12 @@ def _load_snapshot(path: str) -> tuple:
     return data["clusters"], data.get("n_messages")
 
 
+def _space_id(path: str):
+    """The campaign space a snapshot was clustered in, or None for raw."""
+    with open(path, "r", encoding="utf-8") as f:
+        return (json.load(f).get("space") or {}).get("space_id")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -78,14 +85,42 @@ def main() -> None:
         raise SystemExit(f"No current snapshot at {args.current}. Run cluster_campaigns.py first.")
     previous_path = args.previous or _latest_snapshot()
 
+    # Centroids from two different spaces (item 19: raw vs. transformed, or
+    # spaces fitted on different models) cannot be compared -- every "merge",
+    # "split" and "new campaign" below would be an artifact of the change.
+    prev_space, cur_space = _space_id(previous_path), _space_id(args.current)
+    if prev_space != cur_space:
+        raise SystemExit(
+            f"Snapshots are in different campaign spaces ({prev_space or 'raw'} vs "
+            f"{cur_space or 'raw'}), so their centroids are not comparable. Compare "
+            f"against a snapshot taken in the same space (--previous)."
+        )
+
     previous, prev_population = _load_snapshot(previous_path)
     current, cur_population = _load_snapshot(args.current)
+
+    # "Same campaign" must mean the same thing here as at match time. Raw
+    # centroids use the raw bar (detect_evolution's default); centroids in a
+    # campaign space use the bar calibrated in that space -- the raw 0.99x
+    # would call nearly every continuing campaign "dissolved + new".
+    extra = {}
+    if cur_space is not None:
+        from service.campaign_space import CampaignSpace
+
+        space = CampaignSpace.load(SPACE_FILE) if os.path.isfile(SPACE_FILE) else None
+        if space is None or space.space_id != cur_space or not space.calibrated:
+            raise SystemExit(
+                f"Snapshots are in space {cur_space}, but {os.path.relpath(SPACE_FILE, AI)} is not that "
+                "space (or is uncalibrated), so there is no threshold to compare them with."
+            )
+        extra["threshold"] = space.embedding_threshold
 
     report = detect_evolution(
         previous,
         current,
         previous_population=prev_population,
         current_population=cur_population,
+        **extra,
     )
 
     print("=" * 72)

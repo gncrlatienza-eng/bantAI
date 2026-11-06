@@ -13,7 +13,7 @@ export const ServiceHealthCard: React.FC<ServiceHealthCardProps> = ({
   status,
   latency,
   uptime,
-  icon = '⚡',
+  icon = '',
 }) => {
   const isOk = status === 'Operational';
   const isWarn = status === 'Warning';
@@ -23,7 +23,7 @@ export const ServiceHealthCard: React.FC<ServiceHealthCardProps> = ({
     : isWarn
       ? 'badge-amber'
       : 'badge-red';
-  const statusIcon = isOk ? '🟢' : isWarn ? '🟡' : '🔴';
+  const statusIcon = isOk ? '' : isWarn ? '' : '';
 
   return (
     <div

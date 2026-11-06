@@ -108,7 +108,7 @@ export const DonutChart: React.FC = () => {
                 padding: '2px 8px',
               }}
             >
-              📊 Total Reports
+              Total Reports
             </span>
           </div>
         </div>
@@ -133,7 +133,7 @@ export const DonutChart: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '1.15rem' }}>🚨</span>
+            <span style={{ fontSize: '1.15rem' }}></span>
             <div>
               <strong
                 style={{
@@ -197,7 +197,7 @@ export const DonutChart: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '1.15rem' }}>⚠️</span>
+            <span style={{ fontSize: '1.15rem' }}></span>
             <div>
               <strong
                 style={{
@@ -261,7 +261,7 @@ export const DonutChart: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '1.15rem' }}>🛡️</span>
+            <span style={{ fontSize: '1.15rem' }}></span>
             <div>
               <strong
                 style={{

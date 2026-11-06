@@ -34,23 +34,35 @@ Campaign intelligence runs on two clocks, per the manuscript:
 | | Fast path | Slow path |
 |---|---|---|
 | **When** | every incoming message | periodically, offline |
-| **What** | cosine match vs. active centroids | HDBSCAN over the buffer |
-| **Threshold** | similarity ≥ `0.85` | `min_cluster_size = 5` |
+| **What** | cosine match vs. active centroids, corroborated by wording | HDBSCAN over the buffer |
+| **Threshold** | similarity ≥ `0.999` ⚠️, or a corroborated relaxed bar | `min_cluster_size = 5` |
 | **Cost** | microseconds (dot products) | seconds–minutes |
 | **Code** | `ai/service/campaign.py` | `ai/scripts/cluster_campaigns.py` |
 | **Purpose** | join a *known* campaign | discover a *new* campaign |
+
+⚠️ **The manuscript specifies 0.85 here.** Measured against real data, that
+value attaches 54.5% of *unrelated* messages to a campaign — see
+`ai/PIPELINE.md` § "Stage 5b — measured limits" for the full recalibration
+history (0.85 → 0.999 on 2026-08-26, → 0.998 on 2026-08-30 when the
+underlying model was promoted, → 0.999 again on 2026-09-27 for Model C) and the current three-tier matching rule,
+detailed below under "`/classify` response addition."
 
 ### Fast path — per message
 
 ```
 SMS ─▶ mask ─▶ XLM-RoBERTa ─┬─▶ softmax ─▶ label + bucket   (Stage 5a)
-                            └─▶ [CLS] 768d ─▶ cosine vs. centroids (Stage 5b)
+                            └─▶ [CLS] 768d ─▶ tiered match vs. centroids (Stage 5b)
                                               │
-                                    ≥0.85 ────┴──── <0.85
-                                      │              │
-                              attach to cluster   buffer for
-                                                  re-clustering
+                                  any tier clears ─┴─ nothing clears
+                                      │                    │
+                              attach to cluster      buffer for
+                                                     re-clustering
 ```
+
+("Any tier clears" = domain match, hybrid match, or the calibrated
+embedding-only bar — see the tier table below. Simplified here to the
+attach/buffer decision; the full three-tier logic lives in the response
+section, not in this diagram.)
 
 ### Slow path — offline
 
@@ -109,19 +121,37 @@ the request path stays one-directional.
   "masked_text": "You have <AMOUNT> waiting. Claim at <URL>",
   "campaign": {
     "cluster_id": "7",
-    "similarity": 0.913,
+    "similarity": 0.9991,
     "matched": true,
-    "should_buffer": false
+    "should_buffer": false,
+    "lexical_similarity": 0.0,
+    "match_reason": "embedding"
   }
 }
 ```
 
 | Field | Meaning |
 |---|---|
-| `cluster_id` | Matched `CampaignCluster` id, or `null` when nothing cleared 0.85 |
+| `cluster_id` | Matched `CampaignCluster` id, or `null` when nothing cleared any tier |
 | `similarity` | Cosine similarity to the closest active centroid |
-| `matched` | Whether `similarity ≥ 0.85` |
+| `matched` | Whether the message cleared **any** of the three tiers below |
 | `should_buffer` | `true` when unmatched — hold for the next HDBSCAN pass |
+| `lexical_similarity` | Word-overlap (Dice coefficient) with the matched campaign's template. `0.0` when no lexical profile or nothing matched |
+| `match_reason` | Which tier matched — `"domain"` \| `"hybrid"` \| `"embedding"`, or `null` when unmatched |
+
+**Three match tiers**, checked in order of how much evidence each carries —
+adviser-approved 2026-08-26 as an addition beyond the manuscript's single
+threshold (`ai/PIPELINE.md` § "Adviser sign-off received"):
+
+| `match_reason` | Rule | Rationale |
+|---|---|---|
+| `domain` | shares a blasted domain **and** cosine ≥ 0.90 | link identity is near-conclusive on its own |
+| `hybrid` | cosine ≥ 0.99 **and** `lexical_similarity` ≥ 0.45 | a coarse embedding filter wording then has to confirm |
+| `embedding` | cosine ≥ **0.999** | the calibrated bar alone (0.998 under the checkpoint live 2026-08-30 → 2026-09-26) — no wording needed |
+
+The `embedding` tier is exactly the pre-hybrid, manuscript-shaped rule, so
+the other two tiers are strictly additive — they can only add matches that
+rule would have missed, never remove ones it caught.
 
 **`campaign` is `null` when no centroids are loaded** (cold start, before any
 clustering has run). Existing callers that ignore the field are unaffected —
@@ -141,8 +171,12 @@ This is not theoretical: verification on 2026-07-30 found the personal message
 cluster at 0.96, because both are short and transactional in tone.
 
 The embedding space itself is sound — Ham-vs-Scam pairs average **−0.008**
-cosine similarity, with only **0.8%** above the 0.85 threshold. The bug was
-matching against the wrong population, not a badly chosen threshold.
+cosine similarity, with only **0.8%** above the manuscript's original 0.85
+bar (measured 2026-07-30, before either recalibration below). The bug was
+matching against the wrong population, not a badly chosen threshold — a
+conclusion that holds regardless of which specific bar is current, since
+Ham and Scam separate by roughly a full point of cosine similarity, not by
+a fraction of a percent the way same-class pairs do.
 
 ---
 
@@ -155,9 +189,24 @@ the list every client fetches wasn't worth it for one internal consumer.
 
 ```json
 [
-  { "id": "7", "centroid": [0.0123, -0.0456, "... 768 floats"] }
+  { "id": "7", "label": "Bank phishing (BDO)", "centroid": [0.0123, -0.0456, "... 768 floats"] }
 ]
 ```
+
+`label` is the campaign's readable name (e.g. `Bank phishing (BDO)`,
+`Online gambling / casino #3`, `Promo (Globe)`), written by
+`cluster_campaigns.py` from fixed keyword vocabularies — never copied from
+message text (`ai/service/campaign_naming.py`). Each cluster in
+`campaign_clusters.json` also has a `category` (Bank phishing, E-wallet
+phishing, Parcel / delivery scam, Online gambling / casino, Loan / credit
+offer, Rewards / prize claim, OTP / account update, Government / ID request,
+Other scam, or Promo / marketing for Spam clusters).
+`sync_campaigns_to_backend.py` sends it with every new campaign; the backend
+persists the optional `category` field for web/mobile grouping. Promo clusters
+should stay synced (they are matched against), but can be hidden in the app.
+
+The AI service does not need the label to know which campaign space a
+centroid is in: it tells from the vector itself (see "Campaign space" below).
 
 Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.py`
 (`load_from_backend`), which is the default centroid source
@@ -167,11 +216,38 @@ Only `isActive` clusters are returned. Consumed by `ai/service/centroid_source.p
 
 ## Centroid refresh
 
-The AI service holds centroids in memory (`routers/classify.py:matcher`). They
-are replaced wholesale after each offline re-clustering pass via
-`CampaignMatcher.replace_centroids()`. Because a centroid is only meaningful in
-the embedding space that produced it, this refresh **must** also happen after
-any model retrain.
+The AI service holds centroids in memory (`routers/classify.py:matcher`),
+loaded **from the backend** at startup (`centroid_source = "backend"`), not
+from `campaign_clusters.json`. A new clustering run therefore reaches the live
+service only after it is pushed into the backend
+(`scripts/sync_campaigns_to_backend.py`) and the AI service is restarted.
+Because a centroid is only meaningful in the embedding space that produced it,
+this refresh **must** also happen after any model retrain.
+
+---
+
+## Campaign space (item 19, 2026-09-28)
+
+Campaigns are clustered and matched in a transformed copy of the embedding —
+its top 2 shared directions removed — because in the raw embedding nearly all
+scams fall into one cluster. The service identifies campaign-space centroids
+from the vectors themselves (nothing left on the removed directions; raw
+centroids all point nearly the same way, campaign-space ones do not). The space
+holds separate thresholds for messages the classifier labels Scam and Spam
+(Scam's are looser — with one shared set, scam messages matched their own
+campaign only 23% of the time; now 56.6%).
+
+The generated transform and its calibrated thresholds are checkpoint-specific
+deployment artifacts. They are no longer tracked in Git (this repository is
+public): provision the approved `campaign_space.json` at
+`BANTAI_AI_CAMPAIGN_SPACE_FILE` together with the exact model bundle that
+produced it.
+
+The AI service checks at startup that the centroids, the space file, the served
+model identity and the checkpoint digest agree. Missing, unverifiable or
+mismatched inputs make it log a mismatch and turn campaign matching **off**
+(classification is unaffected). Details and the measured numbers:
+`ai/PIPELINE.md`, "Item 19".
 
 ---
 
@@ -185,9 +261,29 @@ one — similarity scores become meaningless, not merely shifted.
 
 ```bash
 cd ai
-python scripts/embed_dataset.py       # re-embed with the new checkpoint
-python scripts/cluster_campaigns.py   # rebuild clusters + centroids
+python scripts/embed_dataset.py                    # re-embed with the new checkpoint
+python scripts/cluster_campaigns.py                # rebuild clusters + centroids + campaign space
+python scripts/calibrate_campaign_space.py         # thresholds for the new space (~5 min)
+python scripts/cluster_campaigns.py                # re-write match_threshold into the cluster file
+python scripts/sync_campaigns_to_backend.py        # dry run: check the plan
+python scripts/sync_campaigns_to_backend.py --apply  # push to the backend
+# then restart the AI service so it loads them
 ```
+
+**Don't skip the sync.** The live service reads centroids from the backend, so
+the first two steps alone change nothing it uses. That is exactly what
+happened after the 2026-08-30 promotion: the clusters were rebuilt locally, but
+the backend kept the old model's 221 clusters until 2026-09-12. The sync
+creates the new clusters before switching off (not deleting) the old ones, and
+waits out the backend's 120-requests-per-minute limit (a full sync takes about
+5 minutes).
+
+**Link suppression.** The backend hides any link whose domain belongs to an
+active cluster. The sync sends a cluster's domains only if the cluster is
+mostly Scam, and never sends official brand domains, link shorteners (the
+backend already hides those), or shared platforms like `facebook.com`.
+Spam clusters are honest marketing, and copying their domains used to hide
+official Globe/GCash links.
 
 `embeddings.npz` records the `model_dir` it was built from so a stale cache is
 detectable. Note that re-clustering alone is cheap and safe to repeat any time

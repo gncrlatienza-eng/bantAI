@@ -1,8 +1,8 @@
 """Training-snapshot assembly (Sprint 4, WBS 4.3.5).
 
 A retraining run trains on a *snapshot*: the existing labeled dataset combined
-with the validated reports collected since the last run, frozen to disk so the
-exact input of every run stays recoverable. ``RETRAINING.md`` Stage 3.
+with every validated report, frozen to disk so the exact input of every run
+stays recoverable. ``RETRAINING.md`` Stage 3.
 
 Three decisions shape this module, and each one is a place where the obvious
 implementation is wrong.
@@ -35,6 +35,7 @@ a comparison key here, never a stored artifact.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass, field
@@ -43,8 +44,10 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from preprocessing import preprocess
 
-from .reports import ValidatedReport
+from .reports import ValidatedReport, _as_utc
 from .sampling import reservoir_sample
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 #: Filenames inside a snapshot directory.
 SNAPSHOT_CSV = "snapshot.csv"
@@ -82,10 +85,8 @@ class SnapshotManifest:
     report_source: str
     max_history: Optional[int]
 
-    #: True when no fine-tune followed. Recorded because the "reports since the
-    #: last retrain" watermark must skip these runs -- a dry run consumed
-    #: nothing, so letting it advance the watermark would make the next real
-    #: run silently skip every report the dry run looked at.
+    #: True when no fine-tune followed, so a snapshot that trained nothing is
+    #: never mistaken for one that did.
     dry_run: bool = False
 
     n_reports: int = 0
@@ -98,6 +99,18 @@ class SnapshotManifest:
 
     label_counts: Dict[str, int] = field(default_factory=dict)
     report_ids: List[str] = field(default_factory=list)
+
+    #: SHA-256 over the snapshot's own (masked text, label) pairs, sorted so it
+    #: does not move with row order. Answers "which data produced this model?"
+    #: with a value rather than a description.
+    #:
+    #: Row counts alone cannot answer it: on 2026-09-16 a review moved 99 rows
+    #: out of Scam, leaving the pool the same size and a different dataset. A
+    #: model trained before and after that would carry identical-looking
+    #: manifests. Checkpoints and the holdout are both digest-verified
+    #: (``version_file.verify_version``, ``checksum.verify_against_manifest``);
+    #: this closes the same gap for the training input.
+    dataset_sha256: str = ""
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, sort_keys=True)
@@ -133,11 +146,16 @@ def build_snapshot(
     Returns:
         ``(rows, manifest)``. Reports come first in ``rows``, then history.
     """
-    report_list = list(reports)
-
-    # Masked text -> the report that owns it. Later reports win over earlier
-    # ones for the same message: a re-validated correction supersedes a stale
-    # one, and there is no reading under which the older label should survive.
+    # Masked text -> the report that owns it. The most recently validated
+    # report wins for the same message: a re-validated correction supersedes a
+    # stale one. Sorted rather than trusting arrival order, because the backend
+    # returns newest first -- last-write-wins over that order kept the *oldest*
+    # label. Reports with no timestamp sort first, so any dated report beats
+    # them; the sort is stable, so among themselves they keep source order.
+    report_list = sorted(
+        reports,
+        key=lambda r: (r.validated_at is not None, _as_utc(r.validated_at) if r.validated_at else _EPOCH),
+    )
     by_masked: Dict[str, ValidatedReport] = {}
     for report in report_list:
         by_masked[preprocess(report.text)] = report
@@ -154,7 +172,11 @@ def build_snapshot(
     def history() -> Iterable[SnapshotRow]:
         """Stream dataset rows, dropping duplicates and report-superseded rows."""
         seen: set = set()
-        for raw_text, label in dataset_rows:
+        for row in dataset_rows:
+            # Two- and three-element rows both accepted: the reader yields an
+            # origin, hand-built callers (and tests) pass bare (text, label).
+            raw_text, label = row[0], row[1]
+            origin = row[2] if len(row) > 2 else "dataset"
             manifest.n_dataset_rows_seen += 1
             masked = preprocess(str(raw_text))
 
@@ -170,7 +192,7 @@ def build_snapshot(
                 continue
             seen.add(masked)
 
-            yield SnapshotRow(text=str(raw_text), label=label, origin="dataset")
+            yield SnapshotRow(text=str(raw_text), label=label, origin=origin)
 
     if max_history is None:
         sampled = list(history())
@@ -190,6 +212,15 @@ def build_snapshot(
     for row in rows:
         counts[row.label] = counts.get(row.label, 0) + 1
     manifest.label_counts = dict(sorted(counts.items()))
+    # Masked text, because that is what the model is actually trained on: two
+    # snapshots differing only in a tracking URL are the same training input.
+    digest = hashlib.sha256()
+    for masked, label in sorted((preprocess(r.text), r.label) for r in rows):
+        digest.update(masked.encode("utf-8"))
+        digest.update(b"\x00")
+        digest.update(label.encode("utf-8"))
+        digest.update(b"\n")
+    manifest.dataset_sha256 = digest.hexdigest()
 
     return rows, manifest
 
@@ -229,8 +260,14 @@ def write_snapshot(
     return data_dir
 
 
-def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
-    """Stream ``(text, label)`` out of the labeled dataset directory.
+def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str, str]]:
+    """Stream ``(text, label, origin)`` out of the labeled dataset directory.
+
+    ``origin`` is ``"dataset"`` for rows that carry no such column, which is
+    every file except the output of ``scripts/augment_scam_dataset.py``. It is
+    preserved rather than flattened because ``training/dataset.py`` uses it to
+    keep synthetic rows out of the validation split -- and a column dropped
+    here would silently re-admit them (see ``SYNTHETIC_ORIGINS``).
 
     Mirrors ``training/dataset._read_files``: same file types, and the same
     exclusion of ``sample.csv`` (the hand-written format reference documented
@@ -256,7 +293,7 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
             with open(file_path, newline="", encoding="utf-8") as handle:
                 for row in csv.DictReader(handle):
                     if row.get("text") and row.get("label") is not None:
-                        yield str(row["text"]), str(row["label"])
+                        yield str(row["text"]), str(row["label"]), str(row.get("origin") or "dataset")
         else:
             with open(file_path, encoding="utf-8") as handle:
                 if file_path.endswith(".jsonl"):
@@ -265,4 +302,4 @@ def read_labeled_dataset(path: str) -> Iterable[Tuple[str, str]]:
                     records = json.load(handle)
             for row in records:
                 if row.get("text") and row.get("label") is not None:
-                    yield str(row["text"]), str(row["label"])
+                    yield str(row["text"]), str(row["label"]), str(row.get("origin") or "dataset")

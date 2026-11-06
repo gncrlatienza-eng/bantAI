@@ -14,22 +14,49 @@ Run:
 
     cd ai && python scripts/retrain.py
         Full cycle. Needs a GPU to be practical -- a CPU fine-tune of
-        xlm-roberta-base over ~16.8k rows takes many hours. See ai/colab/ for
-        the notebook that runs training on Colab.
+        xlm-roberta-base over ~18.9k rows (the deduplicated training snapshot
+        size as of 2026-08-27; grows as new data lands) takes many hours. See
+        ai/colab/ for the notebook that runs training on Colab.
+
+    cd ai && python scripts/retrain.py --reports-url http://localhost:3000/api
+        Include admin-validated user reports read live from the backend
+        (WBS 4.3.1). Live report ingestion is disabled in privacy-first mode;
+        use a separately consented offline report export.
 
     cd ai && python scripts/retrain.py --reports-dir datasets/reports
-        Include admin-validated user reports from a CSV/JSONL export.
+        Same, from a CSV/JSONL export instead. This is the route for a GPU box
+        that cannot reach the backend -- Colab has no path to a laptop's
+        localhost:3000.
+
+    cd ai && python scripts/retrain.py --export-reports datasets/reports/validated.csv
+        Write the backend's validated reports to that CSV and stop. The bridge
+        between the two lines above.
+
+Reports are **never** included implicitly. One of the flags above is required
+to consult a store; the default is ``NullReportSource``, which records in the
+manifest that no store was consulted rather than reporting a zero that reads
+like "none were filed".
 
 Nothing here swaps the live model. The run records a promote-or-reject verdict
 in ``decision.json``; performing the swap is a separate, deliberate step (see
 ``ai/RETRAINING.md`` -- Rollback), and re-embedding + re-clustering must follow
 any swap because campaign centroids are tied to the checkpoint that produced
 them.
+
+    cd ai && python scripts/retrain.py --register --activate ...
+        WBS 4.4.3. --register POSTs the candidate to the backend's
+        ModelVersions table as an *inactive* row -- safe the moment a gate
+        verdict exists, it is only a record. --activate (implies --register)
+        additionally makes it the live ModelVersion, and refuses to do so for
+        a rejected candidate. Both need real backend connectivity, which
+        Colab does not have -- run them from a machine that can reach the
+        backend, against a candidate copied down from Drive.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import os
 import sys
 from datetime import datetime
@@ -41,8 +68,29 @@ from retraining.pipeline import (  # noqa: E402
     DEFAULT_RUNS_ROOT,
     run_retraining,
 )
-from retraining.reports import FileReportSource, NullReportSource  # noqa: E402
+from retraining.registry import (  # noqa: E402
+    EvidenceError,
+    ModelRegistry,
+    ModelRegistryError,
+    candidate_provenance,
+)
+from retraining.reports import FileReportSource, NullReportSource, ReportSourceError  # noqa: E402
+from service.retrain_queue import (  # noqa: E402
+    DEFAULT_QUEUE_PATH,
+    QUEUED,
+    complete_all_queued,
+    list_jobs,
+)
 from training.config import TrainingConfig  # noqa: E402
+
+#: Read from the environment so one ``ai/.env``-style export serves both this
+#: CLI and the inference service (``service/config.py`` reads the same two
+#: names via pydantic). Deliberately *not* imported from ``service.config``:
+#: ``service/`` is the FastAPI app and ``retraining/`` is the training side,
+#: and coupling them would drag pydantic into the training path for two
+#: strings.
+ENV_BACKEND_URL = "BANTAI_AI_BACKEND_URL"
+ENV_MODELS_API_KEY = "BANTAI_AI_MODELS_API_KEY"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,9 +112,41 @@ def build_parser() -> argparse.ArgumentParser:
         "--reports-dir",
         default=None,
         help=(
-            "Directory of admin-validated report exports (CSV/JSONL). "
-            "Omit while WBS 4.3.1 is unbuilt -- the run then records zero "
-            "reports rather than pretending it consulted a store."
+            "Directory of admin-validated report exports (CSV/JSONL). The "
+            "offline route -- use it on a GPU box that cannot reach the "
+            "backend. Omit both report flags and the run records that no "
+            "store was consulted, rather than a zero that reads like 'none "
+            "were filed'."
+        ),
+    )
+    parser.add_argument(
+        "--reports-url",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="URL",
+        help=(
+            "Read validated reports live from the backend, e.g. "
+            f"http://localhost:3000/api. Pass the flag bare to use ${ENV_BACKEND_URL}. "
+            "Omitting the flag entirely means no store is consulted -- a set "
+            "environment variable is never enough on its own to turn this on. "
+            "Mutually exclusive with --reports-dir."
+        ),
+    )
+    parser.add_argument(
+        "--reports-api-key",
+        default=None,
+        help=("Deprecated: live database report ingestion is disabled because raw SMS text is not retained."),
+    )
+    parser.add_argument(
+        "--export-reports",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Fetch validated reports from the backend, write them to PATH as "
+            "CSV, and exit without training. Use this to carry reports to a "
+            "GPU box, then point --reports-dir at the directory there. "
+            "Implies --reports-url."
         ),
     )
     parser.add_argument(
@@ -94,8 +174,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Only consume reports validated after this ISO-8601 timestamp. "
-            "Defaults to the previous non-dry run's timestamp. Pass 'all' to "
-            "consume every report regardless of when it was validated."
+            "Default: every validated report. Each run fine-tunes from the base "
+            "model, so a correction left out of a run is lost from that run's "
+            "model -- narrow this only for a deliberate experiment. 'all' is "
+            "accepted and means the same as the default."
         ),
     )
     parser.add_argument(
@@ -107,27 +189,332 @@ def build_parser() -> argparse.ArgumentParser:
             "what makes a snapshot regenerable and two runs comparable."
         ),
     )
+    parser.add_argument(
+        "--dataset-version",
+        default=None,
+        metavar="TAG",
+        help=(
+            "Backend dataset snapshot tag this run trains on (the dataset_version "
+            "a queued retrain job names; export it with the Admin dataset download "
+            "and pass the file via --reports-dir). Recorded as the candidate's "
+            "provenance, and --complete-queue then drains only jobs for this tag."
+        ),
+    )
+    parser.add_argument(
+        "--register",
+        action="store_true",
+        help=(
+            "POST the finished candidate to the backend's ModelVersions table "
+            "(WBS 4.3.4/4.4.3) as an inactive row, once the gate has produced "
+            "a decision. Needs --models-url/--models-api-key (or the "
+            f"${ENV_BACKEND_URL}/${ENV_MODELS_API_KEY} env vars). No-op with "
+            "--dry-run: there is no candidate yet."
+        ),
+    )
+    parser.add_argument(
+        "--activate",
+        action="store_true",
+        help=(
+            "Implies --register, and attempts activation. Activation is "
+            "currently gated to authenticated administrators through the "
+            "admin backend route (see retraining/registry.py::activate) -- "
+            "machine credentials cannot promote a model. This flag will "
+            "therefore error after successful registration; use it to signal "
+            "intent so the script prints the admin-handoff instructions."
+        ),
+    )
+    parser.add_argument(
+        "--models-url",
+        default=None,
+        metavar="URL",
+        help=(
+            f"Backend base URL for --register/--activate. Defaults to "
+            f"${ENV_BACKEND_URL}, same variable --reports-url reads. Colab "
+            "cannot reach a laptop's localhost:3000 -- --register/--activate "
+            "are only usable from a machine with real backend connectivity."
+        ),
+    )
+    parser.add_argument(
+        "--models-api-key",
+        default=None,
+        help=f"Key for the internal model registry. Defaults to ${ENV_MODELS_API_KEY}.",
+    )
+    parser.add_argument(
+        "--complete-queue",
+        action="store_true",
+        help=(
+            "After a successful non-dry run, mark every queued retrain job "
+            "completed -- this run is what they were asking for. Without it "
+            "the queue keeps returning the same stale job to the backend's "
+            "hourly trigger and no new work is ever scheduled. Only works on "
+            "the host holding the queue file (see --queue-path)."
+        ),
+    )
+    parser.add_argument(
+        "--queue-path",
+        default=DEFAULT_QUEUE_PATH,
+        help="Queue file --complete-queue drains (default: %(default)s).",
+    )
     return parser
+
+
+def _build_report_source(args):
+    """Resolve the report source, or return an error message to exit 2 with.
+
+    Returns ``(source, None)`` on success and ``(None, message)`` on failure.
+    Everything checked here is checked *before* any work starts -- a wrong API
+    key should cost you a line of output, not a snapshot build followed by a
+    401.
+    """
+    # ``--reports-url`` absent is None; bare is "" (meaning "resolve from the
+    # environment"); with a value it is that value. ``--export-reports`` is a
+    # database operation by definition, so it implies the bare form.
+    raw_url = args.reports_url
+    if raw_url is None and args.export_reports:
+        raw_url = ""
+    wants_database = raw_url is not None
+
+    if args.reports_dir and wants_database:
+        return None, "--reports-dir and --reports-url are mutually exclusive; pick one source."
+
+    if wants_database:
+        return None, "--reports-url is disabled in privacy-first mode; use a consented offline --reports-dir export."
+
+    if not wants_database:
+        if args.reports_dir and not os.path.isdir(args.reports_dir):
+            return None, f"--reports-dir '{args.reports_dir}' does not exist."
+        return (FileReportSource(args.reports_dir) if args.reports_dir else NullReportSource()), None
+
+
+def _resolve_models_registry(args) -> tuple:
+    """Build the :class:`ModelRegistry` for --register/--activate, or an error.
+
+    Independent of report-source resolution on purpose: reports can come
+    from a file export (the Colab route), but registration always needs a
+    real, reachable backend -- there is no offline equivalent for "record
+    this candidate in ModelVersions".
+    """
+    url = args.models_url or os.environ.get(ENV_BACKEND_URL, "")
+    if not url:
+        return None, (
+            f"--register/--activate need a backend URL: pass --models-url or set "
+            f"${ENV_BACKEND_URL}, e.g. --models-url http://localhost:3000/api."
+        )
+    key = args.models_api_key or os.environ.get(ENV_MODELS_API_KEY, "")
+    if not key:
+        return None, (
+            f"--register/--activate need an API key: pass --models-api-key or set "
+            f"${ENV_MODELS_API_KEY} (must match AI_MODELS_API_KEY)."
+        )
+    return ModelRegistry(url, key), None
+
+
+def _reconcile_queue(args, run) -> None:
+    """Drain the retrain queue, or say why it was left alone.
+
+    A dry run trains nothing, so it answers no trigger and never drains. A
+    real run does, and leaving the queue untouched afterwards is what kept
+    every later trigger returning the same stale job (Reymark's audit, item 5).
+    """
+    if run.dry_run:
+        return
+
+    outstanding = [j for j in list_jobs(args.queue_path) if j.status == QUEUED]
+    # A run answers only the jobs whose frozen snapshot it trained on
+    # (audit 2026-09-30, finding 6); the rest stay queued for their own run.
+    queued = [j for j in outstanding if j.dataset_version == args.dataset_version]
+    other = [j for j in outstanding if j.dataset_version != args.dataset_version]
+    if other:
+        tags = sorted({j.dataset_version or "(unversioned)" for j in other})
+        print(
+            f"\n{len(other)} queued retrain job(s) name a different dataset snapshot "
+            f"({', '.join(tags)}) and were left queued. Train on that export with "
+            "--dataset-version to answer them."
+        )
+    if not queued:
+        return
+
+    if not args.complete_queue:
+        print(
+            f"\n{len(queued)} retrain job(s) still queued in {args.queue_path}. "
+            "Re-run with --complete-queue to mark them done -- until then the "
+            "backend's hourly trigger keeps getting handed the same stale job."
+        )
+        return
+
+    drained = complete_all_queued(args.queue_path, args.dataset_version)
+    print(f"\nMarked {len(drained)} queued retrain job(s) completed in {args.queue_path}.")
+
+
+def _register_candidate(args, run) -> int:
+    """Handle --register/--activate for a finished run. Returns an exit code.
+
+    Registration needs a completed gate verdict -- ``run.decision`` -- so it
+    is a no-op (with an explanation, not silence) for a dry run or a run the
+    gate never reached (e.g. no baseline checkpoint existed yet).
+    """
+    if run.dry_run:
+        print("\n--register/--activate ignored: a dry run has no candidate to register.")
+        return 0
+    if run.decision is None:
+        print(f"\n--register/--activate ignored: {run.skipped_reason or 'no gate decision was produced'}.")
+        return 0
+
+    registry, error = _resolve_models_registry(args)
+    if error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+
+    try:
+        # Artifact and training-data identity travel with the record now; the
+        # gate's validation split is not an independent holdout, so approval
+        # still needs scripts/register_candidate.py with a holdout report.
+        provenance = candidate_provenance(
+            run.candidate_dir,
+            args.dataset_version or f"run-snapshot:{os.path.basename(run.run_dir)}",
+            run.manifest.dataset_sha256,
+        )
+        model_id = registry.register(
+            version_tag=run.version_tag,
+            f1_score=run.decision.candidate_macro_f1,
+            notes=(
+                f"{run.decision.reason} "
+                f"({run.decision.n_fixes} fixes vs {run.decision.n_regressions} regressions, "
+                f"p={run.decision.p_value:.6f})"
+            ),
+            evaluation={"source": "promotion_gate_validation_split"},
+            provenance=provenance,
+        )
+        print(f"\nRegistered {run.version_tag} as ModelVersion {model_id} (inactive).")
+        print(
+            "Approval needs independent holdout evidence: run scripts/evaluate_holdout.py "
+            f"--model-dir {run.candidate_dir}, then scripts/register_candidate.py with that report."
+        )
+
+        if args.activate:
+            if not run.decision.promote:
+                print(
+                    f"NOT activating: the gate rejected this candidate ({run.decision.reason}). "
+                    "Registered as an inactive record only."
+                )
+                return 1
+            # Machine credentials cannot promote a model -- activate() always
+            # raises. Print the admin-handoff instructions rather than letting
+            # the exception propagate with no guidance.
+            try:
+                registry.activate(model_id)
+                print(f"Activated {run.version_tag} as the live ModelVersion.")
+            except ModelRegistryError as exc:
+                print(f"\n{exc}")
+                print(
+                    "\nActivation requires an authenticated administrator. Hand off:\n"
+                    f"  ModelVersion id : {model_id}\n"
+                    f"  versionTag      : {run.version_tag}\n"
+                    f"  candidate_dir   : {run.candidate_dir}\n"
+                    "The admin activation route flips this record to active,\n"
+                    "and the operator then completes the deployment:\n"
+                    f"  1. Point the live model at {run.candidate_dir}\n"
+                    "  2. Restart the AI service so /health reports the new version_tag\n"
+                    "  3. Re-run scripts/embed_dataset.py and scripts/cluster_campaigns.py"
+                )
+                return 1
+    except (ModelRegistryError, EvidenceError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _check_dataset_version(args):
+    """Confirm --reports-dir holds the frozen snapshot --dataset-version names.
+
+    The backend's JSONL export stamps every row with ``dataset_version``; a
+    run claiming a snapshot must train on that export and nothing else, or
+    the recorded provenance would describe data the model never saw.
+    Returns an error message, or ``None``.
+    """
+    if not args.dataset_version:
+        return None
+    if not args.reports_dir:
+        return "--dataset-version needs --reports-dir pointing at that snapshot's JSONL export."
+    source = FileReportSource(args.reports_dir)
+    stamped = 0
+    for path in source._files():
+        for row in source._read_file(path):
+            tag = row.get("dataset_version")
+            if tag is None:
+                return f"{os.path.basename(path)} has rows without dataset_version; use the snapshot export only."
+            if tag != args.dataset_version:
+                name = os.path.basename(path)
+                return f"{name} holds snapshot {tag!r}, not --dataset-version {args.dataset_version!r}."
+            stamped += 1
+    if not stamped:
+        return f"--reports-dir holds no rows for snapshot {args.dataset_version!r}."
+    return None
+
+
+def _export_reports(source, path: str) -> int:
+    """Write validated reports to a CSV and stop.
+
+    The columns are exactly the ones ``datasets/reports/README.md`` documents,
+    so the file drops straight into ``--reports-dir`` on the other machine.
+    Raw ``text`` -- preprocessing stays inside the training path so that
+    training input is produced by the same code as inference input.
+    """
+    reports = list(source.fetch())
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["text", "label", "report_id", "validated_at"])
+        for report in reports:
+            writer.writerow(
+                [
+                    report.text,
+                    report.label,
+                    report.report_id or "",
+                    report.validated_at.isoformat() if report.validated_at else "",
+                ]
+            )
+    print(f"{source.describe()}\nwrote {len(reports)} validated report(s) to {path}")
+    if not reports:
+        # Not an error -- but a silent empty CSV is how you end up "including
+        # reports" in a GPU run that had none.
+        print("note: nothing was exported. Retraining with this file consumes no corrections.")
+    return 0
 
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
 
-    if args.reports_dir and not os.path.isdir(args.reports_dir):
-        print(
-            f"error: --reports-dir '{args.reports_dir}' does not exist.",
-            file=sys.stderr,
-        )
+    source, error = _build_report_source(args)
+    if error:
+        print(f"error: {error}", file=sys.stderr)
         return 2
 
-    source = FileReportSource(args.reports_dir) if args.reports_dir else NullReportSource()
+    dataset_error = _check_dataset_version(args)
+    if dataset_error:
+        print(f"error: {dataset_error}", file=sys.stderr)
+        return 2
 
-    # ``datetime.min`` rather than None: None means "fall back to the previous
-    # run's watermark", which is the opposite of what --since all asks for.
+    # Checked before any work starts, same reasoning as the report source
+    # above: a missing --models-url should cost a line of output, not a
+    # multi-hour fine-tune followed by an unregistrable candidate.
+    if args.register or args.activate:
+        _, models_error = _resolve_models_registry(args)
+        if models_error:
+            print(f"error: {models_error}", file=sys.stderr)
+            return 2
+
+    if args.export_reports:
+        try:
+            return _export_reports(source, args.export_reports)
+        except ReportSourceError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
     since = None
-    if args.since == "all":
-        since = datetime.min
-    elif args.since:
+    if args.since and args.since != "all":
         try:
             since = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
         except ValueError:
@@ -137,16 +524,23 @@ def main(argv=None) -> int:
             )
             return 2
 
-    run = run_retraining(
-        since=since,
-        labeled_dir=args.labeled_dir,
-        report_source=source,
-        runs_root=args.runs_root,
-        baseline_dir=args.baseline,
-        max_history=args.max_history,
-        seed=args.seed,
-        dry_run=args.dry_run,
-    )
+    try:
+        run = run_retraining(
+            since=since,
+            labeled_dir=args.labeled_dir,
+            report_source=source,
+            runs_root=args.runs_root,
+            baseline_dir=args.baseline,
+            max_history=args.max_history,
+            seed=args.seed,
+            dry_run=args.dry_run,
+        )
+    except ReportSourceError as exc:
+        # Surfaced as a clean CLI error rather than a traceback, but it does
+        # stop the run: retraining on silently-zero corrections is the outcome
+        # this whole path exists to make impossible.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
     print(run.summary())
 
@@ -162,6 +556,11 @@ def main(argv=None) -> int:
             "     -- campaign centroids are tied to the checkpoint that made them\n"
             "        and are meaningless against a different model's embeddings."
         )
+
+    _reconcile_queue(args, run)
+
+    if args.register or args.activate:
+        return _register_candidate(args, run)
 
     return 0
 

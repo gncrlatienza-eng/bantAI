@@ -14,11 +14,25 @@ the Philippine smishing dataset and, realistically, a GPU.
 
 from __future__ import annotations
 
+import math
+import os
+
 import numpy as np
 
-from .config import TrainingConfig
+from .config import OVERRIDES_FILE, TrainingConfig, load_config
 from .dataset import build_hf_datasets
 from .tokenizer import assert_vocab_size, get_tokenizer
+
+
+def warmup_steps_for(n_train: int, batch_size: int, n_devices: int, epochs: float, ratio: float) -> int:
+    """The step count transformers 4.x derived from ``warmup_ratio``; 5.x removed that argument.
+
+    Mirrors Trainer's own arithmetic (no gradient accumulation): steps per
+    epoch = ceil(rows / (batch x devices)), total = ceil(epochs x that),
+    warmup = ceil(total x ratio).
+    """
+    steps_per_epoch = max(math.ceil(n_train / (batch_size * max(1, n_devices))), 1)
+    return math.ceil(math.ceil(epochs * steps_per_epoch) * ratio)
 
 
 def compute_metrics(eval_pred):
@@ -35,12 +49,15 @@ def compute_metrics(eval_pred):
     }
 
 
-def compute_class_weights(train_ds, num_labels: int):
+def compute_class_weights(train_ds, num_labels: int, power: float = 1.0):
     """Inverse-frequency weights: ``n_samples / (n_classes * class_count)``.
 
     Ham is ~62% of the dataset, so unweighted training is rewarded for
     defaulting to Ham whenever it is unsure. These weights make each class
     contribute equally to the loss regardless of how many examples it has.
+
+    ``power`` softens (<1) or removes (0) the weighting -- see
+    ``TrainingConfig.class_weight_power``.
 
     Returns a list of floats indexed by label id, or None when a class is
     missing from the training split (weighting is meaningless then, and a
@@ -57,7 +74,7 @@ def compute_class_weights(train_ds, num_labels: int):
     if any(c == 0 for c in counts):
         return None
     total = sum(counts)
-    return [total / (num_labels * c) for c in counts]
+    return [(total / (num_labels * c)) ** power for c in counts]
 
 
 def main(config: TrainingConfig | None = None) -> None:
@@ -69,7 +86,10 @@ def main(config: TrainingConfig | None = None) -> None:
         TrainingArguments,
     )
 
-    config = config or TrainingConfig()
+    if config is None:
+        config = load_config()
+        if os.path.isfile(OVERRIDES_FILE):
+            print(f"Settings from {OVERRIDES_FILE}: class_weight_power={config.class_weight_power}")
 
     tokenizer = get_tokenizer(config.model_name)
     assert_vocab_size(tokenizer)
@@ -90,7 +110,13 @@ def main(config: TrainingConfig | None = None) -> None:
         per_device_train_batch_size=config.train_batch_size,
         per_device_eval_batch_size=config.eval_batch_size,
         num_train_epochs=config.num_epochs,
-        warmup_ratio=config.warmup_ratio,
+        warmup_steps=warmup_steps_for(
+            len(train_ds),
+            config.train_batch_size,
+            torch.cuda.device_count(),
+            config.num_epochs,
+            config.warmup_ratio,
+        ),
         seed=config.seed,
         eval_strategy="epoch",
         save_strategy="epoch",
@@ -108,7 +134,11 @@ def main(config: TrainingConfig | None = None) -> None:
         report_to="none",
     )
 
-    weights = compute_class_weights(train_ds, config.num_labels) if config.class_weighted_loss else None
+    weights = (
+        compute_class_weights(train_ds, config.num_labels, config.class_weight_power)
+        if config.class_weighted_loss
+        else None
+    )
 
     trainer_cls = Trainer
     if weights is not None:

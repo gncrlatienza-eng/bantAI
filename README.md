@@ -11,6 +11,11 @@
 
 **[Web portal](https://bantai-student-web.calmsand-1a6d5c6b.eastasia.azurecontainerapps.io/)** · **[Android test build (signed APK)](https://github.com/gncrlatienza-eng/bantAI/releases)** · BS Computer Science thesis, De La Salle Lipa
 
+| Detect | Explain | Group |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/scam-detected.jpg" width="240" alt="A prize-claim scam flagged as likely scam with a Block sender button"> | <img src="docs/screenshots/check-this-message.jpg" width="240" alt="A message claiming to be from BPI with a warning that banks don't send links by text"> | <img src="docs/screenshots/scam-wave.jpg" width="240" alt="A Scam Waves campaign grouping a BPI rewards scam with advice on what to do"> |
+| A scam is flagged before you open it, with one tap to block the sender. | Messages that might be fake get a plain-language reason, and you decide: Real, Spam or Scam. | Related scams are grouped into Scam Waves, with advice on what to do. |
+
 ## How it works
 
 ```mermaid

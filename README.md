@@ -11,10 +11,14 @@
 
 **[Web portal](https://bantai-student-web.calmsand-1a6d5c6b.eastasia.azurecontainerapps.io/)** · **[Android test build (signed APK)](https://github.com/gncrlatienza-eng/bantAI/releases)** · BS Computer Science thesis, De La Salle Lipa
 
-| Sort | Detect | Explain | Group |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/inbox-sorted.jpg" width="200" alt="The Messages inbox with All, Spam and Unknown tabs"> | <img src="docs/screenshots/alerts.jpg" width="200" alt="The Alerts screen listing likely scams, with one swiped to reveal a Block button"> | <img src="docs/screenshots/ai-summary.jpg" width="200" alt="AI Summary marking a verification-code sender as Looks safe, with a plain-language explanation"> | <img src="docs/screenshots/scam-wave.jpg" width="200" alt="A Scam Waves campaign grouping a BPI rewards scam with advice on what to do"> |
-| Every text is sorted into All, Spam and Unknown as it arrives. | Likely scams are collected in Alerts. Swipe one to block the sender. | The AI Summary explains in plain words what a sender's messages are about, and whether they look safe. | Related scams are grouped into Scam Waves, with advice on what to do. |
+![BantAI screens, left to right: sorted inbox, Alerts, AI Summary and Scam Waves](docs/screenshots/overview.png)
+
+From left to right:
+
+1. **Sort:** every text is sorted into All, Spam and Unknown as it arrives.
+2. **Detect:** likely scams are collected in Alerts. Swipe one to block the sender.
+3. **Explain:** the AI Summary explains in plain words what a sender's messages are about, and whether they look safe.
+4. **Group:** related scams are grouped into Scam Waves, with advice on what to do.
 
 ## How it works
 

@@ -44,7 +44,7 @@
     "eslint-plugin-prettier": "^5.2.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.1.0",
-    "globals": "^17.0.0",
+    "globals": "^17.14.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.64.0",
     "prettier": "^3.4.2",

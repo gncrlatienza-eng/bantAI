@@ -471,7 +471,7 @@ dependencies {
     // Real backdrop blur for the nav bar's selection pill (2026-09-16) -- glass
     // that actually blurs the screen content behind it, not just a translucent
     // tint. dev.chrisbanes.haze, stable since 1.2.0's hazeSource/hazeEffect API.
-    implementation("dev.chrisbanes.haze:haze:1.5.3")
+    implementation("dev.chrisbanes.haze:haze:2.1.0")
     // Local message/classification storage (replaced JSON-file and single-key
     // DataStore blobs that were rewritten whole on every change).
     // Background check for newly published safety tips (TipCheckWorker).
@@ -489,7 +489,7 @@ dependencies {
     // so plain JUnit4 is enough without pulling in Robolectric.
     testImplementation(libs.junit)
     // The real org.json, so the response parsers can be tested (android.jar only has stubs).
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
 }

@@ -52,7 +52,7 @@ scipy>=1.11                 # exact binomial test (retraining/promotion.py).
                             # explicitly because we import it directly -- a
                             # transitive pin is free to disappear.
 pandas>=2.2
-numpy>=1.26
+numpy>=2.5.4
 
 # --- Explainability (Sprint 3, WBS 3.3.6) ---
 # Optional: service/explainer.py falls back to the keyword tagger when this is

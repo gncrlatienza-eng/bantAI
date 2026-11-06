@@ -1,6 +1,30 @@
 # BantAI — SMS Threat Intelligence
 
-Android-based AI smishing detection system for Filipino mobile users.
+**AI smishing and scam detection for Filipino mobile users.** BantAI acts as the phone's SMS app, classifies each incoming message with a fine-tuned XLM-RoBERTa model, and warns about or blocks scams before the user opens them.
+
+[![CI](https://github.com/gncrlatienza-eng/bantAI/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/gncrlatienza-eng/bantAI/actions/workflows/ci.yml)
+[![Android test build](https://img.shields.io/github/v/release/gncrlatienza-eng/bantAI?include_prereleases&label=android%20test%20build)](https://github.com/gncrlatienza-eng/bantAI/releases)
+![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF)
+![NestJS](https://img.shields.io/badge/NestJS-Prisma-E0234E)
+![Python](https://img.shields.io/badge/AI-XLM--RoBERTa-3776AB)
+![Azure](https://img.shields.io/badge/deployed-Azure%20Container%20Apps-0078D4)
+
+**[Web portal](https://bantai-student-web.calmsand-1a6d5c6b.eastasia.azurecontainerapps.io/)** · **[Android test build (signed APK)](https://github.com/gncrlatienza-eng/bantAI/releases)** · BS Computer Science thesis, De La Salle Lipa
+
+## How it works
+
+```mermaid
+flowchart LR
+    S["Incoming SMS"] --> M["Android app<br/>(default SMS app)"]
+    M -- "privacy-masked text" --> B["NestJS backend"]
+    B --> A["AI service<br/>XLM-RoBERTa · HDBSCAN · SHAP"]
+    A -- "Safe / Review / Spam / Blocked" --> B
+    B --> M
+    M --> U["Inbox, alert, or auto-block"]
+    B --> W["Web portal<br/>detections and campaigns"]
+```
+
+If the AI service can't be reached, the app falls back to an on-device check, so the user is still protected without a connection.
 
 ## Overview
 
@@ -46,8 +70,10 @@ See the per-folder READMEs and `docs/` for details on each piece.
 
 - **Mobile:** Kotlin, Jetpack Compose, DataStore
 - **ML:** XLM-RoBERTa, HDBSCAN, SHAP
-- **Backend:** NestJS, Prisma, PostgreSQL, JWT (phone-OTP auth)
+- **Backend:** NestJS, Prisma, PostgreSQL, JWT (phone OTP for the app, email and password for the web portal)
+- **AI service:** Python, FastAPI
 - **Dashboard:** React, Vite, React Router
+- **Deployment:** Azure Container Apps (backend, AI service and web); Android test builds published as GitHub pre-releases
 
 ## Code Quality & Security
 
@@ -59,13 +85,13 @@ each folder's README; quick reference:
 | `backend/` | `npm run lint`, `npm run format` (ESLint + Prettier) | `npm audit` |
 | `web/` | `npm run lint`, `npm run format` (ESLint + Prettier) | `npm audit` |
 | `ai/` | `ruff check .`, `ruff format .` | `pip-audit -r requirements.txt` |
-| `mobile/` | `./gradlew.bat :app:ktlintFormat`, `:app:detekt` | not yet wired up — see `mobile/README.md` |
+| `mobile/` | `./gradlew.bat :app:ktlintFormat`, `:app:detekt` | no dependency scan yet — see `mobile/README.md` |
 
 Each stack started with a deliberately narrow rule set against the existing codebase (get CI
 green first, tighten incrementally) rather than a strict set applied all at once — see the
 per-folder README or the relevant lint config's comments for what's deferred and why.
 
-CI (`.github/workflows/ci.yml`) runs these checks plus each module's tests on every pull request.
+CI (`.github/workflows/ci.yml`) runs these checks plus each module's tests on every push and pull request to `develop` and `main`. The mobile job runs ktlint, detekt, a Kotlin compile and the unit tests.
 
 ## Branching Strategy
 

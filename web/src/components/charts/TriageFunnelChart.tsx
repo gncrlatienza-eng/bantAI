@@ -176,85 +176,96 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          padding: '16px 18px',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 16,
+          padding: '14px 18px',
           background: 'var(--surface-canvas, #f8f7f4)',
           border: '1px solid var(--border-subtle, #e5e7eb)',
           borderRadius: 6,
         }}
       >
+        {/* Left: Resolution Metric */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: '2rem',
+              fontWeight: 700,
+              color: 'var(--text-primary, #111827)',
+              lineHeight: 1,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {resolutionRate.toFixed(1)}%
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span
+              style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: 'var(--text-primary, #111827)',
+                lineHeight: 1.2,
+              }}
+            >
+              Resolution Rate
+            </span>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                color: 'var(--text-secondary, #6d6870)',
+                lineHeight: 1.3,
+              }}
+            >
+              <strong style={{ color: 'var(--text-primary, #111827)' }}>
+                {statuses.resolved.toLocaleString()}
+              </strong>{' '}
+              of {total.toLocaleString()} alerts remediated & closed
+            </span>
+          </div>
+        </div>
+
+        {/* Right: Quick Context Summary */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-            flexWrap: 'wrap',
-            gap: 16,
+            alignItems: 'center',
+            gap: 14,
+            fontSize: '0.78rem',
+            color: 'var(--text-secondary, #6d6870)',
           }}
         >
-          {/* Resolution Metric */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-            <span
+          <span>
+            Triage queue:{' '}
+            <strong
               style={{
-                fontFamily: 'var(--font-mono, monospace)',
-                fontSize: '2.1rem',
-                fontWeight: 700,
                 color: 'var(--text-primary, #111827)',
-                lineHeight: 1,
-                letterSpacing: '-0.02em',
+                fontFamily: 'var(--font-mono, monospace)',
               }}
             >
-              {resolutionRate.toFixed(1)}%
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span
-                style={{
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: 'var(--text-primary, #111827)',
-                }}
-              >
-                Resolution Rate
-              </span>
-              <span
-                style={{
-                  fontSize: '0.74rem',
-                  color: 'var(--text-secondary, #6d6870)',
-                }}
-              >
-                <strong style={{ color: 'var(--text-primary, #111827)' }}>
-                  {statuses.resolved.toLocaleString()}
-                </strong>{' '}
-                of {total.toLocaleString()} alerts remediated & closed
-              </span>
-            </div>
-          </div>
-
-          {/* Quick Context Summary */}
-          <div
+              {activeInTriage.toLocaleString()} active
+            </strong>
+          </span>
+          <span
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              fontSize: '0.76rem',
-              color: 'var(--text-secondary, #6d6870)',
+              width: 1,
+              height: 14,
+              background: 'var(--border-default, #d1d5db)',
+              display: 'inline-block',
             }}
-          >
-            <span>
-              Triage queue:{' '}
-              <strong style={{ color: 'var(--text-primary, #111827)', fontFamily: 'var(--font-mono, monospace)' }}>
-                {activeInTriage.toLocaleString()} active
-              </strong>
-            </span>
-            <span style={{ color: 'var(--border-default, #d1d5db)' }}>|</span>
-            <span>
-              Dismissed:{' '}
-              <strong style={{ color: 'var(--text-primary, #111827)', fontFamily: 'var(--font-mono, monospace)' }}>
-                {statuses.dismissed.toLocaleString()} false report
-              </strong>
-            </span>
-          </div>
+          />
+          <span>
+            Dismissed:{' '}
+            <strong
+              style={{
+                color: 'var(--text-primary, #111827)',
+                fontFamily: 'var(--font-mono, monospace)',
+              }}
+            >
+              {statuses.dismissed.toLocaleString()} false report
+            </strong>
+          </span>
         </div>
       </div>
 

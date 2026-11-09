@@ -94,8 +94,8 @@ export const BarChart: React.FC<BarChartProps> = ({
           >
             <span
               style={{
-                width: 9,
-                height: 9,
+                width: 8,
+                height: 8,
                 borderRadius: 2,
                 background: '#9e444c',
               }}
@@ -113,8 +113,8 @@ export const BarChart: React.FC<BarChartProps> = ({
           >
             <span
               style={{
-                width: 9,
-                height: 9,
+                width: 8,
+                height: 8,
                 borderRadius: 2,
                 background: '#a57147',
               }}
@@ -132,13 +132,16 @@ export const BarChart: React.FC<BarChartProps> = ({
             flexWrap: 'wrap',
           }}
         >
-          {/* Range Pills */}
+          {/* Segmented Range Controls */}
           {onRangeChange && (
             <div
+              role="group"
+              aria-label="Time range selector"
               style={{
                 display: 'inline-flex',
-                background: 'var(--surface-canvas)',
-                border: '1px solid var(--border-default)',
+                alignItems: 'center',
+                background: 'var(--surface-canvas, #f3f4f6)',
+                border: '1px solid var(--border-default, #e5e7eb)',
                 borderRadius: 6,
                 padding: 2,
               }}
@@ -151,18 +154,22 @@ export const BarChart: React.FC<BarChartProps> = ({
                     type="button"
                     onClick={() => onRangeChange(r.key)}
                     style={{
-                      padding: '3px 8px',
+                      padding: '3px 9px',
                       borderRadius: 4,
-                      fontSize: '0.72rem',
-                      fontWeight: isSelected ? 700 : 500,
+                      fontSize: '0.74rem',
+                      fontWeight: isSelected ? 600 : 500,
                       border: 'none',
                       background: isSelected
-                        ? 'var(--brand-primary)'
+                        ? 'var(--surface-raised, #ffffff)'
                         : 'transparent',
                       color: isSelected
-                        ? 'var(--text-on-brand)'
-                        : 'var(--text-secondary)',
+                        ? 'var(--text-primary, #111827)'
+                        : 'var(--text-secondary, #6d6870)',
                       cursor: 'pointer',
+                      boxShadow: isSelected
+                        ? '0 1px 2px rgba(0,0,0,0.06)'
+                        : 'none',
+                      transition: 'all 0.12s ease',
                     }}
                   >
                     {r.label}
@@ -339,56 +346,72 @@ export const BarChart: React.FC<BarChartProps> = ({
         })}
       </div>
 
-      {/* Category Breakdown Badges (Panel #12 Scam Types Requirement) */}
+      {/* Scam Category Breakdown Telemetry Strip */}
       {categories && categories.length > 0 && categoryTotals && (
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 16,
             flexWrap: 'wrap',
-            marginTop: 4,
+            borderTop: '1px solid var(--border-subtle, #e5e7eb)',
+            paddingTop: 10,
+            marginTop: 8,
           }}
         >
           <span
             style={{
-              fontSize: '0.75rem',
-              color: 'var(--text-secondary)',
+              fontSize: '0.72rem',
+              color: 'var(--text-secondary, #6d6870)',
               fontWeight: 600,
-              marginRight: 4,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
             }}
           >
             Scam Types in Period:
           </span>
-          {categories.map((cat) => {
-            const count = categoryTotals[cat] || 0;
-            return (
-              <span
-                key={cat}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '3px 8px',
-                  borderRadius: 12,
-                  fontSize: '0.72rem',
-                  background: 'var(--surface-canvas)',
-                  border: '1px solid var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <span
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            {categories.map((cat) => {
+              const count = categoryTotals[cat] || 0;
+              return (
+                <div
+                  key={cat}
                   style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: 'var(--brand-primary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.74rem',
+                    color: 'var(--text-secondary, #6d6870)',
                   }}
-                />
-                {cat}: <strong>{count.toLocaleString()}</strong>
-              </span>
-            );
-          })}
+                >
+                  <span
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: 1,
+                      background: 'var(--text-secondary, #6d6870)',
+                    }}
+                  />
+                  <span>{cat}:</span>
+                  <strong
+                    style={{
+                      fontFamily: 'var(--font-mono, monospace)',
+                      color: 'var(--text-primary, #111827)',
+                    }}
+                  >
+                    {count.toLocaleString()}
+                  </strong>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

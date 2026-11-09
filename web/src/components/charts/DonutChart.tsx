@@ -179,7 +179,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                 r="15.91549430918954"
                 fill="transparent"
                 stroke="var(--border-subtle, #e5e7eb)"
-                strokeWidth="5"
+                strokeWidth="3.6"
               />
 
               {/* Dynamic Segments */}
@@ -191,12 +191,12 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                   r="15.91549430918954"
                   fill="transparent"
                   stroke={seg.color}
-                  strokeWidth="5.2"
+                  strokeWidth="3.8"
                   strokeDasharray={`${seg.percent.toFixed(2)} ${(
                     100 - seg.percent
                   ).toFixed(2)}`}
                   strokeDashoffset={seg.offset.toFixed(2)}
-                  strokeLinecap="round"
+                  strokeLinecap="butt"
                   style={{
                     transition:
                       'stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease',
@@ -221,7 +221,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
             >
               <strong
                 style={{
-                  fontSize: '1.45rem',
+                  fontSize: '1.35rem',
                   fontWeight: 700,
                   color: 'var(--text-primary, #111827)',
                   lineHeight: 1.1,
@@ -232,9 +232,9 @@ export const DonutChart: React.FC<DonutChartProps> = ({
               </strong>
               <span
                 style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.68rem',
                   color: 'var(--text-secondary, #6b7280)',
-                  marginTop: 2,
+                  marginTop: 3,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
                   fontWeight: 600,
@@ -245,27 +245,28 @@ export const DonutChart: React.FC<DonutChartProps> = ({
             </div>
           </div>
 
-          {/* Legend / Metrics Cards */}
+          {/* Clean Flat Legend Rows */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
+              gap: 2,
               flex: 1,
               minWidth: 220,
             }}
           >
-            {segments.map((seg) => (
+            {segments.map((seg, idx) => (
               <div
                 key={seg.label}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  background: 'var(--surface-muted, #f9fafb)',
-                  border: '1px solid var(--border-subtle, #f3f4f6)',
+                  padding: '8px 0',
+                  borderBottom:
+                    idx < segments.length - 1
+                      ? '1px solid var(--border-subtle, #f3f4f6)'
+                      : 'none',
                 }}
               >
                 <div
@@ -277,8 +278,8 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                 >
                   <span
                     style={{
-                      width: 10,
-                      height: 10,
+                      width: 8,
+                      height: 8,
                       borderRadius: '50%',
                       backgroundColor: seg.color,
                       flexShrink: 0,
@@ -295,14 +296,14 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                       {seg.label}
                     </div>
                     {seg.sublabel && (
-                      <small
+                      <div
                         style={{
-                          fontSize: '0.7rem',
+                          fontSize: '0.72rem',
                           color: 'var(--text-secondary, #6b7280)',
                         }}
                       >
                         {seg.sublabel}
-                      </small>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -311,7 +312,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 10,
+                    gap: 14,
                   }}
                 >
                   <span
@@ -327,13 +328,10 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                   <span
                     style={{
                       fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      backgroundColor: `${seg.color}1f`,
-                      color: seg.color,
-                      minWidth: 44,
-                      textAlign: 'center',
+                      color: 'var(--text-secondary, #6b7280)',
+                      fontFamily: 'var(--font-mono, monospace)',
+                      minWidth: 42,
+                      textAlign: 'right',
                     }}
                   >
                     {(seg.share * 100).toFixed(1)}%

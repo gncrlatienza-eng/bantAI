@@ -14,6 +14,7 @@ import {
   type DonutSegment,
   type RangeOption,
 } from '../../components/charts/DonutChart';
+import { CategoryBarChart } from '../../components/charts/CategoryBarChart';
 import { TriageFunnelChart } from '../../components/charts/TriageFunnelChart';
 import {
   getAnalyticsSummary,
@@ -174,7 +175,7 @@ export function AnalyticsView() {
           color = '#d97706';
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
-          color = '#047857';
+          color = '#334155';
           sublabel = 'Legitimate Messages';
         }
         return {
@@ -188,7 +189,7 @@ export function AnalyticsView() {
       .sort((a, b) => b.count - a.count);
   }, [classificationData]);
 
-  // Computed segments for Scam Category Donut
+  // Computed segments for Scam Category Distribution (Ranked Bars)
   const categoryDonutSegments = useMemo<DonutSegment[]>(() => {
     const totals = categoryData?.categoryTotals ?? trends?.categoryTotals;
     if (!totals) return [];
@@ -196,13 +197,11 @@ export function AnalyticsView() {
     const total = entries.reduce((acc, [, val]) => acc + val, 0);
     const colors = [
       '#b91c1c',
+      '#c2410c',
       '#d97706',
-      '#2563eb',
-      '#4f46e5',
-      '#047857',
-      '#7c3aed',
-      '#0284c7',
+      '#475569',
       '#64748b',
+      '#94a3b8',
     ];
     return entries
       .filter(([, count]) => count > 0)
@@ -381,13 +380,13 @@ Key Metrics:
             />
           </div>
 
-          {/* Scam Category Distribution Donut Chart with filter */}
+          {/* Threats by Scam Category (Ranked Horizontal Distribution Bars) */}
           <div style={CARD_STYLE}>
-            <DonutChart
+            <CategoryBarChart
               title="Threats by scam category"
               total={totalThreatsByCategory}
               totalLabel="Threats"
-              segments={categoryDonutSegments}
+              items={categoryDonutSegments}
               selectedRange={categoryRange}
               onRangeChange={(r) => setCategoryRange(r as TrendRange)}
               rangeOptions={FOUR_RANGES}

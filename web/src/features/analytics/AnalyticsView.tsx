@@ -164,17 +164,17 @@ export function AnalyticsView() {
 
     return entries
       .map(([label, count]) => {
-        let color = '#6b7280';
+        let color = '#64748b';
         let sublabel = 'Unclassified';
         const lower = label.toLowerCase();
         if (lower === 'scam' || lower === 'smishing') {
-          color = '#ef4444';
+          color = '#b91c1c';
           sublabel = 'Confirmed Threats';
         } else if (lower === 'spam') {
-          color = '#f59e0b';
+          color = '#d97706';
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
-          color = '#10b981';
+          color = '#047857';
           sublabel = 'Legitimate Messages';
         }
         return {
@@ -195,14 +195,14 @@ export function AnalyticsView() {
     const entries = Object.entries(totals);
     const total = entries.reduce((acc, [, val]) => acc + val, 0);
     const colors = [
-      '#ef4444',
-      '#f97316',
-      '#f59e0b',
-      '#8b5cf6',
-      '#06b6d4',
-      '#ec4899',
-      '#3b82f6',
-      '#10b981',
+      '#b91c1c',
+      '#d97706',
+      '#2563eb',
+      '#4f46e5',
+      '#047857',
+      '#7c3aed',
+      '#0284c7',
+      '#64748b',
     ];
     return entries
       .filter(([, count]) => count > 0)
@@ -246,9 +246,7 @@ export function AnalyticsView() {
     };
   }, [alertData, totalAlerts]);
 
-  // Generate Summary state & handlers
-  const [showSummary, setShowSummary] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Summary state & handlers
   const [copied, setCopied] = useState(false);
 
   const topCategory = categoryDonutSegments[0]?.label ?? 'Online Gambling';
@@ -260,40 +258,19 @@ export function AnalyticsView() {
   const hamTotal = classificationData?.classificationsByLabel.Ham ?? 5150;
   const grandTotal = classificationData?.totalMessages ?? 12480;
 
-  const handleGenerateSummary = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setShowSummary(true);
-    }, 350);
-  };
-
   const handleCopySummary = () => {
-    const textReport = `BantAI THREAT INTELLIGENCE & ANALYTICAL SYNTHESIS
-Surveillance Window: ${trendsRange.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}
+    const textReport = `BantAI Threat Trends Summary
+Observation Window: ${trendsRange.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}
 
-1. EXECUTIVE THREAT POSTURE
-- Total Messages Processed: ${grandTotal.toLocaleString()}
-- Confirmed Smishing Threats: ${scamTotal.toLocaleString()} (${((scamTotal / grandTotal) * 100).toFixed(1)}%)
-- Suspicious Spam Messages: ${spamTotal.toLocaleString()} (${((spamTotal / grandTotal) * 100).toFixed(1)}%)
-- Legitimate / Safe Messages: ${hamTotal.toLocaleString()} (${((hamTotal / grandTotal) * 100).toFixed(1)}%)
-- Current Threat Posture: ELEVATED RISK
-
-2. PREDOMINANT SCAM VECTORS & CATEGORIES
-- Primary Attack Vector: ${topCategory} (${topCategoryPct}% of total scam activity)
-- Secondary Vectors: Prize Claims, Fake Job Offers, Bank/E-Wallet Phishing
-- Emerging Cluster Characteristics: High usage of Taglish lures and spoofed sender headers.
-
-3. INCIDENT TRIAGE & RESOLUTION RATE
-- Total Alerts Processed: ${alertSummaryMetrics.totalReceived.toLocaleString()}
-- Successfully Resolved: ${alertSummaryMetrics.totalResolved.toLocaleString()} (${alertSummaryMetrics.resolutionRate.toFixed(1)}% closure efficiency)
-- Active in Triage / Under Review: ${(alertSummaryMetrics.totalUnderReview ?? 0).toLocaleString()} alerts
-- False Positive Dismissal Rate: ${(alertSummaryMetrics.totalDismissed ?? 0).toLocaleString()} dismissed
-
-4. RECOMMENDED STRATEGIC ACTIONS
-- Enforce automated blocking on repeating sender headers associated with ${topCategory}.
-- Dispatch preemptive safety advisory tips targeting active smishing lure templates.
-- Queue user-verified reports to the XLM-RoBERTa retraining pipeline for continuous drift adaptation.`;
+Key Metrics:
+- Total Evaluated Messages: ${grandTotal.toLocaleString()}
+- Confirmed Smishing (Scam): ${scamTotal.toLocaleString()} (${((scamTotal / grandTotal) * 100).toFixed(1)}%)
+- Suspicious (Spam): ${spamTotal.toLocaleString()} (${((spamTotal / grandTotal) * 100).toFixed(1)}%)
+- Legitimate (Ham): ${hamTotal.toLocaleString()} (${((hamTotal / grandTotal) * 100).toFixed(1)}%)
+- Primary Scam Type: ${topCategory} (${topCategoryPct}%)
+- Alerts Resolved: ${alertSummaryMetrics.totalResolved.toLocaleString()} / ${alertSummaryMetrics.totalReceived.toLocaleString()} (${alertSummaryMetrics.resolutionRate.toFixed(1)}%)
+- Active in Triage: ${(alertSummaryMetrics.totalUnderReview ?? 0).toLocaleString()}
+- User Reports: ${(globalData?.totalReports ?? 0).toLocaleString()}`;
 
     void navigator.clipboard.writeText(textReport);
     setCopied(true);
@@ -437,17 +414,10 @@ Surveillance Window: ${trendsRange.toUpperCase()} | Generated: ${new Date().toLo
         </div>
       </section>
 
-      {/* 5. ANALYTICAL SUMMARY SECTION */}
+      {/* 5. Threat Trends Summary (Typical simple chart trends summary) */}
       <section style={{ marginBottom: 40 }}>
-        <div
-          style={{
-            ...CARD_STYLE,
-            background:
-              'linear-gradient(180deg, var(--surface-raised, #ffffff) 0%, var(--surface-muted, #f9fafb) 100%)',
-            border: '1px solid var(--border-default, #e5e7eb)',
-          }}
-        >
-          {/* Header & Generate Button Bar */}
+        <div style={CARD_STYLE}>
+          {/* Header & Copy Button Bar */}
           <div
             style={{
               display: 'flex',
@@ -455,32 +425,22 @@ Surveillance Window: ${trendsRange.toUpperCase()} | Generated: ${new Date().toLo
               alignItems: 'center',
               flexWrap: 'wrap',
               gap: 16,
-              borderBottom: showSummary
-                ? '1px solid var(--border-subtle, #e5e7eb)'
-                : 'none',
-              paddingBottom: showSummary ? 16 : 0,
-              marginBottom: showSummary ? 20 : 0,
+              borderBottom: '1px solid var(--border-subtle, #e5e7eb)',
+              paddingBottom: 16,
+              marginBottom: 20,
             }}
           >
             <div>
-              <div
+              <h3
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
+                  margin: 0,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary, #111827)',
                 }}
               >
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    color: 'var(--text-primary, #111827)',
-                  }}
-                >
-                  Automated Threat Intelligence & Analytical Summary
-                </h3>
-              </div>
+                Threat Trends & Telemetry Summary
+              </h3>
               <p
                 style={{
                   margin: '4px 0 0',
@@ -488,414 +448,223 @@ Surveillance Window: ${trendsRange.toUpperCase()} | Generated: ${new Date().toLo
                   color: 'var(--text-secondary, #6b7280)',
                 }}
               >
-                Synthesizes temporal threat vectors, scam campaign distribution,
-                and triage closure rates into a structured analytical report.
+                Key observations and distribution metrics for the selected{' '}
+                {trendsRange.toUpperCase()} surveillance window.
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {showSummary && (
-                <button
-                  type="button"
-                  onClick={handleCopySummary}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '7px 14px',
-                    borderRadius: 6,
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    border: '1px solid var(--border-default, #d1d5db)',
-                    background: 'var(--surface-raised, #ffffff)',
-                    color: copied
-                      ? 'var(--status-verified, #10b981)'
-                      : 'var(--text-primary, #111827)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {copied ? 'Copied to Clipboard' : 'Copy Report'}
-                </button>
-              )}
+            <button
+              type="button"
+              onClick={handleCopySummary}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 6,
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                border: '1px solid var(--border-default, #d1d5db)',
+                background: 'var(--surface-raised, #ffffff)',
+                color: copied
+                  ? '#047857'
+                  : 'var(--text-primary, #111827)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {copied ? 'Copied Summary' : 'Copy Summary'}
+            </button>
+          </div>
 
-              <Button
-                variant={showSummary ? 'secondary' : 'primary'}
-                onClick={handleGenerateSummary}
-                disabled={isGenerating}
+          {/* Key Trend Summary Strip */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f3f4f6)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6b7280)',
+                  textTransform: 'uppercase',
+                }}
               >
-                {isGenerating
-                  ? 'Analyzing Threat Vectors...'
-                  : showSummary
-                    ? 'Regenerate Summary'
-                    : 'Generate Summary'}
-              </Button>
+                Primary Scam Vector
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #111827)',
+                  marginTop: 2,
+                }}
+              >
+                {topCategory} ({topCategoryPct}%)
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f3f4f6)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6b7280)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Resolution Rate
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #111827)',
+                  marginTop: 2,
+                }}
+              >
+                {alertSummaryMetrics.resolutionRate.toFixed(1)}% Closed
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f3f4f6)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6b7280)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Threat Share
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #111827)',
+                  marginTop: 2,
+                }}
+              >
+                {(((scamTotal + spamTotal) / grandTotal) * 100).toFixed(1)}% Non-Ham
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f3f4f6)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6b7280)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Evaluated Traffic
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #111827)',
+                  marginTop: 2,
+                }}
+              >
+                {grandTotal.toLocaleString()} Messages ({trendsRange.toUpperCase()})
+              </div>
             </div>
           </div>
 
-          {/* Detailed Summary Report Container */}
-          {showSummary && (
-            <div
+          {/* Simple Trend Observations Table / List */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              padding: '16px',
+              borderRadius: 6,
+              background: 'var(--surface-canvas, #f9fafb)',
+              border: '1px solid var(--border-subtle, #e5e7eb)',
+              fontSize: '0.85rem',
+              color: 'var(--text-primary, #111827)',
+            }}
+          >
+            <div style={{ fontWeight: 600, color: 'var(--text-secondary, #4b5563)', marginBottom: 2 }}>
+              Trend Observations
+            </div>
+            <ul
               style={{
+                margin: 0,
+                paddingLeft: 20,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 20,
-                fontSize: '0.875rem',
-                color: 'var(--text-primary, #111827)',
-                lineHeight: 1.6,
+                gap: 8,
+                color: 'var(--text-secondary, #4b5563)',
+                lineHeight: 1.5,
               }}
             >
-              {/* Snapshot Metric Badges */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                  gap: 12,
-                }}
-              >
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 6,
-                    background: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.25)',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      color: '#ef4444',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Primary Threat Vector
-                  </span>
-                  <div
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 800,
-                      color: '#b91c1c',
-                      marginTop: 2,
-                    }}
-                  >
-                    {topCategory} ({topCategoryPct}%)
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 6,
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      color: '#10b981',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Triage Resolution Efficiency
-                  </span>
-                  <div
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 800,
-                      color: '#047857',
-                      marginTop: 2,
-                    }}
-                  >
-                    {alertSummaryMetrics.resolutionRate.toFixed(1)}% Closed
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 6,
-                    background: 'rgba(59, 130, 246, 0.08)',
-                    border: '1px solid rgba(59, 130, 246, 0.25)',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      color: '#3b82f6',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Active Threat Ratio
-                  </span>
-                  <div
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 800,
-                      color: '#1d4ed8',
-                      marginTop: 2,
-                    }}
-                  >
-                    {(((scamTotal + spamTotal) / grandTotal) * 100).toFixed(1)}%
-                    Non-Ham Traffic
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 6,
-                    background: 'var(--surface-canvas, #f3f4f6)',
-                    border: '1px solid var(--border-subtle, #e5e7eb)',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      color: 'var(--text-secondary, #6b7280)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Evaluated Surveillance
-                  </span>
-                  <div
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 800,
-                      color: 'var(--text-primary, #111827)',
-                      marginTop: 2,
-                    }}
-                  >
-                    {trendsRange.toUpperCase()} Window
-                  </div>
-                </div>
-              </div>
-
-              {/* Detailed Breakdown Sections */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 16,
-                  background: 'var(--surface-raised, #ffffff)',
-                  padding: 20,
-                  borderRadius: 8,
-                  border: '1px solid var(--border-subtle, #e5e7eb)',
-                }}
-              >
-                {/* 1. Executive Threat Overview */}
-                <div>
-                  <h4
-                    style={{
-                      margin: '0 0 6px',
-                      fontSize: '0.92rem',
-                      fontWeight: 700,
-                      color: 'var(--text-primary, #111827)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: 'var(--accent-primary, #2563eb)',
-                        fontWeight: 900,
-                      }}
-                    >
-                      1.
-                    </span>{' '}
-                    Executive Threat Posture & Ingestion Volume
-                  </h4>
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'var(--text-secondary, #4b5563)',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    Over the selected{' '}
-                    <strong>{trendsRange.toUpperCase()}</strong> monitoring
-                    interval, the BantAI protection gateway evaluated{' '}
-                    <strong>{grandTotal.toLocaleString()}</strong> inbound SMS
-                    transmissions across the telecommunications infrastructure.{' '}
-                    <strong>{scamTotal.toLocaleString()}</strong> messages were
-                    affirmatively classified as high-confidence smishing attacks
-                    (
-                    <strong>
-                      {((scamTotal / grandTotal) * 100).toFixed(1)}%
-                    </strong>
-                    ), while <strong>{spamTotal.toLocaleString()}</strong>{' '}
-                    messages represented unsolicited commercial or deceptive
-                    spam (
-                    <strong>
-                      {((spamTotal / grandTotal) * 100).toFixed(1)}%
-                    </strong>
-                    ). Legitimate communication (Ham) comprised{' '}
-                    <strong>{hamTotal.toLocaleString()}</strong> messages (
-                    {((hamTotal / grandTotal) * 100).toFixed(1)}%).
-                  </p>
-                </div>
-
-                {/* 2. Vector Breakdown */}
-                <div>
-                  <h4
-                    style={{
-                      margin: '0 0 6px',
-                      fontSize: '0.92rem',
-                      fontWeight: 700,
-                      color: 'var(--text-primary, #111827)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: 'var(--accent-primary, #2563eb)',
-                        fontWeight: 900,
-                      }}
-                    >
-                      2.
-                    </span>{' '}
-                    Predominant Attack Vectors & Campaign Clustering
-                  </h4>
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'var(--text-secondary, #4b5563)',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    Campaign clustering telemetry isolates{' '}
-                    <strong>{topCategory}</strong> as the single largest threat
-                    contributor, representing <strong>{topCategoryPct}%</strong>{' '}
-                    of all identified scam campaigns. Secondary vectors include
-                    fraudulent prize claims, impersonated task/employment
-                    recruitment, and e-wallet credential harvesting. The
-                    linguistic pattern analysis confirms pervasive Taglish
-                    vernacular and evasive obfuscations (e.g. unicode
-                    substitutions and un-indexed shortened hyperlinks).
-                  </p>
-                </div>
-
-                {/* 3. Triage & Incident Resolution */}
-                <div>
-                  <h4
-                    style={{
-                      margin: '0 0 6px',
-                      fontSize: '0.92rem',
-                      fontWeight: 700,
-                      color: 'var(--text-primary, #111827)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: 'var(--accent-primary, #2563eb)',
-                        fontWeight: 900,
-                      }}
-                    >
-                      3.
-                    </span>{' '}
-                    Incident Triage & Operational Closure Efficiency
-                  </h4>
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'var(--text-secondary, #4b5563)',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    Security operations logged a cumulative total of{' '}
-                    <strong>
-                      {alertSummaryMetrics.totalReceived.toLocaleString()}
-                    </strong>{' '}
-                    triage alerts during this interval. The operational
-                    resolution rate is currently registered at{' '}
-                    <strong>
-                      {alertSummaryMetrics.resolutionRate.toFixed(1)}%
-                    </strong>{' '}
-                    (
-                    <strong>
-                      {alertSummaryMetrics.totalResolved.toLocaleString()}
-                    </strong>{' '}
-                    closed investigations). An active backlog of{' '}
-                    <strong>
-                      {(
-                        alertSummaryMetrics.totalUnderReview ?? 0
-                      ).toLocaleString()}
-                    </strong>{' '}
-                    alerts remains under staff review, while{' '}
-                    <strong>
-                      {(
-                        alertSummaryMetrics.totalDismissed ?? 0
-                      ).toLocaleString()}
-                    </strong>{' '}
-                    reports were discarded following secondary validation.
-                  </p>
-                </div>
-
-                {/* 4. Strategic Defense Directives */}
-                <div>
-                  <h4
-                    style={{
-                      margin: '0 0 6px',
-                      fontSize: '0.92rem',
-                      fontWeight: 700,
-                      color: 'var(--text-primary, #111827)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: 'var(--accent-primary, #2563eb)',
-                        fontWeight: 900,
-                      }}
-                    >
-                      4.
-                    </span>{' '}
-                    Strategic Countermeasures & Analytical Recommendations
-                  </h4>
-                  <ul
-                    style={{
-                      margin: '4px 0 0',
-                      paddingLeft: 20,
-                      color: 'var(--text-secondary, #4b5563)',
-                      fontSize: '0.85rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                    }}
-                  >
-                    <li>
-                      <strong>Automated Campaign Blocking:</strong> Prioritize
-                      originating sender blocklisting for clusters mapped to{' '}
-                      <em>{topCategory}</em> and high-frequency lottery lures.
-                    </li>
-                    <li>
-                      <strong>Retraining Trigger Calibration:</strong> With high
-                      classification throughput, validated user feedback should
-                      be dispatched to the XLM-RoBERTa pipeline to minimize
-                      concept drift.
-                    </li>
-                    <li>
-                      <strong>Safety Advisory Sync:</strong> Surface mobile
-                      safety tips focused on e-wallet credential verification to
-                      users receiving flagged financial lures.
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
+              <li>
+                <strong>Predominant Scam Vector:</strong>{' '}
+                <span>
+                  {topCategory} accounts for {topCategoryPct}% of total identified scam campaigns in this period.
+                </span>
+              </li>
+              <li>
+                <strong>Traffic Classification:</strong>{' '}
+                <span>
+                  Telemetry recorded {scamTotal.toLocaleString()} scam ({((scamTotal / grandTotal) * 100).toFixed(1)}%),{' '}
+                  {spamTotal.toLocaleString()} spam ({((spamTotal / grandTotal) * 100).toFixed(1)}%), and{' '}
+                  {hamTotal.toLocaleString()} legitimate messages ({((hamTotal / grandTotal) * 100).toFixed(1)}%).
+                </span>
+              </li>
+              <li>
+                <strong>Triage & Incident Remediation:</strong>{' '}
+                <span>
+                  {alertSummaryMetrics.totalResolved.toLocaleString()} of {alertSummaryMetrics.totalReceived.toLocaleString()}{' '}
+                  alerts have been resolved ({alertSummaryMetrics.resolutionRate.toFixed(1)}% closure rate), with{' '}
+                  {(alertSummaryMetrics.totalUnderReview ?? 0).toLocaleString()} alerts actively under review.
+                </span>
+              </li>
+              <li>
+                <strong>User Ingestion:</strong>{' '}
+                <span>
+                  {globalData.totalReports.toLocaleString()} total user-submitted reports have been recorded in the platform pipeline.
+                </span>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
     </>

@@ -52,7 +52,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       statusLabel: 'RECEIVED',
       count: statuses.received,
       share: total > 0 ? (statuses.received / total) * 100 : 0,
-      color: '#3b82f6',
+      color: '#2563eb',
       sublabel: 'Queued for triage analysis',
       step: '01',
     },
@@ -62,7 +62,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       statusLabel: 'UNDER_REVIEW',
       count: statuses.underReview,
       share: total > 0 ? (statuses.underReview / total) * 100 : 0,
-      color: '#f59e0b',
+      color: '#b45309',
       sublabel: 'Under staff threat examination',
       step: '02',
     },
@@ -72,7 +72,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       statusLabel: 'RESOLVED',
       count: statuses.resolved,
       share: total > 0 ? (statuses.resolved / total) * 100 : 0,
-      color: '#10b981',
+      color: '#047857',
       sublabel: 'Threat mitigated and case closed',
       step: '03',
     },
@@ -82,7 +82,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       statusLabel: 'DISMISSED',
       count: statuses.dismissed,
       share: total > 0 ? (statuses.dismissed / total) * 100 : 0,
-      color: '#6b7280',
+      color: '#64748b',
       sublabel: 'Benign or duplicate submission',
       step: '04',
     },
@@ -211,29 +211,21 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               viewBox="0 0 170 110"
               style={{ overflow: 'visible' }}
             >
-              <defs>
-                <linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="60%" stopColor="#10b981" />
-                  <stop offset="100%" stopColor="#059669" />
-                </linearGradient>
-              </defs>
-
               {/* Background Arch Track */}
               <path
                 d="M 15 95 A 70 70 0 0 1 155 95"
                 fill="none"
                 stroke="var(--border-subtle, #e5e7eb)"
-                strokeWidth="12"
+                strokeWidth="11"
                 strokeLinecap="round"
               />
 
-              {/* Animated Value Arc */}
+              {/* Toned Down Solid Value Arc */}
               <path
                 d="M 15 95 A 70 70 0 0 1 155 95"
                 fill="none"
-                stroke="url(#gaugeGrad)"
-                strokeWidth="12.5"
+                stroke="#047857"
+                strokeWidth="11"
                 strokeLinecap="round"
                 strokeDasharray={gaugeCircumference}
                 strokeDashoffset={strokeDashoffset}
@@ -286,15 +278,22 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               alignItems: 'center',
               gap: 6,
               padding: '3px 10px',
-              borderRadius: 20,
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: 6,
+              background: 'var(--surface-canvas, #f3f4f6)',
+              border: '1px solid var(--border-subtle, #e5e7eb)',
               fontSize: '0.74rem',
-              fontWeight: 700,
-              color: '#059669',
+              fontWeight: 600,
+              color: 'var(--text-secondary, #4b5563)',
             }}
           >
-            ●{' '}
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#047857',
+              }}
+            />
             {total > 0
               ? `${statuses.resolved} of ${total} alerts resolved`
               : 'No alerts recorded'}
@@ -317,21 +316,20 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '10px 14px',
-                borderRadius: 8,
-                background: 'var(--surface-muted, #f9fafb)',
-                border: `1px solid ${stage.color}33`,
-                borderLeft: `4px solid ${stage.color}`,
-                transition: 'transform 0.15s ease',
+                borderRadius: 6,
+                background: 'var(--surface-raised, #ffffff)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+                borderLeft: `3px solid ${stage.color}`,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span
                   style={{
                     fontSize: '0.7rem',
-                    fontWeight: 800,
+                    fontWeight: 600,
                     fontFamily: 'var(--font-mono, monospace)',
-                    color: stage.color,
-                    background: `${stage.color}18`,
+                    color: 'var(--text-secondary, #6b7280)',
+                    background: 'var(--surface-canvas, #f3f4f6)',
                     padding: '2px 6px',
                     borderRadius: 4,
                   }}
@@ -343,7 +341,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                   <div
                     style={{
                       fontSize: '0.85rem',
-                      fontWeight: 700,
+                      fontWeight: 600,
                       color: 'var(--text-primary, #111827)',
                     }}
                   >
@@ -370,8 +368,8 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 <span
                   style={{
                     fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: '0.95rem',
-                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
                     color: 'var(--text-primary, #111827)',
                   }}
                 >
@@ -379,13 +377,14 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 </span>
                 <span
                   style={{
-                    fontSize: '0.74rem',
-                    fontWeight: 700,
-                    padding: '3px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    padding: '2px 6px',
                     borderRadius: 4,
-                    background: `${stage.color}1a`,
-                    color: stage.color,
-                    minWidth: 46,
+                    background: 'var(--surface-canvas, #f3f4f6)',
+                    color: 'var(--text-secondary, #4b5563)',
+                    border: '1px solid var(--border-subtle, #e5e7eb)',
+                    minWidth: 44,
                     textAlign: 'center',
                   }}
                 >
@@ -459,7 +458,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               fontSize: '1.1rem',
               fontWeight: 800,
               fontFamily: 'var(--font-mono, monospace)',
-              color: '#f59e0b',
+              color: 'var(--text-primary, #111827)',
             }}
           >
             {(statuses.received + statuses.underReview).toLocaleString()}
@@ -489,7 +488,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               fontSize: '1.1rem',
               fontWeight: 800,
               fontFamily: 'var(--font-mono, monospace)',
-              color: '#10b981',
+              color: 'var(--text-primary, #111827)',
             }}
           >
             {statuses.resolved.toLocaleString()}
@@ -519,7 +518,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               fontSize: '1.1rem',
               fontWeight: 800,
               fontFamily: 'var(--font-mono, monospace)',
-              color: '#6b7280',
+              color: 'var(--text-primary, #111827)',
             }}
           >
             {statuses.dismissed.toLocaleString()}

@@ -50,42 +50,34 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
   const stages = [
     {
       id: 'received',
-      stepNumber: '01',
       name: 'Intake / Ingestion',
       count: statuses.received,
       share: total > 0 ? (statuses.received / total) * 100 : 8.2,
       color: '#477a86', // mineral petrol
-      statusTag: 'Queued',
       description: 'Queued for triage analysis',
     },
     {
       id: 'underReview',
-      stepNumber: '02',
       name: 'Active Investigation',
       count: statuses.underReview,
       share: total > 0 ? (statuses.underReview / total) * 100 : 3.5,
       color: '#9c6335', // mineral burnt amber
-      statusTag: 'In Review',
       description: 'Under staff threat examination',
     },
     {
       id: 'resolved',
-      stepNumber: '03',
       name: 'Resolved & Remediated',
       count: statuses.resolved,
       share: total > 0 ? (statuses.resolved / total) * 100 : 75.7,
       color: '#3d6355', // mineral muted teal
-      statusTag: 'Remediated',
       description: 'Threat mitigated and case closed',
     },
     {
       id: 'dismissed',
-      stepNumber: '04',
       name: 'Dismissed / False Positive',
       count: statuses.dismissed,
       share: total > 0 ? (statuses.dismissed / total) * 100 : 12.6,
       color: '#6d6870', // mineral ash violet
-      statusTag: 'Filtered',
       description: 'Benign or duplicate submission',
     },
   ];
@@ -335,10 +327,10 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(180px, 2.2fr) 90px minmax(100px, 1.5fr) 70px 60px',
+            gridTemplateColumns: 'minmax(220px, 3fr) minmax(120px, 2fr) 70px 60px',
             alignItems: 'center',
-            gap: 12,
-            padding: '8px 14px',
+            gap: 16,
+            padding: '8px 16px',
             background: 'var(--surface-canvas, #f9fafb)',
             borderBottom: '1px solid var(--border-subtle, #e5e7eb)',
             fontSize: '0.68rem',
@@ -349,7 +341,6 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           }}
         >
           <span>Lifecycle Stage</span>
-          <span>Status</span>
           <span>Distribution</span>
           <span style={{ textAlign: 'right' }}>Alerts</span>
           <span style={{ textAlign: 'right' }}>Share</span>
@@ -361,65 +352,35 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             key={stage.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(180px, 2.2fr) 90px minmax(100px, 1.5fr) 70px 60px',
+              gridTemplateColumns: 'minmax(220px, 3fr) minmax(120px, 2fr) 70px 60px',
               alignItems: 'center',
-              gap: 12,
-              padding: '10px 14px',
+              gap: 16,
+              padding: '11px 16px',
               borderBottom:
                 idx < stages.length - 1
                   ? '1px solid var(--border-subtle, #f3f4f6)'
                   : 'none',
             }}
           >
-            {/* Stage Identification */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            {/* Stage Identification: Name & Context Description */}
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
               <span
                 style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '0.72rem',
+                  fontSize: '0.84rem',
                   fontWeight: 600,
-                  color: 'var(--text-secondary, #6d6870)',
+                  color: 'var(--text-primary, #111827)',
                 }}
               >
-                {stage.stepNumber}
+                {stage.name}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <span
-                  style={{
-                    fontSize: '0.825rem',
-                    fontWeight: 600,
-                    color: 'var(--text-primary, #111827)',
-                  }}
-                >
-                  {stage.name}
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    color: 'var(--text-secondary, #6d6870)',
-                    marginTop: 1,
-                  }}
-                >
-                  {stage.description}
-                </span>
-              </div>
-            </div>
-
-            {/* Status Tag */}
-            <div>
               <span
                 style={{
-                  display: 'inline-block',
-                  fontSize: '0.68rem',
-                  fontWeight: 600,
-                  color: stage.color,
-                  background: 'var(--surface-canvas, #f3f4f6)',
-                  border: '1px solid var(--border-subtle, #e5e7eb)',
-                  padding: '2px 7px',
-                  borderRadius: 3,
+                  fontSize: '0.72rem',
+                  color: 'var(--text-secondary, #6d6870)',
+                  marginTop: 1,
                 }}
               >
-                {stage.statusTag}
+                {stage.description}
               </span>
             </div>
 
@@ -437,7 +398,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 style={{
                   width: `${Math.max(stage.share, 2)}%`,
                   height: '100%',
-                  background: stage.color,
+                  background: 'var(--text-secondary, #6d6870)',
                 }}
               />
             </div>

@@ -45,14 +45,14 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
   const resolutionRate = total > 0 ? (statuses.resolved / total) * 100 : 75.7;
   const activeInTriage = statuses.received + statuses.underReview;
 
-  // Pipeline stages with restrained, professional color tokens
+  // Pipeline stages with BantAI mineral design system tokens
   const stages = [
     {
       id: 'received',
       name: 'Intake / Ingestion',
       count: statuses.received,
       share: total > 0 ? (statuses.received / total) * 100 : 0,
-      color: '#2563eb',
+      color: '#477a86', // mineral petrol
       description: 'Queued for triage analysis',
     },
     {
@@ -60,7 +60,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       name: 'Active Investigation',
       count: statuses.underReview,
       share: total > 0 ? (statuses.underReview / total) * 100 : 0,
-      color: '#b45309',
+      color: '#9c6335', // mineral burnt amber
       description: 'Under staff threat examination',
     },
     {
@@ -68,7 +68,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       name: 'Resolved & Remediated',
       count: statuses.resolved,
       share: total > 0 ? (statuses.resolved / total) * 100 : 0,
-      color: '#047857',
+      color: '#3d6355', // mineral muted teal
       description: 'Threat mitigated and case closed',
     },
     {
@@ -76,7 +76,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       name: 'Dismissed / False Positive',
       count: statuses.dismissed,
       share: total > 0 ? (statuses.dismissed / total) * 100 : 0,
-      color: '#64748b',
+      color: '#6d6870', // mineral ash violet
       description: 'Benign or duplicate submission',
     },
   ];
@@ -92,7 +92,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 18,
         width: '100%',
       }}
     >
@@ -104,7 +104,6 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           alignItems: 'flex-start',
           flexWrap: 'wrap',
           gap: 12,
-          paddingBottom: 4,
         }}
       >
         <div>
@@ -186,7 +185,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             fontSize: '0.72rem',
-            color: 'var(--text-secondary, #6b7280)',
+            color: 'var(--text-secondary, #6d6870)',
             fontWeight: 500,
           }}
         >
@@ -197,8 +196,8 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         <div
           style={{
             width: '100%',
-            height: 8,
-            borderRadius: 4,
+            height: 7,
+            borderRadius: 3.5,
             background: 'var(--surface-canvas, #f3f4f6)',
             display: 'flex',
             overflow: 'hidden',
@@ -221,14 +220,14 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         </div>
       </div>
 
-      {/* 3. Main Operational Section: Resolution Rate + Lifecycle Stage Breakdown */}
+      {/* 3. Main Operational Section: Balanced Resolution Efficiency + Lifecycle Breakdown */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(240px, 300px) 1fr',
-          gap: 24,
-          alignItems: 'stretch',
-          padding: '16px 0',
+          gridTemplateColumns: 'minmax(250px, 310px) 1fr',
+          gap: 28,
+          alignItems: 'center',
+          padding: '12px 0',
           borderTop: '1px solid var(--border-subtle, #f3f4f6)',
           borderBottom: '1px solid var(--border-subtle, #f3f4f6)',
         }}
@@ -237,229 +236,216 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            paddingRight: 20,
+            alignItems: 'center',
+            gap: 16,
+            paddingRight: 24,
             borderRight: '1px solid var(--border-subtle, #f3f4f6)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            {/* Compact Circular Progress Ring */}
+          {/* Compact Circular Progress Ring */}
+          <div
+            style={{
+              position: 'relative',
+              width: 82,
+              height: 82,
+              flexShrink: 0,
+            }}
+          >
+            <svg
+              width="82"
+              height="82"
+              viewBox="0 0 82 82"
+              style={{ transform: 'rotate(-90deg)' }}
+              aria-hidden="true"
+            >
+              {/* Track */}
+              <circle
+                cx="41"
+                cy="41"
+                r={ringRadius}
+                fill="none"
+                stroke="var(--surface-canvas, #f3f4f6)"
+                strokeWidth="6.5"
+              />
+              {/* Value Arc */}
+              <circle
+                cx="41"
+                cy="41"
+                r={ringRadius}
+                fill="none"
+                stroke="#3d6355"
+                strokeWidth="6.5"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringOffset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+              />
+            </svg>
+
+            {/* Centered Percentage */}
             <div
               style={{
-                position: 'relative',
-                width: 86,
-                height: 86,
-                flexShrink: 0,
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'var(--font-mono, monospace)',
+                fontSize: '0.98rem',
+                fontWeight: 700,
+                color: 'var(--text-primary, #111827)',
               }}
             >
-              <svg
-                width="86"
-                height="86"
-                viewBox="0 0 86 86"
-                style={{ transform: 'rotate(-90deg)' }}
-                aria-hidden="true"
-              >
-                {/* Track */}
-                <circle
-                  cx="43"
-                  cy="43"
-                  r={ringRadius}
-                  fill="none"
-                  stroke="var(--surface-canvas, #f3f4f6)"
-                  strokeWidth="7"
-                />
-                {/* Value Arc */}
-                <circle
-                  cx="43"
-                  cy="43"
-                  r={ringRadius}
-                  fill="none"
-                  stroke="#047857"
-                  strokeWidth="7"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={ringOffset}
-                  strokeLinecap="round"
-                  style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-                />
-              </svg>
-
-              {/* Centered Percentage */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: '1rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
-                }}
-              >
-                {clampedRate.toFixed(1)}%
-              </div>
+              {clampedRate.toFixed(1)}%
             </div>
+          </div>
 
-            {/* Typography & Operational Meaning */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Typography & Operational Meaning */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary, #6d6870)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              Resolution Rate
+            </span>
+            <div
+              style={{
+                fontSize: '1.2rem',
+                fontWeight: 700,
+                color: 'var(--text-primary, #111827)',
+                lineHeight: 1.2,
+              }}
+            >
+              {statuses.resolved.toLocaleString()}{' '}
               <span
                 style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 600,
-                  color: 'var(--text-secondary, #6b7280)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  color: 'var(--text-secondary, #6d6870)',
                 }}
               >
-                Resolution Rate
-              </span>
-              <div
-                style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
-                  lineHeight: 1.2,
-                }}
-              >
-                {statuses.resolved.toLocaleString()}{' '}
-                <span
-                  style={{
-                    fontSize: '0.825rem',
-                    fontWeight: 500,
-                    color: 'var(--text-secondary, #6b7280)',
-                  }}
-                >
-                  of {total.toLocaleString()} closed
-                </span>
-              </div>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  color: '#047857',
-                  fontWeight: 600,
-                  marginTop: 2,
-                }}
-              >
-                Remediated & verified
+                of {total.toLocaleString()} closed
               </span>
             </div>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                color: '#3d6355',
+                fontWeight: 600,
+                marginTop: 2,
+              }}
+            >
+              Remediated & verified
+            </span>
           </div>
         </div>
 
-        {/* Right Column: Structured Lifecycle Stages List */}
+        {/* Right Column: Natural, Well-Proportioned Lifecycle Stages List */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: 4,
+            justifyContent: 'center',
+            gap: 2,
+            maxWidth: 620,
           }}
         >
           {stages.map((stage, idx) => (
             <div
               key={stage.id}
               style={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr auto auto',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                gap: 12,
                 padding: '7px 0',
                 borderBottom:
                   idx < stages.length - 1
-                    ? '1px solid var(--border-subtle, #f9fafb)'
+                    ? '1px solid var(--border-subtle, #f3f4f6)'
                     : 'none',
               }}
             >
-              {/* Stage Identity */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Stage Color Indicator Dot */}
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: stage.color,
+                  flexShrink: 0,
+                }}
+              />
+
+              {/* Stage Name & Contextual Description */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                }}
+              >
                 <span
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: stage.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <div>
-                  <div
-                    style={{
-                      fontSize: '0.84rem',
-                      fontWeight: 600,
-                      color: 'var(--text-primary, #111827)',
-                    }}
-                  >
-                    {stage.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '0.72rem',
-                      color: 'var(--text-secondary, #6b7280)',
-                    }}
-                  >
-                    {stage.description}
-                  </div>
-                </div>
-              </div>
-
-              {/* Stage Numbers & Mini Progress Bar */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                {/* Mini proportional bar */}
-                <div
-                  style={{
-                    width: 50,
-                    height: 4,
-                    borderRadius: 2,
-                    background: 'var(--surface-canvas, #f3f4f6)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${stage.share}%`,
-                      height: '100%',
-                      background: stage.color,
-                    }}
-                  />
-                </div>
-
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: '0.875rem',
+                    fontSize: '0.85rem',
                     fontWeight: 600,
                     color: 'var(--text-primary, #111827)',
-                    minWidth: 50,
-                    textAlign: 'right',
                   }}
                 >
-                  {stage.count.toLocaleString()}
+                  {stage.name}
                 </span>
-
                 <span
                   style={{
-                    fontSize: '0.75rem',
-                    color: 'var(--text-secondary, #6b7280)',
-                    fontFamily: 'var(--font-mono, monospace)',
-                    minWidth: 42,
-                    textAlign: 'right',
+                    fontSize: '0.73rem',
+                    color: 'var(--text-secondary, #6d6870)',
                   }}
                 >
-                  {stage.share.toFixed(1)}%
+                  · {stage.description}
                 </span>
               </div>
+
+              {/* Exact Count */}
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary, #111827)',
+                  minWidth: 44,
+                  textAlign: 'right',
+                }}
+              >
+                {stage.count.toLocaleString()}
+              </span>
+
+              {/* Proportional Share */}
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-secondary, #6d6870)',
+                  minWidth: 44,
+                  textAlign: 'right',
+                }}
+              >
+                {stage.share.toFixed(1)}%
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 4. Unified Bottom Statistics Strip (Enterprise KPI Grid, Not 4 Disconnected Cards) */}
+      {/* 4. Unified Bottom Statistics Strip (Enterprise KPI Grid) */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
-          background: 'var(--surface-canvas, #f9fafb)',
+          background: 'var(--surface-canvas, #f8f7f4)',
           border: '1px solid var(--border-subtle, #e5e7eb)',
           borderRadius: 6,
           overflow: 'hidden',
@@ -467,7 +453,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       >
         <div
           style={{
-            padding: '12px 16px',
+            padding: '11px 16px',
             borderRight: '1px solid var(--border-subtle, #e5e7eb)',
           }}
         >
@@ -475,7 +461,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             style={{
               fontSize: '0.7rem',
               fontWeight: 500,
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginBottom: 4,
             }}
           >
@@ -495,7 +481,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           <div
             style={{
               fontSize: '0.68rem',
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginTop: 4,
             }}
           >
@@ -505,7 +491,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
 
         <div
           style={{
-            padding: '12px 16px',
+            padding: '11px 16px',
             borderRight: '1px solid var(--border-subtle, #e5e7eb)',
           }}
         >
@@ -513,7 +499,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             style={{
               fontSize: '0.7rem',
               fontWeight: 500,
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginBottom: 4,
             }}
           >
@@ -533,7 +519,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           <div
             style={{
               fontSize: '0.68rem',
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginTop: 4,
             }}
           >
@@ -543,7 +529,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
 
         <div
           style={{
-            padding: '12px 16px',
+            padding: '11px 16px',
             borderRight: '1px solid var(--border-subtle, #e5e7eb)',
           }}
         >
@@ -551,7 +537,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             style={{
               fontSize: '0.7rem',
               fontWeight: 500,
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginBottom: 4,
             }}
           >
@@ -562,16 +548,27 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               fontSize: '1.35rem',
               fontWeight: 700,
               fontFamily: 'var(--font-mono, monospace)',
-              color: '#047857',
+              color: 'var(--text-primary, #111827)',
               lineHeight: 1.1,
             }}
           >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#3d6355',
+                display: 'inline-block',
+                marginRight: 6,
+                verticalAlign: 'middle',
+              }}
+            />
             {statuses.resolved.toLocaleString()}
           </div>
           <div
             style={{
               fontSize: '0.68rem',
-              color: '#047857',
+              color: '#3d6355',
               fontWeight: 600,
               marginTop: 4,
             }}
@@ -580,12 +577,12 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           </div>
         </div>
 
-        <div style={{ padding: '12px 16px' }}>
+        <div style={{ padding: '11px 16px' }}>
           <div
             style={{
               fontSize: '0.7rem',
               fontWeight: 500,
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginBottom: 4,
             }}
           >
@@ -605,7 +602,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           <div
             style={{
               fontSize: '0.68rem',
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginTop: 4,
             }}
           >

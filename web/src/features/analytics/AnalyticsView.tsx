@@ -195,21 +195,13 @@ export function AnalyticsView() {
     if (!totals) return [];
     const entries = Object.entries(totals);
     const total = entries.reduce((acc, [, val]) => acc + val, 0);
-    const colors = [
-      '#9e444c',
-      '#b06a3b',
-      '#a57147',
-      '#475569',
-      '#6d6870',
-      '#8c8590',
-    ];
     return entries
       .filter(([, count]) => count > 0)
-      .map(([cat, count], idx) => ({
+      .map(([cat, count]) => ({
         label: cat,
         count,
         share: total > 0 ? count / total : 0,
-        color: colors[idx % colors.length],
+        color: '#6d6870', // neutral slate gray
       }))
       .sort((a, b) => b.count - a.count);
   }, [categoryData, trends]);

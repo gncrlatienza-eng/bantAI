@@ -57,7 +57,7 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
       ).toEqual(['Overview', 'Campaigns', 'System']);
     });
 
-    it('shows a full-access admin all eight sections, settings excluded', () => {
+    it('shows a full-access admin all sections, settings excluded', () => {
       const groups = getFilteredAdminSidebarGroups(['*']);
       expect(groups.map((g) => g.label)).toEqual([undefined, 'Manage']);
       expect(labels(['*'])).toEqual([
@@ -66,6 +66,7 @@ describe('Frontend Security: Staff Least-Privilege & Role Gates (W6/W9)', () => 
         'Campaigns',
         'Messages',
         'Model',
+        'Analytics',
         'Customers',
         'Tips',
         'System',

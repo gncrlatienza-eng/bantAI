@@ -132,6 +132,29 @@ export interface AccountState {
 }
 
 export function getAccountState(): Promise<AccountState> {
+  if (
+    import.meta.env.DEV &&
+    localStorage.getItem('bantai_dev_admin') === 'true'
+  ) {
+    return Promise.resolve({
+      state: 'ADMIN',
+      destination: '/admin',
+      routeGroups: ['admin'],
+      reason: null,
+      account: {
+        id: 'dev-admin-id',
+        email: 'admin@bantai.dev',
+        firstName: 'Daryl',
+        lastName: 'De Castro',
+        organization: 'De La Salle Lipa',
+        onboardingStatus: 'COMPLETE',
+      },
+      workspace: null,
+      application: null,
+      previousAccess: null,
+      requestPolicy: null,
+    });
+  }
   return fetchApi<AccountState>('/account/state');
 }
 

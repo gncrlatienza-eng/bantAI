@@ -1,13 +1,28 @@
 import React, { useState } from 'react';
 
-interface BarData {
+export type TrendRange = 'today' | '7d' | '14d' | '30d' | '90d';
+
+export interface BarDataPoint {
   label: string;
-  value: number;
+  date?: string;
+  value?: number;
   smishing: number;
   suspicious: number;
+  ham?: number;
+  byCategory?: Record<string, number>;
 }
 
-const DATA: BarData[] = [
+export interface BarChartProps {
+  data?: BarDataPoint[];
+  selectedRange?: TrendRange;
+  onRangeChange?: (range: TrendRange) => void;
+  categories?: string[];
+  categoryTotals?: Record<string, number>;
+  loading?: boolean;
+  title?: string;
+}
+
+const DEFAULT_DATA: BarDataPoint[] = [
   { label: 'Mon', value: 240, smishing: 180, suspicious: 60 },
   { label: 'Tue', value: 380, smishing: 310, suspicious: 70 },
   { label: 'Wed', value: 520, smishing: 420, suspicious: 100 },
@@ -17,9 +32,31 @@ const DATA: BarData[] = [
   { label: 'Sun', value: 430, smishing: 350, suspicious: 80 },
 ];
 
-export const BarChart: React.FC = () => {
+const RANGES: { key: TrendRange; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7D' },
+  { key: '14d', label: '14D' },
+  { key: '30d', label: '30D' },
+  { key: '90d', label: '90D' },
+];
+
+export const BarChart: React.FC<BarChartProps> = ({
+  data,
+  selectedRange = '30d',
+  onRangeChange,
+  categories,
+  categoryTotals,
+  loading = false,
+}) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const maxVal = 1000;
+
+  const chartData = data && data.length > 0 ? data : DEFAULT_DATA;
+  const rawMax = Math.max(
+    ...chartData.map((d) => (d.smishing || 0) + (d.suspicious || 0)),
+    1,
+  );
+  // Round up to clean scale ceiling
+  const maxVal = Math.max(Math.ceil(rawMax * 1.15), 10);
 
   return (
     <div
@@ -27,24 +64,32 @@ export const BarChart: React.FC = () => {
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
+        gap: 16,
+        opacity: loading ? 0.65 : 1,
+        transition: 'opacity 0.2s ease',
+        pointerEvents: loading ? 'none' : 'auto',
       }}
     >
+      {/* Top Controls Header */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
           fontSize: '0.8125rem',
         }}
       >
-        <div style={{ display: 'flex', gap: 16 }}>
+        {/* Threat Type Legend */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 6,
               color: 'var(--text-secondary)',
+              fontWeight: 500,
             }}
           >
             <span
@@ -55,7 +100,7 @@ export const BarChart: React.FC = () => {
                 background: 'linear-gradient(180deg, #f87171, #ef4444)',
               }}
             />
-            Smishing
+            Smishing (Scam)
           </span>
           <span
             style={{
@@ -63,6 +108,7 @@ export const BarChart: React.FC = () => {
               alignItems: 'center',
               gap: 6,
               color: 'var(--text-secondary)',
+              fontWeight: 500,
             }}
           >
             <span
@@ -73,32 +119,91 @@ export const BarChart: React.FC = () => {
                 background: 'linear-gradient(180deg, #fbbf24, #f59e0b)',
               }}
             />
-            Suspicious
+            Suspicious (Spam)
           </span>
         </div>
-        <span style={{ color: 'var(--text-muted)' }}>Past 7 Days</span>
+
+        {/* Date Range Controls */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Range Pills */}
+          {onRangeChange && (
+            <div
+              style={{
+                display: 'inline-flex',
+                background: 'var(--surface-canvas)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 6,
+                padding: 2,
+              }}
+            >
+              {RANGES.map((r) => {
+                const isSelected = selectedRange === r.key;
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    onClick={() => onRangeChange(r.key)}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      fontSize: '0.72rem',
+                      fontWeight: isSelected ? 700 : 500,
+                      border: 'none',
+                      background: isSelected
+                        ? 'var(--brand-primary)'
+                        : 'transparent',
+                      color: isSelected
+                        ? 'var(--text-on-brand)'
+                        : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Main Chart Area */}
       <div
         style={{
           height: 220,
           position: 'relative',
           display: 'flex',
           alignItems: 'flex-end',
-          gap: 16,
-          paddingTop: 20,
-          paddingBottom: 24,
-          borderBottom: '1px solid var(--border-subtle)',
+          gap: chartData.length > 20 ? 4 : chartData.length > 10 ? 8 : 16,
+          paddingTop: 24,
+          paddingBottom: 28,
+          borderBottom: '1px solid var(--border-default)',
         }}
       >
-        {DATA.map((item, idx) => {
-          const smishingHeight = (item.smishing / maxVal) * 160;
-          const suspiciousHeight = (item.suspicious / maxVal) * 160;
+        {chartData.map((item, idx) => {
+          const smishingCount = item.smishing || 0;
+          const suspiciousCount = item.suspicious || 0;
+          const totalThreats = smishingCount + suspiciousCount;
+
+          const smishingHeight = (smishingCount / maxVal) * 160;
+          const suspiciousHeight = (suspiciousCount / maxVal) * 160;
           const isHovered = hoveredIdx === idx;
+
+          // Extract category breakdown if present
+          const categoriesInPeriod = item.byCategory
+            ? Object.entries(item.byCategory).filter(([, count]) => count > 0)
+            : [];
 
           return (
             <div
-              key={item.label}
+              key={item.date || item.label || idx}
               onMouseEnter={() => setHoveredIdx(idx)}
               onMouseLeave={() => setHoveredIdx(null)}
               style={{
@@ -110,42 +215,88 @@ export const BarChart: React.FC = () => {
                 height: '100%',
                 position: 'relative',
                 cursor: 'pointer',
+                minWidth: 8,
               }}
             >
+              {/* Tooltip */}
               {isHovered && (
                 <div
-                  className="animate-scale-in"
                   style={{
                     position: 'absolute',
-                    top: -45,
-                    background: '#1a1a28',
-                    border: '1px solid var(--border-active)',
+                    bottom: '100%',
+                    marginBottom: 10,
+                    background: 'var(--surface-raised)',
+                    border: '1px solid var(--border-strong)',
                     borderRadius: 6,
-                    padding: '6px 10px',
+                    padding: '8px 12px',
                     fontSize: '0.75rem',
                     color: 'var(--text-primary)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
                     whiteSpace: 'nowrap',
-                    zIndex: 10,
+                    zIndex: 20,
+                    pointerEvents: 'none',
                   }}
                 >
-                  <div>
-                    <strong>{item.label}:</strong> {item.value} reports
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                    {item.label}
+                    {item.date ? ` (${item.date})` : ''}
                   </div>
-                  <div style={{ color: 'var(--red-text)' }}>
-                    Smishing: {item.smishing}
+                  <div style={{ color: 'var(--text-secondary)' }}>
+                    Total threats: <strong>{totalThreats}</strong>
                   </div>
+                  <div style={{ color: '#ef4444', marginTop: 2 }}>
+                    Smishing: <strong>{smishingCount}</strong>
+                  </div>
+                  <div style={{ color: '#f59e0b', marginTop: 2 }}>
+                    Suspicious: <strong>{suspiciousCount}</strong>
+                  </div>
+
+                  {categoriesInPeriod.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        paddingTop: 6,
+                        borderTop: '1px solid var(--border-default)',
+                        fontSize: '0.7rem',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: 'var(--text-secondary)',
+                          marginBottom: 2,
+                        }}
+                      >
+                        Scam Categories:
+                      </div>
+                      {categoriesInPeriod.slice(0, 4).map(([cat, cnt]) => (
+                        <div key={cat} style={{ color: 'var(--text-primary)' }}>
+                          • {cat}: <strong>{cnt}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
+              {/* Stacked Bar */}
               <div
                 style={{
                   width: '100%',
-                  maxWidth: 36,
+                  maxWidth: chartData.length > 20 ? 18 : 36,
                   display: 'flex',
                   flexDirection: 'column-reverse',
-                  borderRadius: '6px 6px 0 0',
+                  borderRadius: '4px 4px 0 0',
                   overflow: 'hidden',
+                  background:
+                    totalThreats === 0
+                      ? 'color-mix(in srgb, var(--border-default) 40%, transparent)'
+                      : 'transparent',
+                  height:
+                    totalThreats === 0
+                      ? '4px'
+                      : `${Math.max(smishingHeight + suspiciousHeight, 4)}px`,
+                  transition: 'all 0.15s ease',
                 }}
               >
                 <div
@@ -154,7 +305,6 @@ export const BarChart: React.FC = () => {
                     background: isHovered
                       ? 'linear-gradient(180deg, #f87171, #ef4444)'
                       : 'linear-gradient(180deg, rgba(248,113,113,0.85), rgba(239,68,68,0.7))',
-                    transition: 'all 0.2s ease',
                   }}
                 />
                 <div
@@ -163,28 +313,86 @@ export const BarChart: React.FC = () => {
                     background: isHovered
                       ? 'linear-gradient(180deg, #fbbf24, #f59e0b)'
                       : 'linear-gradient(180deg, rgba(251,191,36,0.85), rgba(245,158,11,0.7))',
-                    transition: 'all 0.2s ease',
                   }}
                 />
               </div>
 
+              {/* X-Axis Label */}
               <span
                 style={{
                   position: 'absolute',
                   bottom: -24,
-                  fontSize: '0.75rem',
+                  fontSize: chartData.length > 20 ? '0.65rem' : '0.75rem',
                   color: isHovered
                     ? 'var(--text-primary)'
-                    : 'var(--text-muted)',
+                    : 'var(--text-secondary)',
                   fontWeight: isHovered ? 700 : 500,
+                  whiteSpace: 'nowrap',
+                  transform: chartData.length > 20 ? 'rotate(-30deg)' : 'none',
                 }}
               >
-                {item.label}
+                {/* For crowded 30d/90d views, show every other label or formatted */}
+                {chartData.length > 20 && idx % 3 !== 0 && !isHovered
+                  ? ''
+                  : item.label}
               </span>
             </div>
           );
         })}
       </div>
+
+      {/* Category Breakdown Badges (Panel #12 Scam Types Requirement) */}
+      {categories && categories.length > 0 && categoryTotals && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginTop: 4,
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              fontWeight: 600,
+              marginRight: 4,
+            }}
+          >
+            Scam Types in Period:
+          </span>
+          {categories.map((cat) => {
+            const count = categoryTotals[cat] || 0;
+            return (
+              <span
+                key={cat}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 8px',
+                  borderRadius: 12,
+                  fontSize: '0.72rem',
+                  background: 'var(--surface-canvas)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: 'var(--brand-primary)',
+                  }}
+                />
+                {cat}: <strong>{count.toLocaleString()}</strong>
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

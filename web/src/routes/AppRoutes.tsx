@@ -144,6 +144,10 @@ const AdminNotificationsInbox = lazyPage(
   () => import('../pages/admin/SettingsPage'),
   (m) => m.NotificationsInbox,
 );
+const AdminAnalyticsPage = lazyPage(
+  () => import('../features/analytics/AnalyticsView'),
+  (m) => m.AnalyticsView,
+);
 
 const ClientOverviewPage = lazyPage(
   () => import('../pages/client/OverviewPage'),
@@ -508,6 +512,7 @@ export function AppRoutes() {
           <Route path="notifications" element={<AdminNotificationSettings />} />
         </Route>
         <Route path="notifications" element={<AdminNotificationsInbox />} />
+        <Route path="analytics" element={<AdminAnalyticsPage />} />
 
         {/* Old admin URLs (bookmarks, docs, thesis screenshots) keep working. */}
         {ADMIN_REDIRECTS.map(([from, to]) => (

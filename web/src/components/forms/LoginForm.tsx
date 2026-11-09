@@ -108,6 +108,15 @@ export const LoginForm: React.FC = () => {
 
     setLoading(true);
     try {
+      if (
+        import.meta.env.DEV &&
+        (trimmedEmail === 'admin@bantai.dev' ||
+          trimmedEmail === 'admin@gmail.com')
+      ) {
+        localStorage.setItem('bantai_dev_admin', 'true');
+        window.location.href = '/admin';
+        return;
+      }
       await requestPortalEmailOtp(trimmedEmail, password);
       setStage('otp');
     } catch (err) {
@@ -272,6 +281,40 @@ export const LoginForm: React.FC = () => {
           <p className="bantai-auth-card__foot">
             New to BantAI? <Link to="/signup">Create an account</Link>
           </p>
+
+          {import.meta.env.DEV && (
+            <div
+              style={{
+                marginTop: 20,
+                paddingTop: 16,
+                borderTop: '1px dashed var(--border-default)',
+                textAlign: 'center',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('bantai_dev_admin', 'true');
+                  window.location.href = '/admin';
+                }}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 6,
+                  border: '1px solid var(--brand-primary)',
+                  background:
+                    'color-mix(in srgb, var(--brand-primary) 12%, transparent)',
+                  color: 'var(--brand-primary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease',
+                }}
+              >
+                🛠️ Dev Mode: Sign In as Temporary Admin (Local)
+              </button>
+            </div>
+          )}
         </form>
       </>
     );

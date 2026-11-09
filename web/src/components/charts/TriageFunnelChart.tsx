@@ -43,58 +43,49 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
     statuses.dismissed;
 
   const resolutionRate = total > 0 ? (statuses.resolved / total) * 100 : 75.7;
+  const activeInTriage = statuses.received + statuses.underReview;
 
-  // Pipeline stages configuration
+  // Pipeline stages with restrained, professional color tokens
   const stages = [
     {
       id: 'received',
       name: 'Intake / Ingestion',
-      statusLabel: 'RECEIVED',
       count: statuses.received,
       share: total > 0 ? (statuses.received / total) * 100 : 0,
       color: '#2563eb',
-      sublabel: 'Queued for triage analysis',
-      step: '01',
+      description: 'Queued for triage analysis',
     },
     {
       id: 'underReview',
       name: 'Active Investigation',
-      statusLabel: 'UNDER_REVIEW',
       count: statuses.underReview,
       share: total > 0 ? (statuses.underReview / total) * 100 : 0,
       color: '#b45309',
-      sublabel: 'Under staff threat examination',
-      step: '02',
+      description: 'Under staff threat examination',
     },
     {
       id: 'resolved',
       name: 'Resolved & Remediated',
-      statusLabel: 'RESOLVED',
       count: statuses.resolved,
       share: total > 0 ? (statuses.resolved / total) * 100 : 0,
       color: '#047857',
-      sublabel: 'Threat mitigated and case closed',
-      step: '03',
+      description: 'Threat mitigated and case closed',
     },
     {
       id: 'dismissed',
       name: 'Dismissed / False Positive',
-      statusLabel: 'DISMISSED',
       count: statuses.dismissed,
       share: total > 0 ? (statuses.dismissed / total) * 100 : 0,
       color: '#64748b',
-      sublabel: 'Benign or duplicate submission',
-      step: '04',
+      description: 'Benign or duplicate submission',
     },
   ];
 
-  // Semicircular Gauge calculations for resolution efficiency
-  // Gauge arc spanning 220 degrees from -200 deg to +20 deg
-  const gaugeRadius = 70;
-  const gaugeCircumference = Math.PI * gaugeRadius; // 180-deg arc
+  // Compact circular ring meter calculations (r = 38 => circumference ~238.76)
+  const ringRadius = 38;
+  const ringCircumference = 2 * Math.PI * ringRadius;
   const clampedRate = Math.min(Math.max(resolutionRate, 0), 100);
-  const strokeDashoffset =
-    gaugeCircumference - (clampedRate / 100) * gaugeCircumference;
+  const ringOffset = ringCircumference - (clampedRate / 100) * ringCircumference;
 
   return (
     <div
@@ -105,14 +96,15 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         width: '100%',
       }}
     >
-      {/* Header with Title and Range Filter */}
+      {/* 1. Header with Title, Context, and Enterprise Segmented Range Selector */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           flexWrap: 'wrap',
           gap: 12,
+          paddingBottom: 4,
         }}
       >
         <div>
@@ -122,6 +114,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               fontSize: '0.95rem',
               fontWeight: 600,
               color: 'var(--text-primary, #111827)',
+              letterSpacing: '-0.01em',
             }}
           >
             {title}
@@ -131,6 +124,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               margin: '3px 0 0',
               fontSize: '0.8rem',
               color: 'var(--text-secondary, #6b7280)',
+              lineHeight: 1.4,
             }}
           >
             Deterministic triage pipeline tracing alert progression from initial
@@ -140,10 +134,13 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
 
         {onRangeChange && (
           <div
+            role="group"
+            aria-label="Time range selector"
             style={{
               display: 'inline-flex',
+              alignItems: 'center',
               background: 'var(--surface-canvas, #f3f4f6)',
-              border: '1px solid var(--border-subtle, #e5e7eb)',
+              border: '1px solid var(--border-default, #e5e7eb)',
               borderRadius: 6,
               padding: 2,
             }}
@@ -156,10 +153,10 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                   type="button"
                   onClick={() => onRangeChange(r.key)}
                   style={{
-                    padding: '2px 8px',
+                    padding: '3px 9px',
                     borderRadius: 4,
-                    fontSize: '0.72rem',
-                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: '0.74rem',
+                    fontWeight: isSelected ? 600 : 500,
                     border: 'none',
                     background: isSelected
                       ? 'var(--surface-raised, #ffffff)'
@@ -171,6 +168,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                     boxShadow: isSelected
                       ? '0 1px 2px rgba(0,0,0,0.06)'
                       : 'none',
+                    transition: 'all 0.12s ease',
                   }}
                 >
                   {r.label}
@@ -181,166 +179,213 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         )}
       </div>
 
-      {/* Main Visual Funnel & Gauge Grid */}
+      {/* 2. Proportional Pipeline Progression Bar */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '0.72rem',
+            color: 'var(--text-secondary, #6b7280)',
+            fontWeight: 500,
+          }}
+        >
+          <span>Pipeline Stage Distribution</span>
+          <span>{total.toLocaleString()} total alerts in queue</span>
+        </div>
+
+        <div
+          style={{
+            width: '100%',
+            height: 8,
+            borderRadius: 4,
+            background: 'var(--surface-canvas, #f3f4f6)',
+            display: 'flex',
+            overflow: 'hidden',
+          }}
+        >
+          {stages.map((stage) =>
+            stage.share > 0 ? (
+              <div
+                key={stage.id}
+                title={`${stage.name}: ${stage.count.toLocaleString()} (${stage.share.toFixed(1)}%)`}
+                style={{
+                  width: `${stage.share}%`,
+                  height: '100%',
+                  background: stage.color,
+                  transition: 'width 0.3s ease',
+                }}
+              />
+            ) : null,
+          )}
+        </div>
+      </div>
+
+      {/* 3. Main Operational Section: Resolution Rate + Lifecycle Stage Breakdown */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'minmax(240px, 300px) 1fr',
           gap: 24,
-          alignItems: 'center',
+          alignItems: 'stretch',
+          padding: '16px 0',
+          borderTop: '1px solid var(--border-subtle, #f3f4f6)',
+          borderBottom: '1px solid var(--border-subtle, #f3f4f6)',
         }}
       >
-        {/* Left: Resolution Efficiency Radial Gauge Meter */}
+        {/* Left Column: Refined Resolution Rate & Metric Details */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
             justifyContent: 'center',
-            padding: '16px',
-            background: 'var(--surface-muted, #f9fafb)',
-            borderRadius: 8,
-            border: '1px solid var(--border-subtle, #e5e7eb)',
-            minHeight: 220,
+            paddingRight: 20,
+            borderRight: '1px solid var(--border-subtle, #f3f4f6)',
           }}
         >
-          <div style={{ position: 'relative', width: 170, height: 110 }}>
-            <svg
-              width="170"
-              height="110"
-              viewBox="0 0 170 110"
-              style={{ overflow: 'visible' }}
-            >
-              {/* Background Arch Track */}
-              <path
-                d="M 15 95 A 70 70 0 0 1 155 95"
-                fill="none"
-                stroke="var(--border-subtle, #e5e7eb)"
-                strokeWidth="11"
-                strokeLinecap="round"
-              />
-
-              {/* Toned Down Solid Value Arc */}
-              <path
-                d="M 15 95 A 70 70 0 0 1 155 95"
-                fill="none"
-                stroke="#047857"
-                strokeWidth="11"
-                strokeLinecap="round"
-                strokeDasharray={gaugeCircumference}
-                strokeDashoffset={strokeDashoffset}
-                style={{
-                  transition: 'stroke-dashoffset 0.6s ease',
-                }}
-              />
-            </svg>
-
-            {/* Gauge Value Overlay */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            {/* Compact Circular Progress Ring */}
             <div
               style={{
-                position: 'absolute',
-                bottom: 8,
-                left: 0,
-                right: 0,
-                textAlign: 'center',
+                position: 'relative',
+                width: 86,
+                height: 86,
+                flexShrink: 0,
               }}
             >
+              <svg
+                width="86"
+                height="86"
+                viewBox="0 0 86 86"
+                style={{ transform: 'rotate(-90deg)' }}
+                aria-hidden="true"
+              >
+                {/* Track */}
+                <circle
+                  cx="43"
+                  cy="43"
+                  r={ringRadius}
+                  fill="none"
+                  stroke="var(--surface-canvas, #f3f4f6)"
+                  strokeWidth="7"
+                />
+                {/* Value Arc */}
+                <circle
+                  cx="43"
+                  cy="43"
+                  r={ringRadius}
+                  fill="none"
+                  stroke="#047857"
+                  strokeWidth="7"
+                  strokeDasharray={ringCircumference}
+                  strokeDashoffset={ringOffset}
+                  strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+                />
+              </svg>
+
+              {/* Centered Percentage */}
               <div
                 style={{
-                  fontSize: '1.75rem',
-                  fontWeight: 900,
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '1rem',
+                  fontWeight: 700,
                   color: 'var(--text-primary, #111827)',
-                  lineHeight: 1.1,
                 }}
               >
                 {clampedRate.toFixed(1)}%
               </div>
-              <div
+            </div>
+
+            {/* Typography & Operational Meaning */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span
                 style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
                   color: 'var(--text-secondary, #6b7280)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                  marginTop: 4,
                 }}
               >
                 Resolution Rate
+              </span>
+              <div
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #111827)',
+                  lineHeight: 1.2,
+                }}
+              >
+                {statuses.resolved.toLocaleString()}{' '}
+                <span
+                  style={{
+                    fontSize: '0.825rem',
+                    fontWeight: 500,
+                    color: 'var(--text-secondary, #6b7280)',
+                  }}
+                >
+                  of {total.toLocaleString()} closed
+                </span>
               </div>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: '#047857',
+                  fontWeight: 600,
+                  marginTop: 2,
+                }}
+              >
+                Remediated & verified
+              </span>
             </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 14,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '3px 10px',
-              borderRadius: 6,
-              background: 'var(--surface-canvas, #f3f4f6)',
-              border: '1px solid var(--border-subtle, #e5e7eb)',
-              fontSize: '0.74rem',
-              fontWeight: 600,
-              color: 'var(--text-secondary, #4b5563)',
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: '#047857',
-              }}
-            />
-            {total > 0
-              ? `${statuses.resolved} of ${total} alerts resolved`
-              : 'No alerts recorded'}
           </div>
         </div>
 
-        {/* Right: Stepped Lifecycle Triage Pipeline */}
+        {/* Right Column: Structured Lifecycle Stages List */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            justifyContent: 'space-between',
+            gap: 4,
           }}
         >
-          {stages.map((stage) => (
+          {stages.map((stage, idx) => (
             <div
               key={stage.id}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 14px',
-                borderRadius: 6,
-                background: 'var(--surface-raised, #ffffff)',
-                border: '1px solid var(--border-subtle, #e5e7eb)',
-                borderLeft: `3px solid ${stage.color}`,
+                padding: '7px 0',
+                borderBottom:
+                  idx < stages.length - 1
+                    ? '1px solid var(--border-subtle, #f9fafb)'
+                    : 'none',
               }}
             >
+              {/* Stage Identity */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span
                   style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    fontFamily: 'var(--font-mono, monospace)',
-                    color: 'var(--text-secondary, #6b7280)',
-                    background: 'var(--surface-canvas, #f3f4f6)',
-                    padding: '2px 6px',
-                    borderRadius: 4,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: stage.color,
+                    flexShrink: 0,
                   }}
-                >
-                  {stage.step}
-                </span>
-
+                />
                 <div>
                   <div
                     style={{
-                      fontSize: '0.85rem',
+                      fontSize: '0.84rem',
                       fontWeight: 600,
                       color: 'var(--text-primary, #111827)',
                     }}
@@ -353,39 +398,52 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                       color: 'var(--text-secondary, #6b7280)',
                     }}
                   >
-                    {stage.sublabel}
+                    {stage.description}
                   </div>
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
+              {/* Stage Numbers & Mini Progress Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                {/* Mini proportional bar */}
+                <div
+                  style={{
+                    width: 50,
+                    height: 4,
+                    borderRadius: 2,
+                    background: 'var(--surface-canvas, #f3f4f6)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${stage.share}%`,
+                      height: '100%',
+                      background: stage.color,
+                    }}
+                  />
+                </div>
+
                 <span
                   style={{
                     fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: '0.9rem',
-                    fontWeight: 700,
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
                     color: 'var(--text-primary, #111827)',
+                    minWidth: 50,
+                    textAlign: 'right',
                   }}
                 >
                   {stage.count.toLocaleString()}
                 </span>
+
                 <span
                   style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    background: 'var(--surface-canvas, #f3f4f6)',
-                    color: 'var(--text-secondary, #4b5563)',
-                    border: '1px solid var(--border-subtle, #e5e7eb)',
-                    minWidth: 44,
-                    textAlign: 'center',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary, #6b7280)',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    minWidth: 42,
+                    textAlign: 'right',
                   }}
                 >
                   {stage.share.toFixed(1)}%
@@ -396,132 +454,164 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         </div>
       </div>
 
-      {/* Triage Telemetry Summary Strip */}
+      {/* 4. Unified Bottom Statistics Strip (Enterprise KPI Grid, Not 4 Disconnected Cards) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: 10,
-          marginTop: 4,
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          background: 'var(--surface-canvas, #f9fafb)',
+          border: '1px solid var(--border-subtle, #e5e7eb)',
+          borderRadius: 6,
+          overflow: 'hidden',
         }}
       >
         <div
           style={{
-            padding: '8px 12px',
-            borderRadius: 6,
-            background: 'var(--surface-canvas, #f3f4f6)',
-            border: '1px solid var(--border-subtle, #e5e7eb)',
+            padding: '12px 16px',
+            borderRight: '1px solid var(--border-subtle, #e5e7eb)',
           }}
         >
-          <span
+          <div
             style={{
-              fontSize: '0.68rem',
-              fontWeight: 600,
+              fontSize: '0.7rem',
+              fontWeight: 500,
               color: 'var(--text-secondary, #6b7280)',
-              textTransform: 'uppercase',
+              marginBottom: 4,
             }}
           >
             Total Ingested
-          </span>
+          </div>
           <div
             style={{
-              fontSize: '1.1rem',
-              fontWeight: 800,
+              fontSize: '1.35rem',
+              fontWeight: 700,
               fontFamily: 'var(--font-mono, monospace)',
               color: 'var(--text-primary, #111827)',
+              lineHeight: 1.1,
             }}
           >
             {total.toLocaleString()}
           </div>
-        </div>
-
-        <div
-          style={{
-            padding: '8px 12px',
-            borderRadius: 6,
-            background: 'var(--surface-canvas, #f3f4f6)',
-            border: '1px solid var(--border-subtle, #e5e7eb)',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '0.68rem',
-              fontWeight: 600,
-              color: 'var(--text-secondary, #6b7280)',
-              textTransform: 'uppercase',
-            }}
-          >
-            Active In Triage
-          </span>
           <div
             style={{
-              fontSize: '1.1rem',
-              fontWeight: 800,
-              fontFamily: 'var(--font-mono, monospace)',
-              color: 'var(--text-primary, #111827)',
+              fontSize: '0.68rem',
+              color: 'var(--text-secondary, #6b7280)',
+              marginTop: 4,
             }}
           >
-            {(statuses.received + statuses.underReview).toLocaleString()}
+            100% pipeline intake
           </div>
         </div>
 
         <div
           style={{
-            padding: '8px 12px',
-            borderRadius: 6,
-            background: 'var(--surface-canvas, #f3f4f6)',
-            border: '1px solid var(--border-subtle, #e5e7eb)',
+            padding: '12px 16px',
+            borderRight: '1px solid var(--border-subtle, #e5e7eb)',
           }}
         >
-          <span
+          <div
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 500,
+              color: 'var(--text-secondary, #6b7280)',
+              marginBottom: 4,
+            }}
+          >
+            Active in Triage
+          </div>
+          <div
+            style={{
+              fontSize: '1.35rem',
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono, monospace)',
+              color: 'var(--text-primary, #111827)',
+              lineHeight: 1.1,
+            }}
+          >
+            {activeInTriage.toLocaleString()}
+          </div>
+          <div
             style={{
               fontSize: '0.68rem',
-              fontWeight: 600,
               color: 'var(--text-secondary, #6b7280)',
-              textTransform: 'uppercase',
+              marginTop: 4,
+            }}
+          >
+            {statuses.received} intake · {statuses.underReview} review
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '12px 16px',
+            borderRight: '1px solid var(--border-subtle, #e5e7eb)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 500,
+              color: 'var(--text-secondary, #6b7280)',
+              marginBottom: 4,
             }}
           >
             Remediated & Closed
-          </span>
+          </div>
           <div
             style={{
-              fontSize: '1.1rem',
-              fontWeight: 800,
+              fontSize: '1.35rem',
+              fontWeight: 700,
               fontFamily: 'var(--font-mono, monospace)',
-              color: 'var(--text-primary, #111827)',
+              color: '#047857',
+              lineHeight: 1.1,
             }}
           >
             {statuses.resolved.toLocaleString()}
           </div>
-        </div>
-
-        <div
-          style={{
-            padding: '8px 12px',
-            borderRadius: 6,
-            background: 'var(--surface-canvas, #f3f4f6)',
-            border: '1px solid var(--border-subtle, #e5e7eb)',
-          }}
-        >
-          <span
+          <div
             style={{
               fontSize: '0.68rem',
+              color: '#047857',
               fontWeight: 600,
+              marginTop: 4,
+            }}
+          >
+            {clampedRate.toFixed(1)}% closure rate
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 16px' }}>
+          <div
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 500,
               color: 'var(--text-secondary, #6b7280)',
-              textTransform: 'uppercase',
+              marginBottom: 4,
             }}
           >
             False Report Filter
-          </span>
+          </div>
           <div
             style={{
-              fontSize: '1.1rem',
-              fontWeight: 800,
+              fontSize: '1.35rem',
+              fontWeight: 700,
               fontFamily: 'var(--font-mono, monospace)',
               color: 'var(--text-primary, #111827)',
+              lineHeight: 1.1,
             }}
           >
             {statuses.dismissed.toLocaleString()}
+          </div>
+          <div
+            style={{
+              fontSize: '0.68rem',
+              color: 'var(--text-secondary, #6b7280)',
+              marginTop: 4,
+            }}
+          >
+            {total > 0
+              ? `${((statuses.dismissed / total) * 100).toFixed(1)}% dismissed`
+              : '0.0%'}
           </div>
         </div>
       </div>

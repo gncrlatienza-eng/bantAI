@@ -169,13 +169,13 @@ export function AnalyticsView() {
         let sublabel = 'Unclassified';
         const lower = label.toLowerCase();
         if (lower === 'scam' || lower === 'smishing') {
-          color = '#b91c1c';
+          color = '#9e444c';
           sublabel = 'Confirmed Threats';
         } else if (lower === 'spam') {
-          color = '#d97706';
+          color = '#a57147';
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
-          color = '#334155';
+          color = '#475569';
           sublabel = 'Legitimate Messages';
         }
         return {
@@ -196,12 +196,12 @@ export function AnalyticsView() {
     const entries = Object.entries(totals);
     const total = entries.reduce((acc, [, val]) => acc + val, 0);
     const colors = [
-      '#b91c1c',
-      '#c2410c',
-      '#d97706',
+      '#9e444c',
+      '#b06a3b',
+      '#a57147',
       '#475569',
-      '#64748b',
-      '#94a3b8',
+      '#6d6870',
+      '#8c8590',
     ];
     return entries
       .filter(([, count]) => count > 0)

@@ -88,16 +88,16 @@ export const BarChart: React.FC<BarChartProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              color: 'var(--text-secondary)',
+              color: 'var(--text-secondary, #6d6870)',
               fontWeight: 500,
             }}
           >
             <span
               style={{
-                width: 10,
-                height: 10,
+                width: 9,
+                height: 9,
                 borderRadius: 2,
-                background: '#b91c1c',
+                background: '#9e444c',
               }}
             />
             Smishing (Scam)
@@ -107,16 +107,16 @@ export const BarChart: React.FC<BarChartProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              color: 'var(--text-secondary)',
+              color: 'var(--text-secondary, #6d6870)',
               fontWeight: 500,
             }}
           >
             <span
               style={{
-                width: 10,
-                height: 10,
+                width: 9,
+                height: 9,
                 borderRadius: 2,
-                background: '#d97706',
+                background: '#a57147',
               }}
             />
             Suspicious (Spam)
@@ -244,10 +244,10 @@ export const BarChart: React.FC<BarChartProps> = ({
                   <div style={{ color: 'var(--text-secondary)' }}>
                     Total threats: <strong>{totalThreats}</strong>
                   </div>
-                  <div style={{ color: '#b91c1c', marginTop: 2 }}>
+                  <div style={{ color: '#9e444c', marginTop: 2 }}>
                     Smishing: <strong>{smishingCount}</strong>
                   </div>
-                  <div style={{ color: '#d97706', marginTop: 2 }}>
+                  <div style={{ color: '#a57147', marginTop: 2 }}>
                     Suspicious: <strong>{suspiciousCount}</strong>
                   </div>
 
@@ -283,10 +283,10 @@ export const BarChart: React.FC<BarChartProps> = ({
               <div
                 style={{
                   width: '100%',
-                  maxWidth: chartData.length > 20 ? 18 : 36,
+                  maxWidth: chartData.length > 20 ? 14 : 30,
                   display: 'flex',
                   flexDirection: 'column-reverse',
-                  borderRadius: '4px 4px 0 0',
+                  borderRadius: '3px 3px 0 0',
                   overflow: 'hidden',
                   background:
                     totalThreats === 0
@@ -302,14 +302,14 @@ export const BarChart: React.FC<BarChartProps> = ({
                 <div
                   style={{
                     height: `${smishingHeight}px`,
-                    background: isHovered ? '#991b1b' : '#b91c1c',
+                    background: isHovered ? '#83343b' : '#9e444c',
                     transition: 'background-color 0.15s ease',
                   }}
                 />
                 <div
                   style={{
                     height: `${suspiciousHeight}px`,
-                    background: isHovered ? '#b45309' : '#d97706',
+                    background: isHovered ? '#885731' : '#a57147',
                     transition: 'background-color 0.15s ease',
                   }}
                 />

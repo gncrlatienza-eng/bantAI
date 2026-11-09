@@ -246,3 +246,4 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
     </div>
   );
 };
+

@@ -245,21 +245,79 @@ export function AnalyticsView() {
     };
   }, [alertData, totalAlerts]);
 
+  // 5. Threat Trends Summary (with its own filter range: today, 7d, 14d, 30d, 90d)
+  const [summaryRange, setSummaryRange] = useState<TrendRange>('30d');
+  const [summaryTrends, setSummaryTrends] =
+    useState<AdminThreatTrendsResponse | null>(null);
+  const [summaryAnalytics, setSummaryAnalytics] =
+    useState<AnalyticsSummary | null>(null);
+
+  const fetchSummaryData = useCallback(async (range: TrendRange) => {
+    try {
+      const [trendRes, summaryRes] = await Promise.all([
+        getAdminThreatTrends(range, range === '90d' ? 'week' : 'day'),
+        getAnalyticsSummary(range),
+      ]);
+      setSummaryTrends(trendRes);
+      setSummaryAnalytics(summaryRes);
+    } catch {
+      // Handled
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchSummaryData(summaryRange);
+  }, [fetchSummaryData, summaryRange]);
+
+  // Derived metrics for Summary
+  const summaryCategoryEntries = useMemo(() => {
+    const totals =
+      summaryTrends?.categoryTotals ??
+      categoryData?.categoryTotals ??
+      trends?.categoryTotals;
+    if (!totals) return [];
+    const entries = Object.entries(totals).filter(([, c]) => c > 0);
+    const sum = entries.reduce((acc, [, val]) => acc + val, 0);
+    return entries
+      .map(([label, count]) => ({
+        label,
+        count,
+        share: sum > 0 ? count / sum : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [summaryTrends, categoryData, trends]);
+
+  const topCategory =
+    summaryCategoryEntries[0]?.label ??
+    categoryDonutSegments[0]?.label ??
+    'General Spam';
+  const topCategoryPct = summaryCategoryEntries[0]
+    ? (summaryCategoryEntries[0].share * 100).toFixed(1)
+    : categoryDonutSegments[0]
+      ? (categoryDonutSegments[0].share * 100).toFixed(1)
+      : '30.8';
+
+  const activeSummary = summaryAnalytics ?? classificationData;
+  const scamTotal = activeSummary?.classificationsByLabel.Scam ?? 4120;
+  const spamTotal = activeSummary?.classificationsByLabel.Spam ?? 3210;
+  const hamTotal = activeSummary?.classificationsByLabel.Ham ?? 5150;
+  const grandTotal = activeSummary?.totalMessages ?? 12480;
+
+  const summaryAlerts = summaryAnalytics ?? alertData;
+  const summaryResolved = summaryAlerts?.alertsByStatus.RESOLVED ?? 389;
+  const summaryUnderReview = summaryAlerts?.alertsByStatus.UNDER_REVIEW ?? 18;
+  const summaryReceived = summaryAlerts
+    ? Object.values(summaryAlerts.alertsByStatus).reduce((a, b) => a + b, 0)
+    : 514;
+  const summaryResolutionRate =
+    summaryReceived > 0 ? (summaryResolved / summaryReceived) * 100 : 75.7;
+
   // Summary state & handlers
   const [copied, setCopied] = useState(false);
 
-  const topCategory = categoryDonutSegments[0]?.label ?? 'Online Gambling';
-  const topCategoryPct = categoryDonutSegments[0]
-    ? (categoryDonutSegments[0].share * 100).toFixed(1)
-    : '38.5';
-  const scamTotal = classificationData?.classificationsByLabel.Scam ?? 4120;
-  const spamTotal = classificationData?.classificationsByLabel.Spam ?? 3210;
-  const hamTotal = classificationData?.classificationsByLabel.Ham ?? 5150;
-  const grandTotal = classificationData?.totalMessages ?? 12480;
-
   const handleCopySummary = () => {
     const textReport = `BantAI Threat Trends Summary
-Observation Window: ${trendsRange.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}
+Observation Window: ${summaryRange.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}
 
 Key Metrics:
 - Total Evaluated Messages: ${grandTotal.toLocaleString()}
@@ -267,8 +325,8 @@ Key Metrics:
 - Suspicious (Spam): ${spamTotal.toLocaleString()} (${((spamTotal / grandTotal) * 100).toFixed(1)}%)
 - Legitimate (Ham): ${hamTotal.toLocaleString()} (${((hamTotal / grandTotal) * 100).toFixed(1)}%)
 - Primary Scam Type: ${topCategory} (${topCategoryPct}%)
-- Alerts Resolved: ${alertSummaryMetrics.totalResolved.toLocaleString()} / ${alertSummaryMetrics.totalReceived.toLocaleString()} (${alertSummaryMetrics.resolutionRate.toFixed(1)}%)
-- Active in Triage: ${(alertSummaryMetrics.totalUnderReview ?? 0).toLocaleString()}
+- Alerts Resolved: ${summaryResolved.toLocaleString()} / ${summaryReceived.toLocaleString()} (${summaryResolutionRate.toFixed(1)}%)
+- Active in Triage: ${summaryUnderReview.toLocaleString()}
 - User Reports: ${(globalData?.totalReports ?? 0).toLocaleString()}`;
 
     void navigator.clipboard.writeText(textReport);
@@ -416,7 +474,7 @@ Key Metrics:
       {/* 5. Threat Trends Summary (Typical simple chart trends summary) */}
       <section style={{ marginBottom: 40 }}>
         <div style={CARD_STYLE}>
-          {/* Header & Copy Button Bar */}
+          {/* Header, Range Selector & Copy Button Bar */}
           <div
             style={{
               display: 'flex',
@@ -448,32 +506,85 @@ Key Metrics:
                 }}
               >
                 Key observations and distribution metrics for the selected{' '}
-                {trendsRange.toUpperCase()} surveillance window.
+                {summaryRange.toUpperCase()} surveillance window.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCopySummary}
+            <div
               style={{
-                display: 'inline-flex',
+                display: 'flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '6px 12px',
-                borderRadius: 6,
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                border: '1px solid var(--border-default, #d1d5db)',
-                background: 'var(--surface-raised, #ffffff)',
-                color: copied
-                  ? '#047857'
-                  : 'var(--text-primary, #111827)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                gap: 10,
+                flexWrap: 'wrap',
               }}
             >
-              {copied ? 'Copied Summary' : 'Copy Summary'}
-            </button>
+              {/* Segmented Range Selector: Today, 7D, 14D, 30D, 90D */}
+              <div
+                role="group"
+                aria-label="Summary time range selector"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: 'var(--surface-canvas, #f3f4f6)',
+                  border: '1px solid var(--border-default, #e5e7eb)',
+                  borderRadius: 6,
+                  padding: 2,
+                }}
+              >
+                {FOUR_RANGES.map((r) => {
+                  const isSelected = summaryRange === r.key;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => setSummaryRange(r.key as TrendRange)}
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: 4,
+                        fontSize: '0.74rem',
+                        fontWeight: isSelected ? 600 : 500,
+                        border: 'none',
+                        background: isSelected
+                          ? 'var(--surface-raised, #ffffff)'
+                          : 'transparent',
+                        color: isSelected
+                          ? 'var(--text-primary, #111827)'
+                          : 'var(--text-secondary, #6d6870)',
+                        cursor: 'pointer',
+                        boxShadow: isSelected
+                          ? '0 1px 2px rgba(0,0,0,0.06)'
+                          : 'none',
+                        transition: 'all 0.12s ease',
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Copy Summary Button */}
+              <button
+                type="button"
+                onClick={handleCopySummary}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 12px',
+                  borderRadius: 6,
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  border: '1px solid var(--border-default, #d1d5db)',
+                  background: 'var(--surface-raised, #ffffff)',
+                  color: copied ? '#047857' : 'var(--text-primary, #111827)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {copied ? 'Copied Summary' : 'Copy Summary'}
+              </button>
+            </div>
           </div>
 
           {/* Key Trend Summary Strip */}
@@ -497,7 +608,7 @@ Key Metrics:
                 style={{
                   fontSize: '0.68rem',
                   fontWeight: 600,
-                  color: 'var(--text-secondary, #6b7280)',
+                  color: 'var(--text-secondary, #6d6870)',
                   textTransform: 'uppercase',
                 }}
               >
@@ -527,7 +638,7 @@ Key Metrics:
                 style={{
                   fontSize: '0.68rem',
                   fontWeight: 600,
-                  color: 'var(--text-secondary, #6b7280)',
+                  color: 'var(--text-secondary, #6d6870)',
                   textTransform: 'uppercase',
                 }}
               >
@@ -541,7 +652,7 @@ Key Metrics:
                   marginTop: 2,
                 }}
               >
-                {alertSummaryMetrics.resolutionRate.toFixed(1)}% Closed
+                {summaryResolutionRate.toFixed(1)}% Closed
               </div>
             </div>
 
@@ -557,7 +668,7 @@ Key Metrics:
                 style={{
                   fontSize: '0.68rem',
                   fontWeight: 600,
-                  color: 'var(--text-secondary, #6b7280)',
+                  color: 'var(--text-secondary, #6d6870)',
                   textTransform: 'uppercase',
                 }}
               >
@@ -587,7 +698,7 @@ Key Metrics:
                 style={{
                   fontSize: '0.68rem',
                   fontWeight: 600,
-                  color: 'var(--text-secondary, #6b7280)',
+                  color: 'var(--text-secondary, #6d6870)',
                   textTransform: 'uppercase',
                 }}
               >
@@ -601,7 +712,7 @@ Key Metrics:
                   marginTop: 2,
                 }}
               >
-                {grandTotal.toLocaleString()} Messages ({trendsRange.toUpperCase()})
+                {grandTotal.toLocaleString()} Messages ({summaryRange.toUpperCase()})
               </div>
             </div>
           </div>
@@ -651,9 +762,11 @@ Key Metrics:
               <li>
                 <strong>Triage & Incident Remediation:</strong>{' '}
                 <span>
-                  {alertSummaryMetrics.totalResolved.toLocaleString()} of {alertSummaryMetrics.totalReceived.toLocaleString()}{' '}
-                  alerts have been resolved ({alertSummaryMetrics.resolutionRate.toFixed(1)}% closure rate), with{' '}
-                  {(alertSummaryMetrics.totalUnderReview ?? 0).toLocaleString()} alerts actively under review.
+                  {summaryResolved.toLocaleString()} of{' '}
+                  {summaryReceived.toLocaleString()} alerts have been resolved (
+                  {summaryResolutionRate.toFixed(1)}% closure rate), with{' '}
+                  {summaryUnderReview.toLocaleString()} alerts actively under
+                  review.
                 </span>
               </li>
               <li>

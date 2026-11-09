@@ -256,62 +256,6 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             </span>
           </div>
         </div>
-
-        {/* Proportional Segmented Progress Track */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div
-            style={{
-              width: '100%',
-              height: 7,
-              borderRadius: 3.5,
-              background: 'var(--surface-raised, #ffffff)',
-              display: 'flex',
-              overflow: 'hidden',
-              border: '1px solid var(--border-subtle, #e5e7eb)',
-            }}
-          >
-            {stages.map((stage) =>
-              stage.share > 0 ? (
-                <div
-                  key={stage.id}
-                  title={`${stage.name}: ${stage.count.toLocaleString()} (${stage.share.toFixed(1)}%)`}
-                  style={{
-                    width: `${stage.share}%`,
-                    height: '100%',
-                    background: stage.color,
-                  }}
-                />
-              ) : null,
-            )}
-          </div>
-
-          {/* Legend indicators directly below bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 10,
-              fontSize: '0.7rem',
-              color: 'var(--text-secondary, #6d6870)',
-            }}
-          >
-            {stages.map((stage) => (
-              <span key={stage.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: 1.5,
-                    background: stage.color,
-                  }}
-                />
-                {stage.name} ({stage.share.toFixed(1)}%)
-              </span>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* 3. Structured Lifecycle Progression Matrix */}

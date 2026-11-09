@@ -361,18 +361,9 @@ Key Metrics:
 
       {/* 1. Threat Trends Over Time (Bar Chart) - No Live or Refresh buttons */}
       <section style={{ marginBottom: 28 }}>
-        <h2 style={{ fontSize: '1.05rem', margin: '0 0 6px' }}>
+        <h2 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>
           Threat trends & scam types over time
         </h2>
-        <p
-          style={{
-            margin: '0 0 12px',
-            color: 'var(--text-secondary)',
-            fontSize: '0.85rem',
-          }}
-        >
-          Temporal distribution of threats categorized by scam campaign type.
-        </p>
         <div style={CARD_STYLE}>
           <BarChart
             data={trends?.timeline.map((t) => ({

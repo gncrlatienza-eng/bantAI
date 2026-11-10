@@ -25,13 +25,13 @@ export interface TrendLineChartProps {
 
 // Realistic baseline operational data for Philippine SMS threat detection
 const DEFAULT_DATA: TrendDataPoint[] = [
-  { label: 'Mon', date: 'Mon', value: 23, smishing: 16, suspicious: 7 },
-  { label: 'Tue', date: 'Tue', value: 30, smishing: 21, suspicious: 9 },
-  { label: 'Wed', date: 'Wed', value: 27, smishing: 19, suspicious: 8 },
-  { label: 'Thu', date: 'Thu', value: 35, smishing: 24, suspicious: 11 },
-  { label: 'Fri', date: 'Fri', value: 26, smishing: 18, suspicious: 8 },
-  { label: 'Sat', date: 'Sat', value: 18, smishing: 13, suspicious: 5 },
-  { label: 'Sun', date: 'Sun', value: 15, smishing: 11, suspicious: 4 },
+  { label: 'Mon', date: 'Mon', value: 247, smishing: 142, suspicious: 105 },
+  { label: 'Tue', date: 'Tue', value: 308, smishing: 174, suspicious: 134 },
+  { label: 'Wed', date: 'Wed', value: 282, smishing: 158, suspicious: 124 },
+  { label: 'Thu', date: 'Thu', value: 312, smishing: 176, suspicious: 136 },
+  { label: 'Fri', date: 'Fri', value: 278, smishing: 156, suspicious: 122 },
+  { label: 'Sat', date: 'Sat', value: 224, smishing: 126, suspicious: 98 },
+  { label: 'Sun', date: 'Sun', value: 182, smishing: 98, suspicious: 84 },
 ];
 
 const RANGES: { key: TrendRange; label: string }[] = [
@@ -43,8 +43,8 @@ const RANGES: { key: TrendRange; label: string }[] = [
 ];
 
 // BantAI Mineral Design System Tokens
-// Smishing uses Carmine (--status-threat); Suspicious uses Petrol (--palette-petrol / --info-fg)
-const COLOR_SMISHING = '#b5444d'; // BantAI Carmine
+// Smishing uses Mulberry (--chart-1 / --brand-primary); Suspicious uses Petrol (--chart-2 / --info-fg)
+const COLOR_SMISHING = '#5e405a'; // BantAI Mulberry
 const COLOR_SUSPICIOUS = '#477a86'; // BantAI Petrol
 
 export const TrendLineChart: React.FC<TrendLineChartProps> = ({

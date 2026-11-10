@@ -169,13 +169,13 @@ export function AnalyticsView() {
         let sublabel = 'Unclassified';
         const lower = label.toLowerCase();
         if (lower === 'scam' || lower === 'smishing') {
-          color = '#b5444d'; // BantAI mineral carmine (--status-threat)
+          color = '#5e405a'; // BantAI mineral mulberry (--chart-1 / --brand-primary)
           sublabel = 'Confirmed Threats';
         } else if (lower === 'spam') {
-          color = '#477a86'; // BantAI mineral petrol (--palette-petrol / --info-fg)
+          color = '#477a86'; // BantAI mineral petrol (--chart-2 / --info-fg)
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
-          color = '#3d6355'; // BantAI mineral muted teal (--status-verified)
+          color = '#3d6355'; // BantAI mineral muted teal (--chart-5 / --status-verified)
           sublabel = 'Legitimate Messages';
         }
         return {

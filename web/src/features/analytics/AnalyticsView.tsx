@@ -201,7 +201,7 @@ export function AnalyticsView() {
         label: cat,
         count,
         share: total > 0 ? count / total : 0,
-        color: '#6d6870', // neutral slate gray
+        color: '#5e405a', // BantAI mineral mulberry (--brand-primary / --chart-1)
       }))
       .sort((a, b) => b.count - a.count);
   }, [categoryData, trends]);

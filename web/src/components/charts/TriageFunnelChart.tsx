@@ -353,7 +353,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 style={{
                   width: `${Math.max(stage.share, 2)}%`,
                   height: '100%',
-                  background: 'var(--text-secondary, #6d6870)',
+                  background: '#5e405a',
                 }}
               />
             </div>

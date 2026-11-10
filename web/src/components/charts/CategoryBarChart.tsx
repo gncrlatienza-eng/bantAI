@@ -236,7 +236,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                       width: `${barPct}%`,
                       height: '100%',
                       borderRadius: 3,
-                      background: item.color || 'var(--palette-ash-violet, #6d6870)',
+                      background: item.color || '#5e405a',
                       transition: 'width 0.3s ease',
                     }}
                   />

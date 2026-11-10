@@ -126,10 +126,20 @@ export async function verifyOtp(
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
-  if (
+  const isDevAdmin =
     import.meta.env.DEV &&
-    localStorage.getItem('bantai_dev_admin') === 'true'
-  ) {
+    typeof localStorage !== 'undefined' &&
+    (localStorage.getItem('bantai_dev_admin') === 'true' ||
+      (import.meta.env.MODE !== 'test' &&
+        localStorage.getItem('bantai_dev_admin') !== 'false'));
+
+  if (isDevAdmin) {
+    if (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('bantai_dev_admin') !== 'true'
+    ) {
+      localStorage.setItem('bantai_dev_admin', 'true');
+    }
     return {
       id: 'dev-admin-id',
       phone: '+639171234567',
@@ -145,7 +155,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 }
 
 export function logout() {
-  localStorage.removeItem('bantai_dev_admin');
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('bantai_dev_admin', 'false');
+  }
   // Ask the backend to invalidate the HttpOnly session cookie. If it fails
   // (network drop mid-logout) we still clear local state so the UI never
   // shows a signed-in shell to an intended-signed-out user.

@@ -132,10 +132,20 @@ export interface AccountState {
 }
 
 export function getAccountState(): Promise<AccountState> {
-  if (
+  const isDevAdmin =
     import.meta.env.DEV &&
-    localStorage.getItem('bantai_dev_admin') === 'true'
-  ) {
+    typeof localStorage !== 'undefined' &&
+    (localStorage.getItem('bantai_dev_admin') === 'true' ||
+      (import.meta.env.MODE !== 'test' &&
+        localStorage.getItem('bantai_dev_admin') !== 'false'));
+
+  if (isDevAdmin) {
+    if (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('bantai_dev_admin') !== 'true'
+    ) {
+      localStorage.setItem('bantai_dev_admin', 'true');
+    }
     return Promise.resolve({
       state: 'ADMIN',
       destination: '/admin',

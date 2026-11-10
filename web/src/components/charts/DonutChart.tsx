@@ -84,7 +84,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                 margin: 0,
                 fontSize: '0.95rem',
                 fontWeight: 600,
-                color: 'var(--text-primary, #111827)',
+                color: 'var(--text-primary, #211f24)',
               }}
             >
               {title}
@@ -95,8 +95,8 @@ export const DonutChart: React.FC<DonutChartProps> = ({
             <div
               style={{
                 display: 'inline-flex',
-                background: 'var(--surface-canvas, #f3f4f6)',
-                border: '1px solid var(--border-subtle, #e5e7eb)',
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 6,
                 padding: 2,
               }}
@@ -112,18 +112,21 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                       padding: '2px 8px',
                       borderRadius: 4,
                       fontSize: '0.72rem',
-                      fontWeight: isSelected ? 700 : 500,
-                      border: 'none',
+                      fontWeight: isSelected ? 600 : 500,
+                      border: isSelected
+                        ? '1px solid var(--border-default)'
+                        : '1px solid transparent',
                       background: isSelected
-                        ? 'var(--surface-raised, #ffffff)'
+                        ? 'var(--surface-raised, #fbf9f4)'
                         : 'transparent',
                       color: isSelected
-                        ? 'var(--text-primary, #111827)'
-                        : 'var(--text-secondary, #6b7280)',
+                        ? 'var(--text-primary, #211f24)'
+                        : 'var(--text-secondary, #6d6870)',
                       cursor: 'pointer',
                       boxShadow: isSelected
-                        ? '0 1px 2px rgba(0,0,0,0.06)'
+                        ? '0 1px 2px rgba(33,31,36,0.06)'
                         : 'none',
+                      transition: 'all 0.12s ease',
                     }}
                   >
                     {r.label}
@@ -178,7 +181,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                 cy="21"
                 r="15.91549430918954"
                 fill="transparent"
-                stroke="var(--border-subtle, #e5e7eb)"
+                stroke="var(--border-default)"
                 strokeWidth="3.6"
               />
 
@@ -223,7 +226,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                 style={{
                   fontSize: '1.35rem',
                   fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary, #211f24)',
                   lineHeight: 1.1,
                   fontFamily: 'var(--font-mono, monospace)',
                 }}
@@ -233,7 +236,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
               <span
                 style={{
                   fontSize: '0.68rem',
-                  color: 'var(--text-secondary, #6b7280)',
+                  color: 'var(--text-secondary, #6d6870)',
                   marginTop: 3,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
@@ -265,7 +268,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                   padding: '8px 0',
                   borderBottom:
                     idx < segments.length - 1
-                      ? '1px solid var(--border-subtle, #f3f4f6)'
+                      ? '1px solid var(--border-default)'
                       : 'none',
                 }}
               >
@@ -290,7 +293,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                       style={{
                         fontSize: '0.85rem',
                         fontWeight: 600,
-                        color: 'var(--text-primary, #111827)',
+                        color: 'var(--text-primary, #211f24)',
                       }}
                     >
                       {seg.label}
@@ -299,7 +302,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                       <div
                         style={{
                           fontSize: '0.72rem',
-                          color: 'var(--text-secondary, #6b7280)',
+                          color: 'var(--text-secondary, #6d6870)',
                         }}
                       >
                         {seg.sublabel}
@@ -320,7 +323,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                       fontFamily: 'var(--font-mono, monospace)',
                       fontSize: '0.875rem',
                       fontWeight: 600,
-                      color: 'var(--text-primary, #111827)',
+                      color: 'var(--text-primary, #211f24)',
                     }}
                   >
                     {seg.count.toLocaleString()}
@@ -328,7 +331,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({
                   <span
                     style={{
                       fontSize: '0.75rem',
-                      color: 'var(--text-secondary, #6b7280)',
+                      color: 'var(--text-secondary, #6d6870)',
                       fontFamily: 'var(--font-mono, monospace)',
                       minWidth: 42,
                       textAlign: 'right',

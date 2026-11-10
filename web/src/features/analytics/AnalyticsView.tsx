@@ -45,8 +45,8 @@ const FOUR_RANGES: RangeOption[] = [
 ];
 
 const CARD_STYLE: React.CSSProperties = {
-  background: 'var(--surface-raised, #ffffff)',
-  border: '1px solid var(--border-subtle, #e5e7eb)',
+  background: 'var(--surface-raised, #fbf9f4)',
+  border: '1px solid var(--border-default)',
   borderRadius: 8,
   padding: 20,
 };
@@ -165,14 +165,14 @@ export function AnalyticsView() {
 
     return entries
       .map(([label, count]) => {
-        let color = '#64748b';
+        let color = 'var(--text-secondary, #6d6870)';
         let sublabel = 'Unclassified';
         const lower = label.toLowerCase();
         if (lower === 'scam' || lower === 'smishing') {
           color = '#b5444d'; // BantAI mineral carmine (--status-threat)
           sublabel = 'Confirmed Threats';
         } else if (lower === 'spam') {
-          color = '#8f5522'; // BantAI mineral burnt amber (--status-suspicious)
+          color = '#477a86'; // BantAI mineral petrol (--palette-petrol / --info-fg)
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
           color = '#3d6355'; // BantAI mineral muted teal (--status-verified)
@@ -465,7 +465,7 @@ Key Metrics:
               alignItems: 'center',
               flexWrap: 'wrap',
               gap: 16,
-              borderBottom: '1px solid var(--border-subtle, #e5e7eb)',
+              borderBottom: '1px solid var(--border-default)',
               paddingBottom: 16,
               marginBottom: 20,
             }}
@@ -476,7 +476,7 @@ Key Metrics:
                   margin: 0,
                   fontSize: '1rem',
                   fontWeight: 600,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary, #211f24)',
                 }}
               >
                 Threat Trends & Telemetry Summary
@@ -508,8 +508,8 @@ Key Metrics:
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  background: 'var(--surface-canvas, #f3f4f6)',
-                  border: '1px solid var(--border-default, #e5e7eb)',
+                  background: 'var(--surface-canvas, #f2efe8)',
+                  border: '1px solid var(--border-default)',
                   borderRadius: 6,
                   padding: 2,
                 }}
@@ -531,7 +531,7 @@ Key Metrics:
                           ? 'var(--surface-raised, #ffffff)'
                           : 'transparent',
                         color: isSelected
-                          ? 'var(--text-primary, #111827)'
+                          ? 'var(--text-primary, #211f24)'
                           : 'var(--text-secondary, #6d6870)',
                         cursor: 'pointer',
                         boxShadow: isSelected
@@ -558,9 +558,9 @@ Key Metrics:
                   borderRadius: 6,
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  border: '1px solid var(--border-default, #d1d5db)',
-                  background: 'var(--surface-raised, #ffffff)',
-                  color: copied ? '#047857' : 'var(--text-primary, #111827)',
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--surface-raised, #fbf9f4)',
+                  color: copied ? 'var(--status-verified, #3d6355)' : 'var(--text-primary, #211f24)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
@@ -583,8 +583,8 @@ Key Metrics:
               style={{
                 padding: '10px 14px',
                 borderRadius: 6,
-                background: 'var(--surface-canvas, #f3f4f6)',
-                border: '1px solid var(--border-subtle, #e5e7eb)',
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
               }}
             >
               <span
@@ -601,7 +601,7 @@ Key Metrics:
                 style={{
                   fontSize: '1rem',
                   fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary, #211f24)',
                   marginTop: 2,
                 }}
               >
@@ -613,8 +613,8 @@ Key Metrics:
               style={{
                 padding: '10px 14px',
                 borderRadius: 6,
-                background: 'var(--surface-canvas, #f3f4f6)',
-                border: '1px solid var(--border-subtle, #e5e7eb)',
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
               }}
             >
               <span
@@ -631,7 +631,7 @@ Key Metrics:
                 style={{
                   fontSize: '1rem',
                   fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary, #211f24)',
                   marginTop: 2,
                 }}
               >
@@ -643,8 +643,8 @@ Key Metrics:
               style={{
                 padding: '10px 14px',
                 borderRadius: 6,
-                background: 'var(--surface-canvas, #f3f4f6)',
-                border: '1px solid var(--border-subtle, #e5e7eb)',
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
               }}
             >
               <span
@@ -661,7 +661,7 @@ Key Metrics:
                 style={{
                   fontSize: '1rem',
                   fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary, #211f24)',
                   marginTop: 2,
                 }}
               >
@@ -673,8 +673,8 @@ Key Metrics:
               style={{
                 padding: '10px 14px',
                 borderRadius: 6,
-                background: 'var(--surface-canvas, #f3f4f6)',
-                border: '1px solid var(--border-subtle, #e5e7eb)',
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
               }}
             >
               <span
@@ -691,7 +691,7 @@ Key Metrics:
                 style={{
                   fontSize: '1rem',
                   fontWeight: 700,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary, #211f24)',
                   marginTop: 2,
                 }}
               >
@@ -708,13 +708,13 @@ Key Metrics:
               gap: 12,
               padding: '16px',
               borderRadius: 6,
-              background: 'var(--surface-canvas, #f9fafb)',
-              border: '1px solid var(--border-subtle, #e5e7eb)',
+              background: 'var(--surface-canvas, #f2efe8)',
+              border: '1px solid var(--border-default)',
               fontSize: '0.85rem',
-              color: 'var(--text-primary, #111827)',
+              color: 'var(--text-primary, #211f24)',
             }}
           >
-            <div style={{ fontWeight: 600, color: 'var(--text-secondary, #4b5563)', marginBottom: 2 }}>
+            <div style={{ fontWeight: 600, color: 'var(--text-secondary, #6d6870)', marginBottom: 2 }}>
               Trend Observations
             </div>
             <ul
@@ -724,7 +724,7 @@ Key Metrics:
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 8,
-                color: 'var(--text-secondary, #4b5563)',
+                color: 'var(--text-secondary, #6d6870)',
                 lineHeight: 1.5,
               }}
             >

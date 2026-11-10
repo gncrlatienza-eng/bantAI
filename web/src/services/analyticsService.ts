@@ -98,40 +98,43 @@ function generateDevMockTrends(
   const now = new Date();
   const timeline: TrendPeriodItem[] = [];
   const categories = [
+    'General Spam',
     'Gambling',
     'Prize Lures',
-    'Fake Job Offers',
     'Bank Phishing',
-    'General Spam',
+    'Fake Job Offers',
   ];
   const categoryTotals: Record<string, number> = {
+    'General Spam': 0,
     Gambling: 0,
     'Prize Lures': 0,
-    'Fake Job Offers': 0,
     'Bank Phishing': 0,
-    'General Spam': 0,
+    'Fake Job Offers': 0,
   };
   const totals = { scam: 0, spam: 0, ham: 0, total: 0 };
 
   if (range === 'today') {
     const hours = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
+    const hourlyScam = [3, 1, 8, 14, 18, 11];
+    const hourlySpam = [2, 1, 4, 7, 9, 6];
+    const hourlyHam = [10, 4, 28, 45, 52, 38];
+
     hours.forEach((h, idx) => {
-      const seed = (idx * 5 + 7) % 11;
-      const scamCount = 12 + seed * 2;
-      const spamCount = 8 + seed;
-      const hamCount = 35 + seed * 3;
+      const scamCount = hourlyScam[idx];
+      const spamCount = hourlySpam[idx];
+      const hamCount = hourlyHam[idx];
       const periodTotal = scamCount + spamCount + hamCount;
 
-      const gambling = Math.floor(scamCount * 0.45);
-      const prizeLures = Math.floor(scamCount * 0.3);
-      const fakeJobs = Math.floor(scamCount * 0.15);
-      const bankPhishing = scamCount - gambling - prizeLures - fakeJobs;
+      const gambling = Math.round(scamCount * 0.35);
+      const prizeLures = Math.round(scamCount * 0.25);
+      const fakeJobs = Math.round(scamCount * 0.15);
+      const bankPhishing = Math.max(0, scamCount - gambling - prizeLures - fakeJobs);
 
+      categoryTotals['General Spam'] += spamCount;
       categoryTotals.Gambling += gambling;
       categoryTotals['Prize Lures'] += prizeLures;
-      categoryTotals['Fake Job Offers'] += fakeJobs;
       categoryTotals['Bank Phishing'] += bankPhishing;
-      categoryTotals['General Spam'] += spamCount;
+      categoryTotals['Fake Job Offers'] += fakeJobs;
 
       totals.scam += scamCount;
       totals.spam += spamCount;
@@ -146,39 +149,54 @@ function generateDevMockTrends(
         ham: hamCount,
         total: periodTotal,
         byCategory: {
+          'General Spam': spamCount,
           Gambling: gambling,
           'Prize Lures': prizeLures,
-          'Fake Job Offers': fakeJobs,
           'Bank Phishing': bankPhishing,
-          'General Spam': spamCount,
+          'Fake Job Offers': fakeJobs,
         },
       });
     });
   } else {
+    // Realistic daily telemetry with weekday volume curves and campaign surges
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 86400000);
+      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const dateStr = d.toISOString().slice(0, 10);
       const monthDay = d.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
       });
 
-      // Deterministic realistic numbers based on day index
-      const seed = (i * 7 + 13) % 17;
-      const scamCount = 8 + (seed % 15);
-      const spamCount = 3 + (seed % 8);
-      const hamCount = 35 + (seed % 20);
+      // Authentic SOC variance: higher mid-week (Tue-Thu), realistic lull on Sun
+      const dayFactor = isWeekend ? 0.65 : dayOfWeek === 3 || dayOfWeek === 4 ? 1.25 : 1.0;
+      // Deterministic pseudo-random variation based on date
+      const hash = (d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate()) % 13;
+      const variation = ((hash - 6) / 10); // -0.6 to +0.6
 
-      const gambling = Math.floor(scamCount * 0.45);
-      const prizeLures = Math.floor(scamCount * 0.3);
-      const fakeJobs = Math.floor(scamCount * 0.15);
-      const bankPhishing = scamCount - gambling - prizeLures - fakeJobs;
+      // Occasional campaign burst spikes (realistic incident waves)
+      const isCampaignSpike = i === 4 || i === 12 || i === 23;
+      const spikeBonus = isCampaignSpike ? 8 : 0;
 
+      const baseScam = 14 * dayFactor + variation * 4 + spikeBonus;
+      const baseSpam = 7 * dayFactor + variation * 2 + (isCampaignSpike ? 3 : 0);
+      const baseHam = 38 * dayFactor + variation * 8;
+
+      const scamCount = Math.max(4, Math.round(baseScam));
+      const spamCount = Math.max(2, Math.round(baseSpam));
+      const hamCount = Math.max(12, Math.round(baseHam));
+
+      const gambling = Math.round(scamCount * 0.38);
+      const prizeLures = Math.round(scamCount * 0.28);
+      const bankPhishing = Math.round(scamCount * 0.18);
+      const fakeJobs = Math.max(0, scamCount - gambling - prizeLures - bankPhishing);
+
+      categoryTotals['General Spam'] += spamCount;
       categoryTotals.Gambling += gambling;
       categoryTotals['Prize Lures'] += prizeLures;
-      categoryTotals['Fake Job Offers'] += fakeJobs;
       categoryTotals['Bank Phishing'] += bankPhishing;
-      categoryTotals['General Spam'] += spamCount;
+      categoryTotals['Fake Job Offers'] += fakeJobs;
 
       totals.scam += scamCount;
       totals.spam += spamCount;
@@ -193,11 +211,11 @@ function generateDevMockTrends(
         ham: hamCount,
         total: scamCount + spamCount + hamCount,
         byCategory: {
+          'General Spam': spamCount,
           Gambling: gambling,
           'Prize Lures': prizeLures,
-          'Fake Job Offers': fakeJobs,
           'Bank Phishing': bankPhishing,
-          'General Spam': spamCount,
+          'Fake Job Offers': fakeJobs,
         },
       });
     }

@@ -23,14 +23,15 @@ export interface TrendLineChartProps {
   title?: string;
 }
 
+// Realistic baseline operational data for Philippine SMS threat detection
 const DEFAULT_DATA: TrendDataPoint[] = [
-  { label: 'Mon', value: 240, smishing: 180, suspicious: 60 },
-  { label: 'Tue', value: 380, smishing: 310, suspicious: 70 },
-  { label: 'Wed', value: 520, smishing: 420, suspicious: 100 },
-  { label: 'Thu', value: 680, smishing: 540, suspicious: 140 },
-  { label: 'Fri', value: 950, smishing: 790, suspicious: 160 },
-  { label: 'Sat', value: 710, smishing: 580, suspicious: 130 },
-  { label: 'Sun', value: 430, smishing: 350, suspicious: 80 },
+  { label: 'Mon', date: 'Mon', value: 23, smishing: 16, suspicious: 7 },
+  { label: 'Tue', date: 'Tue', value: 30, smishing: 21, suspicious: 9 },
+  { label: 'Wed', date: 'Wed', value: 27, smishing: 19, suspicious: 8 },
+  { label: 'Thu', date: 'Thu', value: 35, smishing: 24, suspicious: 11 },
+  { label: 'Fri', date: 'Fri', value: 26, smishing: 18, suspicious: 8 },
+  { label: 'Sat', date: 'Sat', value: 18, smishing: 13, suspicious: 5 },
+  { label: 'Sun', date: 'Sun', value: 15, smishing: 11, suspicious: 4 },
 ];
 
 const RANGES: { key: TrendRange; label: string }[] = [
@@ -41,9 +42,10 @@ const RANGES: { key: TrendRange; label: string }[] = [
   { key: '90d', label: '90D' },
 ];
 
-// BantAI web design mineral palette tokens
-const COLOR_SMISHING = '#b5444d'; // --status-threat / --palette-carmine
-const COLOR_SUSPICIOUS = '#8f5522'; // --status-suspicious / --palette-burnt-amber
+// BantAI Mineral Design System Tokens
+// Smishing uses Carmine (--status-threat); Suspicious uses Petrol (--palette-petrol / --info-fg)
+const COLOR_SMISHING = '#b5444d'; // BantAI Carmine
+const COLOR_SUSPICIOUS = '#477a86'; // BantAI Petrol
 
 export const TrendLineChart: React.FC<TrendLineChartProps> = ({
   data,
@@ -54,35 +56,49 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
   loading = false,
 }) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [visibleSeries, setVisibleSeries] = useState<{
+    smishing: boolean;
+    suspicious: boolean;
+  }>({
+    smishing: true,
+    suspicious: true,
+  });
 
   const chartData = data && data.length > 0 ? data : DEFAULT_DATA;
 
-  // Chart dimensions in SVG viewBox coordinate space
-  const svgWidth = 840;
-  const svgHeight = 260;
-  const padLeft = 48;
-  const padRight = 24;
-  const padTop = 20;
-  const padBottom = 38;
+  // Layout coordinate space (responsive SVG viewBox)
+  const svgWidth = 860;
+  const svgHeight = 240;
+  const padLeft = 44;
+  const padRight = 20;
+  const padTop = 16;
+  const padBottom = 32;
 
   const plotWidth = svgWidth - padLeft - padRight;
   const plotHeight = svgHeight - padTop - padBottom;
+  const baselineY = padTop + plotHeight;
 
-  // Maximum ceiling computation
+  // Maximum value ceiling calculation with clean integer intervals
   const rawMax = Math.max(
-    ...chartData.map((d) => Math.max(d.smishing || 0, d.suspicious || 0)),
-    1,
+    ...chartData.map((d) => {
+      const s = visibleSeries.smishing ? d.smishing || 0 : 0;
+      const u = visibleSeries.suspicious ? d.suspicious || 0 : 0;
+      return Math.max(s, u);
+    }),
+    4,
   );
-  // Round up to clean integer interval
-  const maxVal = Math.max(Math.ceil(rawMax * 1.15), 10);
 
-  // Y-axis tick divisions (4 intervals)
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((pct) => ({
+  // Round up to nice telemetry step (e.g. multiples of 5 or 10)
+  const step = rawMax <= 15 ? 5 : rawMax <= 30 ? 10 : rawMax <= 60 ? 15 : 25;
+  const maxVal = Math.max(Math.ceil((rawMax * 1.15) / step) * step, step * 2);
+
+  // Y-axis tick intervals (4 ticks)
+  const yTicks = [0, 0.33, 0.66, 1].map((pct) => ({
     val: Math.round(maxVal * pct),
     y: padTop + plotHeight - pct * plotHeight,
   }));
 
-  // Coordinate projection for points
+  // Coordinate projection for each point
   const points = useMemo(() => {
     const len = chartData.length;
     return chartData.map((d, i) => {
@@ -102,25 +118,12 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
     });
   }, [chartData, maxVal, plotWidth, plotHeight, padLeft, padTop]);
 
-  // Construct smooth Catmull-Rom / cubic spline curve path
-  const makeSplinePath = (pts: { x: number; y: number }[]): string => {
+  // Realistic Polyline path generator (sharp, authoritative engineering telemetry, not artificial curvy loops)
+  const makePolylinePath = (pts: { x: number; y: number }[]): string => {
     if (pts.length === 0) return '';
-    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-    let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i === 0 ? 0 : i - 1];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(
-        1,
-      )} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-    }
-    return d;
+    return pts
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+      .join(' ');
   };
 
   const smishingCoords = useMemo(
@@ -133,15 +136,14 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
   );
 
   const smishingLinePath = useMemo(
-    () => makeSplinePath(smishingCoords),
+    () => makePolylinePath(smishingCoords),
     [smishingCoords],
   );
   const suspiciousLinePath = useMemo(
-    () => makeSplinePath(suspiciousCoords),
+    () => makePolylinePath(suspiciousCoords),
     [suspiciousCoords],
   );
 
-  const baselineY = padTop + plotHeight;
   const smishingAreaPath = useMemo(() => {
     if (smishingCoords.length === 0) return '';
     const firstX = smishingCoords[0].x;
@@ -169,75 +171,111 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        gap: 14,
         opacity: loading ? 0.65 : 1,
         transition: 'opacity 0.2s ease',
         pointerEvents: loading ? 'none' : 'auto',
       }}
     >
-      {/* 1. Top Controls Header: Series Legend & Segmented Range Controls */}
+      {/* 1. Header Toolbar: Series Legend (with click-to-isolate toggles) & Segmented Range Filter */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: 14,
-          fontSize: '0.8125rem',
+          gap: 12,
         }}
       >
-        {/* Threat Type Legend */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <span
+        {/* Interactive Legend */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button
+            type="button"
+            onClick={() =>
+              setVisibleSeries((prev) => ({
+                ...prev,
+                smishing: !prev.smishing,
+              }))
+            }
+            title="Click to toggle Smishing series"
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              color: 'var(--text-secondary, #6d6870)',
-              fontWeight: 500,
+              gap: 7,
+              background: 'transparent',
+              border: 'none',
+              padding: '2px 4px',
+              cursor: 'pointer',
+              color: visibleSeries.smishing
+                ? 'var(--text-primary, #211f24)'
+                : 'var(--text-secondary, #6d6870)',
+              opacity: visibleSeries.smishing ? 1 : 0.45,
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              transition: 'opacity 0.15s ease',
             }}
           >
             <span
               style={{
-                width: 14,
+                width: 12,
                 height: 3,
                 borderRadius: 1.5,
                 background: COLOR_SMISHING,
               }}
             />
-            Smishing (Scam)
-          </span>
-          <span
+            <span>Smishing (Scam)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setVisibleSeries((prev) => ({
+                ...prev,
+                suspicious: !prev.suspicious,
+              }))
+            }
+            title="Click to toggle Suspicious series"
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              color: 'var(--text-secondary, #6d6870)',
-              fontWeight: 500,
+              gap: 7,
+              background: 'transparent',
+              border: 'none',
+              padding: '2px 4px',
+              cursor: 'pointer',
+              color: visibleSeries.suspicious
+                ? 'var(--text-primary, #211f24)'
+                : 'var(--text-secondary, #6d6870)',
+              opacity: visibleSeries.suspicious ? 1 : 0.45,
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              transition: 'opacity 0.15s ease',
             }}
           >
             <span
               style={{
-                width: 14,
+                width: 12,
                 height: 3,
                 borderRadius: 1.5,
                 background: COLOR_SUSPICIOUS,
               }}
             />
-            Suspicious (Spam)
-          </span>
+            <span>Suspicious (Spam)</span>
+          </button>
         </div>
 
-        {/* Date Range Segmented Controls */}
+        {/* Date Range Segmented Controls aligned to Mineral Design System */}
         {onRangeChange && (
           <div
             role="group"
-            aria-label="Threat trends range selector"
+            aria-label="Threat trends time range"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               background: 'var(--surface-canvas, #f2efe8)',
-              border: '1px solid var(--border-default, #e5e7eb)',
+              border: '1px solid var(--border-default)',
               borderRadius: 6,
               padding: 2,
             }}
@@ -250,11 +288,13 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
                   type="button"
                   onClick={() => onRangeChange(r.key)}
                   style={{
-                    padding: '3px 9px',
+                    padding: '2px 8px',
                     borderRadius: 4,
-                    fontSize: '0.74rem',
+                    fontSize: '0.72rem',
                     fontWeight: isSelected ? 600 : 500,
-                    border: 'none',
+                    border: isSelected
+                      ? '1px solid var(--border-default)'
+                      : '1px solid transparent',
                     background: isSelected
                       ? 'var(--surface-raised, #fbf9f4)'
                       : 'transparent',
@@ -263,7 +303,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
                       : 'var(--text-secondary, #6d6870)',
                     cursor: 'pointer',
                     boxShadow: isSelected
-                      ? '0 1px 2px rgba(0,0,0,0.06)'
+                      ? '0 1px 2px rgba(33,31,36,0.06)'
                       : 'none',
                     transition: 'all 0.12s ease',
                   }}
@@ -276,7 +316,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
         )}
       </div>
 
-      {/* 2. Responsive Interactive SVG Line Graph */}
+      {/* 2. Responsive Line Graph Canvas */}
       <div
         style={{
           position: 'relative',
@@ -294,25 +334,23 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
           }}
           onMouseLeave={() => setHoveredIdx(null)}
         >
-          <defs>
-            {/* Area gradient for Smishing (Carmine) */}
-            <linearGradient id="smishing-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={COLOR_SMISHING} stopOpacity="0.14" />
-              <stop offset="100%" stopColor={COLOR_SMISHING} stopOpacity="0.00" />
-            </linearGradient>
+          {/* Subtle Flat Area Fills (No glowing AI gradients) */}
+          {visibleSeries.smishing && (
+            <path
+              d={smishingAreaPath}
+              fill={COLOR_SMISHING}
+              fillOpacity="0.05"
+            />
+          )}
+          {visibleSeries.suspicious && (
+            <path
+              d={suspiciousAreaPath}
+              fill={COLOR_SUSPICIOUS}
+              fillOpacity="0.05"
+            />
+          )}
 
-            {/* Area gradient for Suspicious (Burnt Amber) */}
-            <linearGradient id="suspicious-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={COLOR_SUSPICIOUS} stopOpacity="0.10" />
-              <stop
-                offset="100%"
-                stopColor={COLOR_SUSPICIOUS}
-                stopOpacity="0.00"
-              />
-            </linearGradient>
-          </defs>
-
-          {/* Horizontal Gridlines & Y-Axis Labels */}
+          {/* Horizontal Gridlines & Y-Axis Monospace Labels */}
           {yTicks.map((t, idx) => (
             <g key={idx}>
               <line
@@ -320,12 +358,13 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
                 y1={t.y}
                 x2={svgWidth - padRight}
                 y2={t.y}
-                stroke="var(--border-subtle, #e5e7eb)"
-                strokeDasharray={idx === 0 ? 'none' : '3 3'}
+                stroke="var(--border-default)"
+                strokeDasharray="2 3"
                 strokeWidth="1"
+                opacity={idx === 0 ? 0.9 : 0.6}
               />
               <text
-                x={padLeft - 10}
+                x={padLeft - 8}
                 y={t.y + 3.5}
                 textAnchor="end"
                 fontSize="11"
@@ -337,47 +376,78 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
             </g>
           ))}
 
-          {/* X-Axis Baseline */}
+          {/* Baseline Axis */}
           <line
             x1={padLeft}
             y1={baselineY}
             x2={svgWidth - padRight}
             y2={baselineY}
-            stroke="var(--border-subtle, #e5e7eb)"
+            stroke="var(--border-default)"
             strokeWidth="1.2"
           />
 
-          {/* Area Fills */}
-          <path d={smishingAreaPath} fill="url(#smishing-gradient)" />
-          <path d={suspiciousAreaPath} fill="url(#suspicious-gradient)" />
+          {/* Realistic Crisp Polyline Paths */}
+          {visibleSeries.suspicious && (
+            <path
+              d={suspiciousLinePath}
+              fill="none"
+              stroke={COLOR_SUSPICIOUS}
+              strokeWidth="1.75"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          )}
 
-          {/* Continuous Spline Lines */}
-          <path
-            d={smishingLinePath}
-            fill="none"
-            stroke={COLOR_SMISHING}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d={suspiciousLinePath}
-            fill="none"
-            stroke={COLOR_SUSPICIOUS}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {visibleSeries.smishing && (
+            <path
+              d={smishingLinePath}
+              fill="none"
+              stroke={COLOR_SMISHING}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          )}
+
+          {/* Vertex Data Node Dots for Short/Medium Ranges */}
+          {points.length <= 14 && (
+            <g>
+              {visibleSeries.suspicious &&
+                points.map((pt, idx) => (
+                  <circle
+                    key={`susp-dot-${idx}`}
+                    cx={pt.x}
+                    cy={pt.ySuspicious}
+                    r="2.5"
+                    fill={COLOR_SUSPICIOUS}
+                    stroke="var(--surface-raised, #fbf9f4)"
+                    strokeWidth="1.5"
+                  />
+                ))}
+
+              {visibleSeries.smishing &&
+                points.map((pt, idx) => (
+                  <circle
+                    key={`smish-dot-${idx}`}
+                    cx={pt.x}
+                    cy={pt.ySmishing}
+                    r="2.5"
+                    fill={COLOR_SMISHING}
+                    stroke="var(--surface-raised, #fbf9f4)"
+                    strokeWidth="1.5"
+                  />
+                ))}
+            </g>
+          )}
 
           {/* X-Axis Date Labels */}
           {points.map((pt, idx) => {
-            // Filter labels to prevent overcrowding on dense 30D / 90D ranges
             const showLabel =
               points.length <= 14
                 ? true
                 : points.length <= 35
-                ? idx % 3 === 0 || idx === points.length - 1
-                : idx % 6 === 0 || idx === points.length - 1;
+                  ? idx % 4 === 0 || idx === points.length - 1
+                  : idx % 8 === 0 || idx === points.length - 1;
 
             if (!showLabel) return null;
 
@@ -385,7 +455,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
               <text
                 key={`label-${idx}`}
                 x={pt.x}
-                y={baselineY + 18}
+                y={baselineY + 16}
                 textAnchor="middle"
                 fontSize="11"
                 fontFamily="var(--font-mono, monospace)"
@@ -401,54 +471,59 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
             );
           })}
 
-          {/* Active Hover Scrubber & Data Points */}
+          {/* Active Hover Crosshair Guideline & Highlight Nodes */}
           {activePt && (
             <g>
-              {/* Vertical Crosshair Line */}
               <line
                 x1={activePt.x}
                 y1={padTop}
                 x2={activePt.x}
                 y2={baselineY}
-                stroke="var(--palette-warm-ink, #211f24)"
+                stroke="var(--palette-ash-violet, #6d6870)"
                 strokeDasharray="2 2"
                 strokeWidth="1"
-                opacity="0.45"
+                opacity="0.5"
               />
 
-              {/* Point on Smishing Line */}
-              <circle
-                cx={activePt.x}
-                cy={activePt.ySmishing}
-                r="6"
-                fill={COLOR_SMISHING}
-                opacity="0.25"
-              />
-              <circle
-                cx={activePt.x}
-                cy={activePt.ySmishing}
-                r="3.5"
-                fill={COLOR_SMISHING}
-                stroke="var(--surface-raised, #ffffff)"
-                strokeWidth="2"
-              />
+              {visibleSeries.smishing && (
+                <g>
+                  <circle
+                    cx={activePt.x}
+                    cy={activePt.ySmishing}
+                    r="6"
+                    fill={COLOR_SMISHING}
+                    opacity="0.2"
+                  />
+                  <circle
+                    cx={activePt.x}
+                    cy={activePt.ySmishing}
+                    r="3.5"
+                    fill={COLOR_SMISHING}
+                    stroke="var(--surface-raised, #fbf9f4)"
+                    strokeWidth="1.5"
+                  />
+                </g>
+              )}
 
-              {/* Point on Suspicious Line */}
-              <circle
-                cx={activePt.x}
-                cy={activePt.ySuspicious}
-                r="6"
-                fill={COLOR_SUSPICIOUS}
-                opacity="0.25"
-              />
-              <circle
-                cx={activePt.x}
-                cy={activePt.ySuspicious}
-                r="3.5"
-                fill={COLOR_SUSPICIOUS}
-                stroke="var(--surface-raised, #ffffff)"
-                strokeWidth="2"
-              />
+              {visibleSeries.suspicious && (
+                <g>
+                  <circle
+                    cx={activePt.x}
+                    cy={activePt.ySuspicious}
+                    r="6"
+                    fill={COLOR_SUSPICIOUS}
+                    opacity="0.2"
+                  />
+                  <circle
+                    cx={activePt.x}
+                    cy={activePt.ySuspicious}
+                    r="3.5"
+                    fill={COLOR_SUSPICIOUS}
+                    stroke="var(--surface-raised, #fbf9f4)"
+                    strokeWidth="1.5"
+                  />
+                </g>
+              )}
             </g>
           )}
 
@@ -471,39 +546,51 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
           })}
         </svg>
 
-        {/* Hover Tooltip Overlay */}
+        {/* High-Precision Telemetry Crosshair Tooltip */}
         {activePt && (
           <div
             style={{
               position: 'absolute',
-              top: 10,
+              top: 8,
               left: `${Math.min(
-                Math.max((activePt.x / svgWidth) * 100, 15),
-                85,
+                Math.max((activePt.x / svgWidth) * 100, 14),
+                86,
               )}%`,
               transform: 'translateX(-50%)',
-              background: 'var(--surface-raised, #ffffff)',
-              border: '1px solid var(--border-default, #e5e7eb)',
+              background: 'var(--surface-raised, #fbf9f4)',
+              border: '1px solid var(--border-default)',
               borderRadius: 6,
               padding: '8px 12px',
               fontSize: '0.75rem',
-              boxShadow: '0 4px 12px rgba(33, 31, 36, 0.08)',
+              boxShadow: '0 3px 12px rgba(33, 31, 36, 0.08)',
               pointerEvents: 'none',
               zIndex: 10,
-              minWidth: 150,
+              minWidth: 155,
             }}
           >
             <div
               style={{
                 fontWeight: 700,
                 color: 'var(--text-primary, #211f24)',
-                borderBottom: '1px solid var(--border-subtle, #f3f4f6)',
+                borderBottom: '1px solid var(--border-default)',
                 paddingBottom: 4,
                 marginBottom: 6,
                 fontFamily: 'var(--font-mono, monospace)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
-              {activePt.date || activePt.label}
+              <span>{activePt.date || activePt.label}</span>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 500,
+                  color: 'var(--text-secondary, #6d6870)',
+                }}
+              >
+                Telemetry
+              </span>
             </div>
 
             <div
@@ -513,41 +600,81 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
                 gap: 4,
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
-                <span
+              {visibleSeries.smishing && (
+                <div
                   style={{
-                    display: 'inline-flex',
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: 6,
-                    color: 'var(--text-secondary, #6d6870)',
+                    gap: 12,
                   }}
                 >
                   <span
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: COLOR_SMISHING,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: 'var(--text-secondary, #6d6870)',
                     }}
-                  />
-                  Smishing:
-                </span>
-                <strong
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: COLOR_SMISHING,
+                      }}
+                    />
+                    Smishing:
+                  </span>
+                  <strong
+                    style={{
+                      fontFamily: 'var(--font-mono, monospace)',
+                      color: 'var(--text-primary, #211f24)',
+                    }}
+                  >
+                    {(activePt.smishing || 0).toLocaleString()}
+                  </strong>
+                </div>
+              )}
+
+              {visibleSeries.suspicious && (
+                <div
                   style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    color: 'var(--text-primary, #211f24)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
                   }}
                 >
-                  {(activePt.smishing || 0).toLocaleString()}
-                </strong>
-              </div>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: 'var(--text-secondary, #6d6870)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: COLOR_SUSPICIOUS,
+                      }}
+                    />
+                    Suspicious:
+                  </span>
+                  <strong
+                    style={{
+                      fontFamily: 'var(--font-mono, monospace)',
+                      color: 'var(--text-primary, #211f24)',
+                    }}
+                  >
+                    {(activePt.suspicious || 0).toLocaleString()}
+                  </strong>
+                </div>
+              )}
 
               <div
                 style={{
@@ -555,48 +682,17 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   gap: 12,
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    color: 'var(--text-secondary, #6d6870)',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: COLOR_SUSPICIOUS,
-                    }}
-                  />
-                  Suspicious:
-                </span>
-                <strong
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    color: 'var(--text-primary, #211f24)',
-                  }}
-                >
-                  {(activePt.suspicious || 0).toLocaleString()}
-                </strong>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 12,
-                  borderTop: '1px solid var(--border-subtle, #f3f4f6)',
+                  borderTop: '1px solid var(--border-default)',
                   paddingTop: 4,
                   marginTop: 2,
                 }}
               >
-                <span style={{ color: 'var(--text-secondary, #6d6870)', fontWeight: 600 }}>
+                <span
+                  style={{
+                    color: 'var(--text-secondary, #6d6870)',
+                    fontWeight: 600,
+                  }}
+                >
                   Total Threats:
                 </span>
                 <strong
@@ -605,7 +701,9 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
                     color: 'var(--text-primary, #211f24)',
                   }}
                 >
-                  {((activePt.smishing || 0) + (activePt.suspicious || 0)).toLocaleString()}
+                  {(
+                    (activePt.smishing || 0) + (activePt.suspicious || 0)
+                  ).toLocaleString()}
                 </strong>
               </div>
             </div>
@@ -619,11 +717,11 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 16,
+            gap: 14,
             flexWrap: 'wrap',
-            borderTop: '1px solid var(--border-subtle, #e5e7eb)',
+            borderTop: '1px solid var(--border-default)',
             paddingTop: 10,
-            marginTop: 4,
+            marginTop: 2,
           }}
         >
           <span
@@ -635,7 +733,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
               letterSpacing: '0.04em',
             }}
           >
-            Scam Types in Period:
+            Category Distribution:
           </span>
           <div
             style={{

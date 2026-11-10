@@ -70,7 +70,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
               margin: 0,
               fontSize: '0.95rem',
               fontWeight: 600,
-              color: 'var(--text-primary, #111827)',
+              color: 'var(--text-primary, #211f24)',
             }}
           >
             {title}
@@ -78,7 +78,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
           <span
             style={{
               fontSize: '0.78rem',
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary, #6d6870)',
               marginTop: 2,
               display: 'block',
             }}
@@ -91,8 +91,8 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
           <div
             style={{
               display: 'inline-flex',
-              background: 'var(--surface-canvas, #f3f4f6)',
-              border: '1px solid var(--border-subtle, #e5e7eb)',
+              background: 'var(--surface-canvas, #f2efe8)',
+              border: '1px solid var(--border-default)',
               borderRadius: 6,
               padding: 2,
             }}
@@ -108,18 +108,21 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                     padding: '2px 8px',
                     borderRadius: 4,
                     fontSize: '0.72rem',
-                    fontWeight: isSelected ? 700 : 500,
-                    border: 'none',
+                    fontWeight: isSelected ? 600 : 500,
+                    border: isSelected
+                      ? '1px solid var(--border-default)'
+                      : '1px solid transparent',
                     background: isSelected
-                      ? 'var(--surface-raised, #ffffff)'
+                      ? 'var(--surface-raised, #fbf9f4)'
                       : 'transparent',
                     color: isSelected
-                      ? 'var(--text-primary, #111827)'
-                      : 'var(--text-secondary, #6b7280)',
+                      ? 'var(--text-primary, #211f24)'
+                      : 'var(--text-secondary, #6d6870)',
                     cursor: 'pointer',
                     boxShadow: isSelected
-                      ? '0 1px 2px rgba(0,0,0,0.06)'
+                      ? '0 1px 2px rgba(33,31,36,0.06)'
                       : 'none',
+                    transition: 'all 0.12s ease',
                   }}
                 >
                   {r.label}
@@ -135,7 +138,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
           style={{
             padding: 32,
             textAlign: 'center',
-            color: 'var(--text-secondary, #6b7280)',
+            color: 'var(--text-secondary, #6d6870)',
             fontSize: '0.875rem',
           }}
         >
@@ -176,7 +179,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                       style={{
                         fontSize: '0.72rem',
                         fontWeight: 600,
-                        color: 'var(--text-secondary, #6b7280)',
+                        color: 'var(--text-secondary, #6d6870)',
                         fontFamily: 'var(--font-mono, monospace)',
                         minWidth: 16,
                       }}
@@ -186,7 +189,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                     <span
                       style={{
                         fontWeight: 600,
-                        color: 'var(--text-primary, #111827)',
+                        color: 'var(--text-primary, #211f24)',
                       }}
                     >
                       {item.label}
@@ -198,7 +201,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                       style={{
                         fontFamily: 'var(--font-mono, monospace)',
                         fontWeight: 600,
-                        color: 'var(--text-primary, #111827)',
+                        color: 'var(--text-primary, #211f24)',
                         fontSize: '0.85rem',
                       }}
                     >
@@ -207,7 +210,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                     <span
                       style={{
                         fontSize: '0.75rem',
-                        color: 'var(--text-secondary, #6b7280)',
+                        color: 'var(--text-secondary, #6d6870)',
                         minWidth: 42,
                         textAlign: 'right',
                         fontFamily: 'var(--font-mono, monospace)',
@@ -222,9 +225,9 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                 <div
                   style={{
                     width: '100%',
-                    height: 7,
+                    height: 6,
                     borderRadius: 3,
-                    background: 'var(--surface-canvas, #f3f4f6)',
+                    background: 'var(--surface-canvas, #f2efe8)',
                     overflow: 'hidden',
                   }}
                 >
@@ -233,7 +236,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                       width: `${barPct}%`,
                       height: '100%',
                       borderRadius: 3,
-                      background: item.color || '#6d6870',
+                      background: item.color || 'var(--palette-ash-violet, #6d6870)',
                       transition: 'width 0.3s ease',
                     }}
                   />

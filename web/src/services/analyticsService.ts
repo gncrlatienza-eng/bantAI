@@ -81,6 +81,12 @@ export interface AdminThreatTrendsResponse {
 
 export type TrendRange = 'today' | '7d' | '14d' | '30d' | '90d';
 
+// Deterministic pseudo-random float generator in range [-1, 1]
+function deterministicNoise(seed: number): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return (x - Math.floor(x)) * 2 - 1;
+}
+
 function generateDevMockTrends(
   range: TrendRange,
   interval: 'day' | 'week',
@@ -158,34 +164,44 @@ function generateDevMockTrends(
       });
     });
   } else {
-    // Realistic daily telemetry with weekday volume curves and campaign surges
+    // Authentic SOC telemetry: weekday volume curves, organic daily variance, and multi-day campaign waves
+    const weekdayWeights = [0.65, 0.95, 1.25, 1.3, 1.15, 0.9, 0.7]; // Sun(0) to Sat(6)
+    const wavePeaks = [6, 21, 39, 57, 76];
+
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 86400000);
       const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const dayFactor = weekdayWeights[dayOfWeek];
       const dateStr = d.toISOString().slice(0, 10);
       const monthDay = d.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
       });
 
-      // Authentic SOC variance: higher mid-week (Tue-Thu), realistic lull on Sun
-      const dayFactor = isWeekend ? 0.65 : dayOfWeek === 3 || dayOfWeek === 4 ? 1.25 : 1.0;
-      // Deterministic pseudo-random variation based on date
-      const hash = (d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate()) % 13;
-      const variation = ((hash - 6) / 10); // -0.6 to +0.6
+      // Multi-day campaign surge (Gaussian bell curve over ~4 days per wave)
+      let campaignSurge = 0;
+      for (const peak of wavePeaks) {
+        const dist = Math.abs(i - peak);
+        if (dist <= 3) {
+          campaignSurge += 10 * Math.exp(-(dist * dist) / 2.5);
+        }
+      }
 
-      // Occasional campaign burst spikes (realistic incident waves)
-      const isCampaignSpike = i === 4 || i === 12 || i === 23;
-      const spikeBonus = isCampaignSpike ? 8 : 0;
+      // Independent organic daily variation to prevent flat plateaus
+      const seedBase =
+        (d.getFullYear() * 10000 + (d.getMonth() + 1) * 31 + d.getDate()) * 19 +
+        i * 37;
+      const noiseScam = deterministicNoise(seedBase);
+      const noiseSpam = deterministicNoise(seedBase + 313);
+      const noiseHam = deterministicNoise(seedBase + 709);
 
-      const baseScam = 14 * dayFactor + variation * 4 + spikeBonus;
-      const baseSpam = 7 * dayFactor + variation * 2 + (isCampaignSpike ? 3 : 0);
-      const baseHam = 38 * dayFactor + variation * 8;
+      const baseScam = 13.5 * dayFactor + campaignSurge + noiseScam * 2.8;
+      const baseSpam = 6.5 * dayFactor + campaignSurge * 0.4 + noiseSpam * 1.8;
+      const baseHam = 38 * dayFactor + noiseHam * 5;
 
-      const scamCount = Math.max(4, Math.round(baseScam));
+      const scamCount = Math.max(3, Math.round(baseScam));
       const spamCount = Math.max(2, Math.round(baseSpam));
-      const hamCount = Math.max(12, Math.round(baseHam));
+      const hamCount = Math.max(10, Math.round(baseHam));
 
       const gambling = Math.round(scamCount * 0.38);
       const prizeLures = Math.round(scamCount * 0.28);

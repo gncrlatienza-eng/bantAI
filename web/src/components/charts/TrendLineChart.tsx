@@ -43,9 +43,9 @@ const RANGES: { key: TrendRange; label: string }[] = [
 ];
 
 // BantAI Mineral Design System Tokens
-// Smishing uses Mulberry (--chart-1 / --brand-primary); Suspicious uses Petrol (--chart-2 / --info-fg)
+// Smishing uses Mulberry (#5e405a); Suspicious uses Sand/Cream (#F5E6CC)
 const COLOR_SMISHING = '#5e405a'; // BantAI Mulberry
-const COLOR_SUSPICIOUS = '#477a86'; // BantAI Petrol
+const COLOR_SUSPICIOUS = '#F5E6CC'; // Warm Sand / Cream
 
 export const TrendLineChart: React.FC<TrendLineChartProps> = ({
   data,

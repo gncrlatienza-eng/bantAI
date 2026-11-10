@@ -169,13 +169,13 @@ export function AnalyticsView() {
         let sublabel = 'Unclassified';
         const lower = label.toLowerCase();
         if (lower === 'scam' || lower === 'smishing') {
-          color = '#5e405a'; // BantAI mineral mulberry (--chart-1 / --brand-primary)
+          color = '#5E405A'; // Original: #5E405A
           sublabel = 'Confirmed Threats';
         } else if (lower === 'spam') {
-          color = '#477a86'; // BantAI mineral petrol (--chart-2 / --info-fg)
+          color = '#806477'; // Muted Rose: #806477
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
-          color = '#3d6355'; // BantAI mineral muted teal (--chart-5 / --status-verified)
+          color = '#77708A'; // Dusty Violet: #77708A
           sublabel = 'Legitimate Messages';
         }
         return {

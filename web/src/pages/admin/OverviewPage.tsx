@@ -41,7 +41,10 @@ import {
   getAdminThreatTrends,
   type AdminThreatTrendsResponse,
 } from '../../services/analyticsService';
-import { BarChart, type TrendRange } from '../../components/charts/BarChart';
+import {
+  TrendLineChart,
+  type TrendRange,
+} from '../../components/charts/TrendLineChart';
 import {
   SectionHeading,
   ShortId,
@@ -172,7 +175,10 @@ export function OverviewPage() {
   const fetchTrends = useCallback(async (range: TrendRange) => {
     setTrendsLoading(true);
     try {
-      const result = await getAdminThreatTrends(range, 'day');
+      const result = await getAdminThreatTrends(
+        range,
+        range === '90d' ? 'week' : 'day',
+      );
       setTrends(result);
     } catch {
       // Degrades gracefully if telemetry unavailable
@@ -325,7 +331,7 @@ export function OverviewPage() {
               onAction={() => void navigate('/admin/analytics')}
             />
             <div style={PANEL}>
-              <BarChart
+              <TrendLineChart
                 data={trends?.timeline.map((t) => ({
                   label: t.label,
                   date: t.date,

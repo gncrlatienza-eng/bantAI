@@ -61,7 +61,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       name: 'Active Investigation',
       count: statuses.underReview,
       share: total > 0 ? (statuses.underReview / total) * 100 : 3.5,
-      color: '#9c6335', // mineral burnt amber
+      color: '#8f5522', // mineral burnt amber (--status-suspicious)
       description: 'Under staff threat examination',
     },
     {

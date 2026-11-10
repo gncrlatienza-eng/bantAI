@@ -97,7 +97,7 @@ export const BarChart: React.FC<BarChartProps> = ({
                 width: 8,
                 height: 8,
                 borderRadius: 2,
-                background: '#9e444c',
+                background: '#b5444d',
               }}
             />
             Smishing (Scam)
@@ -116,7 +116,7 @@ export const BarChart: React.FC<BarChartProps> = ({
                 width: 8,
                 height: 8,
                 borderRadius: 2,
-                background: '#a57147',
+                background: '#8f5522',
               }}
             />
             Suspicious (Spam)
@@ -309,14 +309,14 @@ export const BarChart: React.FC<BarChartProps> = ({
                 <div
                   style={{
                     height: `${smishingHeight}px`,
-                    background: isHovered ? '#83343b' : '#9e444c',
+                    background: isHovered ? '#8e2f3c' : '#b5444d',
                     transition: 'background-color 0.15s ease',
                   }}
                 />
                 <div
                   style={{
                     height: `${suspiciousHeight}px`,
-                    background: isHovered ? '#885731' : '#a57147',
+                    background: isHovered ? '#724219' : '#8f5522',
                     transition: 'background-color 0.15s ease',
                   }}
                 />

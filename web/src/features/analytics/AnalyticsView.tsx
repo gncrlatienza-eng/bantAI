@@ -8,7 +8,7 @@ import {
   MetricRow,
   StatPanel,
 } from '../../components/primitives';
-import { BarChart, type TrendRange } from '../../components/charts/BarChart';
+import { TrendLineChart, type TrendRange } from '../../components/charts/TrendLineChart';
 import {
   DonutChart,
   type DonutSegment,
@@ -169,13 +169,13 @@ export function AnalyticsView() {
         let sublabel = 'Unclassified';
         const lower = label.toLowerCase();
         if (lower === 'scam' || lower === 'smishing') {
-          color = '#9e444c';
+          color = '#b5444d'; // BantAI mineral carmine (--status-threat)
           sublabel = 'Confirmed Threats';
         } else if (lower === 'spam') {
-          color = '#a57147';
+          color = '#8f5522'; // BantAI mineral burnt amber (--status-suspicious)
           sublabel = 'Unwanted Spam';
         } else if (lower === 'ham' || lower === 'safe') {
-          color = '#475569';
+          color = '#3d6355'; // BantAI mineral muted teal (--status-verified)
           sublabel = 'Legitimate Messages';
         }
         return {
@@ -351,13 +351,13 @@ Key Metrics:
         description="Temporal threat trends, scam classification proportions, and alert resolution volume."
       />
 
-      {/* 1. Threat Trends Over Time (Bar Chart) - No Live or Refresh buttons */}
+      {/* 1. Threat Trends Over Time (Continuous Line Graph) */}
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>
           Threat trends & scam types over time
         </h2>
         <div style={CARD_STYLE}>
-          <BarChart
+          <TrendLineChart
             data={trends?.timeline.map((t) => ({
               label: t.label,
               date: t.date,

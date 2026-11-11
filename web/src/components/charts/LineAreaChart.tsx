@@ -1,347 +1,749 @@
 import React, { useState } from 'react';
 
-interface PointData {
-  day: string;
-  value: number;
-  precision: number;
-  recall: number;
-  f1: number;
-  note: string;
-  isRetrain?: boolean;
+export interface AlertTimelinePoint {
+  date: string;
+  label: string;
+  resolved: number;
+  received: number;
+  underReview?: number;
 }
 
-export const LineAreaChart: React.FC = () => {
-  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
+export interface RangeOption {
+  key: string;
+  label: string;
+}
 
-  const points: PointData[] = [
-    {
-      day: 'Apr 14',
-      value: 91.2,
-      precision: 92.4,
-      recall: 90.1,
-      f1: 91.2,
-      note: 'Baseline XLM-RoBERTa Checkpoint',
-    },
-    {
-      day: 'Apr 19',
-      value: 92.5,
-      precision: 93.1,
-      recall: 91.8,
-      f1: 92.4,
-      note: 'Ingested 14,000 Taglish Smishing Logs',
-    },
-    {
-      day: 'Apr 24',
-      value: 93.1,
-      precision: 94.0,
-      recall: 92.2,
-      f1: 93.1,
-      note: 'Fine-tuned Learning Rate & Weight Decay',
-    },
-    {
-      day: 'Apr 29',
-      value: 93.6,
-      precision: 94.5,
-      recall: 92.7,
-      f1: 93.6,
-      note: 'Regular Scheduled Daily Evaluation',
-    },
-    {
-      day: 'May 04',
-      value: 94.1,
-      precision: 95.0,
-      recall: 93.2,
-      f1: 94.1,
-      note: 'Pre-Retrain Performance Baseline',
-    },
-    {
-      day: 'May 09',
-      value: 95.4,
-      precision: 96.2,
-      recall: 94.6,
-      f1: 95.4,
-      note: 'Retrain Event Deployed (+1.3% Accuracy Gain)',
-      isRetrain: true,
-    },
-    {
-      day: 'May 13',
-      value: 95.8,
-      precision: 96.7,
-      recall: 94.9,
-      f1: 95.8,
-      note: 'Active Production Checkpoint v2.4',
-    },
-  ];
+const DEFAULT_RANGES: RangeOption[] = [
+  { key: '7d', label: '7D' },
+  { key: '14d', label: '14D' },
+  { key: '30d', label: '30D' },
+  { key: '90d', label: '90D' },
+  { key: 'all', label: 'All' },
+];
 
-  // SVG dimensions
+export interface LineAreaChartProps {
+  title?: string;
+  data: AlertTimelinePoint[];
+  selectedRange?: string;
+  onRangeChange?: (range: string) => void;
+  rangeOptions?: RangeOption[];
+  summaryMetrics?: {
+    totalResolved: number;
+    totalReceived: number;
+    totalUnderReview?: number;
+    totalDismissed?: number;
+    resolutionRate: number;
+  };
+}
+
+export const LineAreaChart: React.FC<LineAreaChartProps> = ({
+  title = 'Alert resolution lifecycle & triage pipeline',
+  data,
+  selectedRange = '30d',
+  onRangeChange,
+  rangeOptions = DEFAULT_RANGES,
+  summaryMetrics,
+}) => {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  const points = data && data.length > 0 ? data : [];
+
+  // SVG coordinates setup
   const width = 640;
-  const height = 210;
-  const paddingX = 45;
-  const minY = 90.0;
-  const maxY = 97.0;
+  const height = 190;
+  const padX = 40;
+  const padYTop = 24;
+  const padYBottom = 34;
 
-  // Calculate coordinates accurately
+  const maxVal = Math.max(
+    ...points.map((p) =>
+      Math.max(p.received || 0, p.resolved || 0, p.underReview || 0),
+    ),
+    10,
+  );
+
+  const chartHeight = height - padYTop - padYBottom;
+
   const calculatedPoints = points.map((pt, idx) => {
-    const cx = paddingX + (idx / (points.length - 1)) * (width - paddingX * 2);
-    // Y mapped from minY (145px) to maxY (25px)
-    const cy = 145 - ((pt.value - minY) / (maxY - minY)) * 120;
-    return { ...pt, cx, cy };
+    const cx =
+      points.length > 1
+        ? padX + (idx / (points.length - 1)) * (width - padX * 2)
+        : width / 2;
+
+    const cyResolved =
+      padYTop + chartHeight - (pt.resolved / maxVal) * chartHeight;
+    const cyReceived =
+      padYTop + chartHeight - (pt.received / maxVal) * chartHeight;
+    const cyReview =
+      padYTop + chartHeight - ((pt.underReview || 0) / maxVal) * chartHeight;
+
+    return {
+      ...pt,
+      cx,
+      cyResolved,
+      cyReceived,
+      cyReview,
+    };
   });
 
-  // Construct smooth SVG path d attribute using bezier curves passing exactly through (cx, cy)
-  const pathD = calculatedPoints.reduce((acc, pt, i, arr) => {
-    if (i === 0) return `M ${pt.cx} ${pt.cy}`;
-    const prev = arr[i - 1];
-    const cp1x = prev.cx + (pt.cx - prev.cx) / 2;
-    const cp1y = prev.cy;
-    const cp2x = prev.cx + (pt.cx - prev.cx) / 2;
-    const cp2y = pt.cy;
-    return `${acc} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pt.cx} ${pt.cy}`;
-  }, '');
+  // Construct smooth bezier curve path for an array of (cx, cy)
+  function makeSmoothPath(coords: { cx: number; cy: number }[]): string {
+    if (coords.length === 0) return '';
+    if (coords.length === 1) return `M ${coords[0].cx} ${coords[0].cy}`;
+    return coords.reduce((acc, pt, i, arr) => {
+      if (i === 0) return `M ${pt.cx} ${pt.cy}`;
+      const prev = arr[i - 1];
+      const cp1x = prev.cx + (pt.cx - prev.cx) / 2;
+      const cp1y = prev.cy;
+      const cp2x = prev.cx + (pt.cx - prev.cx) / 2;
+      const cp2y = pt.cy;
+      return `${acc} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pt.cx} ${pt.cy}`;
+    }, '');
+  }
 
-  // Closed path for gradient area fill
+  const resolvedLineD = makeSmoothPath(
+    calculatedPoints.map((p) => ({ cx: p.cx, cy: p.cyResolved })),
+  );
+  const receivedLineD = makeSmoothPath(
+    calculatedPoints.map((p) => ({ cx: p.cx, cy: p.cyReceived })),
+  );
+
+  // Closed area paths for gradient fill
+  const baselineY = padYTop + chartHeight;
   const firstPt = calculatedPoints[0];
   const lastPt = calculatedPoints[calculatedPoints.length - 1];
-  const areaD = `${pathD} L ${lastPt.cx} 160 L ${firstPt.cx} 160 Z`;
+
+  const resolvedAreaD =
+    firstPt && lastPt
+      ? `${resolvedLineD} L ${lastPt.cx} ${baselineY} L ${firstPt.cx} ${baselineY} Z`
+      : '';
+  const receivedAreaD =
+    firstPt && lastPt
+      ? `${receivedLineD} L ${lastPt.cx} ${baselineY} L ${firstPt.cx} ${baselineY} Z`
+      : '';
 
   const activePoint =
-    activePointIndex !== null ? calculatedPoints[activePointIndex] : null;
+    hoveredIdx !== null && calculatedPoints[hoveredIdx]
+      ? calculatedPoints[hoveredIdx]
+      : null;
 
   return (
     <div
       style={{
-        width: '100%',
-        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
+        gap: 16,
+        width: '100%',
       }}
     >
-      {/* SVG Container with embedded Date Labels for 100% Pixel-Perfect Alignment */}
-      <div style={{ position: 'relative', width: '100%', overflow: 'visible' }}>
+      {/* Header with Title and Range Filters */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              color: 'var(--text-primary, #111827)',
+            }}
+          >
+            {title}
+          </h3>
+          <p
+            style={{
+              margin: '3px 0 0',
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary, #6b7280)',
+            }}
+          >
+            Temporal tracking of incident triage, incoming alert intake, and
+            investigative closure.
+          </p>
+        </div>
+
+        {/* Legend & Filter Controls */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Legend */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              fontSize: '0.78rem',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                color: 'var(--text-primary, #111827)',
+                fontWeight: 500,
+              }}
+            >
+              <span
+                style={{
+                  width: 10,
+                  height: 3,
+                  borderRadius: 2,
+                  background: '#10b981',
+                }}
+              />
+              Resolved
+            </span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                color: 'var(--text-primary, #111827)',
+                fontWeight: 500,
+              }}
+            >
+              <span
+                style={{
+                  width: 10,
+                  height: 3,
+                  borderRadius: 2,
+                  background: '#3b82f6',
+                }}
+              />
+              Received
+            </span>
+          </div>
+
+          {/* Range Pills */}
+          {onRangeChange && (
+            <div
+              style={{
+                display: 'inline-flex',
+                background: 'var(--surface-canvas, #f3f4f6)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+                borderRadius: 6,
+                padding: 2,
+              }}
+            >
+              {rangeOptions.map((r) => {
+                const isSelected = selectedRange === r.key;
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    onClick={() => onRangeChange(r.key)}
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      fontSize: '0.72rem',
+                      fontWeight: isSelected ? 700 : 500,
+                      border: 'none',
+                      background: isSelected
+                        ? 'var(--surface-raised, #ffffff)'
+                        : 'transparent',
+                      color: isSelected
+                        ? 'var(--text-primary, #111827)'
+                        : 'var(--text-secondary, #6b7280)',
+                      cursor: 'pointer',
+                      boxShadow: isSelected
+                        ? '0 1px 2px rgba(0,0,0,0.06)'
+                        : 'none',
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SVG Line Chart Canvas */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          background: 'var(--surface-muted, #fafafa)',
+          borderRadius: 8,
+          border: '1px solid var(--border-subtle, #f3f4f6)',
+          padding: '8px 12px',
+          boxSizing: 'border-box',
+        }}
+      >
         <svg
           width="100%"
           height={height}
           viewBox={`0 0 ${width} ${height}`}
-          style={{ overflow: 'visible' }}
+          preserveAspectRatio="none"
+          style={{ overflow: 'visible', display: 'block' }}
         >
           <defs>
-            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.45" />
-              <stop offset="60%" stopColor="#2563eb" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#1e3a8a" stopOpacity="0.0" />
+            {/* Resolved gradient */}
+            <linearGradient id="resolvedGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.32" />
+              <stop offset="80%" stopColor="#10b981" stopOpacity="0.04" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
             </linearGradient>
 
-            <filter id="dotGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
+            {/* Received gradient */}
+            <linearGradient id="receivedGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+              <stop offset="80%" stopColor="#3b82f6" stopOpacity="0.02" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+            </linearGradient>
           </defs>
 
-          {/* Horizontal Grid lines */}
-          <line
-            x1={paddingX - 10}
-            y1="25"
-            x2={width - paddingX + 10}
-            y2="25"
-            stroke="rgba(255,255,255,0.06)"
-            strokeDasharray="4 4"
-          />
-          <line
-            x1={paddingX - 10}
-            y1="70"
-            x2={width - paddingX + 10}
-            y2="70"
-            stroke="rgba(255,255,255,0.06)"
-            strokeDasharray="4 4"
-          />
-          <line
-            x1={paddingX - 10}
-            y1="115"
-            x2={width - paddingX + 10}
-            y2="115"
-            stroke="rgba(255,255,255,0.06)"
-            strokeDasharray="4 4"
-          />
-          <line
-            x1={paddingX - 10}
-            y1="160"
-            x2={width - paddingX + 10}
-            y2="160"
-            stroke="rgba(255,255,255,0.1)"
-          />
+          {/* Horizontal gridlines */}
+          {[0, 0.33, 0.66, 1].map((pct, idx) => {
+            const y = padYTop + chartHeight * (1 - pct);
+            const val = Math.round(maxVal * pct);
+            return (
+              <g key={idx}>
+                <line
+                  x1={padX}
+                  y1={y}
+                  x2={width - padX}
+                  y2={y}
+                  stroke="var(--border-subtle, #e5e7eb)"
+                  strokeDasharray="4 4"
+                  strokeWidth="0.8"
+                />
+                <text
+                  x={padX - 8}
+                  y={y + 3}
+                  fontSize="9"
+                  fill="var(--text-secondary, #9ca3af)"
+                  textAnchor="end"
+                  fontFamily="var(--font-mono, monospace)"
+                >
+                  {val}
+                </text>
+              </g>
+            );
+          })}
 
-          {/* Area Fill */}
-          <path d={areaD} fill="url(#areaGrad)" />
+          {/* Area Fills */}
+          {receivedAreaD && (
+            <path d={receivedAreaD} fill="url(#receivedGrad)" />
+          )}
+          {resolvedAreaD && (
+            <path d={resolvedAreaD} fill="url(#resolvedGrad)" />
+          )}
 
-          {/* Smooth Curve Line */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke="#60a5fa"
-            strokeWidth="3.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Vertical Crosshair Guideline on Active Point Hover */}
-          {activePoint && (
-            <line
-              x1={activePoint.cx}
-              y1="20"
-              x2={activePoint.cx}
-              y2="180"
-              stroke="#60a5fa"
-              strokeDasharray="3 3"
-              strokeWidth="1.5"
-              style={{ transition: 'all 0.15s ease' }}
+          {/* Stroke Lines */}
+          {receivedLineD && (
+            <path
+              d={receivedLineD}
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+          {resolvedLineD && (
+            <path
+              d={resolvedLineD}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           )}
 
-          {/* Interactive Data Dots (Sitting directly above dates at exact cx) */}
-          {calculatedPoints.map((pt, idx) => {
-            const isHovered = activePointIndex === idx;
+          {/* Interactive Hover Vertical Line */}
+          {activePoint && (
+            <line
+              x1={activePoint.cx}
+              y1={padYTop}
+              x2={activePoint.cx}
+              y2={baselineY}
+              stroke="var(--border-strong, #6b7280)"
+              strokeDasharray="2 2"
+              strokeWidth="1.2"
+            />
+          )}
 
+          {/* Interactive Data Points */}
+          {calculatedPoints.map((pt, idx) => {
+            const isHovered = hoveredIdx === idx;
             return (
               <g
-                key={pt.day}
-                onMouseEnter={() => setActivePointIndex(idx)}
-                onMouseLeave={() => setActivePointIndex(null)}
+                key={idx}
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Outer halo highlight */}
-                <circle
-                  cx={pt.cx}
-                  cy={pt.cy}
-                  r={isHovered ? 12 : 7}
-                  fill={
-                    isHovered
-                      ? 'rgba(96, 165, 250, 0.35)'
-                      : 'rgba(59, 130, 246, 0.15)'
-                  }
-                  style={{
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
+                {/* Invisible hover trigger column */}
+                <rect
+                  x={pt.cx - (width / points.length) * 0.5}
+                  y={padYTop}
+                  width={width / points.length}
+                  height={chartHeight + 10}
+                  fill="transparent"
                 />
 
-                {/* Main Dot */}
+                {/* Received Dot */}
                 <circle
                   cx={pt.cx}
-                  cy={pt.cy}
-                  r={isHovered ? 6 : 4.5}
-                  fill={pt.isRetrain ? '#34d399' : '#ffffff'}
-                  stroke={pt.isRetrain ? '#10b981' : '#2563eb'}
-                  strokeWidth={isHovered ? 3 : 2}
-                  filter={isHovered ? 'url(#dotGlow)' : undefined}
-                  style={{
-                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
+                  cy={pt.cyReceived}
+                  r={isHovered ? 5.5 : 3}
+                  fill="#ffffff"
+                  stroke="#3b82f6"
+                  strokeWidth={isHovered ? 2.5 : 1.8}
                 />
 
-                {/* Date Label rendered INSIDE SVG at exact cx for 100% alignment */}
-                <text
-                  x={pt.cx}
-                  y="192"
-                  textAnchor="middle"
-                  fill={isHovered ? '#60a5fa' : '#94a3b8'}
-                  fontSize="12"
-                  fontWeight={isHovered ? '800' : '600'}
-                  style={{ transition: 'fill 0.15s ease' }}
-                >
-                  {pt.day}
-                </text>
+                {/* Resolved Dot */}
+                <circle
+                  cx={pt.cx}
+                  cy={pt.cyResolved}
+                  r={isHovered ? 6 : 3.5}
+                  fill="#ffffff"
+                  stroke="#10b981"
+                  strokeWidth={isHovered ? 2.8 : 2}
+                />
+
+                {/* X-axis date labels */}
+                {(points.length <= 14 || idx % 2 === 0) && (
+                  <text
+                    x={pt.cx}
+                    y={height - 10}
+                    fontSize="9.5"
+                    fill={
+                      isHovered
+                        ? 'var(--text-primary, #111827)'
+                        : 'var(--text-secondary, #6b7280)'
+                    }
+                    fontWeight={isHovered ? 700 : 500}
+                    textAnchor="middle"
+                  >
+                    {pt.label}
+                  </text>
+                )}
               </g>
             );
           })}
         </svg>
 
-        {/* Floating Tooltip Box when hovering over dots */}
+        {/* Hover Tooltip Box */}
         {activePoint && (
           <div
             style={{
               position: 'absolute',
-              top: Math.max(10, activePoint.cy - 115),
-              left:
-                Math.min(Math.max(8, (activePoint.cx / width) * 100), 82) + '%',
-              transform: 'translateX(-50%)',
-              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-              border: '1px solid #3b82f6',
-              boxShadow:
-                '0 12px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(59, 130, 246, 0.35)',
-              borderRadius: 10,
-              padding: '10px 14px',
-              color: '#ffffff',
-              zIndex: 50,
+              left: `${(activePoint.cx / width) * 100}%`,
+              top: 10,
+              transform:
+                activePoint.cx > width * 0.75
+                  ? 'translateX(-100%)'
+                  : 'translateX(-50%)',
+              background: 'var(--surface-raised, #ffffff)',
+              border: '1px solid var(--border-subtle, #e5e7eb)',
+              borderRadius: 8,
+              padding: '8px 12px',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
               pointerEvents: 'none',
-              minWidth: 190,
-              whiteSpace: 'nowrap',
-              animation: 'fadeIn 0.15s ease',
+              zIndex: 10,
+              minWidth: 150,
             }}
           >
             <div
               style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: 'var(--text-secondary, #6b7280)',
+                marginBottom: 4,
+              }}
+            >
+              {activePoint.date || activePoint.label}
+            </div>
+            <div
+              style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                paddingBottom: 6,
-                marginBottom: 8,
+                gap: 12,
+                fontSize: '0.8rem',
               }}
             >
-              <strong style={{ fontSize: '0.8125rem', color: '#60a5fa' }}>
-                {activePoint.day}
+              <span style={{ color: '#10b981', fontWeight: 600 }}>
+                ● Resolved:
+              </span>
+              <strong style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                {activePoint.resolved.toLocaleString()}
               </strong>
-              <span
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 12,
+                fontSize: '0.8rem',
+              }}
+            >
+              <span style={{ color: '#3b82f6', fontWeight: 600 }}>
+                ● Received:
+              </span>
+              <strong style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                {activePoint.received.toLocaleString()}
+              </strong>
+            </div>
+            {activePoint.underReview !== undefined && (
+              <div
                 style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  color: '#34d399',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  fontSize: '0.8rem',
                 }}
               >
-                {activePoint.value}% Accuracy
-              </span>
-            </div>
-
+                <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                  ● Under Review:
+                </span>
+                <strong style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                  {activePoint.underReview.toLocaleString()}
+                </strong>
+              </div>
+            )}
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '4px 12px',
-                fontSize: '0.75rem',
-                marginBottom: 6,
+                marginTop: 4,
+                paddingTop: 4,
+                borderTop: '1px solid var(--border-subtle, #f3f4f6)',
+                fontSize: '0.72rem',
+                color: 'var(--text-secondary, #6b7280)',
+                textAlign: 'right',
               }}
             >
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Precision:</span>{' '}
-                <strong>{activePoint.precision}%</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Recall:</span>{' '}
-                <strong>{activePoint.recall}%</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>F1-Score:</span>{' '}
-                <strong>{activePoint.f1}%</strong>
-              </div>
-            </div>
-
-            <div
-              style={{
-                fontSize: '0.6875rem',
-                color: '#94a3b8',
-                background: 'rgba(255, 255, 255, 0.04)',
-                padding: '4px 8px',
-                borderRadius: 6,
-                border: '1px solid rgba(255, 255, 255, 0.06)',
-              }}
-            >
-              {activePoint.note}
+              Resolution Rate:{' '}
+              <strong style={{ color: '#10b981' }}>
+                {activePoint.received > 0
+                  ? `${Math.round(
+                      (activePoint.resolved / activePoint.received) * 100,
+                    )}%`
+                  : '100%'}
+              </strong>
             </div>
           </div>
         )}
       </div>
+
+      {/* Summary KPI Strip below the Line Graph */}
+      {summaryMetrics && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: 'var(--surface-muted, #f9fafb)',
+              border: '1px solid var(--border-subtle, #e5e7eb)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary, #6b7280)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Total Resolved
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 8,
+                marginTop: 2,
+              }}
+            >
+              <strong
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  color: '#10b981',
+                  fontFamily: 'var(--font-mono, monospace)',
+                }}
+              >
+                {summaryMetrics.totalResolved.toLocaleString()}
+              </strong>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  color: '#10b981',
+                  fontWeight: 700,
+                }}
+              >
+                ✓ closed
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: 'var(--surface-muted, #f9fafb)',
+              border: '1px solid var(--border-subtle, #e5e7eb)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary, #6b7280)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Total Received
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 8,
+                marginTop: 2,
+              }}
+            >
+              <strong
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  color: '#3b82f6',
+                  fontFamily: 'var(--font-mono, monospace)',
+                }}
+              >
+                {summaryMetrics.totalReceived.toLocaleString()}
+              </strong>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  color: '#3b82f6',
+                  fontWeight: 700,
+                }}
+              >
+                intake
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: 'var(--surface-muted, #f9fafb)',
+              border: '1px solid var(--border-subtle, #e5e7eb)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary, #6b7280)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Resolution Rate
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 8,
+                marginTop: 2,
+              }}
+            >
+              <strong
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  color: '#10b981',
+                  fontFamily: 'var(--font-mono, monospace)',
+                }}
+              >
+                {summaryMetrics.resolutionRate.toFixed(1)}%
+              </strong>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--text-secondary, #6b7280)',
+                }}
+              >
+                efficiency
+              </span>
+            </div>
+          </div>
+
+          {summaryMetrics.totalUnderReview !== undefined && (
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 8,
+                background: 'var(--surface-muted, #f9fafb)',
+                border: '1px solid var(--border-subtle, #e5e7eb)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6b7280)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Under Review
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  marginTop: 2,
+                }}
+              >
+                <strong
+                  style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 800,
+                    color: '#f59e0b',
+                    fontFamily: 'var(--font-mono, monospace)',
+                  }}
+                >
+                  {summaryMetrics.totalUnderReview.toLocaleString()}
+                </strong>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    color: '#f59e0b',
+                    fontWeight: 700,
+                  }}
+                >
+                  active
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

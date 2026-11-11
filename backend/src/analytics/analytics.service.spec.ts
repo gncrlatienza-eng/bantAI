@@ -3,7 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AnalyticsService } from './analytics.service';
 
 const mockPrisma = {
-  smsMessage: { count: jest.fn() },
+  smsMessage: { count: jest.fn(), findMany: jest.fn() },
   classification: { groupBy: jest.fn() },
   alert: { groupBy: jest.fn() },
   userReport: { count: jest.fn() },
@@ -48,5 +48,46 @@ describe('AnalyticsService', () => {
       alertsByStatus: { Pending: 3, Blocked: 2 },
       totalReports: 4,
     });
+  });
+
+  it('getAdminThreatTrends aggregates daily scam/spam with categories', async () => {
+    const today = new Date();
+    mockPrisma.smsMessage.findMany.mockResolvedValue([
+      {
+        receivedAt: today,
+        classification: { label: 'Scam' },
+        cluster: { category: 'Gambling', label: 'Online Casino Bonus' },
+      },
+      {
+        receivedAt: today,
+        classification: { label: 'Spam' },
+        cluster: { category: null, label: null },
+      },
+      {
+        receivedAt: today,
+        classification: { label: 'Ham' },
+        cluster: null,
+      },
+    ]);
+
+    const result = await service.getAdminThreatTrends({
+      range: '7d',
+      interval: 'day',
+    });
+
+    expect(result.range).toBe('7d');
+    expect(result.interval).toBe('day');
+    expect(result.timeline.length).toBe(7);
+    expect(result.totals).toEqual({
+      scam: 1,
+      spam: 1,
+      ham: 1,
+      total: 3,
+    });
+    expect(result.categoryTotals).toEqual({
+      Gambling: 1,
+      'General Spam': 1,
+    });
+    expect(result.categories).toEqual(['Gambling', 'General Spam']);
   });
 });

@@ -1,69 +1,154 @@
-/*
- * Shared Analytics view. Phase F step 6.
- *
- * Both client and admin analytics call GET /analytics/summary and render the
- * same four totals + two breakdowns. Nothing here fabricates precision — the
- * backend returns integer counts, we render integer counts. No fake sparklines.
- */
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { PageHeader } from '../../components/appshell/AppShell';
 import {
   Button,
   ErrorState,
   LoadingState,
   Metric,
   MetricRow,
-  StatusBadge,
-  DataTable,
-  type Column,
-  type StatusKind,
   StatPanel,
 } from '../../components/primitives';
 import {
+  TrendLineChart,
+  type TrendRange,
+} from '../../components/charts/TrendLineChart';
+import {
+  DonutChart,
+  type DonutSegment,
+  type RangeOption,
+} from '../../components/charts/DonutChart';
+import { CategoryBarChart } from '../../components/charts/CategoryBarChart';
+import { TriageFunnelChart } from '../../components/charts/TriageFunnelChart';
+import {
   getAnalyticsSummary,
+  getAdminThreatTrends,
   type AnalyticsSummary,
+  type AdminThreatTrendsResponse,
 } from '../../services/analyticsService';
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'The backend request failed.';
 }
 
-function labelToStatusKind(label: string): StatusKind {
-  switch (label) {
-    case 'Scam':
-      return 'threat';
-    case 'Spam':
-      return 'suspicious';
-    case 'Ham':
-      return 'verified';
-    default:
-      return 'unknown';
-  }
-}
+const FIVE_RANGES: RangeOption[] = [
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7D' },
+  { key: '14d', label: '14D' },
+  { key: '30d', label: '30D' },
+  { key: '90d', label: '90D' },
+  { key: 'all', label: 'All' },
+];
 
-interface LabelRow {
-  label: string;
-  count: number;
-  share: number;
-  kind: StatusKind;
-}
+const FOUR_RANGES: RangeOption[] = [
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7D' },
+  { key: '14d', label: '14D' },
+  { key: '30d', label: '30D' },
+  { key: '90d', label: '90D' },
+];
 
-interface StatusRow {
-  status: string;
-  count: number;
-  share: number;
-}
+const CARD_STYLE: React.CSSProperties = {
+  background: 'var(--surface-raised, #fbf9f4)',
+  border: '1px solid var(--border-default)',
+  borderRadius: 8,
+  padding: 20,
+};
 
 export function AnalyticsView() {
-  const [data, setData] = useState<AnalyticsSummary | null>(null);
+  // Global summary (overall totals for MetricRow)
+  const [globalData, setGlobalData] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // 1. Threat Trends (Bar Chart)
+  const [trends, setTrends] = useState<AdminThreatTrendsResponse | null>(null);
+  const [trendsRange, setTrendsRange] = useState<TrendRange>('30d');
+  const [trendsLoading, setTrendsLoading] = useState(false);
+
+  const fetchTrends = useCallback(async (range: TrendRange) => {
+    setTrendsLoading(true);
+    try {
+      const res = await getAdminThreatTrends(
+        range,
+        range === '90d' ? 'week' : 'day',
+      );
+      setTrends(res);
+    } catch {
+      // Degrades gracefully when telemetry is unavailable
+    } finally {
+      setTrendsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchTrends(trendsRange);
+  }, [fetchTrends, trendsRange]);
+
+  // 2. Classification Proportions (Donut Chart with its own filter)
+  const [classificationRange, setClassificationRange] = useState('30d');
+  const [classificationData, setClassificationData] =
+    useState<AnalyticsSummary | null>(null);
+
+  const fetchClassificationData = useCallback(async (range: string) => {
+    try {
+      const res = await getAnalyticsSummary(range);
+      setClassificationData(res);
+    } catch {
+      // Handled
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchClassificationData(classificationRange);
+  }, [fetchClassificationData, classificationRange]);
+
+  // 3. Threat Category Distribution (Ranked Bars with its own filter)
+  const [categoryRange, setCategoryRange] = useState<TrendRange>('30d');
+  const [categoryData, setCategoryData] =
+    useState<AdminThreatTrendsResponse | null>(null);
+
+  const fetchCategoryData = useCallback(async (range: TrendRange) => {
+    try {
+      const res = await getAdminThreatTrends(
+        range,
+        range === '90d' ? 'week' : 'day',
+      );
+      setCategoryData(res);
+    } catch {
+      // Handled
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchCategoryData(categoryRange);
+  }, [fetchCategoryData, categoryRange]);
+
+  // 4. Alert Lifecycle (Line Graph with its own filter)
+  const [alertRange, setAlertRange] = useState('30d');
+  const [alertData, setAlertData] = useState<AnalyticsSummary | null>(null);
+
+  const fetchAlertData = useCallback(async (range: string) => {
+    try {
+      const res = await getAnalyticsSummary(range);
+      setAlertData(res);
+    } catch {
+      // Handled
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchAlertData(alertRange);
+  }, [fetchAlertData, alertRange]);
+
+  // Initial load for overall KPI bar
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setData(await getAnalyticsSummary());
+      const summary = await getAnalyticsSummary('30d');
+      setGlobalData(summary);
+      setClassificationData(summary);
+      setAlertData(summary);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -72,35 +157,173 @@ export function AnalyticsView() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadInitial();
+  }, [loadInitial]);
 
-  const labelRows = useMemo<LabelRow[]>(() => {
-    if (!data) return [];
-    const entries = Object.entries(data.classificationsByLabel);
+  // Computed segments for Classification Donut
+  const classificationDonutSegments = useMemo<DonutSegment[]>(() => {
+    if (!classificationData) return [];
+    const entries = Object.entries(classificationData.classificationsByLabel);
     const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+    return entries
+      .map(([label, count]) => {
+        let color = 'var(--text-secondary, #6d6870)';
+        let sublabel = 'Unclassified';
+        const lower = label.toLowerCase();
+        if (lower === 'scam' || lower === 'smishing') {
+          color = '#5E405A'; // Original: #5E405A
+          sublabel = 'Confirmed Threats';
+        } else if (lower === 'spam') {
+          color = '#806477'; // Muted Rose: #806477
+          sublabel = 'Unwanted Spam';
+        } else if (lower === 'ham' || lower === 'safe') {
+          color = '#77708A'; // Dusty Violet: #77708A
+          sublabel = 'Legitimate Messages';
+        }
+        return {
+          label,
+          count,
+          share: total > 0 ? count / total : 0,
+          color,
+          sublabel,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+  }, [classificationData]);
+
+  // Computed segments for Threat Category Distribution (Ranked Bars)
+  const categoryDonutSegments = useMemo<DonutSegment[]>(() => {
+    const totals = categoryData?.categoryTotals ?? trends?.categoryTotals;
+    if (!totals) return [];
+    const entries = Object.entries(totals);
+    const total = entries.reduce((acc, [, val]) => acc + val, 0);
+    return entries
+      .filter(([, count]) => count > 0)
+      .map(([cat, count]) => ({
+        label: cat,
+        count,
+        share: total > 0 ? count / total : 0,
+        color: '#5e405a', // BantAI mineral mulberry (--brand-primary / --chart-1)
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [categoryData, trends]);
+
+  // Total threats in category donut
+  const totalThreatsByCategory = useMemo(() => {
+    const totals = categoryData?.categoryTotals ?? trends?.categoryTotals;
+    if (!totals) return 0;
+    return Object.values(totals).reduce((a, b) => a + b, 0);
+  }, [categoryData, trends]);
+
+  // 5. Threat Trends Summary (with its own filter range: today, 7d, 14d, 30d, 90d)
+  const [summaryRange, setSummaryRange] = useState<TrendRange>('30d');
+  const [summaryTrends, setSummaryTrends] =
+    useState<AdminThreatTrendsResponse | null>(null);
+  const [summaryAnalytics, setSummaryAnalytics] =
+    useState<AnalyticsSummary | null>(null);
+
+  const fetchSummaryData = useCallback(async (range: TrendRange) => {
+    try {
+      const [trendRes, summaryRes] = await Promise.all([
+        getAdminThreatTrends(range, range === '90d' ? 'week' : 'day'),
+        getAnalyticsSummary(range),
+      ]);
+      setSummaryTrends(trendRes);
+      setSummaryAnalytics(summaryRes);
+    } catch {
+      // Handled
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchSummaryData(summaryRange);
+  }, [fetchSummaryData, summaryRange]);
+
+  // Derived metrics for Summary
+  const summaryCategoryEntries = useMemo(() => {
+    const totals =
+      summaryTrends?.categoryTotals ??
+      categoryData?.categoryTotals ??
+      trends?.categoryTotals;
+    if (!totals) return [];
+    const entries = Object.entries(totals).filter(([, c]) => c > 0);
+    const sum = entries.reduce((acc, [, val]) => acc + val, 0);
     return entries
       .map(([label, count]) => ({
         label,
         count,
-        share: total > 0 ? count / total : 0,
-        kind: labelToStatusKind(label),
+        share: sum > 0 ? count / sum : 0,
       }))
       .sort((a, b) => b.count - a.count);
-  }, [data]);
+  }, [summaryTrends, categoryData, trends]);
 
-  const statusRows = useMemo<StatusRow[]>(() => {
-    if (!data) return [];
-    const entries = Object.entries(data.alertsByStatus);
-    const total = entries.reduce((sum, [, count]) => sum + count, 0);
-    return entries
-      .map(([status, count]) => ({
-        status,
-        count,
-        share: total > 0 ? count / total : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [data]);
+  const topCategory =
+    summaryCategoryEntries[0]?.label ??
+    categoryDonutSegments[0]?.label ??
+    'None';
+  const topCategoryPct = summaryCategoryEntries[0]
+    ? (summaryCategoryEntries[0].share * 100).toFixed(1)
+    : categoryDonutSegments[0]
+      ? (categoryDonutSegments[0].share * 100).toFixed(1)
+      : '0.0';
+
+  const activeSummary = summaryAnalytics ?? classificationData;
+  const scamTotal = activeSummary?.classificationsByLabel.Scam ?? 0;
+  const spamTotal = activeSummary?.classificationsByLabel.Spam ?? 0;
+  const hamTotal = activeSummary?.classificationsByLabel.Ham ?? 0;
+  const grandTotal = activeSummary?.totalMessages ?? 0;
+
+  const summaryAlerts = summaryAnalytics ?? alertData;
+  const summaryPending =
+    summaryAlerts?.alertsByStatus.Pending ??
+    summaryAlerts?.alertsByStatus.pending ??
+    summaryAlerts?.alertsByStatus.RECEIVED ??
+    0;
+  const summaryReported =
+    summaryAlerts?.alertsByStatus.Reported ??
+    summaryAlerts?.alertsByStatus.reported ??
+    summaryAlerts?.alertsByStatus.UNDER_REVIEW ??
+    0;
+  const summaryBlocked =
+    summaryAlerts?.alertsByStatus.Blocked ??
+    summaryAlerts?.alertsByStatus.blocked ??
+    summaryAlerts?.alertsByStatus.RESOLVED ??
+    0;
+  const summaryIgnored =
+    summaryAlerts?.alertsByStatus.Ignored ??
+    summaryAlerts?.alertsByStatus.ignored ??
+    summaryAlerts?.alertsByStatus.DISMISSED ??
+    0;
+  const summaryTotalAlerts = summaryAlerts
+    ? Object.values(summaryAlerts.alertsByStatus).reduce((a, b) => a + b, 0)
+    : 0;
+  const summaryActiveInTriage = summaryPending + summaryReported;
+  const summaryResolutionRate =
+    summaryTotalAlerts > 0 ? (summaryBlocked / summaryTotalAlerts) * 100 : 0;
+
+  // Summary state & handlers
+  const [copied, setCopied] = useState(false);
+
+  const handleCopySummary = () => {
+    const textReport = `BantAI Threat Trends Summary
+Observation Window: ${summaryRange.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}
+
+Key Metrics:
+- Total Evaluated Messages: ${grandTotal.toLocaleString()}
+- Confirmed Smishing (Scam): ${scamTotal.toLocaleString()} (${grandTotal > 0 ? ((scamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
+- Suspicious (Spam): ${spamTotal.toLocaleString()} (${grandTotal > 0 ? ((spamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
+- Legitimate (Ham): ${hamTotal.toLocaleString()} (${grandTotal > 0 ? ((hamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
+- Primary Threat Vector: ${topCategory} (${topCategoryPct}%)
+- Alerts Remediated & Blocked: ${summaryBlocked.toLocaleString()} / ${summaryTotalAlerts.toLocaleString()} (${summaryResolutionRate.toFixed(1)}%)
+- Active in Triage: ${summaryActiveInTriage.toLocaleString()} (${summaryPending.toLocaleString()} pending, ${summaryReported.toLocaleString()} reported)
+- Dismissed / Ignored: ${summaryIgnored.toLocaleString()}
+- User Reports: ${(globalData?.totalReports ?? 0).toLocaleString()}`;
+
+    void navigator.clipboard.writeText(textReport);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   if (loading) return <LoadingState label="Loading analytics" />;
 
@@ -110,7 +333,7 @@ export function AnalyticsView() {
         title="Analytics unavailable"
         description={error}
         action={
-          <Button variant="secondary" onClick={() => void load()}>
+          <Button variant="secondary" onClick={() => void loadInitial()}>
             Retry
           </Button>
         }
@@ -118,109 +341,457 @@ export function AnalyticsView() {
     );
   }
 
-  if (!data) return null;
-
-  const labelColumns: Column<LabelRow>[] = [
-    {
-      key: 'label',
-      header: 'Classification',
-      render: (r) => <StatusBadge kind={r.kind} label={r.label} />,
-    },
-    {
-      key: 'count',
-      header: 'Messages',
-      render: (r) => r.count.toLocaleString(),
-      align: 'right',
-      width: '25%',
-    },
-    {
-      key: 'share',
-      header: 'Share',
-      render: (r) => `${(r.share * 100).toFixed(r.share >= 0.1 ? 0 : 1)}%`,
-      align: 'right',
-      width: '20%',
-    },
-  ];
-
-  const statusColumns: Column<StatusRow>[] = [
-    {
-      key: 'status',
-      header: 'Alert status',
-      render: (r) => r.status,
-    },
-    {
-      key: 'count',
-      header: 'Alerts',
-      render: (r) => r.count.toLocaleString(),
-      align: 'right',
-      width: '25%',
-    },
-    {
-      key: 'share',
-      header: 'Share',
-      render: (r) => `${(r.share * 100).toFixed(r.share >= 0.1 ? 0 : 1)}%`,
-      align: 'right',
-      width: '20%',
-    },
-  ];
+  if (!globalData) return null;
 
   return (
     <>
-      <StatPanel label="Analytics summary">
-        <MetricRow columns={3}>
-          <Metric
-            label="Messages classified"
-            value={data.totalMessages.toLocaleString()}
-          />
-          <Metric
-            label="User reports submitted"
-            value={data.totalReports.toLocaleString()}
-          />
-          <Metric label="Distinct classifications" value={labelRows.length} />
-        </MetricRow>
-      </StatPanel>
+      <PageHeader
+        title="Analytics"
+        description="Temporal threat trends, message classification proportions, and alert resolution volume."
+      />
 
-      <section style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: '1.05rem', margin: '0 0 6px' }}>
-          Classification breakdown
+      {/* 1. Threat Trends Over Time (Continuous Line Graph) */}
+      <section style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>
+          Threat trends & threat volume over time
         </h2>
-        <p
-          style={{
-            margin: '0 0 12px',
-            color: 'var(--text-secondary)',
-            fontSize: '0.85rem',
-          }}
-        >
-          How the classifier labeled the {data.totalMessages.toLocaleString()}{' '}
-          messages the backend has processed.
-        </p>
-        <DataTable<LabelRow>
-          ariaLabel="Classification breakdown"
-          rowKey={(r) => r.label}
-          rows={labelRows}
-          columns={labelColumns}
-        />
+        <div style={CARD_STYLE}>
+          <TrendLineChart
+            data={trends?.timeline.map((t) => ({
+              label: t.label,
+              date: t.date,
+              smishing: t.scam,
+              suspicious: t.spam,
+              ham: t.ham,
+              total: t.total,
+              byCategory: t.byCategory,
+            }))}
+            selectedRange={trendsRange}
+            onRangeChange={(range) => {
+              setTrendsRange(range);
+            }}
+            categories={trends?.categories}
+            categoryTotals={trends?.categoryTotals}
+            loading={trendsLoading}
+          />
+        </div>
       </section>
 
-      <section style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: '1.05rem', margin: '0 0 6px' }}>
-          Alert lifecycle
-        </h2>
-        <p
+      {/* 2. Top-Level MetricRow */}
+      <div style={{ marginBottom: 28 }}>
+        <StatPanel label="Overall system throughput">
+          <MetricRow columns={3}>
+            <Metric
+              label="Messages classified"
+              value={globalData.totalMessages.toLocaleString()}
+            />
+            <Metric
+              label="User reports submitted"
+              value={globalData.totalReports.toLocaleString()}
+            />
+            <Metric
+              label="Distinct classification categories"
+              value={Object.keys(globalData.classificationsByLabel).length}
+            />
+          </MetricRow>
+        </StatPanel>
+      </div>
+
+      {/* 3. Classification Proportions & Threat Categories (Side-by-Side Grid) */}
+      <section style={{ marginBottom: 28 }}>
+        <div
           style={{
-            margin: '0 0 12px',
-            color: 'var(--text-secondary)',
-            fontSize: '0.85rem',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+            gap: 20,
+            alignItems: 'stretch',
           }}
         >
-          Distribution of alert statuses across the account.
-        </p>
-        <DataTable<StatusRow>
-          ariaLabel="Alert lifecycle"
-          rowKey={(r) => r.status}
-          rows={statusRows}
-          columns={statusColumns}
-        />
+          {/* Classification Proportions Donut Chart with filter */}
+          <div style={CARD_STYLE}>
+            <DonutChart
+              title="Classification proportions"
+              total={classificationData?.totalMessages ?? 0}
+              totalLabel="Messages"
+              segments={classificationDonutSegments}
+              selectedRange={classificationRange}
+              onRangeChange={(r) => setClassificationRange(r)}
+              rangeOptions={FIVE_RANGES}
+            />
+          </div>
+
+          {/* Threats by Category (Ranked Horizontal Distribution Bars) */}
+          <div style={CARD_STYLE}>
+            <CategoryBarChart
+              title="Threats by category"
+              total={totalThreatsByCategory}
+              totalLabel="Threats"
+              items={categoryDonutSegments}
+              selectedRange={categoryRange}
+              onRangeChange={(r) => setCategoryRange(r as TrendRange)}
+              rangeOptions={FOUR_RANGES}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Alert Lifecycle Resolution (Triage Funnel & Resolution Gauge) */}
+      <section style={{ marginBottom: 32 }}>
+        <div style={CARD_STYLE}>
+          <TriageFunnelChart
+            title="Alert resolution lifecycle & triage funnel"
+            statuses={{
+              Pending: alertData?.alertsByStatus.Pending ?? 0,
+              Reported: alertData?.alertsByStatus.Reported ?? 0,
+              Blocked: alertData?.alertsByStatus.Blocked ?? 0,
+              Ignored: alertData?.alertsByStatus.Ignored ?? 0,
+              // Fallback mappings for legacy stage names:
+              received: alertData?.alertsByStatus.RECEIVED ?? 0,
+              underReview: alertData?.alertsByStatus.UNDER_REVIEW ?? 0,
+              resolved: alertData?.alertsByStatus.RESOLVED ?? 0,
+              dismissed: alertData?.alertsByStatus.DISMISSED ?? 0,
+            }}
+            selectedRange={alertRange}
+            onRangeChange={(r) => setAlertRange(r)}
+            rangeOptions={FIVE_RANGES}
+          />
+        </div>
+      </section>
+
+      {/* 5. Threat Trends Summary (Typical simple chart trends summary) */}
+      <section style={{ marginBottom: 40 }}>
+        <div style={CARD_STYLE}>
+          {/* Header, Range Selector & Copy Button Bar */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 16,
+              borderBottom: '1px solid var(--border-default)',
+              paddingBottom: 16,
+              marginBottom: 20,
+            }}
+          >
+            <div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary, #211f24)',
+                }}
+              >
+                Threat Trends & Telemetry Summary
+              </h3>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '0.82rem',
+                  color: 'var(--text-secondary, #6b7280)',
+                }}
+              >
+                Key observations and distribution metrics for the selected{' '}
+                {summaryRange.toUpperCase()} surveillance window.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+              }}
+            >
+              {/* Segmented Range Selector: Today, 7D, 14D, 30D, 90D */}
+              <div
+                role="group"
+                aria-label="Summary time range selector"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: 'var(--surface-canvas, #f2efe8)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 6,
+                  padding: 2,
+                }}
+              >
+                {FOUR_RANGES.map((r) => {
+                  const isSelected = summaryRange === r.key;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => setSummaryRange(r.key as TrendRange)}
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: 4,
+                        fontSize: '0.74rem',
+                        fontWeight: isSelected ? 600 : 500,
+                        border: 'none',
+                        background: isSelected
+                          ? 'var(--surface-raised, #ffffff)'
+                          : 'transparent',
+                        color: isSelected
+                          ? 'var(--text-primary, #211f24)'
+                          : 'var(--text-secondary, #6d6870)',
+                        cursor: 'pointer',
+                        boxShadow: isSelected
+                          ? '0 1px 2px rgba(0,0,0,0.06)'
+                          : 'none',
+                        transition: 'all 0.12s ease',
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Copy Summary Button */}
+              <button
+                type="button"
+                onClick={handleCopySummary}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 12px',
+                  borderRadius: 6,
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--surface-raised, #fbf9f4)',
+                  color: copied
+                    ? 'var(--status-verified, #3d6355)'
+                    : 'var(--text-primary, #211f24)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {copied ? 'Copied Summary' : 'Copy Summary'}
+              </button>
+            </div>
+          </div>
+
+          {/* Key Trend Summary Strip */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6d6870)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Primary Threat Vector
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #211f24)',
+                  marginTop: 2,
+                }}
+              >
+                {topCategory} ({topCategoryPct}%)
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6d6870)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Resolution Rate
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #211f24)',
+                  marginTop: 2,
+                }}
+              >
+                {summaryResolutionRate.toFixed(1)}% Closed
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6d6870)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Threat Share
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #211f24)',
+                  marginTop: 2,
+                }}
+              >
+                {grandTotal > 0
+                  ? (((scamTotal + spamTotal) / grandTotal) * 100).toFixed(1)
+                  : '0.0'}
+                % Non-Ham
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 6,
+                background: 'var(--surface-canvas, #f2efe8)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary, #6d6870)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Evaluated Traffic
+              </span>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #211f24)',
+                  marginTop: 2,
+                }}
+              >
+                {grandTotal.toLocaleString()} Messages (
+                {summaryRange.toUpperCase()})
+              </div>
+            </div>
+          </div>
+
+          {/* Simple Trend Observations Table / List */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              padding: '16px',
+              borderRadius: 6,
+              background: 'var(--surface-canvas, #f2efe8)',
+              border: '1px solid var(--border-default)',
+              fontSize: '0.85rem',
+              color: 'var(--text-primary, #211f24)',
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 600,
+                color: 'var(--text-secondary, #6d6870)',
+                marginBottom: 2,
+              }}
+            >
+              Trend Observations
+            </div>
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                color: 'var(--text-secondary, #6d6870)',
+                lineHeight: 1.5,
+              }}
+            >
+              <li>
+                <strong>Predominant Threat Vector:</strong>{' '}
+                <span>
+                  {topCategory} accounts for {topCategoryPct}% of total
+                  identified threats in this period.
+                </span>
+              </li>
+              <li>
+                <strong>Traffic Classification:</strong>{' '}
+                <span>
+                  Telemetry recorded {scamTotal.toLocaleString()} scam (
+                  {grandTotal > 0
+                    ? ((scamTotal / grandTotal) * 100).toFixed(1)
+                    : '0.0'}
+                  %), {spamTotal.toLocaleString()} spam (
+                  {grandTotal > 0
+                    ? ((spamTotal / grandTotal) * 100).toFixed(1)
+                    : '0.0'}
+                  %), and {hamTotal.toLocaleString()} legitimate messages (
+                  {grandTotal > 0
+                    ? ((hamTotal / grandTotal) * 100).toFixed(1)
+                    : '0.0'}
+                  %).
+                </span>
+              </li>
+              <li>
+                <strong>Triage & Incident Remediation:</strong>{' '}
+                <span>
+                  {summaryBlocked.toLocaleString()} of{' '}
+                  {summaryTotalAlerts.toLocaleString()} alerts have been
+                  remediated or blocked ({summaryResolutionRate.toFixed(1)}%
+                  closure rate), with {summaryActiveInTriage.toLocaleString()}{' '}
+                  alerts in triage ({summaryPending.toLocaleString()} pending,{' '}
+                  {summaryReported.toLocaleString()} reported) and{' '}
+                  {summaryIgnored.toLocaleString()} ignored.
+                </span>
+              </li>
+              <li>
+                <strong>User Ingestion:</strong>{' '}
+                <span>
+                  {globalData.totalReports.toLocaleString()} total
+                  user-submitted reports have been recorded in the platform
+                  pipeline.
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
     </>
   );

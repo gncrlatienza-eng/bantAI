@@ -36,7 +36,15 @@ import {
   type ReadinessStatus,
 } from '../../services/healthService';
 import { getPortalOrganizations } from '../../services/portalOrganizationsService';
-import { getAnalyticsSummary } from '../../services/analyticsService';
+import {
+  getAnalyticsSummary,
+  getAdminThreatTrends,
+  type AdminThreatTrendsResponse,
+} from '../../services/analyticsService';
+import {
+  TrendLineChart,
+  type TrendRange,
+} from '../../components/charts/TrendLineChart';
 import {
   SectionHeading,
   ShortId,
@@ -160,6 +168,29 @@ export function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [trends, setTrends] = useState<AdminThreatTrendsResponse | null>(null);
+  const [trendsRange, setTrendsRange] = useState<TrendRange>('30d');
+  const [trendsLoading, setTrendsLoading] = useState(false);
+
+  const fetchTrends = useCallback(async (range: TrendRange) => {
+    setTrendsLoading(true);
+    try {
+      const result = await getAdminThreatTrends(
+        range,
+        range === '90d' ? 'week' : 'day',
+      );
+      setTrends(result);
+    } catch {
+      // Degrades gracefully if telemetry unavailable
+    } finally {
+      setTrendsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchTrends(trendsRange);
+  }, [fetchTrends, trendsRange]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -181,9 +212,11 @@ export function OverviewPage() {
           getAdminMobileSync().catch(() => null),
         ]);
       if (!summary && !pendingReports && !campaignLists && !sync) {
-        throw new Error(
-          'None of the Overview sources answered. Check the backend and your staff permissions.',
-        );
+        if (!import.meta.env.DEV) {
+          throw new Error(
+            'None of the Overview sources answered. Check the backend and your staff permissions.',
+          );
+        }
       }
       // Exact all-time count (the /reports list is capped at 100 rows).
       setTotalReports(summary?.totalReports ?? null);
@@ -288,6 +321,34 @@ export function OverviewPage() {
                   value={(mobileSync?.spamCount ?? 0).toLocaleString()}
                 />
               </MetricRow>
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 28 }}>
+            <SectionHeading
+              title="Threat Trends & Scam Types"
+              actionLabel="View analytics"
+              onAction={() => void navigate('/admin/analytics')}
+            />
+            <div style={PANEL}>
+              <TrendLineChart
+                data={trends?.timeline.map((t) => ({
+                  label: t.label,
+                  date: t.date,
+                  smishing: t.scam,
+                  suspicious: t.spam,
+                  ham: t.ham,
+                  total: t.total,
+                  byCategory: t.byCategory,
+                }))}
+                selectedRange={trendsRange}
+                onRangeChange={(range) => {
+                  setTrendsRange(range);
+                }}
+                categories={trends?.categories}
+                categoryTotals={trends?.categoryTotals}
+                loading={trendsLoading}
+              />
             </div>
           </section>
 

@@ -3,6 +3,7 @@ import { fetchApi } from '../api/apiClient';
 export interface AnalyticsSummary {
   totalMessages: number;
   classificationsByLabel: Record<string, number>;
+  /** Raw alert counts keyed by Alert.status (Pending, Blocked, Reported, Ignored). */
   alertsByStatus: Record<string, number>;
   totalReports: number;
 }

@@ -275,13 +275,32 @@ export function AnalyticsView() {
   const grandTotal = activeSummary?.totalMessages ?? 0;
 
   const summaryAlerts = summaryAnalytics ?? alertData;
-  const summaryResolved = summaryAlerts?.alertsByStatus.RESOLVED ?? 0;
-  const summaryUnderReview = summaryAlerts?.alertsByStatus.UNDER_REVIEW ?? 0;
-  const summaryReceived = summaryAlerts
+  const summaryPending =
+    summaryAlerts?.alertsByStatus.Pending ??
+    summaryAlerts?.alertsByStatus.pending ??
+    summaryAlerts?.alertsByStatus.RECEIVED ??
+    0;
+  const summaryReported =
+    summaryAlerts?.alertsByStatus.Reported ??
+    summaryAlerts?.alertsByStatus.reported ??
+    summaryAlerts?.alertsByStatus.UNDER_REVIEW ??
+    0;
+  const summaryBlocked =
+    summaryAlerts?.alertsByStatus.Blocked ??
+    summaryAlerts?.alertsByStatus.blocked ??
+    summaryAlerts?.alertsByStatus.RESOLVED ??
+    0;
+  const summaryIgnored =
+    summaryAlerts?.alertsByStatus.Ignored ??
+    summaryAlerts?.alertsByStatus.ignored ??
+    summaryAlerts?.alertsByStatus.DISMISSED ??
+    0;
+  const summaryTotalAlerts = summaryAlerts
     ? Object.values(summaryAlerts.alertsByStatus).reduce((a, b) => a + b, 0)
     : 0;
+  const summaryActiveInTriage = summaryPending + summaryReported;
   const summaryResolutionRate =
-    summaryReceived > 0 ? (summaryResolved / summaryReceived) * 100 : 0;
+    summaryTotalAlerts > 0 ? (summaryBlocked / summaryTotalAlerts) * 100 : 0;
 
   // Summary state & handlers
   const [copied, setCopied] = useState(false);
@@ -296,8 +315,9 @@ Key Metrics:
 - Suspicious (Spam): ${spamTotal.toLocaleString()} (${grandTotal > 0 ? ((spamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
 - Legitimate (Ham): ${hamTotal.toLocaleString()} (${grandTotal > 0 ? ((hamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
 - Primary Scam Type: ${topCategory} (${topCategoryPct}%)
-- Alerts Resolved: ${summaryResolved.toLocaleString()} / ${summaryReceived.toLocaleString()} (${summaryResolutionRate.toFixed(1)}%)
-- Active in Triage: ${summaryUnderReview.toLocaleString()}
+- Alerts Remediated & Blocked: ${summaryBlocked.toLocaleString()} / ${summaryTotalAlerts.toLocaleString()} (${summaryResolutionRate.toFixed(1)}%)
+- Active in Triage: ${summaryActiveInTriage.toLocaleString()} (${summaryPending.toLocaleString()} pending, ${summaryReported.toLocaleString()} reported)
+- Dismissed / Ignored: ${summaryIgnored.toLocaleString()}
 - User Reports: ${(globalData?.totalReports ?? 0).toLocaleString()}`;
 
     void navigator.clipboard.writeText(textReport);
@@ -421,6 +441,11 @@ Key Metrics:
           <TriageFunnelChart
             title="Alert resolution lifecycle & triage funnel"
             statuses={{
+              Pending: alertData?.alertsByStatus.Pending ?? 0,
+              Reported: alertData?.alertsByStatus.Reported ?? 0,
+              Blocked: alertData?.alertsByStatus.Blocked ?? 0,
+              Ignored: alertData?.alertsByStatus.Ignored ?? 0,
+              // Fallback mappings for legacy stage names:
               received: alertData?.alertsByStatus.RECEIVED ?? 0,
               underReview: alertData?.alertsByStatus.UNDER_REVIEW ?? 0,
               resolved: alertData?.alertsByStatus.RESOLVED ?? 0,
@@ -747,11 +772,13 @@ Key Metrics:
               <li>
                 <strong>Triage & Incident Remediation:</strong>{' '}
                 <span>
-                  {summaryResolved.toLocaleString()} of{' '}
-                  {summaryReceived.toLocaleString()} alerts have been resolved (
-                  {summaryResolutionRate.toFixed(1)}% closure rate), with{' '}
-                  {summaryUnderReview.toLocaleString()} alerts actively under
-                  review.
+                  {summaryBlocked.toLocaleString()} of{' '}
+                  {summaryTotalAlerts.toLocaleString()} alerts have been
+                  remediated or blocked ({summaryResolutionRate.toFixed(1)}%
+                  closure rate), with {summaryActiveInTriage.toLocaleString()}{' '}
+                  alerts in triage ({summaryPending.toLocaleString()} pending,{' '}
+                  {summaryReported.toLocaleString()} reported) and{' '}
+                  {summaryIgnored.toLocaleString()} ignored.
                 </span>
               </li>
               <li>

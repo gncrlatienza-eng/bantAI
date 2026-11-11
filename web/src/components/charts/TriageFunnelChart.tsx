@@ -1,10 +1,20 @@
 import React from 'react';
 
 export interface AlertStatusBreakdown {
-  received: number;
-  underReview: number;
-  resolved: number;
-  dismissed: number;
+  // Funnel stage keys
+  received?: number;
+  underReview?: number;
+  resolved?: number;
+  dismissed?: number;
+  // Persisted Alert status keys (from Prisma groupBy)
+  Pending?: number;
+  pending?: number;
+  Reported?: number;
+  reported?: number;
+  Blocked?: number;
+  blocked?: number;
+  Ignored?: number;
+  ignored?: number;
 }
 
 export interface RangeOption {
@@ -36,49 +46,55 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
   onRangeChange,
   rangeOptions = DEFAULT_RANGES,
 }) => {
+  const pendingCount =
+    statuses.Pending ?? statuses.pending ?? statuses.received ?? 0;
+  const underReviewCount =
+    statuses.Reported ?? statuses.reported ?? statuses.underReview ?? 0;
+  const resolvedCount =
+    statuses.Blocked ?? statuses.blocked ?? statuses.resolved ?? 0;
+  const dismissedCount =
+    statuses.Ignored ?? statuses.ignored ?? statuses.dismissed ?? 0;
+
   const total =
-    statuses.received +
-    statuses.underReview +
-    statuses.resolved +
-    statuses.dismissed;
+    pendingCount + underReviewCount + resolvedCount + dismissedCount;
 
-  const resolutionRate = total > 0 ? (statuses.resolved / total) * 100 : 0;
-  const activeInTriage = statuses.received + statuses.underReview;
-  const dismissedRate = total > 0 ? (statuses.dismissed / total) * 100 : 0;
+  const resolutionRate = total > 0 ? (resolvedCount / total) * 100 : 0;
+  const activeInTriage = pendingCount + underReviewCount;
+  const dismissedRate = total > 0 ? (dismissedCount / total) * 100 : 0;
 
-  // 4 sequential pipeline stages with BantAI mineral design system tokens
+  // 4 sequential pipeline stages mapped to BantAI alert lifecycle
   const stages = [
     {
-      id: 'received',
-      name: 'Intake / Ingestion',
-      count: statuses.received,
-      share: total > 0 ? (statuses.received / total) * 100 : 0,
+      id: 'pending',
+      name: 'Pending Triage',
+      count: pendingCount,
+      share: total > 0 ? (pendingCount / total) * 100 : 0,
       color: '#477a86', // mineral petrol
-      description: 'Queued for triage analysis',
+      description: 'Incoming alerts awaiting user action or triage',
     },
     {
-      id: 'underReview',
-      name: 'Active Investigation',
-      count: statuses.underReview,
-      share: total > 0 ? (statuses.underReview / total) * 100 : 0,
+      id: 'reported',
+      name: 'Reported / Under Review',
+      count: underReviewCount,
+      share: total > 0 ? (underReviewCount / total) * 100 : 0,
       color: '#5e405a', // mineral mulberry (--brand-primary / --chart-1)
-      description: 'Under staff threat examination',
+      description: 'User-reported alerts in investigation queue',
     },
     {
-      id: 'resolved',
-      name: 'Resolved & Remediated',
-      count: statuses.resolved,
-      share: total > 0 ? (statuses.resolved / total) * 100 : 0,
+      id: 'blocked',
+      name: 'Blocked / Mitigated',
+      count: resolvedCount,
+      share: total > 0 ? (resolvedCount / total) * 100 : 0,
       color: '#3d6355', // mineral muted teal
-      description: 'Threat mitigated and case closed',
+      description: 'Sender blocked and threat neutralized',
     },
     {
-      id: 'dismissed',
-      name: 'Dismissed / False Positive',
-      count: statuses.dismissed,
-      share: total > 0 ? (statuses.dismissed / total) * 100 : 0,
+      id: 'ignored',
+      name: 'Ignored / Dismissed',
+      count: dismissedCount,
+      share: total > 0 ? (dismissedCount / total) * 100 : 0,
       color: '#6d6870', // mineral ash violet
-      description: 'Benign or duplicate submission',
+      description: 'Alert dismissed or ignored without escalation',
     },
   ];
 
@@ -220,9 +236,9 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               }}
             >
               <strong style={{ color: 'var(--text-primary, #211f24)' }}>
-                {statuses.resolved.toLocaleString()}
+                {resolvedCount.toLocaleString()}
               </strong>{' '}
-              of {total.toLocaleString()} alerts remediated & closed
+              of {total.toLocaleString()} alerts remediated & blocked
             </span>
           </div>
         </div>
@@ -264,7 +280,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 fontFamily: 'var(--font-mono, monospace)',
               }}
             >
-              {statuses.dismissed.toLocaleString()} false report
+              {dismissedCount.toLocaleString()} ignored
             </strong>
           </span>
         </div>
@@ -471,11 +487,12 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               marginTop: 3,
             }}
           >
-            {statuses.received} intake · {statuses.underReview} review
+            {pendingCount.toLocaleString()} pending ·{' '}
+            {underReviewCount.toLocaleString()} reported
           </div>
         </div>
 
-        {/* Metric 3: Remediated & Closed */}
+        {/* Metric 3: Remediated & Blocked */}
         <div
           style={{
             padding: '0 4px',
@@ -491,7 +508,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               marginBottom: 3,
             }}
           >
-            Remediated & Closed
+            Remediated & Blocked
           </div>
           <div
             style={{
@@ -513,7 +530,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
                 verticalAlign: 'middle',
               }}
             />
-            {statuses.resolved.toLocaleString()}
+            {resolvedCount.toLocaleString()}
           </div>
           <div
             style={{
@@ -527,7 +544,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
           </div>
         </div>
 
-        {/* Metric 4: False Report Filter */}
+        {/* Metric 4: Ignored / Dismissed */}
         <div
           style={{
             padding: '0 4px',
@@ -543,7 +560,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               marginBottom: 3,
             }}
           >
-            False Report Filter
+            Ignored / Dismissed
           </div>
           <div
             style={{
@@ -554,7 +571,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               lineHeight: 1.1,
             }}
           >
-            {statuses.dismissed.toLocaleString()}
+            {dismissedCount.toLocaleString()}
           </div>
           <div
             style={{

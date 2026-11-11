@@ -102,7 +102,7 @@ export function AnalyticsView() {
     void fetchClassificationData(classificationRange);
   }, [fetchClassificationData, classificationRange]);
 
-  // 3. Scam Category Distribution (Donut Chart with its own filter)
+  // 3. Threat Category Distribution (Ranked Bars with its own filter)
   const [categoryRange, setCategoryRange] = useState<TrendRange>('30d');
   const [categoryData, setCategoryData] =
     useState<AdminThreatTrendsResponse | null>(null);
@@ -192,7 +192,7 @@ export function AnalyticsView() {
       .sort((a, b) => b.count - a.count);
   }, [classificationData]);
 
-  // Computed segments for Scam Category Distribution (Ranked Bars)
+  // Computed segments for Threat Category Distribution (Ranked Bars)
   const categoryDonutSegments = useMemo<DonutSegment[]>(() => {
     const totals = categoryData?.categoryTotals ?? trends?.categoryTotals;
     if (!totals) return [];
@@ -314,7 +314,7 @@ Key Metrics:
 - Confirmed Smishing (Scam): ${scamTotal.toLocaleString()} (${grandTotal > 0 ? ((scamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
 - Suspicious (Spam): ${spamTotal.toLocaleString()} (${grandTotal > 0 ? ((spamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
 - Legitimate (Ham): ${hamTotal.toLocaleString()} (${grandTotal > 0 ? ((hamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
-- Primary Scam Type: ${topCategory} (${topCategoryPct}%)
+- Primary Threat Vector: ${topCategory} (${topCategoryPct}%)
 - Alerts Remediated & Blocked: ${summaryBlocked.toLocaleString()} / ${summaryTotalAlerts.toLocaleString()} (${summaryResolutionRate.toFixed(1)}%)
 - Active in Triage: ${summaryActiveInTriage.toLocaleString()} (${summaryPending.toLocaleString()} pending, ${summaryReported.toLocaleString()} reported)
 - Dismissed / Ignored: ${summaryIgnored.toLocaleString()}
@@ -347,13 +347,13 @@ Key Metrics:
     <>
       <PageHeader
         title="Analytics"
-        description="Temporal threat trends, scam classification proportions, and alert resolution volume."
+        description="Temporal threat trends, message classification proportions, and alert resolution volume."
       />
 
       {/* 1. Threat Trends Over Time (Continuous Line Graph) */}
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>
-          Threat trends & scam types over time
+          Threat trends & threat volume over time
         </h2>
         <div style={CARD_STYLE}>
           <TrendLineChart
@@ -397,7 +397,7 @@ Key Metrics:
         </StatPanel>
       </div>
 
-      {/* 3. Classification Proportions & Scam Categories (Side-by-Side Grid) */}
+      {/* 3. Classification Proportions & Threat Categories (Side-by-Side Grid) */}
       <section style={{ marginBottom: 28 }}>
         <div
           style={{
@@ -420,10 +420,10 @@ Key Metrics:
             />
           </div>
 
-          {/* Threats by Scam Category (Ranked Horizontal Distribution Bars) */}
+          {/* Threats by Category (Ranked Horizontal Distribution Bars) */}
           <div style={CARD_STYLE}>
             <CategoryBarChart
-              title="Threats by scam category"
+              title="Threats by category"
               total={totalThreatsByCategory}
               totalLabel="Threats"
               items={categoryDonutSegments}
@@ -601,7 +601,7 @@ Key Metrics:
                   textTransform: 'uppercase',
                 }}
               >
-                Primary Scam Vector
+                Primary Threat Vector
               </span>
               <div
                 style={{
@@ -745,10 +745,10 @@ Key Metrics:
               }}
             >
               <li>
-                <strong>Predominant Scam Vector:</strong>{' '}
+                <strong>Predominant Threat Vector:</strong>{' '}
                 <span>
                   {topCategory} accounts for {topCategoryPct}% of total
-                  identified scam campaigns in this period.
+                  identified threats in this period.
                 </span>
               </li>
               <li>

@@ -807,7 +807,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
         </div>
       )}
 
-      {/* 3. Scam Category Breakdown Telemetry Strip */}
+      {/* 3. Threat Category Breakdown Telemetry Strip */}
       {categories && categories.length > 0 && categoryTotals && (
         <div
           style={{

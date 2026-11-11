@@ -32,7 +32,7 @@ export interface CategoryBarChartProps {
 }
 
 export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
-  title = 'Threats by scam category',
+  title = 'Threats by category',
   total,
   totalLabel = 'Threats',
   items,

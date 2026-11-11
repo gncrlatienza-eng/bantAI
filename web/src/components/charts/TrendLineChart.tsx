@@ -23,17 +23,6 @@ export interface TrendLineChartProps {
   title?: string;
 }
 
-// Realistic baseline operational data for Philippine SMS threat detection
-const DEFAULT_DATA: TrendDataPoint[] = [
-  { label: 'Mon', date: 'Mon', value: 247, smishing: 142, suspicious: 105 },
-  { label: 'Tue', date: 'Tue', value: 308, smishing: 174, suspicious: 134 },
-  { label: 'Wed', date: 'Wed', value: 282, smishing: 158, suspicious: 124 },
-  { label: 'Thu', date: 'Thu', value: 312, smishing: 176, suspicious: 136 },
-  { label: 'Fri', date: 'Fri', value: 278, smishing: 156, suspicious: 122 },
-  { label: 'Sat', date: 'Sat', value: 224, smishing: 126, suspicious: 98 },
-  { label: 'Sun', date: 'Sun', value: 182, smishing: 98, suspicious: 84 },
-];
-
 const RANGES: { key: TrendRange; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: '7d', label: '7D' },
@@ -64,7 +53,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
     suspicious: true,
   });
 
-  const chartData = data && data.length > 0 ? data : DEFAULT_DATA;
+  const chartData = data ?? [];
 
   // Layout coordinate space (responsive SVG viewBox)
   const svgWidth = 860;
@@ -411,14 +400,26 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
         )}
       </div>
 
-      {/* 2. Responsive Line Graph Canvas */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          overflow: 'visible',
-        }}
-      >
+      {/* 2. Responsive Line Graph Canvas or Empty State */}
+      {chartData.length === 0 ? (
+        <div
+          style={{
+            padding: 48,
+            textAlign: 'center',
+            color: 'var(--text-secondary, #6d6870)',
+            fontSize: '0.875rem',
+          }}
+        >
+          No threat trend data available for this period
+        </div>
+      ) : (
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            overflow: 'visible',
+          }}
+        >
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           style={{
@@ -802,6 +803,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* 3. Scam Category Breakdown Telemetry Strip */}
       {categories && categories.length > 0 && categoryTotals && (

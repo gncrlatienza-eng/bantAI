@@ -42,9 +42,9 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
     statuses.resolved +
     statuses.dismissed;
 
-  const resolutionRate = total > 0 ? (statuses.resolved / total) * 100 : 75.7;
+  const resolutionRate = total > 0 ? (statuses.resolved / total) * 100 : 0;
   const activeInTriage = statuses.received + statuses.underReview;
-  const dismissedRate = total > 0 ? (statuses.dismissed / total) * 100 : 12.6;
+  const dismissedRate = total > 0 ? (statuses.dismissed / total) * 100 : 0;
 
   // 4 sequential pipeline stages with BantAI mineral design system tokens
   const stages = [
@@ -52,7 +52,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       id: 'received',
       name: 'Intake / Ingestion',
       count: statuses.received,
-      share: total > 0 ? (statuses.received / total) * 100 : 8.2,
+      share: total > 0 ? (statuses.received / total) * 100 : 0,
       color: '#477a86', // mineral petrol
       description: 'Queued for triage analysis',
     },
@@ -60,7 +60,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       id: 'underReview',
       name: 'Active Investigation',
       count: statuses.underReview,
-      share: total > 0 ? (statuses.underReview / total) * 100 : 3.5,
+      share: total > 0 ? (statuses.underReview / total) * 100 : 0,
       color: '#5e405a', // mineral mulberry (--brand-primary / --chart-1)
       description: 'Under staff threat examination',
     },
@@ -68,7 +68,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       id: 'resolved',
       name: 'Resolved & Remediated',
       count: statuses.resolved,
-      share: total > 0 ? (statuses.resolved / total) * 100 : 75.7,
+      share: total > 0 ? (statuses.resolved / total) * 100 : 0,
       color: '#3d6355', // mineral muted teal
       description: 'Threat mitigated and case closed',
     },
@@ -76,7 +76,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
       id: 'dismissed',
       name: 'Dismissed / False Positive',
       count: statuses.dismissed,
-      share: total > 0 ? (statuses.dismissed / total) * 100 : 12.6,
+      share: total > 0 ? (statuses.dismissed / total) * 100 : 0,
       color: '#6d6870', // mineral ash violet
       description: 'Benign or duplicate submission',
     },
@@ -351,7 +351,7 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             >
               <div
                 style={{
-                  width: `${Math.max(stage.share, 2)}%`,
+                  width: `${total > 0 && stage.share > 0 ? Math.max(stage.share, 2) : 0}%`,
                   height: '100%',
                   background: '#5e405a',
                 }}

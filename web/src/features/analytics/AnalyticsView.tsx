@@ -71,7 +71,7 @@ export function AnalyticsView() {
       );
       setTrends(res);
     } catch {
-      // Dev mode falls back to mock inside service
+      // Degrades gracefully when telemetry is unavailable
     } finally {
       setTrendsLoading(false);
     }
@@ -221,12 +221,12 @@ export function AnalyticsView() {
 
   // Metrics for Triage & Summary KPI row
   const alertSummaryMetrics = useMemo(() => {
-    const totalResolved = alertData?.alertsByStatus.RESOLVED ?? 389;
-    const totalReceived = totalAlerts > 0 ? totalAlerts : 514;
-    const totalUnderReview = alertData?.alertsByStatus.UNDER_REVIEW ?? 18;
-    const totalDismissed = alertData?.alertsByStatus.DISMISSED ?? 65;
+    const totalResolved = alertData?.alertsByStatus.RESOLVED ?? 0;
+    const totalReceived = totalAlerts > 0 ? totalAlerts : 0;
+    const totalUnderReview = alertData?.alertsByStatus.UNDER_REVIEW ?? 0;
+    const totalDismissed = alertData?.alertsByStatus.DISMISSED ?? 0;
     const resolutionRate =
-      totalReceived > 0 ? (totalResolved / totalReceived) * 100 : 75.7;
+      totalReceived > 0 ? (totalResolved / totalReceived) * 100 : 0;
 
     return {
       totalResolved,
@@ -282,27 +282,27 @@ export function AnalyticsView() {
   const topCategory =
     summaryCategoryEntries[0]?.label ??
     categoryDonutSegments[0]?.label ??
-    'General Spam';
+    'None';
   const topCategoryPct = summaryCategoryEntries[0]
     ? (summaryCategoryEntries[0].share * 100).toFixed(1)
     : categoryDonutSegments[0]
       ? (categoryDonutSegments[0].share * 100).toFixed(1)
-      : '30.8';
+      : '0.0';
 
   const activeSummary = summaryAnalytics ?? classificationData;
-  const scamTotal = activeSummary?.classificationsByLabel.Scam ?? 4120;
-  const spamTotal = activeSummary?.classificationsByLabel.Spam ?? 3210;
-  const hamTotal = activeSummary?.classificationsByLabel.Ham ?? 5150;
-  const grandTotal = activeSummary?.totalMessages ?? 12480;
+  const scamTotal = activeSummary?.classificationsByLabel.Scam ?? 0;
+  const spamTotal = activeSummary?.classificationsByLabel.Spam ?? 0;
+  const hamTotal = activeSummary?.classificationsByLabel.Ham ?? 0;
+  const grandTotal = activeSummary?.totalMessages ?? 0;
 
   const summaryAlerts = summaryAnalytics ?? alertData;
-  const summaryResolved = summaryAlerts?.alertsByStatus.RESOLVED ?? 389;
-  const summaryUnderReview = summaryAlerts?.alertsByStatus.UNDER_REVIEW ?? 18;
+  const summaryResolved = summaryAlerts?.alertsByStatus.RESOLVED ?? 0;
+  const summaryUnderReview = summaryAlerts?.alertsByStatus.UNDER_REVIEW ?? 0;
   const summaryReceived = summaryAlerts
     ? Object.values(summaryAlerts.alertsByStatus).reduce((a, b) => a + b, 0)
-    : 514;
+    : 0;
   const summaryResolutionRate =
-    summaryReceived > 0 ? (summaryResolved / summaryReceived) * 100 : 75.7;
+    summaryReceived > 0 ? (summaryResolved / summaryReceived) * 100 : 0;
 
   // Summary state & handlers
   const [copied, setCopied] = useState(false);
@@ -313,9 +313,9 @@ Observation Window: ${summaryRange.toUpperCase()} | Generated: ${new Date().toLo
 
 Key Metrics:
 - Total Evaluated Messages: ${grandTotal.toLocaleString()}
-- Confirmed Smishing (Scam): ${scamTotal.toLocaleString()} (${((scamTotal / grandTotal) * 100).toFixed(1)}%)
-- Suspicious (Spam): ${spamTotal.toLocaleString()} (${((spamTotal / grandTotal) * 100).toFixed(1)}%)
-- Legitimate (Ham): ${hamTotal.toLocaleString()} (${((hamTotal / grandTotal) * 100).toFixed(1)}%)
+- Confirmed Smishing (Scam): ${scamTotal.toLocaleString()} (${grandTotal > 0 ? ((scamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
+- Suspicious (Spam): ${spamTotal.toLocaleString()} (${grandTotal > 0 ? ((spamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
+- Legitimate (Ham): ${hamTotal.toLocaleString()} (${grandTotal > 0 ? ((hamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%)
 - Primary Scam Type: ${topCategory} (${topCategoryPct}%)
 - Alerts Resolved: ${summaryResolved.toLocaleString()} / ${summaryReceived.toLocaleString()} (${summaryResolutionRate.toFixed(1)}%)
 - Active in Triage: ${summaryUnderReview.toLocaleString()}
@@ -442,10 +442,10 @@ Key Metrics:
           <TriageFunnelChart
             title="Alert resolution lifecycle & triage funnel"
             statuses={{
-              received: alertData?.alertsByStatus.RECEIVED ?? 42,
-              underReview: alertData?.alertsByStatus.UNDER_REVIEW ?? 18,
-              resolved: alertData?.alertsByStatus.RESOLVED ?? 389,
-              dismissed: alertData?.alertsByStatus.DISMISSED ?? 65,
+              received: alertData?.alertsByStatus.RECEIVED ?? 0,
+              underReview: alertData?.alertsByStatus.UNDER_REVIEW ?? 0,
+              resolved: alertData?.alertsByStatus.RESOLVED ?? 0,
+              dismissed: alertData?.alertsByStatus.DISMISSED ?? 0,
             }}
             selectedRange={alertRange}
             onRangeChange={(r) => setAlertRange(r)}
@@ -665,7 +665,9 @@ Key Metrics:
                   marginTop: 2,
                 }}
               >
-                {(((scamTotal + spamTotal) / grandTotal) * 100).toFixed(1)}% Non-Ham
+                {grandTotal > 0
+                  ? (((scamTotal + spamTotal) / grandTotal) * 100).toFixed(1)
+                  : '0.0'}% Non-Ham
               </div>
             </div>
 
@@ -737,9 +739,12 @@ Key Metrics:
               <li>
                 <strong>Traffic Classification:</strong>{' '}
                 <span>
-                  Telemetry recorded {scamTotal.toLocaleString()} scam ({((scamTotal / grandTotal) * 100).toFixed(1)}%),{' '}
-                  {spamTotal.toLocaleString()} spam ({((spamTotal / grandTotal) * 100).toFixed(1)}%), and{' '}
-                  {hamTotal.toLocaleString()} legitimate messages ({((hamTotal / grandTotal) * 100).toFixed(1)}%).
+                  Telemetry recorded {scamTotal.toLocaleString()} scam (
+                  {grandTotal > 0 ? ((scamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%),{' '}
+                  {spamTotal.toLocaleString()} spam (
+                  {grandTotal > 0 ? ((spamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%), and{' '}
+                  {hamTotal.toLocaleString()} legitimate messages (
+                  {grandTotal > 0 ? ((hamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%).
                 </span>
               </li>
               <li>

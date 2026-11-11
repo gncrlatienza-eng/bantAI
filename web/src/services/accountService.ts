@@ -132,39 +132,6 @@ export interface AccountState {
 }
 
 export function getAccountState(): Promise<AccountState> {
-  const isDevAdmin =
-    import.meta.env.DEV &&
-    typeof localStorage !== 'undefined' &&
-    (localStorage.getItem('bantai_dev_admin') === 'true' ||
-      (import.meta.env.MODE !== 'test' &&
-        localStorage.getItem('bantai_dev_admin') !== 'false'));
-
-  if (isDevAdmin) {
-    if (
-      typeof localStorage !== 'undefined' &&
-      localStorage.getItem('bantai_dev_admin') !== 'true'
-    ) {
-      localStorage.setItem('bantai_dev_admin', 'true');
-    }
-    return Promise.resolve({
-      state: 'ADMIN',
-      destination: '/admin',
-      routeGroups: ['admin'],
-      reason: null,
-      account: {
-        id: 'dev-admin-id',
-        email: 'admin@bantai.dev',
-        firstName: 'Daryl',
-        lastName: 'De Castro',
-        organization: 'De La Salle Lipa',
-        onboardingStatus: 'COMPLETE',
-      },
-      workspace: null,
-      application: null,
-      previousAccess: null,
-      requestPolicy: null,
-    });
-  }
   return fetchApi<AccountState>('/account/state');
 }
 

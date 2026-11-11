@@ -53,7 +53,7 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
     suspicious: true,
   });
 
-  const chartData = data ?? [];
+  const chartData = useMemo(() => data ?? [], [data]);
 
   // Layout coordinate space (responsive SVG viewBox)
   const svgWidth = 860;
@@ -92,7 +92,9 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
     const len = chartData.length;
     return chartData.map((d, i) => {
       const x =
-        len > 1 ? padLeft + (i / (len - 1)) * plotWidth : padLeft + plotWidth / 2;
+        len > 1
+          ? padLeft + (i / (len - 1)) * plotWidth
+          : padLeft + plotWidth / 2;
       const ySmishing =
         padTop + plotHeight - ((d.smishing || 0) / maxVal) * plotHeight;
       const ySuspicious =
@@ -420,389 +422,389 @@ export const TrendLineChart: React.FC<TrendLineChartProps> = ({
             overflow: 'visible',
           }}
         >
-        <svg
-          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          style={{
-            width: '100%',
-            height: 'auto',
-            display: 'block',
-            overflow: 'visible',
-          }}
-          onMouseLeave={() => setHoveredIdx(null)}
-        >
-          {/* Subtle Flat Area Fills (No glowing AI gradients) */}
-          {visibleSeries.smishing && (
-            <path
-              d={smishingAreaPath}
-              fill={COLOR_SMISHING}
-              fillOpacity="0.05"
-            />
-          )}
-          {visibleSeries.suspicious && (
-            <path
-              d={suspiciousAreaPath}
-              fill={COLOR_SUSPICIOUS}
-              fillOpacity="0.05"
-            />
-          )}
-
-          {/* Horizontal Gridlines & Y-Axis Monospace Labels */}
-          {yTicks.map((t, idx) => (
-            <g key={idx}>
-              <line
-                x1={padLeft}
-                y1={t.y}
-                x2={svgWidth - padRight}
-                y2={t.y}
-                stroke="var(--border-default)"
-                strokeDasharray="2 3"
-                strokeWidth="1"
-                opacity={idx === 0 ? 0.9 : 0.6}
-              />
-              <text
-                x={padLeft - 8}
-                y={t.y + 3.5}
-                textAnchor="end"
-                fontSize="11"
-                fontFamily="var(--font-mono, monospace)"
-                fill="var(--text-secondary, #6d6870)"
-              >
-                {t.val.toLocaleString()}
-              </text>
-            </g>
-          ))}
-
-          {/* Baseline Axis */}
-          <line
-            x1={padLeft}
-            y1={baselineY}
-            x2={svgWidth - padRight}
-            y2={baselineY}
-            stroke="var(--border-default)"
-            strokeWidth="1.2"
-          />
-
-          {/* Realistic Crisp Polyline Paths */}
-          {visibleSeries.suspicious && (
-            <path
-              d={suspiciousLinePath}
-              fill="none"
-              stroke={COLOR_SUSPICIOUS}
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          )}
-
-          {visibleSeries.smishing && (
-            <path
-              d={smishingLinePath}
-              fill="none"
-              stroke={COLOR_SMISHING}
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          )}
-
-          {/* Vertex Data Node Dots for Short/Medium Ranges */}
-          {points.length <= 14 && (
-            <g>
-              {visibleSeries.suspicious &&
-                points.map((pt, idx) => (
-                  <circle
-                    key={`susp-dot-${idx}`}
-                    cx={pt.x}
-                    cy={pt.ySuspicious}
-                    r="2.5"
-                    fill={COLOR_SUSPICIOUS}
-                    stroke="var(--surface-raised, #fbf9f4)"
-                    strokeWidth="1.5"
-                  />
-                ))}
-
-              {visibleSeries.smishing &&
-                points.map((pt, idx) => (
-                  <circle
-                    key={`smish-dot-${idx}`}
-                    cx={pt.x}
-                    cy={pt.ySmishing}
-                    r="2.5"
-                    fill={COLOR_SMISHING}
-                    stroke="var(--surface-raised, #fbf9f4)"
-                    strokeWidth="1.5"
-                  />
-                ))}
-            </g>
-          )}
-
-          {/* X-Axis Date Labels with Zero Collision Guarantee */}
-          {visibleLabelIndices.map((idx) => {
-            const pt = points[idx];
-            if (!pt) return null;
-            const isFirst = idx === 0;
-            const isLast = idx === points.length - 1;
-            const anchor = isFirst ? 'start' : isLast ? 'end' : 'middle';
-
-            return (
-              <text
-                key={`label-${idx}`}
-                x={pt.x}
-                y={baselineY + 16}
-                textAnchor={anchor}
-                fontSize="11"
-                fontFamily="var(--font-mono, monospace)"
-                fill={
-                  hoveredIdx === idx
-                    ? 'var(--text-primary, #211f24)'
-                    : 'var(--text-secondary, #6d6870)'
-                }
-                fontWeight={hoveredIdx === idx ? 700 : 500}
-              >
-                {pt.label}
-              </text>
-            );
-          })}
-
-          {/* Active Hover Crosshair Guideline & Highlight Nodes */}
-          {activePt && (
-            <g>
-              <line
-                x1={activePt.x}
-                y1={padTop}
-                x2={activePt.x}
-                y2={baselineY}
-                stroke="var(--palette-ash-violet, #6d6870)"
-                strokeDasharray="2 2"
-                strokeWidth="1"
-                opacity="0.5"
-              />
-
-              {visibleSeries.smishing && (
-                <g>
-                  <circle
-                    cx={activePt.x}
-                    cy={activePt.ySmishing}
-                    r="6"
-                    fill={COLOR_SMISHING}
-                    opacity="0.2"
-                  />
-                  <circle
-                    cx={activePt.x}
-                    cy={activePt.ySmishing}
-                    r="3.5"
-                    fill={COLOR_SMISHING}
-                    stroke="var(--surface-raised, #fbf9f4)"
-                    strokeWidth="1.5"
-                  />
-                </g>
-              )}
-
-              {visibleSeries.suspicious && (
-                <g>
-                  <circle
-                    cx={activePt.x}
-                    cy={activePt.ySuspicious}
-                    r="6"
-                    fill={COLOR_SUSPICIOUS}
-                    opacity="0.2"
-                  />
-                  <circle
-                    cx={activePt.x}
-                    cy={activePt.ySuspicious}
-                    r="3.5"
-                    fill={COLOR_SUSPICIOUS}
-                    stroke="var(--surface-raised, #fbf9f4)"
-                    strokeWidth="1.5"
-                  />
-                </g>
-              )}
-            </g>
-          )}
-
-          {/* Transparent Hover Hit Columns */}
-          {points.map((pt, idx) => {
-            const colWidth = plotWidth / points.length;
-            const hitX = pt.x - colWidth / 2;
-            return (
-              <rect
-                key={`hit-${idx}`}
-                x={hitX}
-                y={padTop}
-                width={colWidth}
-                height={plotHeight}
-                fill="transparent"
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={() => setHoveredIdx(idx)}
-              />
-            );
-          })}
-        </svg>
-
-        {/* High-Precision Telemetry Crosshair Tooltip */}
-        {activePt && (
-          <div
+          <svg
+            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
             style={{
-              position: 'absolute',
-              top: 8,
-              left: `${Math.min(
-                Math.max((activePt.x / svgWidth) * 100, 14),
-                86,
-              )}%`,
-              transform: 'translateX(-50%)',
-              background: 'var(--surface-raised, #fbf9f4)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 6,
-              padding: '8px 12px',
-              fontSize: '0.75rem',
-              boxShadow: '0 3px 12px rgba(33, 31, 36, 0.08)',
-              pointerEvents: 'none',
-              zIndex: 10,
-              minWidth: 155,
+              width: '100%',
+              height: 'auto',
+              display: 'block',
+              overflow: 'visible',
             }}
+            onMouseLeave={() => setHoveredIdx(null)}
           >
+            {/* Subtle Flat Area Fills (No glowing AI gradients) */}
+            {visibleSeries.smishing && (
+              <path
+                d={smishingAreaPath}
+                fill={COLOR_SMISHING}
+                fillOpacity="0.05"
+              />
+            )}
+            {visibleSeries.suspicious && (
+              <path
+                d={suspiciousAreaPath}
+                fill={COLOR_SUSPICIOUS}
+                fillOpacity="0.05"
+              />
+            )}
+
+            {/* Horizontal Gridlines & Y-Axis Monospace Labels */}
+            {yTicks.map((t, idx) => (
+              <g key={idx}>
+                <line
+                  x1={padLeft}
+                  y1={t.y}
+                  x2={svgWidth - padRight}
+                  y2={t.y}
+                  stroke="var(--border-default)"
+                  strokeDasharray="2 3"
+                  strokeWidth="1"
+                  opacity={idx === 0 ? 0.9 : 0.6}
+                />
+                <text
+                  x={padLeft - 8}
+                  y={t.y + 3.5}
+                  textAnchor="end"
+                  fontSize="11"
+                  fontFamily="var(--font-mono, monospace)"
+                  fill="var(--text-secondary, #6d6870)"
+                >
+                  {t.val.toLocaleString()}
+                </text>
+              </g>
+            ))}
+
+            {/* Baseline Axis */}
+            <line
+              x1={padLeft}
+              y1={baselineY}
+              x2={svgWidth - padRight}
+              y2={baselineY}
+              stroke="var(--border-default)"
+              strokeWidth="1.2"
+            />
+
+            {/* Realistic Crisp Polyline Paths */}
+            {visibleSeries.suspicious && (
+              <path
+                d={suspiciousLinePath}
+                fill="none"
+                stroke={COLOR_SUSPICIOUS}
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
+
+            {visibleSeries.smishing && (
+              <path
+                d={smishingLinePath}
+                fill="none"
+                stroke={COLOR_SMISHING}
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
+
+            {/* Vertex Data Node Dots for Short/Medium Ranges */}
+            {points.length <= 14 && (
+              <g>
+                {visibleSeries.suspicious &&
+                  points.map((pt, idx) => (
+                    <circle
+                      key={`susp-dot-${idx}`}
+                      cx={pt.x}
+                      cy={pt.ySuspicious}
+                      r="2.5"
+                      fill={COLOR_SUSPICIOUS}
+                      stroke="var(--surface-raised, #fbf9f4)"
+                      strokeWidth="1.5"
+                    />
+                  ))}
+
+                {visibleSeries.smishing &&
+                  points.map((pt, idx) => (
+                    <circle
+                      key={`smish-dot-${idx}`}
+                      cx={pt.x}
+                      cy={pt.ySmishing}
+                      r="2.5"
+                      fill={COLOR_SMISHING}
+                      stroke="var(--surface-raised, #fbf9f4)"
+                      strokeWidth="1.5"
+                    />
+                  ))}
+              </g>
+            )}
+
+            {/* X-Axis Date Labels with Zero Collision Guarantee */}
+            {visibleLabelIndices.map((idx) => {
+              const pt = points[idx];
+              if (!pt) return null;
+              const isFirst = idx === 0;
+              const isLast = idx === points.length - 1;
+              const anchor = isFirst ? 'start' : isLast ? 'end' : 'middle';
+
+              return (
+                <text
+                  key={`label-${idx}`}
+                  x={pt.x}
+                  y={baselineY + 16}
+                  textAnchor={anchor}
+                  fontSize="11"
+                  fontFamily="var(--font-mono, monospace)"
+                  fill={
+                    hoveredIdx === idx
+                      ? 'var(--text-primary, #211f24)'
+                      : 'var(--text-secondary, #6d6870)'
+                  }
+                  fontWeight={hoveredIdx === idx ? 700 : 500}
+                >
+                  {pt.label}
+                </text>
+              );
+            })}
+
+            {/* Active Hover Crosshair Guideline & Highlight Nodes */}
+            {activePt && (
+              <g>
+                <line
+                  x1={activePt.x}
+                  y1={padTop}
+                  x2={activePt.x}
+                  y2={baselineY}
+                  stroke="var(--palette-ash-violet, #6d6870)"
+                  strokeDasharray="2 2"
+                  strokeWidth="1"
+                  opacity="0.5"
+                />
+
+                {visibleSeries.smishing && (
+                  <g>
+                    <circle
+                      cx={activePt.x}
+                      cy={activePt.ySmishing}
+                      r="6"
+                      fill={COLOR_SMISHING}
+                      opacity="0.2"
+                    />
+                    <circle
+                      cx={activePt.x}
+                      cy={activePt.ySmishing}
+                      r="3.5"
+                      fill={COLOR_SMISHING}
+                      stroke="var(--surface-raised, #fbf9f4)"
+                      strokeWidth="1.5"
+                    />
+                  </g>
+                )}
+
+                {visibleSeries.suspicious && (
+                  <g>
+                    <circle
+                      cx={activePt.x}
+                      cy={activePt.ySuspicious}
+                      r="6"
+                      fill={COLOR_SUSPICIOUS}
+                      opacity="0.2"
+                    />
+                    <circle
+                      cx={activePt.x}
+                      cy={activePt.ySuspicious}
+                      r="3.5"
+                      fill={COLOR_SUSPICIOUS}
+                      stroke="var(--surface-raised, #fbf9f4)"
+                      strokeWidth="1.5"
+                    />
+                  </g>
+                )}
+              </g>
+            )}
+
+            {/* Transparent Hover Hit Columns */}
+            {points.map((pt, idx) => {
+              const colWidth = plotWidth / points.length;
+              const hitX = pt.x - colWidth / 2;
+              return (
+                <rect
+                  key={`hit-${idx}`}
+                  x={hitX}
+                  y={padTop}
+                  width={colWidth}
+                  height={plotHeight}
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                />
+              );
+            })}
+          </svg>
+
+          {/* High-Precision Telemetry Crosshair Tooltip */}
+          {activePt && (
             <div
               style={{
-                fontWeight: 700,
-                color: 'var(--text-primary, #211f24)',
-                borderBottom: '1px solid var(--border-default)',
-                paddingBottom: 4,
-                marginBottom: 6,
-                fontFamily: 'var(--font-mono, monospace)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                position: 'absolute',
+                top: 8,
+                left: `${Math.min(
+                  Math.max((activePt.x / svgWidth) * 100, 14),
+                  86,
+                )}%`,
+                transform: 'translateX(-50%)',
+                background: 'var(--surface-raised, #fbf9f4)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 6,
+                padding: '8px 12px',
+                fontSize: '0.75rem',
+                boxShadow: '0 3px 12px rgba(33, 31, 36, 0.08)',
+                pointerEvents: 'none',
+                zIndex: 10,
+                minWidth: 155,
               }}
             >
-              <span>{activePt.date || activePt.label}</span>
-              <span
+              <div
                 style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 500,
-                  color: 'var(--text-secondary, #6d6870)',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #211f24)',
+                  borderBottom: '1px solid var(--border-default)',
+                  paddingBottom: 4,
+                  marginBottom: 6,
+                  fontFamily: 'var(--font-mono, monospace)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
               >
-                Telemetry
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-              }}
-            >
-              {visibleSeries.smishing && (
-                <div
+                <span>{activePt.date || activePt.label}</span>
+                <span
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 12,
+                    fontSize: '0.68rem',
+                    fontWeight: 500,
+                    color: 'var(--text-secondary, #6d6870)',
                   }}
                 >
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: 'var(--text-secondary, #6d6870)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: COLOR_SMISHING,
-                      }}
-                    />
-                    Smishing:
-                  </span>
-                  <strong
-                    style={{
-                      fontFamily: 'var(--font-mono, monospace)',
-                      color: 'var(--text-primary, #211f24)',
-                    }}
-                  >
-                    {(activePt.smishing || 0).toLocaleString()}
-                  </strong>
-                </div>
-              )}
-
-              {visibleSeries.suspicious && (
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: 'var(--text-secondary, #6d6870)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: COLOR_SUSPICIOUS,
-                      }}
-                    />
-                    Suspicious:
-                  </span>
-                  <strong
-                    style={{
-                      fontFamily: 'var(--font-mono, monospace)',
-                      color: 'var(--text-primary, #211f24)',
-                    }}
-                  >
-                    {(activePt.suspicious || 0).toLocaleString()}
-                  </strong>
-                </div>
-              )}
+                  Telemetry
+                </span>
+              </div>
 
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 12,
-                  borderTop: '1px solid var(--border-default)',
-                  paddingTop: 4,
-                  marginTop: 2,
+                  flexDirection: 'column',
+                  gap: 4,
                 }}
               >
-                <span
+                {visibleSeries.smishing && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: 'var(--text-secondary, #6d6870)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: COLOR_SMISHING,
+                        }}
+                      />
+                      Smishing:
+                    </span>
+                    <strong
+                      style={{
+                        fontFamily: 'var(--font-mono, monospace)',
+                        color: 'var(--text-primary, #211f24)',
+                      }}
+                    >
+                      {(activePt.smishing || 0).toLocaleString()}
+                    </strong>
+                  </div>
+                )}
+
+                {visibleSeries.suspicious && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: 'var(--text-secondary, #6d6870)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: COLOR_SUSPICIOUS,
+                        }}
+                      />
+                      Suspicious:
+                    </span>
+                    <strong
+                      style={{
+                        fontFamily: 'var(--font-mono, monospace)',
+                        color: 'var(--text-primary, #211f24)',
+                      }}
+                    >
+                      {(activePt.suspicious || 0).toLocaleString()}
+                    </strong>
+                  </div>
+                )}
+
+                <div
                   style={{
-                    color: 'var(--text-secondary, #6d6870)',
-                    fontWeight: 600,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                    borderTop: '1px solid var(--border-default)',
+                    paddingTop: 4,
+                    marginTop: 2,
                   }}
                 >
-                  Total Threats:
-                </span>
-                <strong
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    color: 'var(--text-primary, #211f24)',
-                  }}
-                >
-                  {(
-                    (activePt.smishing || 0) + (activePt.suspicious || 0)
-                  ).toLocaleString()}
-                </strong>
+                  <span
+                    style={{
+                      color: 'var(--text-secondary, #6d6870)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Total Threats:
+                  </span>
+                  <strong
+                    style={{
+                      fontFamily: 'var(--font-mono, monospace)',
+                      color: 'var(--text-primary, #211f24)',
+                    }}
+                  >
+                    {(
+                      (activePt.smishing || 0) + (activePt.suspicious || 0)
+                    ).toLocaleString()}
+                  </strong>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       )}
 
       {/* 3. Scam Category Breakdown Telemetry Strip */}

@@ -121,7 +121,8 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
               lineHeight: 1.4,
             }}
           >
-            Deterministic triage pipeline tracing alert progression from initial intake to verified resolution.
+            Deterministic triage pipeline tracing alert progression from initial
+            intake to verified resolution.
           </p>
         </div>
 
@@ -282,7 +283,8 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(220px, 3fr) minmax(120px, 2fr) 70px 60px',
+            gridTemplateColumns:
+              'minmax(220px, 3fr) minmax(120px, 2fr) 70px 60px',
             alignItems: 'center',
             gap: 16,
             padding: '8px 16px',
@@ -307,7 +309,8 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             key={stage.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(220px, 3fr) minmax(120px, 2fr) 70px 60px',
+              gridTemplateColumns:
+                'minmax(220px, 3fr) minmax(120px, 2fr) 70px 60px',
               alignItems: 'center',
               gap: 16,
               padding: '11px 16px',
@@ -318,7 +321,9 @@ export const TriageFunnelChart: React.FC<TriageFunnelChartProps> = ({
             }}
           >
             {/* Stage Identification: Name & Context Description */}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}
+            >
               <span
                 style={{
                   fontSize: '0.84rem',

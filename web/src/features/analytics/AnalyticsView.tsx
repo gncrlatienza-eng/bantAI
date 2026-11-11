@@ -8,7 +8,10 @@ import {
   MetricRow,
   StatPanel,
 } from '../../components/primitives';
-import { TrendLineChart, type TrendRange } from '../../components/charts/TrendLineChart';
+import {
+  TrendLineChart,
+  type TrendRange,
+} from '../../components/charts/TrendLineChart';
 import {
   DonutChart,
   type DonutSegment,
@@ -212,30 +215,6 @@ export function AnalyticsView() {
     if (!totals) return 0;
     return Object.values(totals).reduce((a, b) => a + b, 0);
   }, [categoryData, trends]);
-
-  // Total alerts in alertData
-  const totalAlerts = useMemo(() => {
-    if (!alertData) return 0;
-    return Object.values(alertData.alertsByStatus).reduce((a, b) => a + b, 0);
-  }, [alertData]);
-
-  // Metrics for Triage & Summary KPI row
-  const alertSummaryMetrics = useMemo(() => {
-    const totalResolved = alertData?.alertsByStatus.RESOLVED ?? 0;
-    const totalReceived = totalAlerts > 0 ? totalAlerts : 0;
-    const totalUnderReview = alertData?.alertsByStatus.UNDER_REVIEW ?? 0;
-    const totalDismissed = alertData?.alertsByStatus.DISMISSED ?? 0;
-    const resolutionRate =
-      totalReceived > 0 ? (totalResolved / totalReceived) * 100 : 0;
-
-    return {
-      totalResolved,
-      totalReceived,
-      totalUnderReview,
-      totalDismissed,
-      resolutionRate,
-    };
-  }, [alertData, totalAlerts]);
 
   // 5. Threat Trends Summary (with its own filter range: today, 7d, 14d, 30d, 90d)
   const [summaryRange, setSummaryRange] = useState<TrendRange>('30d');
@@ -560,7 +539,9 @@ Key Metrics:
                   fontWeight: 600,
                   border: '1px solid var(--border-default)',
                   background: 'var(--surface-raised, #fbf9f4)',
-                  color: copied ? 'var(--status-verified, #3d6355)' : 'var(--text-primary, #211f24)',
+                  color: copied
+                    ? 'var(--status-verified, #3d6355)'
+                    : 'var(--text-primary, #211f24)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
@@ -667,7 +648,8 @@ Key Metrics:
               >
                 {grandTotal > 0
                   ? (((scamTotal + spamTotal) / grandTotal) * 100).toFixed(1)
-                  : '0.0'}% Non-Ham
+                  : '0.0'}
+                % Non-Ham
               </div>
             </div>
 
@@ -697,7 +679,8 @@ Key Metrics:
                   marginTop: 2,
                 }}
               >
-                {grandTotal.toLocaleString()} Messages ({summaryRange.toUpperCase()})
+                {grandTotal.toLocaleString()} Messages (
+                {summaryRange.toUpperCase()})
               </div>
             </div>
           </div>
@@ -716,7 +699,13 @@ Key Metrics:
               color: 'var(--text-primary, #211f24)',
             }}
           >
-            <div style={{ fontWeight: 600, color: 'var(--text-secondary, #6d6870)', marginBottom: 2 }}>
+            <div
+              style={{
+                fontWeight: 600,
+                color: 'var(--text-secondary, #6d6870)',
+                marginBottom: 2,
+              }}
+            >
               Trend Observations
             </div>
             <ul
@@ -733,18 +722,26 @@ Key Metrics:
               <li>
                 <strong>Predominant Scam Vector:</strong>{' '}
                 <span>
-                  {topCategory} accounts for {topCategoryPct}% of total identified scam campaigns in this period.
+                  {topCategory} accounts for {topCategoryPct}% of total
+                  identified scam campaigns in this period.
                 </span>
               </li>
               <li>
                 <strong>Traffic Classification:</strong>{' '}
                 <span>
                   Telemetry recorded {scamTotal.toLocaleString()} scam (
-                  {grandTotal > 0 ? ((scamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%),{' '}
-                  {spamTotal.toLocaleString()} spam (
-                  {grandTotal > 0 ? ((spamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%), and{' '}
-                  {hamTotal.toLocaleString()} legitimate messages (
-                  {grandTotal > 0 ? ((hamTotal / grandTotal) * 100).toFixed(1) : '0.0'}%).
+                  {grandTotal > 0
+                    ? ((scamTotal / grandTotal) * 100).toFixed(1)
+                    : '0.0'}
+                  %), {spamTotal.toLocaleString()} spam (
+                  {grandTotal > 0
+                    ? ((spamTotal / grandTotal) * 100).toFixed(1)
+                    : '0.0'}
+                  %), and {hamTotal.toLocaleString()} legitimate messages (
+                  {grandTotal > 0
+                    ? ((hamTotal / grandTotal) * 100).toFixed(1)
+                    : '0.0'}
+                  %).
                 </span>
               </li>
               <li>
@@ -760,7 +757,9 @@ Key Metrics:
               <li>
                 <strong>User Ingestion:</strong>{' '}
                 <span>
-                  {globalData.totalReports.toLocaleString()} total user-submitted reports have been recorded in the platform pipeline.
+                  {globalData.totalReports.toLocaleString()} total
+                  user-submitted reports have been recorded in the platform
+                  pipeline.
                 </span>
               </li>
             </ul>

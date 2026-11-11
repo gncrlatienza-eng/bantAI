@@ -43,7 +43,8 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
 }) => {
   // Sort items descending by count
   const sorted = [...items].sort((a, b) => b.count - a.count);
-  const maxCount = sorted.length > 0 ? Math.max(...sorted.map((i) => i.count), 1) : 1;
+  const maxCount =
+    sorted.length > 0 ? Math.max(...sorted.map((i) => i.count), 1) : 1;
 
   return (
     <div
@@ -83,7 +84,8 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
               display: 'block',
             }}
           >
-            {total.toLocaleString()} total categorized {totalLabel.toLowerCase()}
+            {total.toLocaleString()} total categorized{' '}
+            {totalLabel.toLowerCase()}
           </span>
         </div>
 
@@ -154,7 +156,10 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
           }}
         >
           {sorted.map((item, idx) => {
-            const barPct = Math.max(2, Math.round((item.count / maxCount) * 100));
+            const barPct = Math.max(
+              2,
+              Math.round((item.count / maxCount) * 100),
+            );
             const sharePct = (item.share * 100).toFixed(1);
 
             return (
@@ -174,7 +179,9 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                     fontSize: '0.825rem',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
                     <span
                       style={{
                         fontSize: '0.72rem',
@@ -196,7 +203,9 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                  >
                     <span
                       style={{
                         fontFamily: 'var(--font-mono, monospace)',
@@ -249,4 +258,3 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
     </div>
   );
 };
-

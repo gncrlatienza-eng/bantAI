@@ -7,6 +7,6 @@ pydantic-settings==2.16.2
 transformers==5.22.1
 torch==2.14.0+cpu
 sentencepiece==0.2.2
-huggingface-hub==1.31.0
+huggingface-hub==2.4.0
 numpy==2.5.4
 scikit-learn==1.9.1
